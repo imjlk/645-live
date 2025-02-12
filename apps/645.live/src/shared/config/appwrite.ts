@@ -1,11 +1,11 @@
+import { APPWRITE_KEY } from "$env/static/private";
 import {
 	PUBLIC_APPWRITE_ENDPOINT,
 	PUBLIC_APPWRITE_PROJECT,
 } from "$env/static/public";
-import { APPWRITE_KEY } from "$env/static/private";
-import type { RequestEvent } from "@sveltejs/kit";
+import type { Cookies, RequestEvent } from "@sveltejs/kit";
 
-import { Client, Account } from "node-appwrite";
+import { Account, Client } from "node-appwrite";
 
 export const SESSION_COOKIE = "CUSTOM-SESSION-NAME";
 
@@ -22,12 +22,13 @@ export const createAdminClient = () => {
 	};
 };
 
-export const createSessionClient = (event: RequestEvent) => {
+export const createSessionClient = (req: RequestEvent) => {
 	const client = new Client()
 		.setEndpoint(PUBLIC_APPWRITE_ENDPOINT)
 		.setProject(PUBLIC_APPWRITE_PROJECT);
 
-	const session = event.cookies.get(SESSION_COOKIE);
+	const session = req.cookies.get(SESSION_COOKIE);
+	console.log("Session", session);
 	if (!session) {
 		throw new Error("No user session");
 	}

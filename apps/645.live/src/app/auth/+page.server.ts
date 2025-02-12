@@ -1,6 +1,23 @@
-import { SESSION_COOKIE, createAdminClient } from "$lib/appwrite";
-import { redirect, type Actions } from "@sveltejs/kit";
+import {
+	SESSION_COOKIE,
+	createAdminClient,
+	createSessionClient,
+} from "@/shared/config/appwrite";
+import { type Actions, redirect } from "@sveltejs/kit";
 import { ID, OAuthProvider } from "node-appwrite";
+import type { PageServerLoad } from "./$types";
+
+export const load: PageServerLoad = async (event) => {
+	try {
+		const { account } = createSessionClient(event);
+		const user = await account.get();
+		if (user) {
+			redirect(302, "/account");
+		}
+	} catch (error) {
+		// Not logged in, continue to auth page
+	}
+};
 
 export const actions: Actions = {
 	register: async ({ request, cookies }) => {

@@ -23,6 +23,15 @@ const config = {
 			// 	persist: false
 			// }
 		}),
+		files: {
+			routes: "src/app",
+			lib: "src",
+			appTemplate: "src/app/index.html",
+			assets: "public",
+		},
+		alias: {
+			"@/*": "src/*",
+		},
 	},
 };
 
