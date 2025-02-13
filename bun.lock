@@ -19,6 +19,7 @@
         "node-appwrite": "^14.1.0",
       },
       "devDependencies": {
+        "@repo/sveltekit-superforms": "../../packages/sveltekit-superforms",
         "@cloudflare/workers-types": "^4.20250204.0",
         "@hono/typia-validator": "^0.1.0",
         "@hono/vite-build": "^1.3.0",
