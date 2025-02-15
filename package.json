@@ -9,10 +9,19 @@
 	"peerDependencies": {
 		"typescript": "^5.0.0"
 	},
-	"workspaces": ["apps/*", "packages/*"],
+	"workspaces": [
+		"apps/*",
+		"packages/*"
+	],
 	"scripts": {
 		"format": "biome format --write .",
 		"lint": "biome lint .",
-		"check": "biome check ."
+		"check": "biome check .",
+		"web": "bun --cwd apps/645.live -- ",
+		"add:web": "bun add --cwd apps/645.live -D --",
+		"clean": "bun clean:modules && bun clean:cache",
+		"clean:modules": "rm -rf node_modules apps/*/node_modules packages/*/node_modules",
+		"clean:cache": "bun cache rm && rm -rf bun.lockb",
+		"clean:fresh": "bun clean && bun install"
 	}
 }
