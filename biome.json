@@ -14,7 +14,11 @@
 			"package-lock.json",
 			"bun.lockb"
 		],
-		"include": ["**/*.svelte", "**/*.ts", "**/*.js"]
+		"include": [
+			"**/*.svelte",
+			"**/*.ts",
+			"**/*.js"
+		]
 	},
 	"formatter": {
 		"enabled": true,
@@ -30,6 +34,20 @@
 			"recommended": true
 		}
 	},
+	"overrides": [
+		{
+			"include": [
+				"**/*.svelte"
+			],
+			"linter": {
+				"rules": {
+					"style": {
+						"useConst": "off"
+					}
+				}
+			}
+		}
+	],
 	"javascript": {
 		"formatter": {
 			"quoteStyle": "double",
