@@ -12,7 +12,7 @@
 		"moduleResolution": "bundler",
 		"types": [
       "@cloudflare/workers-types",
-      "vite/client"
+      "vite/client",
     ],
 	}
 	// Path aliases are handled by https://kit.svelte.dev/docs/configuration#alias
