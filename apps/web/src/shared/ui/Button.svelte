@@ -1,27 +1,34 @@
 <script lang="ts">
-import type { ComponentType } from "svelte";
+import type { Component, Snippet } from "svelte";
 import type { HTMLButtonAttributes } from "svelte/elements";
 
-export let iconPosition: "left" | "right" = "left";
-export let icon: ComponentType | null = null;
-
-interface $$Props extends HTMLButtonAttributes {
-	iconPosition?: "left" | "right";
-	icon?: ComponentType | null;
+let button: HTMLButtonElement;
+// TODO: Add leftIcon and rightIcon props with Snippet
+type Props = HTMLButtonAttributes & {
+	leftIcon?: Snippet<[object]>;
+	rightIcon?: Snippet<[object]>;
+	children?: Snippet<[]>;
 	class?: string;
-}
+};
+
+let {
+	leftIcon,
+	rightIcon,
+	class: customClass = "",
+	children,
+	...props
+}: Props = $props();
 
 const baseClass = "btn";
-const { class: customClass = "", ...rest } = $$restProps;
-const mergedClass = `${baseClass}${customClass ? ` ${customClass}` : ""}`;
-</script>
+const classes = `${baseClass}${customClass ? ` ${customClass}` : ""}`;
 
-<button class={mergedClass} {...rest}>
-    {#if iconPosition === 'left' && icon}
-        <svelte:component this={icon} class="size-[1.2em]" />
-    {/if}
-    <slot/>
-    {#if iconPosition === 'right' && icon}
-        <svelte:component this={icon} class="size-[1.2em]" />
-    {/if}
+export function getButton() {
+	return button;
+}
+</script>
+	
+<button bind:this={button} class={classes} {...props}>
+	{@render leftIcon?.({ class: "size-[1.2em]" })}
+	{@render children?.()}
+	{@render rightIcon?.({ class: "size-[1.2em]" })}
 </button>
