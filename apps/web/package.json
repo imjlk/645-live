@@ -36,7 +36,7 @@
 		"ts-patch": "^3.3.0",
 		"typescript": "^5.0.0",
 		"typia": "^7.6.4",
-		"vite": "^5.0.3",
+		"vite": "^6.1.0",
 		"wrangler": "^3.107.3"
 	},
 	"type": "module",

@@ -5,8 +5,12 @@ import Footer from "@/widgets/layout/Footer.svelte";
 import LinkButton from "@/shared/ui/LinkButton.svelte";
 
 let { children } = $props();
+import { preparePageTransition } from "@/widgets/layout/page-transition";
+
+preparePageTransition();
 </script>
 
+<div class="min-h-dvh flex flex-col max-w-7xl mx-auto">
 <Header />
 
 <div class="flex flex-1 items-center gap-4 px-0 flex-col sm:flex-row sm:items-stretch my-4 mx-3 xl:mx-0">
@@ -23,3 +27,4 @@ let { children } = $props();
 </div>
 
 <Footer />
+</div>
