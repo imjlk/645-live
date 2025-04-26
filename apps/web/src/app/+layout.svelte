@@ -17,7 +17,7 @@ preparePageTransition();
 	<aside class="w-full sm:w-32 min-w-48 sm:flex-1 rounded-2xl bg-base-200">
 		<ul class="flex flex-row sm:flex-col gap-4 overflow-scroll py-2 sm:py-4 px-3">
 			<li><LinkButton class="btn-secondary btn-ghost rounded-full w-full" href="/login">Menu1</LinkButton></li>
-			<li><LinkButton href="/login">Menu1</LinkButton></li>
+			<li><LinkButton class="btn-secondary btn-ghost rounded-full w-full" href="/qr-scan">QR Scan</LinkButton></li>
 			<li><LinkButton href="/login">Menu1</LinkButton></li>
 		</ul>
 	</aside>

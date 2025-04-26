@@ -42,7 +42,6 @@ export const createSessionClient = (req: RequestEvent) => {
 	};
 };
 
-
 // import "server-only";
 // import { Account, Client, Storage, Users, Databases } from "node-appwrite";
 

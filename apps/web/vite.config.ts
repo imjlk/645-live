@@ -9,7 +9,8 @@ import { defineConfig } from "vite";
 
 export default defineConfig({
 	plugins: [
-		UnpluginTypia(),
+		// biome-ignore lint/suspicious/noExplicitAny: <explanation>
+		UnpluginTypia() as any,
 		sveltekit(),
 		tailwindcss(),
 		// build(),
