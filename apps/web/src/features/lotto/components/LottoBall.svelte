@@ -1,6 +1,8 @@
 <script lang="ts">
-let { ballNumber, ...rest } = $props<{
+let { key, ballNumber, initialValue, ...rest } = $props<{
+	key: string;
 	ballNumber: number;
+	initialValue: number;
 }>();
 </script>
 
@@ -8,6 +10,7 @@ let { ballNumber, ...rest } = $props<{
 	<div class="card rounded-full bg-base-200 text-center shadow-md">
 		<div class="card-body">
 			<div class="font-light">{ballNumber}</div>
+			<div class="font-light">누적 스캔: {initialValue}</div>
 		</div>
 	</div>
 	<div class="card rounded-full bg-base-200 text-center shadow">

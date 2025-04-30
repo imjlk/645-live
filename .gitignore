@@ -176,3 +176,7 @@ dist
 
 _docs/
 TODO
+.dev.vars
+
+# servers
+docker-compose.production.yml

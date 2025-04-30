@@ -1,0 +1,16 @@
+services:
+
+  trail:
+    image: docker.io/trailbase/trailbase:latest
+    # build: .
+    ports:
+      - "${PORT:-4885}:4000"
+    restart: unless-stopped
+    volumes:
+      - ${DATA_DIR:-.}/traildepot:/app/traildepot
+    environment:
+      # - SERVICE_FQDN_TRAILBASE
+      # Override the default env-logger.
+      # RUST_LOG: "info,refinery_core=warn"
+      - RUST_BACKTRACE="1"
+    command: "/app/trail --data-dir /app/traildepot run --address 0.0.0.0:4000 --dev --cors-allowed-origins http://localhost:5173"

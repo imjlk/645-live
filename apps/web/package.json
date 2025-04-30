@@ -35,6 +35,7 @@
 		"svelte-check": "^4.1.4",
 		"svelte-time": "^2.0.1",
 		"tailwindcss": "^4.0.6",
+		"trailbase": "^0.3.3",
 		"ts-patch": "^3.3.0",
 		"typescript": "^5.0.0",
 		"typia": "^7.6.4",
