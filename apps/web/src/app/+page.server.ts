@@ -4,7 +4,7 @@ import type { PageServerLoad } from "./$types";
 // Trailbase 클라이언트 초기화 (서버 환경)
 // 환경 변수 등을 사용하여 엔드포인트를 관리하는 것이 좋습니다.
 const client = Client.init(
-	process.env.TRAILBASE_URL || "http://localhost:4885",
+	process.env.TRAILBASE_URL || "http://localhost:4000",
 );
 const api = client.records("numbers");
 

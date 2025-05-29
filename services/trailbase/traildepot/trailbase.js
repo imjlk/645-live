@@ -381,11 +381,45 @@ function addPeriodicCallback(milliseconds, cb) {
   }, milliseconds);
   return () => clearInterval(handle);
 }
-async function query(queryStr, params) {
-  return await rustyscript.async_functions.query(queryStr, params);
+async function query(sql, params) {
+  return await rustyscript.async_functions.query(sql, params);
 }
-async function execute(queryStr, params) {
-  return await rustyscript.async_functions.execute(queryStr, params);
+async function execute(sql, params) {
+  return await rustyscript.async_functions.execute(sql, params);
+}
+class Transaction {
+  constructor() {
+    __publicField(this, "finalized");
+    this.finalized = false;
+  }
+  query(queryStr, params) {
+    return rustyscript.functions.transaction_query(queryStr, params);
+  }
+  execute(queryStr, params) {
+    return rustyscript.functions.transaction_execute(queryStr, params);
+  }
+  commit() {
+    this.finalized = true;
+    rustyscript.functions.transaction_commit();
+  }
+  rollback() {
+    this.finalized = true;
+    rustyscript.functions.transaction_rollback();
+  }
+}
+async function transaction(f) {
+  await rustyscript.async_functions.transaction_begin();
+  const tx = new Transaction();
+  try {
+    const r = f(tx);
+    if (!tx.finalized) {
+      rustyscript.functions.transaction_rollback();
+    }
+    return r;
+  } catch (e) {
+    rustyscript.functions.transaction_rollback();
+    throw e;
+  }
 }
 function parsePath(path) {
   const queryIndex = path.indexOf("?");
@@ -414,6 +448,7 @@ globalThis.console.debug = _logStderr;
 export {
   HttpError,
   StatusCodes,
+  Transaction,
   addCronCallback,
   addPeriodicCallback,
   addRoute,
@@ -423,5 +458,6 @@ export {
   jsonHandler,
   parsePath,
   query,
-  stringHandler
+  stringHandler,
+  transaction
 };

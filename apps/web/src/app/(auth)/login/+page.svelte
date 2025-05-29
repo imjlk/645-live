@@ -1,22 +1,5 @@
 <script lang="ts">
-import { account } from "@/shared/config/appwrite-web";
-// biome-ignore lint/style/useImportType: <explanation>
-import { OAuthProvider } from "appwrite";
-
 let activeTab = "login";
-
-// OAuth 로그인 함수
-const oauthLogin = (provider: OAuthProvider) => {
-	try {
-		account.createOAuth2Session(
-			provider,
-			`${window.location.origin}/my`, // 성공 시 리디렉션 URL
-			`${window.location.origin}/auth`, // 실패 시 리디렉션 URL
-		);
-	} catch (error) {
-		console.error("OAuth login failed:", error);
-	}
-};
 </script>
 
 <div class="min-h-screen bg-base-200 flex items-center justify-center p-4">

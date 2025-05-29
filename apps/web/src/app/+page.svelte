@@ -11,7 +11,7 @@ import type { BallNumber } from "./+page.server";
 // Track which balls have recently changed value to show animation
 const recentlyUpdated: Writable<Record<number, boolean>> = writable({});
 
-const client = Client.init("http://localhost:4885");
+const client = Client.init("http://localhost:4000");
 const api = client.records("numbers");
 
 let stream: ReadableStream<TrailbaseEvent> | null;

@@ -702,7 +702,7 @@ declare namespace Deno_2 {
     }
 }
 
-export declare function execute(queryStr: string, params: unknown[]): Promise<number>;
+export declare function execute(sql: string, params: unknown[]): Promise<number>;
 
 export declare namespace fs {
     const writeFile: typeof Deno_2.writeFile;
@@ -785,7 +785,7 @@ export declare type PathParamsType = {
     [key: string]: string;
 };
 
-export declare function query(queryStr: string, params: unknown[]): Promise<unknown[][]>;
+export declare function query(sql: string, params: unknown[]): Promise<unknown[][]>;
 
 export declare type RequestType = {
     uri: string;
@@ -878,6 +878,17 @@ export declare type StringResponseType = {
     status?: number;
     body: string;
 };
+
+export declare class Transaction {
+    finalized: boolean;
+    constructor();
+    query(queryStr: string, params: unknown[]): unknown[][];
+    execute(queryStr: string, params: unknown[]): number;
+    commit(): void;
+    rollback(): void;
+}
+
+export declare function transaction<T>(f: (tx: Transaction) => T): Promise<T>;
 
 export declare type UserType = {
     id: string;

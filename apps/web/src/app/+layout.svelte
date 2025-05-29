@@ -1,8 +1,8 @@
 <script lang="ts">
 import Header from "@/widgets/layout/Header.svelte";
 import "./styles/app.css";
-import Footer from "@/widgets/layout/Footer.svelte";
 import LinkButton from "@/shared/ui/LinkButton.svelte";
+import Footer from "@/widgets/layout/Footer.svelte";
 
 let { children } = $props();
 import { preparePageTransition } from "@/widgets/layout/page-transition";

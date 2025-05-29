@@ -18,10 +18,11 @@
 		"lint": "biome lint .",
 		"check": "biome check .",
 		"web": "bun --cwd apps/web -- ",
-		"web:add": "bun add --cwd apps/web -D --",
+		"add:web": "bun add --cwd apps/web -D --",
 		"clean": "bun clean:modules && bun clean:cache",
 		"clean:modules": "rm -rf node_modules apps/*/node_modules packages/*/node_modules",
 		"clean:cache": "bun cache rm && rm -rf bun.lockb",
-		"clean:fresh": "bun clean && bun install"
+		"clean:fresh": "bun clean && bun install",
+		"trail": "docker run --pull always --network host --mount type=bind,source=$PWD/services/trailbase/traildepot,target=/app/traildepot trailbase/trailbase:latest /app/trail run --dev"
 	}
 }
