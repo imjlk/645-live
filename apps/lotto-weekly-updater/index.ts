@@ -17,7 +17,9 @@
 // http://m.dhlottery.co.kr/?v=1064q152434353839q061327303743q040915162534q061323273039q0320273036451857146742
 
 function getLottoNumbers(drwNo: number): Promise<Lotto> {
-	return fetch(`https://www.dhlottery.co.kr/common.do?method=getLottoNumber&drwNo=${drwNo}`)
+	return fetch(
+		`https://www.dhlottery.co.kr/common.do?method=getLottoNumber&drwNo=${drwNo}`,
+	)
 		.then((response) => response.json())
 		.then((data) => {
 			return {
@@ -33,31 +35,37 @@ function getLottoNumbers(drwNo: number): Promise<Lotto> {
 		});
 }
 
-function parseLottoQueryString(url: string): { drawNumber: number, lotteryGames: number[][] } {
-	const urlParams = new URLSearchParams(url.split('?')[1]);
-	const queryValue = urlParams.get('v') || '';
+function parseLottoQueryString(url: string): {
+	drawNumber: number;
+	lotteryGames: number[][];
+} {
+	const urlParams = new URLSearchParams(url.split("?")[1]);
+	const queryValue = urlParams.get("v") || "";
 	const drawNumber = Number.parseInt(queryValue.slice(0, 4), 10);
 
-	const gameStrings = queryValue.split('q');
+	const gameStrings = queryValue.split("q");
 	gameStrings.shift(); // Remove the first element which contains the draw number
 
 	// Handle the last game string which may contain extra characters
-	const lastGameString = gameStrings.pop() || '';
+	const lastGameString = gameStrings.pop() || "";
 	gameStrings.push(lastGameString.slice(0, 12)); // Take only the first 12 characters
-	
+
 	// Split each game string into pairs of digits
-	const lotteryGames = gameStrings.map(gameString => gameString.match(/.{1,2}/g) || []);
-	
+	const lotteryGames = gameStrings.map(
+		(gameString) => gameString.match(/.{1,2}/g) || [],
+	);
+
 	// Convert string arrays to number arrays
-	const numberGames = lotteryGames.map(game => 
-		game.map(num => Number.parseInt(num, 10))
+	const numberGames = lotteryGames.map((game) =>
+		game.map((num) => Number.parseInt(num, 10)),
 	);
 
 	return { drawNumber, lotteryGames: numberGames };
 }
 
 // Example usage
-const url = 'http://m.dhlottery.co.kr/?v=1064q152434353839q061327303743q040915162534q061323273039q0320273036451857146742';
+const url =
+	"http://m.dhlottery.co.kr/?v=1064q152434353839q061327303743q040915162534q061323273039q0320273036451857146742";
 const parsedData = parseLottoQueryString(url);
 console.log(parsedData);
 
@@ -78,4 +86,3 @@ export type Lotto = {
 	drwtNo6: number;
 	bnusNo: number;
 };
-
