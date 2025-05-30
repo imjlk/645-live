@@ -1,0 +1,14 @@
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "645-live",
+	"compatibility_date": "2025-05-30",
+	"pages_build_output_dir": "./.svelte-kit/cloudflare",
+	"compatibility_flags": ["nodejs_compat"],
+	"hyperdrive": [
+		{
+			"id": "2be539b030974221bf20fce59a31c459",
+			"binding": "HYPERDRIVE",
+			"localConnectionString": "postgres://root:mysecretpassword@localhost:5432/local"
+		}
+	]
+}

@@ -6,7 +6,7 @@
 	"scripts": {
 		"dev": "vite dev",
 		"build": "vite build",
-		"preview": "vite preview",
+		"preview": "bun run build && wrangler pages dev",
 		"prepare": "svelte-kit sync || echo ''",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
@@ -14,8 +14,14 @@
 		"test": "npm run test:e2e",
 		"db:start": "docker compose up",
 		"db:push": "drizzle-kit push",
-		"db:migrate": "drizzle-kit migrate",
-		"db:studio": "drizzle-kit studio"
+		"db:drop": "drizzle-kit drop",
+		"db:generate": "drizzle-kit generate --config=drizzle-prod.config.ts",
+		"db:migrate": "drizzle-kit migrate --config=drizzle-prod.config.ts",
+		"db:studio": "drizzle-kit studio",
+		"db:studio:remote": "drizzle-kit studio --config=drizzle-prod.config.ts",
+		"deploy": "bun run build && wrangler pages deploy",
+		"tail": "wrangler pages deployment tail --project-name 645-live",
+		"cf-typegen": "wrangler types src/worker-configuration.d.ts"
 	},
 	"devDependencies": {
 		"@playwright/test": "^1.52.0",
@@ -24,6 +30,7 @@
 		"@sveltejs/vite-plugin-svelte": "^5.0.3",
 		"@tailwindcss/vite": "^4.1.8",
 		"@types/node": "^20.17.54",
+		"better-auth": "^1.2.8",
 		"daisyui": "^5.0.42",
 		"drizzle-kit": "^0.31.1",
 		"mdsvex": "^0.12.6",
@@ -31,7 +38,8 @@
 		"svelte-check": "^4.2.1",
 		"tailwindcss": "^4.1.8",
 		"typescript": "^5.8.3",
-		"vite": "^6.3.5"
+		"vite": "^6.3.5",
+		"wrangler": "^4.18.0"
 	},
 	"dependencies": {
 		"drizzle-orm": "^0.44.0",
