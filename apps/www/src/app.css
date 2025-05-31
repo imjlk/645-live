@@ -1,2 +1,30 @@
 @import "tailwindcss";
 @plugin "daisyui";
+
+@font-face {
+	font-family: "SUIT Variable";
+	font-weight: 100 900;
+	font-display: fallback;
+	src: url("/assets/fonts/SUIT-Variable.woff2") format("woff2-variations");
+}
+
+:root {
+	/* --font-sans: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji" */
+	--default-font-family: "SUIT Variable",
+		/* 한글 폰트 폴백 */
+		"Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic",
+		/* 시스템 폰트 폴백 */
+		-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+		"Helvetica Neue", Arial, sans-serif,
+		/* 이모지 폰트 */
+		"Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+}
+
+body {
+	font-family: var(--default-font-family);
+	/* 폰트 렌더링 최적화 */
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+	text-rendering: optimizeLegibility;
+	transition: font-family 0.3s ease;
+}

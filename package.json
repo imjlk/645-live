@@ -9,7 +9,10 @@
 	"peerDependencies": {
 		"typescript": "^5.0.0"
 	},
-	"workspaces": ["apps/*", "packages/*"],
+	"workspaces": {
+		"packages": ["apps/*", "packages/*"],
+		"nohoist": ["**/node_modules", "**/node_modules/**"]
+	},
 	"scripts": {
 		"format": "biome format --write .",
 		"lint": "biome lint .",
