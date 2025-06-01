@@ -1,4 +1,4 @@
-FROM trailbase/trailbase:latest AS base
+FROM trailbase/trailbase:0.12.0 AS base
 USER root
 RUN apk add --no-cache sqlite
 
