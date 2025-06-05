@@ -14,7 +14,7 @@
 		"lint": "biome lint .",
 		"clean": "rm -rf **/node_modules && rm -rf bun.lockb && rm -rf .svelte-kit",
 		"tail": "wrangler pages deployment tail --project-name 645-live",
-		"trail": "docker run --pull always --network host --mount type=bind,source=$PWD/services/trailbase/traildepot,target=/app/traildepot trailbase/trailbase:latest /app/trail run --dev",
+		"trail": "docker run --pull always --network host --mount type=bind,source=$PWD/services/trailbase/traildepot,target=/app/traildepot trailbase/trailbase:0.12.0 /app/trail run --dev",
 		"db:start": "docker compose up",
 		"db:push": "drizzle-kit push",
 		"db:drop": "drizzle-kit drop",

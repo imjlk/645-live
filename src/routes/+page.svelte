@@ -1,4 +1,5 @@
 <script lang="ts">
+import { env } from "$env/dynamic/public";
 import LottoBall from "$lib/modules/lotto/components/LottoBall.svelte";
 import ValueIncrementEffect from "$lib/modules/lotto/components/ValueIncrementEffect.svelte";
 import type { BallNumber } from "$lib/modules/lotto/types";
@@ -11,7 +12,7 @@ import type { PageData } from "./$types";
 // Track which balls have recently changed value to show animation
 const recentlyUpdated: Writable<Record<number, boolean>> = writable({});
 
-const client = Client.init("http://localhost:4000");
+const client = Client.init(env.PUBLIC_TRAILBASE_URL || "http://localhost:4000");
 const api = client.records("numbers");
 
 let stream: ReadableStream<TrailbaseEvent> | null;
