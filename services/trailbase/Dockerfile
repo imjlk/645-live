@@ -4,7 +4,7 @@ RUN apk add --no-cache sqlite
 
 WORKDIR /app
 
-COPY --chown=trailbase traildepot /app/traildepot
+COPY --chown=trailbase:trailbase traildepot/ /app/traildepot/
 
 USER trailbase
 
