@@ -4,7 +4,14 @@ RUN apk add --no-cache sqlite
 
 WORKDIR /app
 
+# Debug: List what's in the build context
+RUN echo "=== Build context contents ===" && ls -la /
+
 COPY --chown=trailbase:trailbase traildepot/ /app/traildepot/
+
+# Debug: Check what was copied
+RUN echo "=== Copied traildepot contents ===" && ls -la /app/traildepot/ && \
+    echo "=== Migrations directory ===" && ls -la /app/traildepot/migrations/ || echo "No migrations directory found"
 
 USER trailbase
 
