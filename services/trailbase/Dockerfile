@@ -23,4 +23,4 @@ USER trailbase
 
 EXPOSE 4000
 ENTRYPOINT ["tini", "--"]
-CMD ["/app/init-traildepot.sh && /app/trail", "--data-dir", "/app/traildepot", "run", "--address", "0.0.0.0:4000", "--dev"]
+CMD ["/app/init-traildepot.sh"]

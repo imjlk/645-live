@@ -7,3 +7,6 @@ if [ ! -f /app/traildepot/.initialized ]; then
 else
     echo "Traildepot already initialized, skipping..."
 fi
+
+# Start the application
+exec /app/trail --data-dir /app/traildepot run --address 0.0.0.0:4000 --dev
