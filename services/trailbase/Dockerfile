@@ -4,7 +4,9 @@ RUN apk add --no-cache sqlite
 
 WORKDIR /app
 
-COPY --chown=trailbase traildepot /app/traildepot
+COPY traildepot /app/traildepot
+RUN chown -R trailbase:trailbase /app/traildepot && \
+    chmod -R 755 /app/traildepot
 
 USER trailbase
 
