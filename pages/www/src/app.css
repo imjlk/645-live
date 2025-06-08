@@ -10,7 +10,8 @@
 
 :root {
 	/* --font-sans: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji" */
-	--default-font-family: "SUIT Variable",
+	--default-font-family:
+		"SUIT Variable",
 		/* 한글 폰트 폴백 */
 		"Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic",
 		/* 시스템 폰트 폴백 */

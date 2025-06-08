@@ -20,7 +20,7 @@ function getLottoNumbers(drwNo: number): Promise<Lotto> {
 	return fetch(
 		`https://www.dhlottery.co.kr/common.do?method=getLottoNumber&drwNo=${drwNo}`,
 	)
-		.then((response) => response.json())
+		.then((response) => response.json<Lotto>())
 		.then((data) => {
 			return {
 				drwNo: data.drwNo,

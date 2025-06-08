@@ -1,56 +1,27 @@
 {
-	"name": "645-live",
-	"private": true,
+	"name": "bunzzlekit-monorepo",
+	"module": "index.ts",
 	"type": "module",
+	"private": true,
 	"scripts": {
-		"dev": "vite dev",
-		"build": "vite build",
-		"preview": "bun run build && wrangler pages dev",
-		"deploy": "bun run build && wrangler pages deploy",
-		"prepare": "svelte-kit sync || echo ''",
-		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
-		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
-		"format": "biome format --write .",
+		"www": "bun --cwd pages/www -- ",
+		"format": "biome check --write .",
 		"lint": "biome lint .",
-		"clean": "rm -rf **/node_modules && rm -rf bun.lockb && rm -rf .svelte-kit",
-		"tail": "wrangler pages deployment tail --project-name 645-live",
-		"trail": "docker run --pull always --network host --mount type=bind,source=$PWD/services/trailbase/traildepot,target=/app/traildepot trailbase/trailbase:0.12.0 /app/trail run --dev",
-		"db:start": "docker compose up",
-		"db:push": "drizzle-kit push",
-		"db:drop": "drizzle-kit drop",
-		"db:generate": "drizzle-kit generate --config=drizzle-prod.config.ts",
-		"db:migrate": "drizzle-kit migrate --config=drizzle-prod.config.ts",
-		"db:studio": "drizzle-kit studio",
-		"db:studio:remote": "drizzle-kit studio --config=drizzle-prod.config.ts",
-		"cf-typegen": "wrangler types src/worker-configuration.d.ts"
+		"clean": "find . \\( -name 'node_modules' -o -name '.svelte-kit' \\) -type d -exec rm -rf {} + && rm -rf bun.lockb",
+		"trail": "docker run --pull always --network host --mount type=bind,source=$PWD/services/trailbase/traildepot,target=/app/traildepot trailbase/trailbase:0.12.0 /app/trail run --dev"
 	},
 	"devDependencies": {
-		"@biomejs/biome": "^1.9.4",
-		"@types/bun": "latest",
-		"@sveltejs/adapter-cloudflare": "^7.0.3",
-		"@sveltejs/kit": "^2.21.1",
-		"@sveltejs/vite-plugin-svelte": "^5.0.3",
-		"@tailwindcss/vite": "^4.1.8",
-		"@types/node": "^22.15.29",
-		"better-auth": "^1.2.8",
-		"daisyui": "^5.0.43",
-		"drizzle-kit": "^0.31.1",
-		"mdsvex": "^0.12.6",
-		"svelte": "^5.33.11",
-		"svelte-check": "^4.2.1",
-		"tailwindcss": "^4.1.8",
-		"trailbase": "^0.5.1",
-		"typescript": "^5.8.3",
-		"vite": "^6.3.5",
-		"wrangler": "^4.18.0"
+		"@biomejs/biome": "1.9.4",
+		"@types/bun": "latest"
 	},
 	"peerDependencies": {
-		"typescript": "^5.0.0"
+		"typescript": "^5.8.3"
 	},
-	"dependencies": {
-		"barqode": "^0.0.2",
-		"drizzle-orm": "^0.44.1",
-		"hono": "^4.7.11",
-		"postgres": "^3.4.7"
+	"workspaces": {
+		"packages": ["pages/*", "workers/*", "packages/*"],
+		"catalog": {
+			"vite": "^6.3.5",
+			"wrangler": "^4.19.1"
+		}
 	}
 }
