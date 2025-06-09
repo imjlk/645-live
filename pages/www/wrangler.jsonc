@@ -1,5 +1,5 @@
 {
-	"$schema": "node_modules/wrangler/config-schema.json",
+	"$schema": "../../node_modules/wrangler/config-schema.json",
 	"name": "645-live",
 	"compatibility_date": "2025-05-30",
 	"pages_build_output_dir": "./.svelte-kit/cloudflare",
