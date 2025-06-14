@@ -1,6 +1,6 @@
 FROM trailbase/trailbase:0.14.0 AS base
 USER root
-RUN apk add --no-cache sqlite \
+RUN apk add --no-cache sqlite tini \
     && addgroup trailbase \
     && adduser -S -G trailbase trailbase
 
