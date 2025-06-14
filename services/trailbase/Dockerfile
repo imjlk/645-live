@@ -15,5 +15,5 @@ VOLUME ["/app/traildepot"]
 USER trailbase
 
 EXPOSE 4000
-ENTRYPOINT ["tini", "--"]
-CMD ["trail", "--data-dir", "/app/traildepot", "run", "--dev", "--address", "0.0.0.0:4000", "--js-runtime-threads", "0", "--disable-auth-ui"]
+ENTRYPOINT ["tini", "--", "sh", "-c"]
+CMD ["trail --data-dir /app/traildepot run --dev --address 0.0.0.0:4000 --js-runtime-threads 0 --disable-auth-ui"]
