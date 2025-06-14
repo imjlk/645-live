@@ -7,7 +7,6 @@ import LinkButton from "$lib/ui/LinkButton.svelte";
 import { onDestroy, onMount } from "svelte";
 import { type Writable, writable } from "svelte/store";
 import { Client, type Event as TrailbaseEvent } from "trailbase";
-import type { PageData } from "./$types";
 
 // Track which balls have recently changed value to show animation
 const recentlyUpdated: Writable<Record<number, boolean>> = writable({});
@@ -19,66 +18,51 @@ let stream: ReadableStream<TrailbaseEvent> | null;
 let reader: ReadableStreamDefaultReader<TrailbaseEvent> | null = null;
 let isReading = false;
 
-// Access data from the load function
-export let data: PageData;
+// Client-side initial data and error state
+let error: string | null = null;
 
 // Initialize numbers with a default empty array
 let numbers: BallNumber[] = [];
 // Create a reactive store for the values
 const ballValues: Writable<Record<number, number>> = writable({});
 
-// Reactive statement to handle potential errors or missing data
-$: if (data && !data.error && data.numbers) {
-	numbers = data.numbers;
-	// Initialize the store with values from the loaded data
-	const valueMap = numbers.reduce(
-		(acc, ball) => {
-			acc[ball.id] = ball.value;
-			return acc;
-		},
-		{} as Record<number, number>,
-	);
-	ballValues.set(valueMap);
-}
-$: error = data?.error;
-
-// Function to handle stream cleanup
-async function cleanupStream() {
-	console.log("Cleaning up stream resources");
-
-	// Stop the reading loop
-	isReading = false;
-
-	// Close the reader if it exists
-	if (reader) {
-		try {
-			await reader.cancel();
-			console.log("Stream reader cancelled");
-		} catch (err) {
-			console.error("Error cancelling reader:", err);
-		}
-		reader = null;
-	}
-
-	// Release the stream
-	stream = null;
+// Function to fetch initial lotto numbers from Trailbase
+async function loadInitialData() {
+    const apiClient = Client.init(env.PUBLIC_TRAILBASE_URL || "http://localhost:4000");
+    const api = apiClient.records("numbers");
+    try {
+        const response = (await api.list<BallNumber>()).records;
+        // Convert array of BallNumber to Record<number, number>
+        const values: Record<number, number> = {};
+        response.forEach((ball) => {
+            values[ball.id] = ball.value;
+        });
+        ballValues.set(values);
+        // Also update numbers array for rendering
+        numbers = response;
+    } catch (err: any) {
+        error = err?.message || '초기 데이터 로딩에 실패했습니다.';
+    }
 }
 
 onMount(async () => {
-	try {
-		stream = await api.subscribe("*");
-		console.log("Stream connected");
+   // First load initial data
+   await loadInitialData();
+   if (error) return;
+   try {
+       stream = await api.subscribe("*");
+        console.log("Stream connected");
 
-		if (stream) {
-			reader = stream.getReader();
-			isReading = true;
+        if (stream) {
+            reader = stream.getReader();
+            isReading = true;
 
-			// Start reading in a separate async function to avoid blocking
-			readStreamData();
-		}
-	} catch (err) {
-		console.error("Error setting up stream:", err);
-	}
+            // Start reading in a separate async function to avoid blocking
+            readStreamData();
+        }
+    } catch (err) {
+        console.error("Error setting up stream:", err);
+    }
 });
 
 // Separate function for reading stream data
@@ -137,6 +121,25 @@ async function readStreamData() {
 	}
 }
 
+// Function to clean up the Trailbase stream and reader
+async function cleanupStream() {
+    console.log("Cleaning up stream resources");
+    // Stop the reading loop
+    isReading = false;
+    // Cancel the reader if present
+    if (reader) {
+        try {
+            await reader.cancel();
+            console.log("Stream reader cancelled");
+        } catch (err) {
+            console.error("Error cancelling reader:", err);
+        }
+        reader = null;
+    }
+    // Release the stream
+    stream = null;
+}
+
 // Clean up on component unmount
 onDestroy(() => {
 	cleanupStream();
@@ -169,5 +172,9 @@ function getBallColorClass(ballNumber: number): string {
         {/each}
     </div>
 {:else}
-    <p class="p-4">Loading lotto numbers...</p>
+    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 p-0 py-4 sm:p-4 gap-4">
+        {#each Array(45) as _, i}
+            <div class="skeleton aspect-square w-full min-h-30 rounded-full"></div>
+        {/each}
+    </div>
 {/if}
