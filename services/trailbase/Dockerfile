@@ -4,7 +4,7 @@ WORKDIR /app
 
 COPY --chown=trailbase traildepot /app/traildepot
 
-USER trailbase
+USER root
 
 EXPOSE 4000
 ENTRYPOINT ["tini", "--"]
