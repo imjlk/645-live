@@ -9,4 +9,4 @@ else
 fi
 
 # Start the application
-exec /app/trail --data-dir /app/traildepot run --dev --address 0.0.0.0:4000 --js-runtime-threads 0 --disable-auth-ui"
+exec /app/trail --data-dir /app/traildepot run --dev --address 0.0.0.0:4000 --js-runtime-threads 0 --disable-auth-ui
