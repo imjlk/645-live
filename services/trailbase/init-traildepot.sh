@@ -9,4 +9,4 @@ else
 fi
 
 # Start the application
-exec /app/trail --data-dir /app/traildepot run --address https://trail.645.live --cors-allowed-origins "https://www.645.live --js-runtime-threads 0 --disable-auth-ui --dev"
+exec /app/trail --data-dir /app/traildepot run --address 0.0.0.0:4000 --cors-allowed-origins "https://www.645.live --js-runtime-threads 0 --disable-auth-ui --dev"
