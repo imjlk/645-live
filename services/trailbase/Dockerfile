@@ -6,23 +6,14 @@ RUN apk add --no-cache sqlite tini \
 
 WORKDIR /app
 
-# Copy traildepot to temporary location
-COPY --chown=trailbase traildepot /tmp/traildepot-init
+# Prepare host-mounted volume directory
+RUN mkdir -p /app/traildepot
 
-# Copy initialization script
-COPY --chown=trailbase init-traildepot.sh /app/init-traildepot.sh
-
-# Create directory structure for volume mounting
-RUN mkdir -p /app/traildepot && chown trailbase:trailbase /app/traildepot
-
-# Declare volume mount point
+# Declare volume mount point (provided via docker-compose)
 VOLUME ["/app/traildepot"]
-
-# Make script executable
-RUN chmod +x /app/init-traildepot.sh
 
 USER trailbase
 
 EXPOSE 4000
 ENTRYPOINT ["tini", "--"]
-CMD ["/app/init-traildepot.sh"]
+CMD ["trail", "--data-dir", "/app/traildepot", "run", "--dev", "--address", "0.0.0.0:4000", "--js-runtime-threads", "0", "--disable-auth-ui"]
