@@ -1,4 +1,4 @@
-FROM trailbase/trailbase:0.14.1 AS base
+FROM trailbase/trailbase:0.14.3 AS base
 
 WORKDIR /app
 
