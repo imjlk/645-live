@@ -26,6 +26,8 @@ let loading = $state(true);
 let permissionDenied = $state(false);
 let error = $state("");
 let dragover = $state(false);
+// UI modal for permission guidance
+let showPermissionModal = $state(false);
 
 // Camera States
 let videoDevices = $state<MediaDeviceInfo[]>([]);
@@ -289,25 +291,28 @@ function changeCamera() {
 
 // ===== PERMISSION HANDLING =====
 async function requestPermission() {
-	try {
-		const constraints = {
-			video: selectedDeviceId
-				? { deviceId: { exact: selectedDeviceId } }
-				: true,
-		};
+    try {
+        const constraints = {
+            video: selectedDeviceId
+                ? { deviceId: { exact: selectedDeviceId } }
+                : true,
+        };
 
-		const result = await navigator.mediaDevices.getUserMedia(constraints);
-		for (const track of result.getTracks()) {
-			track.stop();
-		}
-		permissionDenied = false;
-		window.location.reload();
-	} catch (error) {
-		console.log("Permission request failed:", error);
-	}
+        const result = await navigator.mediaDevices.getUserMedia(constraints);
+        for (const track of result.getTracks()) {
+            track.stop();
+        }
+        permissionDenied = false;
+        window.location.reload();
+    } catch (error) {
+        console.log("Permission request failed:", error);
+        // Show guidance modal for enabling camera in browser settings
+        showPermissionModal = true;
+				console.log(showPermissionModal)
+    }
 }
 </script>
- 
+
 <div class="w-full max-w-md mx-auto">
 	<div class="aspect-square mb-4">
 		{#if permissionDenied}
@@ -319,8 +324,8 @@ async function requestPermission() {
 					</svg>
 					<p class="text-sm">카메라 접근이 거부되었습니다</p>
 				</div>
-				<button 
-					class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors" 
+				<button
+					class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
 					onclick={requestPermission}
 				>
 					카메라 권한 다시 요청하기
@@ -398,4 +403,18 @@ async function requestPermission() {
 		</div>
 	{/if}
 </div>
+
+{#if showPermissionModal}
+  <div class="modal modal-open">
+    <div class="modal-box">
+      <h3 class="font-bold text-lg">카메라 권한 허용 안내</h3>
+      <p class="py-4">브라우저 설정에서 이 사이트에 대한 카메라 접근 권한을 허용해 주세요.<br>
+      Safari: Safari 메뉴 → 설정 → 웹 사이트 → 카메라에서 허용<br>
+      (또는 Chrome/Firefox의 경우 권한 재설정 후 다시 시도해 주세요)</p>
+      <div class="modal-action">
+        <button class="btn" onclick={() => showPermissionModal = false}>닫기</button>
+      </div>
+    </div>
+  </div>
+{/if}
 
