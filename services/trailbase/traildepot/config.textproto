@@ -36,6 +36,71 @@ record_apis: [{
 }, {
   name: "numbers"
   table_name: "numbers"
-  acl_world: [READ, UPDATE]
+  acl_world: [READ]
+  enable_subscriptions: true
+}, {
+  name: "lotto_draw_scan_counts"
+  table_name: "lotto_draw_scan_counts"
+  acl_world: [READ]
+  enable_subscriptions: true
+}, {
+  name: "lotto_draw_results"
+  table_name: "lotto_draw_results"
+  acl_world: [READ]
+  enable_subscriptions: true
+}, {
+  name: "lotto_number_stats"
+  table_name: "lotto_number_stats"
+  acl_world: [READ]
+  enable_subscriptions: true
+}, {
+  name: "lotto_number_details"
+  table_name: "lotto_number_details"
+  acl_world: [READ]
+  enable_subscriptions: true
+}, {
+  name: "lotto_draw_odd_even_stats"
+  table_name: "lotto_draw_odd_even_stats"
+  acl_world: [READ]
+  enable_subscriptions: true
+}, {
+  name: "lotto_draw_color_stats"
+  table_name: "lotto_draw_color_stats"
+  acl_world: [READ]
+  enable_subscriptions: true
+}, {
+  name: "lotto_draw_section_stats"
+  table_name: "lotto_draw_section_stats"
+  acl_world: [READ]
+  enable_subscriptions: true
+}, {
+  name: "lotto_draw_consecutive_stats"
+  table_name: "lotto_draw_consecutive_stats"
+  acl_world: [READ]
+  enable_subscriptions: true
+}, {
+  name: "lotto_draw_high_low_stats"
+  table_name: "lotto_draw_high_low_stats"
+  acl_world: [READ]
+  enable_subscriptions: true
+}, {
+  name: "lotto_draw_repeat_stats"
+  table_name: "lotto_draw_repeat_stats"
+  acl_world: [READ]
+  enable_subscriptions: true
+}, {
+  name: "lotto_draw_unit_digit_stats"
+  table_name: "lotto_draw_unit_digit_stats"
+  acl_world: [READ]
+  enable_subscriptions: true
+}, {
+  name: "lotto_number_pair_stats"
+  table_name: "lotto_number_pair_stats"
+  acl_world: [READ]
+  enable_subscriptions: true
+}, {
+  name: "lotto_draw_ac_stats"
+  table_name: "lotto_draw_ac_stats"
+  acl_world: [READ]
   enable_subscriptions: true
 }]
