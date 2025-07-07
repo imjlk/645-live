@@ -6,83 +6,46 @@
 
 // 매 주 토요일 20:40분부터 1분 간격으로 10회 실행되는 함수. 실행일 회차 정보가 이미 json파일에 담겨 있으면 건너뛰기. 당첨결과가 나오면 기존 json파일에서 1회차를 제외하고, 새로운 당첨결과를 추가한다.
 
-// http://qr.645lotto.net/?v=0809
-// q021825303444
-// q050812313445
-// q060817202240
-// q121623253641
-// q040809232944
-// 0000002233
-
 // http://m.dhlottery.co.kr/?v=1064q152434353839q061327303743q040915162534q061323273039q0320273036451857146742
 
-function getLottoNumbers(drwNo: number): Promise<Lotto> {
-	return fetch(
-		`https://www.dhlottery.co.kr/common.do?method=getLottoNumber&drwNo=${drwNo}`,
-	)
-		.then((response) => response.json<Lotto>())
-		.then((data) => {
-			return {
-				drwNo: data.drwNo,
-				drwtNo1: data.drwtNo1,
-				drwtNo2: data.drwtNo2,
-				drwtNo3: data.drwtNo3,
-				drwtNo4: data.drwtNo4,
-				drwtNo5: data.drwtNo5,
-				drwtNo6: data.drwtNo6,
-				bnusNo: data.bnusNo,
-			};
-		});
-}
+import {
+	getLatestLottoRound,
+	getLottoNumbers,
+} from "../pages/www/src/lib/utils/lotto-api-script.js";
+import {
+	convertToLottoGames,
+	parseDhlotteryURL,
+} from "../pages/www/src/lib/utils/lotto-parser.js";
 
-function parseLottoQueryString(url: string): {
-	drawNumber: number;
-	lotteryGames: number[][];
-} {
-	const urlParams = new URLSearchParams(url.split("?")[1]);
-	const queryValue = urlParams.get("v") || "";
-	const drawNumber = Number.parseInt(queryValue.slice(0, 4), 10);
-
-	const gameStrings = queryValue.split("q");
-	gameStrings.shift(); // Remove the first element which contains the draw number
-
-	// Handle the last game string which may contain extra characters
-	const lastGameString = gameStrings.pop() || "";
-	gameStrings.push(lastGameString.slice(0, 12)); // Take only the first 12 characters
-
-	// Split each game string into pairs of digits
-	const lotteryGames = gameStrings.map(
-		(gameString) => gameString.match(/.{1,2}/g) || [],
-	);
-
-	// Convert string arrays to number arrays
-	const numberGames = lotteryGames.map((game) =>
-		game.map((num) => Number.parseInt(num, 10)),
-	);
-
-	return { drawNumber, lotteryGames: numberGames };
-}
-
-// Example usage
+// Example usage - using the refactored utility function
 const url =
 	"http://m.dhlottery.co.kr/?v=1064q152434353839q061327303743q040915162534q061323273039q0320273036451857146742";
-const parsedData = parseLottoQueryString(url);
-console.log(parsedData);
+const parsedData = parseDhlotteryURL(url);
+if (parsedData) {
+	const lottoGames = convertToLottoGames(parsedData);
+	console.log(lottoGames);
+}
 
 async function main() {
-	const latestLotto = await getLottoNumbers(1160);
-	console.log(latestLotto);
+	try {
+		// Get the latest round dynamically
+		const latestInfo = await getLatestLottoRound();
+		if (latestInfo) {
+			console.log(
+				`Latest round: ${latestInfo.drwNo} (${latestInfo.drwNoDate})`,
+			);
+
+			// Get lotto numbers for the latest round
+			const latestLotto = await getLottoNumbers(latestInfo.drwNo);
+			if (latestLotto) {
+				console.log("Latest lotto numbers:", latestLotto);
+			}
+		} else {
+			console.error("Failed to get latest round info");
+		}
+	} catch (error) {
+		console.error("Error in main:", error);
+	}
 }
 
 main();
-
-export type Lotto = {
-	drwNo: number;
-	drwtNo1: number;
-	drwtNo2: number;
-	drwtNo3: number;
-	drwtNo4: number;
-	drwtNo5: number;
-	drwtNo6: number;
-	bnusNo: number;
-};

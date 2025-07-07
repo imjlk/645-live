@@ -1,10 +1,18 @@
 <script lang="ts">
+import { enhance } from "$app/forms";
+import { env } from "$env/dynamic/public";
+import { type LottoGameData, parseLottoQR } from "$lib/utils/lotto-parser.js";
 import {
 	type BarcodeFormat,
 	BarqodeDropzone,
 	BarqodeStream,
 	type DetectedBarcode,
 } from "barqode";
+import { Client } from "trailbase";
+import type { ActionData, PageData } from "./$types";
+
+// Props
+const { data, form }: { data: PageData; form: ActionData } = $props();
 
 // ===== TYPE DEFINITIONS =====
 interface ExtendedMediaTrackCapabilities extends MediaTrackCapabilities {
@@ -37,6 +45,17 @@ let cameraFOVs = $state<Map<string, number>>(new Map());
 // Detection Results
 let lastDetected = $state("");
 let uploaded = $state("");
+let processedNumbers = $state<number[]>([]);
+let scanSuccess = $state(false);
+let scanError = $state("");
+let isSubmittingForm = $state(false);
+
+// Trailbase client
+const client = Client.init(env.PUBLIC_TRAILBASE_URL || "http://localhost:4000");
+
+// Form element reference for programmatic submission
+let scanForm: HTMLFormElement;
+let qrDataInput: HTMLInputElement;
 
 // ===== DERIVED STATES =====
 let deviceInfos = $derived(
@@ -63,18 +82,77 @@ let selectedCameraLabel = $derived(() => {
 });
 
 // ===== BARCODE DETECTION HANDLERS =====
-function onDetect(detectedCodes: DetectedBarcode[]) {
+async function onDetect(detectedCodes: DetectedBarcode[]) {
 	if (detectedCodes.length > 0) {
 		lastDetected = detectedCodes[0].rawValue;
 		console.log(detectedCodes.map((detectedCode) => detectedCode.rawValue));
+
+		// 서버 액션을 통해 처리
+		await submitQRData(lastDetected);
 	}
 }
 
-function onDetectUploaded(detectedCodes: DetectedBarcode[]) {
+async function onDetectUploaded(detectedCodes: DetectedBarcode[]) {
 	uploaded = detectedCodes
 		.map((detectedCode) => detectedCode.rawValue)
 		.join(", ");
+
+	// 업로드된 이미지에서도 로또 QR 코드 파싱 및 처리
+	if (detectedCodes.length > 0) {
+		const qrData = detectedCodes[0].rawValue;
+		console.log("Detected QR from uploaded image:", qrData);
+
+		// 서버 액션을 통해 처리
+		await submitQRData(qrData);
+	}
 }
+
+// QR 데이터를 서버 액션으로 제출하는 함수
+async function submitQRData(qrData: string) {
+	try {
+		if (!scanForm || !qrDataInput) {
+			console.error("Form elements not found");
+			return;
+		}
+
+		// 숨겨진 input에 QR 데이터 설정
+		qrDataInput.value = qrData;
+
+		// 폼 제출
+		isSubmittingForm = true;
+		scanForm.requestSubmit();
+	} catch (error) {
+		console.error("Form submission error:", error);
+		scanError = "폼 제출 중 오류가 발생했습니다.";
+		isSubmittingForm = false;
+	}
+}
+
+// Form 결과 처리
+$effect(() => {
+	if (form) {
+		isSubmittingForm = false;
+
+		if (form.success) {
+			scanSuccess = true;
+			scanError = "";
+			if (form.data?.uniqueNumbers) {
+				processedNumbers = form.data.uniqueNumbers;
+			}
+
+			setTimeout(() => {
+				scanSuccess = false;
+			}, 3000);
+
+			console.log(
+				`서버 액션 스캔 완료: ${form.data?.gamesCount}개 게임, ${form.data?.uniqueNumbers?.length}개 고유 번호`,
+			);
+		} else if (form.error) {
+			scanError = form.error;
+			scanSuccess = false;
+		}
+	}
+});
 
 function onDragover(isDraggingOver: boolean) {
 	dragover = isDraggingOver;
@@ -291,27 +369,42 @@ function changeCamera() {
 
 // ===== PERMISSION HANDLING =====
 async function requestPermission() {
-    try {
-        const constraints = {
-            video: selectedDeviceId
-                ? { deviceId: { exact: selectedDeviceId } }
-                : true,
-        };
+	try {
+		const constraints = {
+			video: selectedDeviceId
+				? { deviceId: { exact: selectedDeviceId } }
+				: true,
+		};
 
-        const result = await navigator.mediaDevices.getUserMedia(constraints);
-        for (const track of result.getTracks()) {
-            track.stop();
-        }
-        permissionDenied = false;
-        window.location.reload();
-    } catch (error) {
-        console.log("Permission request failed:", error);
-        // Show guidance modal for enabling camera in browser settings
-        showPermissionModal = true;
-				console.log(showPermissionModal)
-    }
+		const result = await navigator.mediaDevices.getUserMedia(constraints);
+		for (const track of result.getTracks()) {
+			track.stop();
+		}
+		permissionDenied = false;
+		window.location.reload();
+	} catch (error) {
+		console.log("Permission request failed:", error);
+		// Show guidance modal for enabling camera in browser settings
+		showPermissionModal = true;
+		console.log(showPermissionModal);
+	}
 }
 </script>
+
+<!-- 숨겨진 폼 - QR 데이터를 서버 액션으로 전송 -->
+<form 
+	bind:this={scanForm}
+	method="POST" 
+	action="?/scan" 
+	use:enhance={() => {
+		return async ({ update }) => {
+			await update();
+		};
+	}}
+	style="display: none;"
+>
+	<input bind:this={qrDataInput} type="hidden" name="qrData" />
+</form>
 
 <div class="w-full max-w-md mx-auto">
 	<div class="aspect-square mb-4">
@@ -360,8 +453,9 @@ async function requestPermission() {
 	
 	{#if hasCameraSelection}
 		<div class="mb-4">
-			<label class="block text-sm font-medium text-gray-700 mb-2">카메라 선택</label>
+			<label for="camera-select" class="block text-sm font-medium text-gray-700 mb-2">카메라 선택</label>
 			<select 
+				id="camera-select"
 				bind:value={selectedDeviceId} 
 				onchange={changeCamera} 
 				class="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -382,6 +476,30 @@ async function requestPermission() {
 		<div class="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
 			<p class="text-sm text-green-700 font-medium">마지막 스캔 결과:</p>
 			<p class="text-green-800 break-all">{lastDetected}</p>
+		</div>
+	{/if}
+
+	{#if scanSuccess}
+		<div class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+			<p class="text-sm text-blue-700 font-medium">✅ 스캔 성공!</p>
+			{#if processedNumbers.length > 0}
+				<p class="text-blue-800 text-sm mt-1">
+					처리된 번호: {processedNumbers.join(', ')}
+				</p>
+			{/if}
+		</div>
+	{/if}
+
+	{#if isSubmittingForm}
+		<div class="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+			<p class="text-sm text-yellow-700 font-medium">⏳ 스캔 데이터 처리 중...</p>
+		</div>
+	{/if}
+
+	{#if scanError}
+		<div class="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+			<p class="text-sm text-red-700 font-medium">❌ 스캔 오류:</p>
+			<p class="text-red-800 text-sm">{scanError}</p>
 		</div>
 	{/if}
 

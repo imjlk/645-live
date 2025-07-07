@@ -1,148 +1,204 @@
 <script lang="ts">
-import { env } from "$env/dynamic/public";
 import LottoBall from "$lib/modules/lotto/components/LottoBall.svelte";
 import ValueIncrementEffect from "$lib/modules/lotto/components/ValueIncrementEffect.svelte";
 import type { BallNumber } from "$lib/modules/lotto/types";
+import {
+	type LottoDrawScanCount,
+	getLatestScanData,
+	getScanCountApi,
+	getScanDataSafely,
+	subscribeToScanCountUpdates,
+} from "$lib/stores/streamStore";
 import LinkButton from "$lib/ui/LinkButton.svelte";
 import { onDestroy, onMount } from "svelte";
 import { type Writable, writable } from "svelte/store";
-import { Client, type Event as TrailbaseEvent } from "trailbase";
+import type { PageData } from "./$types";
+
+export let data: PageData;
 
 // Track which balls have recently changed value to show animation
 const recentlyUpdated: Writable<Record<number, boolean>> = writable({});
 
-const client = Client.init(env.PUBLIC_TRAILBASE_URL || "http://localhost:4000");
-const api = client.records("numbers");
-
-let stream: ReadableStream<TrailbaseEvent> | null;
-let reader: ReadableStreamDefaultReader<TrailbaseEvent> | null = null;
-let isReading = false;
-
 // Client-side initial data and error state
 let error: string | null = null;
 
-// Initialize numbers with a default empty array
+// Initialize numbers with a default empty array - will be generated for 1-45
 let numbers: BallNumber[] = [];
-// Create a reactive store for the values
+// Create a reactive store for the values from scan counts
 const ballValues: Writable<Record<number, number>> = writable({});
+// Store the current round data
+let currentRound: number | null = null;
+// Store total scan count
+let totalScans = 0;
 
-// Function to fetch initial lotto numbers from Trailbase
+// 전역 스트림 구독 해제 함수
+let unsubscribeStream: (() => void) | null = null;
+
+// Function to fetch initial lotto scan counts from Trailbase
 async function loadInitialData() {
-    const apiClient = Client.init(env.PUBLIC_TRAILBASE_URL || "http://localhost:4000");
-    const api = apiClient.records("numbers");
-    try {
-        const response = (await api.list<BallNumber>()).records;
-        // Convert array of BallNumber to Record<number, number>
-        const values: Record<number, number> = {};
-        response.forEach((ball) => {
-            values[ball.id] = ball.value;
-        });
-        ballValues.set(values);
-        // Also update numbers array for rendering
-        numbers = response;
-    } catch (err: any) {
-        error = err?.message || '초기 데이터 로딩에 실패했습니다.';
-    }
+	// Use the display round from server data (this is the round we should show scan data for)
+	const targetRound = data.displayRound || data.latestRound;
+	if (targetRound) {
+		currentRound = targetRound;
+	}
+
+	try {
+		// Try to get the specific round's scan data directly
+		if (targetRound) {
+			const scanData = await getScanDataSafely(targetRound);
+
+			if (scanData) {
+				currentRound = targetRound;
+				totalScans = Number(scanData.total_scans) || 0;
+
+				// Convert scan count data to ball values
+				const values: Record<number, number> = {};
+				for (let i = 1; i <= 45; i++) {
+					const scanCountField = `scan_count_${i}` as keyof LottoDrawScanCount;
+					values[i] = Number(scanData[scanCountField]) || 0;
+				}
+				ballValues.set(values);
+
+				// Generate numbers array for rendering (1-45)
+				numbers = Array.from({ length: 45 }, (_, i) => ({
+					id: i + 1,
+					value: values[i + 1] || 0,
+				}));
+				return; // Successfully loaded target round data
+			}
+
+			console.log(
+				`No scan data found for round ${targetRound}, initializing with zeros`,
+			);
+			// Round not found, initialize with zeros for the target round
+			currentRound = targetRound;
+			totalScans = 0;
+
+			const values: Record<number, number> = {};
+			for (let i = 1; i <= 45; i++) {
+				values[i] = 0;
+			}
+			ballValues.set(values);
+
+			// Generate numbers array for rendering (1-45)
+			numbers = Array.from({ length: 45 }, (_, i) => ({
+				id: i + 1,
+				value: 0,
+			}));
+			return;
+		}
+
+		// Fallback: get the latest available data if no target round specified
+		const latestRound = await getLatestScanData();
+
+		if (latestRound) {
+			// Use display round if available, otherwise use database round
+			currentRound = targetRound || Number(latestRound.round) || null;
+			totalScans = Number(latestRound.total_scans) || 0;
+
+			// Convert scan count data to ball values
+			const values: Record<number, number> = {};
+			for (let i = 1; i <= 45; i++) {
+				const scanCountField = `scan_count_${i}` as keyof LottoDrawScanCount;
+				values[i] = Number(latestRound[scanCountField]) || 0;
+			}
+			ballValues.set(values);
+
+			// Generate numbers array for rendering (1-45)
+			numbers = Array.from({ length: 45 }, (_, i) => ({
+				id: i + 1,
+				value: values[i + 1] || 0,
+			}));
+		} else {
+			// No scan data yet, use display round and initialize with zeros
+			currentRound = targetRound || null;
+			totalScans = 0;
+
+			const values: Record<number, number> = {};
+			for (let i = 1; i <= 45; i++) {
+				values[i] = 0;
+			}
+			ballValues.set(values);
+
+			// Generate numbers array for rendering (1-45)
+			numbers = Array.from({ length: 45 }, (_, i) => ({
+				id: i + 1,
+				value: 0,
+			}));
+		}
+	} catch (err: unknown) {
+		error = (err as Error)?.message || "초기 데이터 로딩에 실패했습니다.";
+	}
 }
 
 onMount(async () => {
-   // First load initial data
-   await loadInitialData();
-   if (error) return;
-   try {
-       stream = await api.subscribe("*");
-        console.log("Stream connected");
+	// First load initial data
+	await loadInitialData();
+	if (error) return;
 
-        if (stream) {
-            reader = stream.getReader();
-            isReading = true;
+	// Set up global stream subscription for real-time updates
+	unsubscribeStream = subscribeToScanCountUpdates("main-page", (scanData) => {
+		console.log("Received scan count data via global stream:", scanData);
 
-            // Start reading in a separate async function to avoid blocking
-            readStreamData();
-        }
-    } catch (err) {
-        console.error("Error setting up stream:", err);
-    }
-});
+		// Only update if this is for the current round we're displaying
+		if (scanData.round !== currentRound) {
+			// Update current round if it changed
+			currentRound = scanData.round;
+			console.log(`Round updated to: ${currentRound}`);
+		}
 
-// Separate function for reading stream data
-async function readStreamData() {
-	if (!reader) return;
+		// Update the ballValues store with new scan counts
+		ballValues.update((values) => {
+			const newValues = { ...values };
+			let hasChanges = false;
 
-	try {
-		while (isReading) {
-			const { done, value } = await reader.read();
-			console.log(done, value);
+			// Check each scan count field for changes
+			for (let i = 1; i <= 45; i++) {
+				const scanCountField = `scan_count_${i}` as keyof LottoDrawScanCount;
+				const newCount = Number(scanData[scanCountField]) || 0;
+				const currentCount = values[i] || 0;
 
-			if (done) {
-				console.log("Stream completed");
-				break;
-			}
-
-			// Process the event data properly
-			if (value && "Update" in value) {
-				// Handle the incoming ball data
-				const ballData = value.Update as unknown as BallNumber;
-				console.log("Received ball data:", ballData);
-
-				// Update the ballValues store
-				ballValues.update((values) => {
-					const currentValue = values[ballData.id] || 0;
-					const newValue = currentValue + 1;
+				if (newCount !== currentCount) {
 					console.log(
-						`Ball ${ballData.id} value updated from ${currentValue} to ${newValue}`,
+						`Ball ${i} scan count updated from ${currentCount} to ${newCount}`,
 					);
+					newValues[i] = newCount;
+					hasChanges = true;
 
-					// Trigger animation by setting this ball as recently updated
+					// Trigger animation for this ball
 					recentlyUpdated.update((balls) => ({
 						...balls,
-						[ballData.id]: true,
+						[i]: true,
 					}));
 
 					// Remove the animation after a delay
 					setTimeout(() => {
 						recentlyUpdated.update((balls) => ({
 							...balls,
-							[ballData.id]: false,
+							[i]: false,
 						}));
 					}, 1000);
-
-					return { ...values, [ballData.id]: newValue };
-				});
+				}
 			}
-		}
-	} catch (err) {
-		console.error("Error reading stream:", err);
-	} finally {
-		if (isReading) {
-			// Only cleanup if not already cleaned up
-			await cleanupStream();
-		}
-	}
-}
 
-// Function to clean up the Trailbase stream and reader
-async function cleanupStream() {
-    console.log("Cleaning up stream resources");
-    // Stop the reading loop
-    isReading = false;
-    // Cancel the reader if present
-    if (reader) {
-        try {
-            await reader.cancel();
-            console.log("Stream reader cancelled");
-        } catch (err) {
-            console.error("Error cancelling reader:", err);
-        }
-        reader = null;
-    }
-    // Release the stream
-    stream = null;
-}
+			return newValues;
+		});
+
+		// Update total scans
+		const newTotalScans = Number(scanData.total_scans) || 0;
+		if (newTotalScans !== totalScans) {
+			totalScans = newTotalScans;
+			console.log(`Total scans updated to: ${totalScans}`);
+		}
+	});
+});
 
 // Clean up on component unmount
 onDestroy(() => {
-	cleanupStream();
+	if (unsubscribeStream) {
+		unsubscribeStream();
+		unsubscribeStream = null;
+	}
 });
 
 // Helper function to get ball color class based on its number
@@ -158,6 +214,32 @@ function getBallColorClass(ballNumber: number): string {
 {#if error}
     <p class="text-red-500 p-4">Error loading data: {error}</p>
 {:else if numbers.length > 0}
+    <!-- Header with round and total scans info -->
+    <div class="p-4 bg-gray-100 dark:bg-gray-800 rounded-lg mb-4 mx-4">
+        <div class="flex justify-between items-center text-sm mb-3">
+            <span class="font-semibold">
+                {#if currentRound}
+                    회차: {currentRound}
+                    {#if data.latestRound && currentRound === data.latestRound}
+                        <span class="text-green-600 text-xs">(발표됨)</span>
+                    {:else if data.latestRound && currentRound > data.latestRound}
+                        <span class="text-blue-600 text-xs">(예측중)</span>
+                    {/if}
+                {:else if data.displayRound}
+                    회차: {data.displayRound}
+                    <span class="text-blue-600 text-xs">(예측중)</span>
+                {:else if data.latestRound}
+                    최신 회차: {data.latestRound}
+                {:else}
+                    로또 스캔 현황
+                {/if}
+            </span>
+            <span class="text-blue-600 dark:text-blue-400 font-bold">
+                총 스캔: {totalScans.toLocaleString()}회
+            </span>
+        </div>
+    </div>
+    
     <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 p-0 py-4 sm:p-4 gap-4">
         {#each numbers as ball (ball.id)}
             {@const value = $ballValues[ball.id] || 0}

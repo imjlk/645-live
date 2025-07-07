@@ -1,0 +1,239 @@
+<script lang="ts">
+import { goto } from "$app/navigation";
+import { page } from "$app/stores";
+import LottoBall from "$lib/modules/lotto/components/LottoBall.svelte";
+import type { BallNumber } from "$lib/modules/lotto/types";
+import LinkButton from "$lib/ui/LinkButton.svelte";
+import type { PageData } from "./$types";
+
+export let data: PageData;
+
+let numbers: BallNumber[] = [];
+let totalScans = 0;
+let winningNumbers: number[] = [];
+
+// Initialize data from server
+$: if (data) {
+	if (data.error) {
+		console.error("Error loading history data:", data.error);
+	} else {
+		// Initialize ball numbers with scan counts
+		numbers = Array.from({ length: 45 }, (_, i) => {
+			const ballNumber = i + 1;
+			const scanCountField = `scan_count_${ballNumber}`;
+			const value = data.scanData?.[scanCountField] || 0;
+			return {
+				id: ballNumber,
+				value: Number(value),
+			};
+		});
+
+		// Get total scans
+		totalScans = Number(data.scanData?.total_scans || 0);
+
+		// Get winning numbers for this round if available
+		if (data.lottoNumbers) {
+			winningNumbers = [
+				data.lottoNumbers.drwtNo1,
+				data.lottoNumbers.drwtNo2,
+				data.lottoNumbers.drwtNo3,
+				data.lottoNumbers.drwtNo4,
+				data.lottoNumbers.drwtNo5,
+				data.lottoNumbers.drwtNo6,
+			];
+		}
+	}
+}
+
+// Handle round selection
+async function selectRound(round: number) {
+	const url = new URL($page.url);
+	url.searchParams.set("round", round.toString());
+	await goto(url.toString());
+}
+
+// Format date string
+function formatDate(dateStr: string): string {
+	try {
+		const date = new Date(dateStr);
+		return date.toLocaleDateString("ko-KR", {
+			year: "numeric",
+			month: "long",
+			day: "numeric",
+		});
+	} catch {
+		return dateStr;
+	}
+}
+
+// Check if a number is a winning number
+function isWinningNumber(num: number): boolean {
+	return winningNumbers.includes(num);
+}
+</script>
+
+<svelte:head>
+	<title>로또 스캔 통계 - 회차별 히스토리 | 645.live</title>
+	<meta name="description" content="로또 번호 스캔 통계의 회차별 히스토리를 확인하세요." />
+</svelte:head>
+
+<div class="container mx-auto px-4 py-8 max-w-6xl">
+	{#if data.error}
+		<div class="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg mb-6">
+			<h2 class="font-semibold mb-2">오류 발생</h2>
+			<p>{data.error}</p>
+		</div>
+		
+		<LinkButton href="/" class="bg-blue-600 hover:bg-blue-700 text-white">
+			메인 페이지로 돌아가기
+		</LinkButton>
+	{:else}
+		<!-- Header -->
+		<header class="text-center mb-8">
+			<h1 class="text-3xl md:text-4xl font-bold text-gray-900 mb-2">
+				로또 스캔 통계 히스토리
+			</h1>
+			<p class="text-gray-600">
+				회차별 QR 코드 스캔 통계를 확인하세요
+			</p>
+		</header>
+
+		<!-- Round Navigation -->
+		<div class="bg-white rounded-lg shadow-md p-6 mb-8">
+			<div class="flex flex-col md:flex-row items-center justify-between gap-4 mb-4">
+				<div class="flex items-center gap-2">
+					<span class="text-lg font-semibold text-gray-900">회차 선택:</span>
+					<select 
+						class="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+						value={data.targetRound}
+						on:change={(e) => {
+							const target = e.target as HTMLSelectElement;
+							if (target) selectRound(Number(target.value));
+						}}
+					>
+						{#each data.availableRounds as round}
+							<option value={round}>
+								{round}회차
+								{#if round === data.latestRound}(최신){/if}
+							</option>
+						{/each}
+					</select>
+				</div>
+				
+				<div class="flex gap-2">
+					<LinkButton href="/" class="bg-gray-600 hover:bg-gray-700 text-white">
+						메인으로
+					</LinkButton>
+					<LinkButton href="/qr-scan" class="bg-blue-600 hover:bg-blue-700 text-white">
+						QR 스캔
+					</LinkButton>
+				</div>
+			</div>
+		</div>
+
+		<!-- Current Round Info -->
+		<div class="bg-white rounded-lg shadow-md p-6 mb-8">
+			<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+				<div>
+					<h3 class="text-lg font-semibold text-gray-900 mb-2">현재 보기</h3>
+					<p class="text-2xl font-bold text-blue-600">{data.targetRound}회차</p>
+				</div>
+				
+				<div>
+					<h3 class="text-lg font-semibold text-gray-900 mb-2">추첨일</h3>
+					<p class="text-lg text-gray-800">
+						{data.lottoNumbers?.drwNoDate ? formatDate(data.lottoNumbers.drwNoDate) : '미공개'}
+					</p>
+				</div>
+				
+				<div>
+					<h3 class="text-lg font-semibold text-gray-900 mb-2">총 스캔 횟수</h3>
+					<p class="text-2xl font-bold text-green-600">{totalScans.toLocaleString()}회</p>
+				</div>
+			</div>
+		</div>
+
+		<!-- Winning Numbers (if available) -->
+		{#if data.lottoNumbers && winningNumbers.length > 0}
+			<div class="bg-yellow-50 border border-yellow-200 rounded-lg p-6 mb-8">
+				<h3 class="text-lg font-semibold text-gray-900 mb-4">당첨 번호</h3>
+				<div class="flex flex-wrap gap-3 items-center">
+					{#each winningNumbers as num}
+						<LottoBall number={num} />
+					{/each}
+					<span class="text-gray-600 mx-2">보너스</span>
+					<LottoBall number={data.lottoNumbers.bnusNo} />
+				</div>
+			</div>
+		{/if}
+
+		<!-- Scan Statistics -->
+		<div class="bg-white rounded-lg shadow-md p-6 mb-8">
+			<h3 class="text-xl font-semibold text-gray-900 mb-6">번호별 스캔 통계</h3>
+			
+			{#if numbers.length > 0}
+				<div class="grid grid-cols-5 md:grid-cols-9 gap-3">
+					{#each numbers as ball}
+						<div class="relative">
+							<LottoBall 
+								number={ball.id} 
+								class={isWinningNumber(ball.id) ? "ring-4 ring-yellow-400 ring-opacity-60" : ""}
+							/>
+							<div class="text-center mt-2">
+								<span class="text-sm font-medium text-gray-900">{ball.value}</span>
+								<div class="text-xs text-gray-500">스캔</div>
+							</div>
+							{#if isWinningNumber(ball.id)}
+								<div class="absolute -top-2 -right-2 bg-yellow-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+									★
+								</div>
+							{/if}
+						</div>
+					{/each}
+				</div>
+			{:else}
+				<div class="text-center py-12 text-gray-500">
+					<p>이 회차에 대한 스캔 데이터가 없습니다.</p>
+				</div>
+			{/if}
+		</div>
+
+		<!-- Statistics Summary -->
+		{#if numbers.length > 0}
+			<div class="bg-gray-50 rounded-lg p-6">
+				<h3 class="text-lg font-semibold text-gray-900 mb-4">통계 요약</h3>
+				<div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
+					<div>
+						<p class="text-sm text-gray-600">최다 스캔 번호</p>
+						<p class="text-xl font-bold text-blue-600">
+							{Math.max(...numbers.map(n => n.value)) > 0 
+								? numbers.find(n => n.value === Math.max(...numbers.map(n => n.value)))?.id || '-'
+								: '-'
+							}번
+						</p>
+						<p class="text-sm text-gray-500">
+							{Math.max(...numbers.map(n => n.value))}회 스캔
+						</p>
+					</div>
+					
+					<div>
+						<p class="text-sm text-gray-600">평균 스캔 횟수</p>
+						<p class="text-xl font-bold text-green-600">
+							{totalScans > 0 ? (totalScans / 45).toFixed(1) : '0'}회
+						</p>
+					</div>
+					
+					<div>
+						<p class="text-sm text-gray-600">스캔된 번호</p>
+						<p class="text-xl font-bold text-purple-600">
+							{numbers.filter(n => n.value > 0).length}개
+						</p>
+						<p class="text-sm text-gray-500">
+							/ 45개 번호
+						</p>
+					</div>
+				</div>
+			</div>
+		{/if}
+	{/if}
+</div>

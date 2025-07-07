@@ -1,23 +1,199 @@
 import {
-	addRoute,
-	query,
-	stringHandler,
 	HttpError,
 	StatusCodes,
-	jsonHandler,
-	transaction,
-	addPeriodicCallback,
 	addCronCallback,
+	addPeriodicCallback,
+	addRoute,
+	jsonHandler,
+	query,
+	stringHandler,
+	transaction,
 } from "../trailbase.js";
+import { getLatestLottoRoundFromDB } from "./lotto-api-backend.js";
 
 addRoute(
 	"POST",
 	"/scanned",
 	jsonHandler(async (req) => {
-		req.headers.Authorization = `Basic dGVzdDp0ZXN0`; // test:test
-		console.log("Scanned request received:", process.env);
+		try {
+			console.log(
+				"Lotto scan request received:",
+				JSON.stringify(req.body, null, 2),
+			);
 
-		throw new HttpError(StatusCodes.BAD_REQUEST);
+			// req.body가 문자열인 경우 JSON 파싱
+			let parsedBody: unknown;
+			if (typeof req.body === "string") {
+				try {
+					parsedBody = JSON.parse(req.body);
+				} catch (parseError) {
+					console.error("JSON parse error:", parseError);
+					throw new HttpError(StatusCodes.BAD_REQUEST, "Invalid JSON format");
+				}
+			} else {
+				parsedBody = req.body;
+			}
+
+			const body = parsedBody as {
+				games?: Array<{ round?: number; numbers: number[] }>;
+			};
+			console.log("Body type:", typeof body);
+			console.log("Body keys:", Object.keys(body || {}));
+
+			const games = body?.games;
+			console.log("Parsed games:", games);
+
+			if (!games || !Array.isArray(games)) {
+				console.error("Invalid games data:", {
+					games,
+					isArray: Array.isArray(games),
+					bodyKeys: Object.keys(body || {}),
+					fullBody: body,
+				});
+				throw new HttpError(StatusCodes.BAD_REQUEST, "Invalid games data");
+			}
+
+			// 현재 회차 정보 가져오기 (게임 데이터에서 추출 또는 DB에서 최신 회차)
+			let currentRound: number;
+
+			// 게임 데이터에서 회차 정보 추출
+			if (games.length > 0 && games[0].round) {
+				currentRound = games[0].round;
+				console.log("Round from game data:", currentRound);
+			} else {
+				// 게임 데이터에 회차가 없으면 DB에서 최신 회차 조회
+				const latestRoundFromDB = await getLatestLottoRoundFromDB();
+				currentRound = latestRoundFromDB || 1179; // fallback to a reasonable default
+				console.log("Round from database or fallback:", currentRound);
+			}
+
+			// 모든 게임의 번호들을 수집
+			const allNumbers: number[] = [];
+			for (const game of games) {
+				if (game.numbers && Array.isArray(game.numbers)) {
+					allNumbers.push(
+						...game.numbers.filter((n: number) => n >= 1 && n <= 45),
+					);
+				}
+			}
+
+			console.log("All numbers collected:", allNumbers);
+			console.log("Current round:", currentRound);
+
+			// 트랜잭션 시작
+			await transaction(async () => {
+				console.log("Starting transaction...");
+
+				// 현재 회차의 스캔 카운트 레코드 조회
+				const existingRecord = await query(
+					`
+					SELECT * FROM lotto_draw_scan_counts 
+					WHERE round = ?
+				`,
+					[currentRound],
+				);
+
+				console.log("Existing record:", existingRecord);
+
+				// 각 번호별 증가량 계산
+				const scanCounts: Record<string, number> = {};
+				for (let i = 1; i <= 45; i++) {
+					scanCounts[`scan_count_${i}`] = allNumbers.filter(
+						(n) => n === i,
+					).length;
+				}
+
+				console.log("Scan counts calculated:", scanCounts);
+
+				if (existingRecord.length > 0) {
+					console.log("Updating existing record...");
+					// 기존 레코드 업데이트
+					const updateFields: string[] = [];
+					const updateValues: (number | string)[] = [];
+
+					for (let i = 1; i <= 45; i++) {
+						const fieldName = `scan_count_${i}`;
+						const increment = scanCounts[fieldName];
+						if (increment > 0) {
+							updateFields.push(`${fieldName} = ${fieldName} + ?`);
+							updateValues.push(increment);
+						}
+					}
+
+					// 총 스캔 횟수 업데이트 (QR 코드 스캔 1회)
+					updateFields.push("total_scans = total_scans + ?");
+					updateValues.push(1);
+
+					updateFields.push("updated_at = CURRENT_TIMESTAMP");
+					updateValues.push(currentRound);
+
+					console.log("Update fields:", updateFields);
+					console.log("Update values:", updateValues);
+
+					if (updateFields.length > 1) {
+						// updated_at 외에 다른 필드가 있으면
+						const updateQuery = `
+							UPDATE lotto_draw_scan_counts 
+							SET ${updateFields.join(", ")} 
+							WHERE round = ?
+						`;
+
+						console.log("Update query:", updateQuery);
+						const updateResult = await query(updateQuery, updateValues);
+						console.log("Update result:", updateResult);
+					}
+				} else {
+					console.log("Creating new record...");
+					// 새 레코드 생성
+					const fields: string[] = ["round"];
+					const values: (number | string)[] = [currentRound];
+					const placeholders: string[] = ["?"];
+
+					for (let i = 1; i <= 45; i++) {
+						const fieldName = `scan_count_${i}`;
+						fields.push(fieldName);
+						values.push(scanCounts[fieldName]);
+						placeholders.push("?");
+					}
+
+					fields.push("total_scans");
+					values.push(1); // QR 코드 스캔 1회
+					placeholders.push("?");
+
+					fields.push("updated_at");
+					values.push(new Date().toISOString());
+					placeholders.push("?");
+
+					const insertQuery = `
+						INSERT INTO lotto_draw_scan_counts (${fields.join(", ")}) 
+						VALUES (${placeholders.join(", ")})
+					`;
+
+					await query(insertQuery, values);
+				}
+			});
+
+			const uniqueNumbers = [...new Set(allNumbers)].sort((a, b) => a - b);
+
+			return {
+				success: true,
+				message: "스캔 데이터가 성공적으로 업데이트되었습니다",
+				data: {
+					round: currentRound,
+					gamesCount: games.length,
+					scanCount: 1, // QR 코드 스캔 횟수
+					uniqueNumbers: uniqueNumbers,
+					totalNumbers: allNumbers.length,
+				},
+			};
+		} catch (error: unknown) {
+			console.error("스캔 데이터 처리 오류:", error);
+			const errorMessage =
+				error instanceof Error
+					? error.message
+					: "스캔 데이터 처리 중 오류가 발생했습니다";
+			throw new HttpError(StatusCodes.INTERNAL_SERVER_ERROR, errorMessage);
+		}
 	}),
 );
 
