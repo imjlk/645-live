@@ -37,7 +37,7 @@ type LottoDrawResult = {
 };
 
 // 데이터베이스 연결
-const dbPath = join(__dirname, "../data/main.db");
+const dbPath = join(__dirname, "./data/main.db");
 const db = new Database(dbPath);
 
 // 로또 API에서 당첨 정보 가져오기
