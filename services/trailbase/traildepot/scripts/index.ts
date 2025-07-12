@@ -235,137 +235,51 @@ async function fetchLottoDrawResult(
 		const contentType = response.headers.get("content-type") || "";
 		console.log(`📋 응답 Content-Type: ${contentType}`);
 
+		let responseText = "";
 		if (!contentType.toLowerCase().includes("application/json")) {
+			responseText = await response.text();
 			console.warn(`⚠️ 응답이 JSON 형식이 아닙니다: ${contentType}`);
 			console.warn(
 				`⚠️ 회차 ${round}의 결과가 아직 발표되지 않았을 수 있습니다.`,
 			);
-			return null;
+			console.warn(`⚠️ 응답 내용(앞부분): ${responseText.substring(0, 300)}...`);
+			if (
+				responseText.includes("<html") ||
+				responseText.includes("DOCTYPE html")
+			) {
+				console.warn(
+					"⚠️ HTML 페이지가 반환되었습니다. 동행복권 사이트 점검/차단/오류 가능성.",
+				);
+			}
+			// 그래도 JSON 파싱 시도
+			try {
+				const data = JSON.parse(responseText) as LottoApiResponse;
+				return processLottoApiResponse(data, round, safeRound);
+			} catch (e) {
+				console.error("❌ JSON 파싱 실패:", e);
+				return null;
+			}
 		}
 
 		// 응답 크기 제한 (DoS 방지)
 		const MAX_RESPONSE_SIZE = 50000; // 50KB
 		const reader = response.body?.getReader();
-		let responseText = "";
 		let totalSize = 0;
-
 		if (reader) {
 			const decoder = new TextDecoder();
 			while (true) {
 				const { done, value } = await reader.read();
 				if (done) break;
-
 				totalSize += value.length;
 				if (totalSize > MAX_RESPONSE_SIZE) {
 					console.error("❌ 응답 크기가 너무 큽니다");
 					return null;
 				}
-
 				responseText += decoder.decode(value, { stream: true });
 			}
 		}
-
 		const data = JSON.parse(responseText) as LottoApiResponse;
-
-		// 응답 데이터 스키마 검증 (더 엄격하게)
-		if (!data || typeof data !== "object" || Array.isArray(data)) {
-			console.error("❌ 응답 데이터가 유효한 객체가 아닙니다");
-			return null;
-		}
-
-		// returnValue 타입 검증
-		if (typeof data.returnValue !== "string") {
-			console.error("❌ returnValue가 문자열이 아닙니다");
-			return null;
-		}
-
-		if (data.returnValue !== "success") {
-			console.warn(`⚠️ 회차 ${round}: ${data.returnValue}`);
-			return null;
-		}
-
-		// 필수 필드 타입 검증 (더 엄격하게)
-		const requiredNumberFields = [
-			"drwNo",
-			"drwtNo1",
-			"drwtNo2",
-			"drwtNo3",
-			"drwtNo4",
-			"drwtNo5",
-			"drwtNo6",
-			"bnusNo",
-		];
-		for (const field of requiredNumberFields) {
-			if (
-				typeof data[field as keyof LottoApiResponse] !== "number" ||
-				!Number.isInteger(data[field as keyof LottoApiResponse] as number)
-			) {
-				console.error(
-					`❌ 필수 숫자 필드 ${field}가 유효하지 않습니다:`,
-					data[field as keyof LottoApiResponse],
-				);
-				return null;
-			}
-		}
-
-		// 날짜 필드 검증
-		if (
-			typeof data.drwNoDate !== "string" ||
-			!/^\d{4}-\d{2}-\d{2}$/.test(data.drwNoDate)
-		) {
-			console.error("❌ 추첨일 형식이 유효하지 않습니다:", data.drwNoDate);
-			return null;
-		}
-
-		// 당첨번호 유효성 검증
-		const drawNumbers = [
-			data.drwtNo1,
-			data.drwtNo2,
-			data.drwtNo3,
-			data.drwtNo4,
-			data.drwtNo5,
-			data.drwtNo6,
-		];
-		if (
-			!drawNumbers.every(isValidLottoNumber) ||
-			!isValidLottoNumber(data.bnusNo)
-		) {
-			console.error("❌ 당첨번호가 유효하지 않습니다");
-			return null;
-		}
-
-		// 회차 일치 검증
-		if (data.drwNo !== safeRound) {
-			console.warn(
-				`⚠️ 응답 회차가 요청 회차와 다릅니다: 요청=${safeRound}, 응답=${data.drwNo}`,
-			);
-			// 회차가 다르면 추첨이 아직 진행되지 않았을 수 있으므로 null 반환
-			if (!data.drwNo) {
-				console.warn(
-					`⚠️ 회차 ${safeRound}의 추첨 결과가 아직 발표되지 않았을 수 있습니다.`,
-				);
-			}
-			return null;
-		}
-
-		// API 응답을 DB 삽입용 형태로 변환
-		const numbers = drawNumbers.sort((a, b) => a - b);
-
-		return {
-			round: data.drwNo,
-			draw_date: data.drwNoDate,
-			total_sell_amount: Math.max(0, data.totSellamnt || 0),
-			first_prize_amount: Math.max(0, data.firstWinamnt || 0),
-			first_prize_winner_count: Math.max(0, data.firstPrzwnerCo || 0),
-			first_prize_accumulated_amount: Math.max(0, data.firstAccumamnt || 0),
-			draw_number_1: numbers[0],
-			draw_number_2: numbers[1],
-			draw_number_3: numbers[2],
-			draw_number_4: numbers[3],
-			draw_number_5: numbers[4],
-			draw_number_6: numbers[5],
-			bonus_number: data.bnusNo,
-		};
+		return processLottoApiResponse(data, round, safeRound);
 	} catch (error) {
 		if (error instanceof Error && error.name === "AbortError") {
 			console.error(`❌ 회차 ${round} API 호출 타임아웃`);
@@ -543,14 +457,17 @@ async function updateLatestLottoRound(): Promise<void> {
 				console.log(`✅ 회차 ${nextRound} 업데이트 완료`);
 			} else {
 				console.error(`❌ 회차 ${nextRound} 업데이트 실패`);
+				throw new Error(`회차 ${nextRound} DB 삽입 실패`);
 			}
 		} else {
 			console.log(
-				`ℹ️ 회차 ${nextRound}의 결과가 아직 발표되지 않았거나 찾을 수 없습니다.`,
+				`ℹ️ 회차 ${nextRound}의 결과가 아직 발표되지 않았거나 찾을 수 없습니다. 1분 후 재시도합니다.`,
 			);
+			throw new Error(`회차 ${nextRound} 결과 미발표/미수신`);
 		}
 	} catch (error) {
 		console.error("❌ 로또 회차 업데이트 중 오류 발생:", error);
+		throw error; // 반드시 예외를 던져서 executeLottoUpdate의 재시도 로직이 동작하게 함
 	}
 }
 
@@ -826,3 +743,101 @@ addCronCallback("Lotto Weekly Updater", "0 44 11 * * 7", async () => {
 });
 
 console.log("=== All routes and callbacks registered successfully ===");
+
+// LottoApiResponse 파싱 후 검증 및 변환 함수 분리
+function processLottoApiResponse(
+	data: LottoApiResponse,
+	round: number,
+	safeRound: number,
+): LottoDrawResult | null {
+	// 응답 데이터 스키마 검증 (더 엄격하게)
+	if (!data || typeof data !== "object" || Array.isArray(data)) {
+		console.error("❌ 응답 데이터가 유효한 객체가 아닙니다");
+		return null;
+	}
+	// returnValue 타입 검증
+	if (typeof data.returnValue !== "string") {
+		console.error("❌ returnValue가 문자열이 아닙니다");
+		return null;
+	}
+	if (data.returnValue !== "success") {
+		console.warn(`⚠️ 회차 ${round}: ${data.returnValue}`);
+		return null;
+	}
+	// 필수 필드 타입 검증 (더 엄격하게)
+	const requiredNumberFields = [
+		"drwNo",
+		"drwtNo1",
+		"drwtNo2",
+		"drwtNo3",
+		"drwtNo4",
+		"drwtNo5",
+		"drwtNo6",
+		"bnusNo",
+	];
+	for (const field of requiredNumberFields) {
+		if (
+			typeof data[field as keyof LottoApiResponse] !== "number" ||
+			!Number.isInteger(data[field as keyof LottoApiResponse] as number)
+		) {
+			console.error(
+				`❌ 필수 숫자 필드 ${field}가 유효하지 않습니다:`,
+				data[field as keyof LottoApiResponse],
+			);
+			return null;
+		}
+	}
+	// 날짜 필드 검증
+	if (
+		typeof data.drwNoDate !== "string" ||
+		!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(data.drwNoDate)
+	) {
+		console.error("❌ 추첨일 형식이 유효하지 않습니다:", data.drwNoDate);
+		return null;
+	}
+	// 당첨번호 유효성 검증
+	const drawNumbers = [
+		data.drwtNo1,
+		data.drwtNo2,
+		data.drwtNo3,
+		data.drwtNo4,
+		data.drwtNo5,
+		data.drwtNo6,
+	];
+	if (
+		!drawNumbers.every(isValidLottoNumber) ||
+		!isValidLottoNumber(data.bnusNo)
+	) {
+		console.error("❌ 당첨번호가 유효하지 않습니다");
+		return null;
+	}
+	// 회차 일치 검증
+	if (data.drwNo !== safeRound) {
+		console.warn(
+			`⚠️ 응답 회차가 요청 회차와 다릅니다: 요청=${safeRound}, 응답=${data.drwNo}`,
+		);
+		if (!data.drwNo) {
+			console.warn(
+				`⚠️ 회차 ${safeRound}의 추첨 결과가 아직 발표되지 않았을 수 있습니다.`,
+			);
+		}
+		return null;
+	}
+	// API 응답을 DB 삽입용 형태로 변환
+	const numbers = drawNumbers.sort((a, b) => a - b);
+	return {
+		round: data.drwNo,
+		draw_date: data.drwNoDate,
+		total_sell_amount: Math.max(0, data.totSellamnt || 0),
+		first_prize_amount: Math.max(0, data.firstWinamnt || 0),
+		first_prize_winner_count: Math.max(0, data.firstPrzwnerCo || 0),
+		first_prize_accumulated_amount: Math.max(0, data.firstAccumamnt || 0),
+		draw_number_1: numbers[0],
+		draw_number_2: numbers[1],
+		draw_number_3: numbers[2],
+		draw_number_4: numbers[3],
+		draw_number_5: numbers[4],
+		draw_number_6: numbers[5],
+		bonus_number: data.bnusNo,
+	};
+}
