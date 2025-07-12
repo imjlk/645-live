@@ -203,10 +203,22 @@ async function fetchLottoDrawResult(
 		const response = await fetch(url, {
 			signal: controller.signal,
 			headers: {
-				"User-Agent": "Mozilla/5.0 (compatible; LottoBot/1.0)",
-				Accept: "application/json",
-				"Accept-Language": "ko-KR,ko;q=0.9",
+				"User-Agent":
+					"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+				Accept: "application/json, text/javascript, */*; q=0.01",
+				"Accept-Language": "ko-KR,ko;q=0.9,en;q=0.8",
 				"Cache-Control": "no-cache",
+				Pragma: "no-cache",
+				"Sec-Fetch-Dest": "empty",
+				"Sec-Fetch-Mode": "cors",
+				"Sec-Fetch-Site": "same-origin",
+				"Sec-Ch-Ua":
+					'"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
+				"Sec-Ch-Ua-Mobile": "?0",
+				"Sec-Ch-Ua-Platform": '"macOS"',
+				Referer: "https://www.dhlottery.co.kr/gameResult.do?method=byWin",
+				Origin: "https://www.dhlottery.co.kr",
+				"X-Requested-With": "XMLHttpRequest",
 			},
 		});
 
@@ -777,16 +789,40 @@ addRoute(
 
 console.log("POST /scanned route registered");
 
-addCronCallback("Lotto Weekly Updater", "0 07 12 * * 7", async () => {
-	const now = new Date().toISOString();
-	console.info(`[${now}] 🎲 로또 주간 업데이트 크론 작업 시작`);
+/**
+ * 로또 업데이트 실행 (내부 재시도 로직 포함, 최대 3회, 2분 간격)
+ */
+async function executeLottoUpdate(): Promise<void> {
+	const maxRetries = 7;
+	const retryDelayMs = 1 * 60 * 1000; // 2분
 
-	try {
-		await updateLatestLottoRound();
-		console.info(`[${now}] ✅ 로또 주간 업데이트 크론 작업 완료`);
-	} catch (error) {
-		console.error(`[${now}] ❌ 로또 주간 업데이트 크론 작업 실패:`, error);
+	for (let attempt = 1; attempt <= maxRetries; attempt++) {
+		const now = new Date().toISOString();
+		try {
+			console.info(
+				`[${now}] 🎲 로또 업데이트 실행 (시도 ${attempt}/${maxRetries})`,
+			);
+			await updateLatestLottoRound();
+			console.info(`[${now}] ✅ 로또 업데이트 성공 (시도 ${attempt})`);
+			return;
+		} catch (error) {
+			console.error(`[${now}] ❌ 로또 업데이트 실패 (시도 ${attempt}):`, error);
+			if (attempt < maxRetries) {
+				console.info(`[${now}] ⏳ ${retryDelayMs / 1000 / 60}분 후 재시도...`);
+				await new Promise((res) => setTimeout(res, retryDelayMs));
+			} else {
+				console.error(
+					`[${now}] ❌ 로또 업데이트 최종 실패 (최대 재시도 횟수 초과)`,
+				);
+				console.error(`[${now}] 📧 관리자에게 알림이 필요합니다.`);
+			}
+		}
 	}
+}
+
+// 메인 크론 작업 - 매주 토요일 오전 20시 45분
+addCronCallback("Lotto Weekly Updater", "0 44 11 * * 7", async () => {
+	await executeLottoUpdate();
 });
 
 console.log("=== All routes and callbacks registered successfully ===");
