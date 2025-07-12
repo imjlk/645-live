@@ -742,7 +742,7 @@ addRoute(
 
 console.log("POST /scanned route registered");
 
-addCronCallback("Lotto Weekly Updater", "0 45 11 * * 6", async () => {
+addCronCallback("Lotto Weekly Updater", "0 55 11 * * 7", async () => {
 	const now = new Date().toISOString();
 	console.info(`[${now}] 🎲 로또 주간 업데이트 크론 작업 시작`);
 

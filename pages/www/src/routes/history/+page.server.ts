@@ -1,6 +1,6 @@
 import { env } from "$env/dynamic/private";
 import { getLatestLottoRound, getLottoNumbers } from "$lib/utils/lotto-api";
-import { Client } from "trailbase";
+import { initClient } from "trailbase";
 import type { PageServerLoad } from "./$types";
 
 interface LottoDrawScanCount {
@@ -70,7 +70,7 @@ export const load: PageServerLoad = async ({ url }) => {
 			: latestInfo.drwNo;
 
 		// Get scan count data from TrailBase first to determine available rounds
-		const client = Client.init(env.TRAILBASE_URL || "http://localhost:4000");
+		const client = initClient(env.TRAILBASE_URL || "http://localhost:4000");
 		const api = client.records("lotto_draw_scan_counts");
 
 		let scanData = null;

@@ -8,7 +8,7 @@ import {
 	BarqodeStream,
 	type DetectedBarcode,
 } from "barqode";
-import { Client } from "trailbase";
+import { initClient } from "trailbase";
 import type { ActionData, PageData } from "./$types";
 
 // Props
@@ -51,7 +51,7 @@ let scanError = $state("");
 let isSubmittingForm = $state(false);
 
 // Trailbase client
-const client = Client.init(env.PUBLIC_TRAILBASE_URL || "http://localhost:4000");
+const client = initClient(env.PUBLIC_TRAILBASE_URL || "http://localhost:4000");
 
 // Form element reference for programmatic submission
 let scanForm: HTMLFormElement;

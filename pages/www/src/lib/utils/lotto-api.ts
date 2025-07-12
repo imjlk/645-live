@@ -4,7 +4,7 @@
  */
 
 import { env } from "$env/dynamic/public";
-import { Client } from "trailbase";
+import { initClient } from "trailbase";
 import {
 	type LatestLottoInfo,
 	type LottoDrawResult,
@@ -57,7 +57,7 @@ export function calculateDisplayRound(): number {
 export async function getLatestLottoRound(): Promise<LatestLottoInfo | null> {
 	// 먼저 데이터베이스에서 시도
 	try {
-		const client = Client.init(
+		const client = initClient(
 			env.PUBLIC_TRAILBASE_URL || "http://localhost:4000",
 		);
 		const api = client.records("lotto_draw_results");
@@ -101,7 +101,7 @@ export async function getLottoNumbers(
 ): Promise<LottoDrawResult | null> {
 	// 먼저 데이터베이스에서 시도
 	try {
-		const client = Client.init(
+		const client = initClient(
 			env.PUBLIC_TRAILBASE_URL || "http://localhost:4000",
 		);
 		const api = client.records("lotto_draw_results");

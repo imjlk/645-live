@@ -7,6 +7,8 @@ let {
 	href,
 	leftIcon = null,
 	rightIcon = null,
+	variant = "default",
+	size = "default",
 	class: customClass = "",
 	...props
 } = $props<
@@ -14,12 +16,39 @@ let {
 		href: string;
 		leftIcon?: Component | null;
 		rightIcon?: Component | null;
+		variant?: "default" | "primary" | "secondary" | "outline" | "ghost";
+		size?: "default" | "sm" | "md" | "lg";
 		class?: string;
 	}
 >();
 
 const baseClass = "btn";
-const classes = `${baseClass}${customClass ? ` ${customClass}` : ""}`;
+
+// Build variant classes
+const variantClasses: Record<string, string> = {
+	default: "",
+	primary: "btn-primary",
+	secondary: "btn-secondary",
+	outline: "btn-outline",
+	ghost: "btn-ghost",
+};
+
+// Build size classes
+const sizeClasses: Record<string, string> = {
+	default: "",
+	sm: "btn-sm",
+	md: "",
+	lg: "btn-lg",
+};
+
+const classes = [
+	baseClass,
+	variantClasses[variant] || "",
+	sizeClasses[size] || "",
+	customClass,
+]
+	.filter(Boolean)
+	.join(" ");
 
 $effect.pre(() => {
 	if (!href) {

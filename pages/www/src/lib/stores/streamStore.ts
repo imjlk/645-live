@@ -5,7 +5,11 @@
 
 import { env } from "$env/dynamic/public";
 import { writable } from "svelte/store";
-import { Client, type Event as TrailbaseEvent } from "trailbase";
+import {
+	type Client,
+	type Event as TrailbaseEvent,
+	initClient,
+} from "trailbase";
 
 // 스캔 카운트 레코드 타입
 export interface LottoDrawScanCount {
@@ -64,9 +68,8 @@ type SubscriberCallback = (data: LottoDrawScanCount) => void;
 
 // 전역 스트림 관리 클래스
 class GlobalStreamManager {
-	private client: ReturnType<typeof Client.init> | null = null;
-	private api: ReturnType<ReturnType<typeof Client.init>["records"]> | null =
-		null;
+	private client: Client | null = null;
+	private api: ReturnType<Client["records"]> | null = null;
 	private stream: ReadableStream<TrailbaseEvent> | null = null;
 	private reader: ReadableStreamDefaultReader<TrailbaseEvent> | null = null;
 	private isReading = false;
@@ -76,7 +79,7 @@ class GlobalStreamManager {
 	constructor() {
 		// 브라우저 환경에서만 초기화
 		if (typeof window !== "undefined") {
-			this.client = Client.init(
+			this.client = initClient(
 				env.PUBLIC_TRAILBASE_URL || "http://localhost:4000",
 			);
 			this.api = this.client.records("lotto_draw_scan_counts");
