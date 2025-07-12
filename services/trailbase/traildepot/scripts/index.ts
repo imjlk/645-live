@@ -118,17 +118,41 @@ async function getLatestLottoRoundFromDB(): Promise<number> {
 		console.log("📊 결과 길이:", result.length);
 
 		if (result.length > 0) {
-			const record = result[0] as unknown as { round: number };
+			const record = result[0];
 			console.log("📊 첫 번째 레코드:", record);
-			console.log("📊 round 값:", record.round);
-			console.log("📊 round 타입:", typeof record.round);
+			console.log("📊 레코드 타입:", typeof record);
+			console.log("📊 레코드 키들:", Object.keys(record));
+
+			// Trailbase의 다양한 응답 형식 처리
+			let roundValue: unknown;
+
+			if (Array.isArray(record)) {
+				// 배열 형식: [1180]
+				roundValue = record[0];
+				console.log("📊 배열에서 round 값:", roundValue);
+			} else if (record && typeof record === "object") {
+				// 객체 형식: {round: 1180} 또는 {"0": 1180}
+				const recordObj = record as Record<string, unknown>;
+				roundValue =
+					recordObj.round ||
+					recordObj["0"] ||
+					recordObj[Object.keys(recordObj)[0]];
+				console.log("📊 객체에서 round 값:", roundValue);
+			} else {
+				// 원시값: 1180
+				roundValue = record;
+				console.log("📊 원시값 round:", roundValue);
+			}
+
+			console.log("📊 최종 round 값:", roundValue);
+			console.log("📊 최종 round 타입:", typeof roundValue);
 
 			// round 값이 숫자인지 확인하고 변환
-			const roundNumber = Number(record.round);
+			const roundNumber = Number(roundValue);
 			if (Number.isNaN(roundNumber)) {
 				console.error(
 					"❌ DB에서 조회한 round 값이 숫자가 아닙니다:",
-					record.round,
+					roundValue,
 				);
 				console.warn("🔄 계산된 예상 회차로 대체합니다.");
 				return calculateExpectedLatestRound();
@@ -197,8 +221,13 @@ async function fetchLottoDrawResult(
 
 		// Content-Type 검증 (더 엄격하게)
 		const contentType = response.headers.get("content-type") || "";
+		console.log(`📋 응답 Content-Type: ${contentType}`);
+
 		if (!contentType.toLowerCase().includes("application/json")) {
-			console.error("❌ 응답이 JSON 형식이 아닙니다:", contentType);
+			console.warn(`⚠️ 응답이 JSON 형식이 아닙니다: ${contentType}`);
+			console.warn(
+				`⚠️ 회차 ${round}의 결과가 아직 발표되지 않았을 수 있습니다.`,
+			);
 			return null;
 		}
 
@@ -295,9 +324,15 @@ async function fetchLottoDrawResult(
 
 		// 회차 일치 검증
 		if (data.drwNo !== safeRound) {
-			console.error(
-				`❌ 응답 회차가 요청 회차와 다릅니다: 요청=${safeRound}, 응답=${data.drwNo}`,
+			console.warn(
+				`⚠️ 응답 회차가 요청 회차와 다릅니다: 요청=${safeRound}, 응답=${data.drwNo}`,
 			);
+			// 회차가 다르면 추첨이 아직 진행되지 않았을 수 있으므로 null 반환
+			if (!data.drwNo) {
+				console.warn(
+					`⚠️ 회차 ${safeRound}의 추첨 결과가 아직 발표되지 않았을 수 있습니다.`,
+				);
+			}
 			return null;
 		}
 
@@ -742,7 +777,7 @@ addRoute(
 
 console.log("POST /scanned route registered");
 
-addCronCallback("Lotto Weekly Updater", "0 55 11 * * 7", async () => {
+addCronCallback("Lotto Weekly Updater", "0 07 12 * * 7", async () => {
 	const now = new Date().toISOString();
 	console.info(`[${now}] 🎲 로또 주간 업데이트 크론 작업 시작`);
 
