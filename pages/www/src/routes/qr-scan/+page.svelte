@@ -409,7 +409,7 @@ async function requestPermission() {
 <div class="w-full max-w-md mx-auto">
 	<div class="aspect-square mb-4">
 		{#if permissionDenied}
-			<div class="h-full flex flex-col items-center justify-center text-center p-6 bg-gray-100 rounded-lg">
+			<div class="h-full flex flex-col items-center justify-center text-center p-6 bg-base-200 rounded-lg">
 				<div class="text-red-500 mb-4">
 					<svg class="w-16 h-16 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
@@ -453,7 +453,7 @@ async function requestPermission() {
 	
 	{#if hasCameraSelection}
 		<div class="mb-4">
-			<label for="camera-select" class="block text-sm font-medium text-gray-700 mb-2">카메라 선택</label>
+			<label for="camera-select" class="block text-sm font-medium text-base-content mb-2">카메라 선택</label>
 			<select 
 				id="camera-select"
 				bind:value={selectedDeviceId} 
@@ -505,7 +505,7 @@ async function requestPermission() {
 
 	<div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors {dragover ? 'border-blue-500 bg-blue-50' : ''}">
 		<BarqodeDropzone onDetect={onDetectUploaded} {onDragover}>
-			<div class="text-gray-500">
+			<div class="text-base-content/60">
 				<svg class="w-12 h-12 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
 				</svg>

@@ -58,9 +58,9 @@ onMount(() => {
 
 <div class="container mx-auto px-4 py-8">
 	<header class="mb-8">
-		<h1 class="text-3xl font-bold text-gray-900 mb-2">로또 6/45 통계 분석</h1>
-		<p class="text-gray-600">
-			총 <span class="font-semibold text-blue-600">{data.totalRounds}</span>회차 데이터를 기반으로 한 통계 분석
+		<h1 class="text-3xl font-bold text-base-content mb-2">로또 6/45 통계 분석</h1>
+		<p class="text-base-content/70">
+			총 <span class="font-semibold text-primary">{data.totalRounds}</span>회차 데이터를 기반으로 한 통계 분석
 			{#if data.latestRound > 0}
 				(최신: {data.latestRound}회차, {data.latestDrawDate})
 			{/if}
@@ -73,47 +73,47 @@ onMount(() => {
 			<a href="/stats/numbers" class="stats-nav-card">
 				<div class="text-2xl mb-2">🔢</div>
 				<h3 class="font-semibold text-sm">번호별 통계</h3>
-				<p class="text-xs text-gray-600">출현 빈도</p>
+				<p class="text-xs text-base-content/60">출현 빈도</p>
 			</a>
 			<a href="/stats/odd-even" class="stats-nav-card">
 				<div class="text-2xl mb-2">⚖️</div>
 				<h3 class="font-semibold text-sm">홀짝 분석</h3>
-				<p class="text-xs text-gray-600">홀수/짝수 분포</p>
+				<p class="text-xs text-base-content/60">홀수/짝수 분포</p>
 			</a>
 			<a href="/stats/colors" class="stats-nav-card">
 				<div class="text-2xl mb-2">🎨</div>
 				<h3 class="font-semibold text-sm">색깔별 통계</h3>
-				<p class="text-xs text-gray-600">공 색상 분포</p>
+				<p class="text-xs text-base-content/60">공 색상 분포</p>
 			</a>
 			<a href="/stats/sections" class="stats-nav-card">
 				<div class="text-2xl mb-2">📊</div>
 				<h3 class="font-semibold text-sm">구간별 분석</h3>
-				<p class="text-xs text-gray-600">번호 구간 분포</p>
+				<p class="text-xs text-base-content/60">번호 구간 분포</p>
 			</a>
 			<a href="/stats/high-low" class="stats-nav-card">
 				<div class="text-2xl mb-2">📈</div>
 				<h3 class="font-semibold text-sm">고저번대</h3>
-				<p class="text-xs text-gray-600">고번대/저번대</p>
+				<p class="text-xs text-base-content/60">고번대/저번대</p>
 			</a>
 			<a href="/stats/pairs" class="stats-nav-card">
 				<div class="text-2xl mb-2">👥</div>
 				<h3 class="font-semibold text-sm">번호 쌍</h3>
-				<p class="text-xs text-gray-600">동반 출현</p>
+				<p class="text-xs text-base-content/60">동반 출현</p>
 			</a>
 			<a href="/stats/repeat" class="stats-nav-card">
 				<div class="text-2xl mb-2">🔄</div>
 				<h3 class="font-semibold text-sm">연속 중복</h3>
-				<p class="text-xs text-gray-600">회차간 중복</p>
+				<p class="text-xs text-base-content/60">회차간 중복</p>
 			</a>
 			<a href="/stats/unit-digit" class="stats-nav-card">
 				<div class="text-2xl mb-2">🔟</div>
 				<h3 class="font-semibold text-sm">끝수 분석</h3>
-				<p class="text-xs text-gray-600">끝자리 분포</p>
+				<p class="text-xs text-base-content/60">끝자리 분포</p>
 			</a>
 			<a href="/stats/ac" class="stats-nav-card">
 				<div class="text-2xl mb-2">📊</div>
 				<h3 class="font-semibold text-sm">AC값</h3>
-				<p class="text-xs text-gray-600">산술 복잡도</p>
+				<p class="text-xs text-base-content/60">산술 복잡도</p>
 			</a>
 		</div>
 	</nav>
@@ -121,30 +121,30 @@ onMount(() => {
 	<!-- 주요 통계 요약 -->
 	<div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
 		<!-- 번호별 통계 요약 -->
-		<section class="bg-white rounded-lg shadow-md p-6">
+		<section class="bg-base-100 rounded-lg shadow-md p-6">
 			<h2 class="text-xl font-bold mb-4 flex items-center">
 				<span class="text-2xl mr-2">🔢</span>
 				번호별 출현 빈도
 			</h2>
 			<div class="grid grid-cols-2 gap-4">
 				<div>
-					<h3 class="font-semibold text-green-600 mb-2">최다 출현 번호</h3>
+					<h3 class="font-semibold text-success mb-2">최다 출현 번호</h3>
 					<div class="space-y-2">
 						{#each data.topNumberStats.slice(0, 5) as stat}
 							<div class="flex justify-between items-center">
 								<span class="lotto-ball">{stat.number}</span>
-								<span class="text-sm text-gray-600">{stat.draw_count}회</span>
+								<span class="text-sm text-base-content/70">{stat.draw_count}회</span>
 							</div>
 						{/each}
 					</div>
 				</div>
 				<div>
-					<h3 class="font-semibold text-red-600 mb-2">최소 출현 번호</h3>
+					<h3 class="font-semibold text-error mb-2">최소 출현 번호</h3>
 					<div class="space-y-2">
 						{#each data.bottomNumberStats.slice(0, 5) as stat}
 							<div class="flex justify-between items-center">
 								<span class="lotto-ball">{stat.number}</span>
-								<span class="text-sm text-gray-600">{stat.draw_count}회</span>
+								<span class="text-sm text-base-content/70">{stat.draw_count}회</span>
 							</div>
 						{/each}
 					</div>
@@ -158,7 +158,7 @@ onMount(() => {
 		</section>
 
 		<!-- 홀짝 분석 요약 -->
-		<section class="bg-white rounded-lg shadow-md p-6">
+		<section class="bg-base-100 rounded-lg shadow-md p-6">
 			<h2 class="text-xl font-bold mb-4 flex items-center">
 				<span class="text-2xl mr-2">⚖️</span>
 				최근 홀짝 분포
@@ -166,7 +166,7 @@ onMount(() => {
 			<div class="space-y-3">
 				{#each data.recentOddEvenStats.slice(0, 5) as stat}
 					<div class="flex items-center justify-between">
-						<span class="text-sm text-gray-600">{stat.round}회차</span>
+						<span class="text-sm text-base-content/70">{stat.round}회차</span>
 						<div class="flex items-center space-x-2">
 							<span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
 								홀수 {stat.odd_count}개
@@ -186,7 +186,7 @@ onMount(() => {
 		</section>
 
 		<!-- 색깔별 통계 요약 -->
-		<section class="bg-white rounded-lg shadow-md p-6">
+		<section class="bg-base-100 rounded-lg shadow-md p-6">
 			<h2 class="text-xl font-bold mb-4 flex items-center">
 				<span class="text-2xl mr-2">🎨</span>
 				최근 색깔 분포
@@ -194,7 +194,7 @@ onMount(() => {
 			<div class="space-y-3">
 				{#each data.recentColorStats.slice(0, 5) as stat}
 					<div class="flex items-center justify-between">
-						<span class="text-sm text-gray-600">{stat.round}회차</span>
+						<span class="text-sm text-base-content/70">{stat.round}회차</span>
 						<div class="flex items-center space-x-1">
 							<span class="color-badge yellow">{stat.yellow_count}</span>
 							<span class="color-badge blue">{stat.blue_count}</span>
@@ -213,7 +213,7 @@ onMount(() => {
 		</section>
 
 		<!-- 번호 쌍 통계 요약 -->
-		<section class="bg-white rounded-lg shadow-md p-6">
+		<section class="bg-base-100 rounded-lg shadow-md p-6">
 			<h2 class="text-xl font-bold mb-4 flex items-center">
 				<span class="text-2xl mr-2">👥</span>
 				최다 동반 출현 번호 쌍
@@ -223,10 +223,10 @@ onMount(() => {
 					<div class="flex items-center justify-between">
 						<div class="flex items-center space-x-2">
 							<span class="lotto-ball small">{stat.number_a}</span>
-							<span class="text-gray-400">+</span>
+							<span class="text-base-content/40">+</span>
 							<span class="lotto-ball small">{stat.number_b}</span>
 						</div>
-						<span class="text-sm text-gray-600">{stat.pair_count}회</span>
+						<span class="text-sm text-base-content/70">{stat.pair_count}회</span>
 					</div>
 				{/each}
 			</div>

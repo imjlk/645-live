@@ -90,19 +90,19 @@ function isWinningNumber(num: number): boolean {
 	{:else}
 		<!-- Header -->
 		<header class="text-center mb-8">
-			<h1 class="text-3xl md:text-4xl font-bold text-gray-900 mb-2">
+			<h1 class="text-3xl md:text-4xl font-bold text-base-content mb-2">
 				로또 스캔 통계 히스토리
 			</h1>
-			<p class="text-gray-600">
+			<p class="text-base-content/70">
 				회차별 QR 코드 스캔 통계를 확인하세요
 			</p>
 		</header>
 
 		<!-- Round Navigation -->
-		<div class="bg-white rounded-lg shadow-md p-6 mb-8">
+		<div class="bg-base-100 rounded-lg shadow-md p-6 mb-8">
 			<div class="flex flex-col md:flex-row items-center justify-between gap-4 mb-4">
 				<div class="flex items-center gap-2">
-					<span class="text-lg font-semibold text-gray-900">회차 선택:</span>
+					<span class="text-lg font-semibold text-base-content">회차 선택:</span>
 					<select 
 						class="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
 						value={data.targetRound}
@@ -121,7 +121,7 @@ function isWinningNumber(num: number): boolean {
 				</div>
 				
 				<div class="flex gap-2">
-					<LinkButton href="/" class="bg-gray-600 hover:bg-gray-700 text-white">
+					<LinkButton href="/" class="btn btn-neutral">
 						메인으로
 					</LinkButton>
 					<LinkButton href="/qr-scan" class="bg-blue-600 hover:bg-blue-700 text-white">
@@ -132,22 +132,22 @@ function isWinningNumber(num: number): boolean {
 		</div>
 
 		<!-- Current Round Info -->
-		<div class="bg-white rounded-lg shadow-md p-6 mb-8">
+		<div class="bg-base-100 rounded-lg shadow-md p-6 mb-8">
 			<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 				<div>
-					<h3 class="text-lg font-semibold text-gray-900 mb-2">현재 보기</h3>
+					<h3 class="text-lg font-semibold text-base-content mb-2">현재 보기</h3>
 					<p class="text-2xl font-bold text-blue-600">{data.targetRound}회차</p>
 				</div>
 				
 				<div>
-					<h3 class="text-lg font-semibold text-gray-900 mb-2">추첨일</h3>
-					<p class="text-lg text-gray-800">
+					<h3 class="text-lg font-semibold text-base-content mb-2">추첨일</h3>
+					<p class="text-lg text-base-content">
 						{data.lottoNumbers?.drwNoDate ? formatDate(data.lottoNumbers.drwNoDate) : '미공개'}
 					</p>
 				</div>
 				
 				<div>
-					<h3 class="text-lg font-semibold text-gray-900 mb-2">총 스캔 횟수</h3>
+					<h3 class="text-lg font-semibold text-base-content mb-2">총 스캔 횟수</h3>
 					<p class="text-2xl font-bold text-green-600">{totalScans.toLocaleString()}회</p>
 				</div>
 			</div>
@@ -156,20 +156,20 @@ function isWinningNumber(num: number): boolean {
 		<!-- Winning Numbers (if available) -->
 		{#if data.lottoNumbers && winningNumbers.length > 0}
 			<div class="bg-yellow-50 border border-yellow-200 rounded-lg p-6 mb-8">
-				<h3 class="text-lg font-semibold text-gray-900 mb-4">당첨 번호</h3>
+				<h3 class="text-lg font-semibold text-base-content mb-4">당첨 번호</h3>
 				<div class="flex flex-wrap gap-3 items-center">
 					{#each winningNumbers as num}
 						<LottoBall number={num} />
 					{/each}
-					<span class="text-gray-600 mx-2">보너스</span>
+					<span class="text-base-content/70 mx-2">보너스</span>
 					<LottoBall number={data.lottoNumbers.bnusNo} />
 				</div>
 			</div>
 		{/if}
 
 		<!-- Scan Statistics -->
-		<div class="bg-white rounded-lg shadow-md p-6 mb-8">
-			<h3 class="text-xl font-semibold text-gray-900 mb-6">번호별 스캔 통계</h3>
+		<div class="bg-base-100 rounded-lg shadow-md p-6 mb-8">
+			<h3 class="text-xl font-semibold text-base-content mb-6">번호별 스캔 통계</h3>
 			
 			{#if numbers.length > 0}
 				<div class="grid grid-cols-5 md:grid-cols-9 gap-3">
@@ -180,8 +180,8 @@ function isWinningNumber(num: number): boolean {
 								class={isWinningNumber(ball.id) ? "ring-4 ring-yellow-400 ring-opacity-60" : ""}
 							/>
 							<div class="text-center mt-2">
-								<span class="text-sm font-medium text-gray-900">{ball.value}</span>
-								<div class="text-xs text-gray-500">스캔</div>
+								<span class="text-sm font-medium text-base-content">{ball.value}</span>
+								<div class="text-xs text-base-content/60">스캔</div>
 							</div>
 							{#if isWinningNumber(ball.id)}
 								<div class="absolute -top-2 -right-2 bg-yellow-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
@@ -192,7 +192,7 @@ function isWinningNumber(num: number): boolean {
 					{/each}
 				</div>
 			{:else}
-				<div class="text-center py-12 text-gray-500">
+				<div class="text-center py-12 text-base-content/60">
 					<p>이 회차에 대한 스캔 데이터가 없습니다.</p>
 				</div>
 			{/if}
@@ -200,35 +200,35 @@ function isWinningNumber(num: number): boolean {
 
 		<!-- Statistics Summary -->
 		{#if numbers.length > 0}
-			<div class="bg-gray-50 rounded-lg p-6">
-				<h3 class="text-lg font-semibold text-gray-900 mb-4">통계 요약</h3>
+			<div class="bg-base-200 rounded-lg p-6">
+				<h3 class="text-lg font-semibold text-base-content mb-4">통계 요약</h3>
 				<div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
 					<div>
-						<p class="text-sm text-gray-600">최다 스캔 번호</p>
+						<p class="text-sm text-base-content/70">최다 스캔 번호</p>
 						<p class="text-xl font-bold text-blue-600">
 							{Math.max(...numbers.map(n => n.value)) > 0 
 								? numbers.find(n => n.value === Math.max(...numbers.map(n => n.value)))?.id || '-'
 								: '-'
 							}번
 						</p>
-						<p class="text-sm text-gray-500">
+						<p class="text-sm text-base-content/60">
 							{Math.max(...numbers.map(n => n.value))}회 스캔
 						</p>
 					</div>
 					
 					<div>
-						<p class="text-sm text-gray-600">평균 스캔 횟수</p>
+						<p class="text-sm text-base-content/70">평균 스캔 횟수</p>
 						<p class="text-xl font-bold text-green-600">
 							{totalScans > 0 ? (totalScans / 45).toFixed(1) : '0'}회
 						</p>
 					</div>
 					
 					<div>
-						<p class="text-sm text-gray-600">스캔된 번호</p>
+						<p class="text-sm text-base-content/70">스캔된 번호</p>
 						<p class="text-xl font-bold text-purple-600">
 							{numbers.filter(n => n.value > 0).length}개
 						</p>
-						<p class="text-sm text-gray-500">
+						<p class="text-sm text-base-content/60">
 							/ 45개 번호
 						</p>
 					</div>
