@@ -57,36 +57,44 @@ onMount(async () => {
 			<aside class="w-full sm:w-32 min-w-48 sm:flex-1 rounded-2xl bg-base-200">
 				{#key page.url.pathname}
 				<ul class="flex flex-row sm:flex-col gap-4 overflow-scroll py-2 sm:py-4 px-3">
-					<li>
+					<li class="flex-shrink-0">
 						<LinkButton 
-							class="btn-secondary btn-ghost rounded-full w-full {page.url.pathname === '/' ? 'btn-active' : ''}" 
+							class="btn-secondary btn-ghost rounded-full w-full whitespace-nowrap {page.url.pathname === '/' ? 'btn-active' : ''}" 
 							href="/"
 						>
 							홈
 						</LinkButton>
 					</li>
-					<li>
+					<li class="flex-shrink-0">
 						<LinkButton 
-							class="btn-secondary btn-ghost rounded-full w-full {page.url.pathname === '/qr-scan' ? 'btn-active' : ''}" 
+							class="btn-secondary btn-ghost rounded-full w-full whitespace-nowrap {page.url.pathname === '/qr-scan' ? 'btn-active' : ''}" 
 							href="/qr-scan"
 						>
 							QR 스캔
 						</LinkButton>
 					</li>
-					<li>
+					<li class="flex-shrink-0">
 						<LinkButton 
-							class="btn-secondary btn-ghost rounded-full w-full {page.url.pathname === '/history' ? 'btn-active' : ''}" 
+							class="btn-secondary btn-ghost rounded-full w-full whitespace-nowrap {page.url.pathname === '/history' ? 'btn-active' : ''}" 
 							href="/history"
 						>
 							지난 회차
 						</LinkButton>
 					</li>
-					<li>
+					<li class="flex-shrink-0">
 						<LinkButton 
-							class="btn-secondary btn-ghost rounded-full w-full {page.url.pathname.startsWith('/stats') ? 'btn-active' : ''}" 
+							class="btn-secondary btn-ghost rounded-full w-full whitespace-nowrap {page.url.pathname.startsWith('/stats') ? 'btn-active' : ''}" 
 							href="/stats"
 						>
 							통계
+						</LinkButton>
+					</li>
+					<li class="flex-shrink-0">
+						<LinkButton 
+							class="btn-secondary btn-ghost rounded-full w-full whitespace-nowrap {page.url.pathname.startsWith('/winning-stores') ? 'btn-active' : ''}" 
+							href="/winning-stores"
+						>
+							당첨점
 						</LinkButton>
 					</li>
 				</ul>

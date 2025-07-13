@@ -103,4 +103,9 @@ record_apis: [{
   table_name: "lotto_draw_ac_stats"
   acl_world: [READ]
   enable_subscriptions: true
+}, {
+  name: "lotto_winning_stores"
+  table_name: "lotto_winning_stores"
+  acl_world: [READ]
+  enable_subscriptions: false
 }]
