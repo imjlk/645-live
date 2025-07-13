@@ -6,20 +6,31 @@ import type { PageServerLoad } from "./$types";
 const client = initClient(env.TRAILBASE_URL || "http://localhost:4000");
 
 export const load: PageServerLoad = async () => {
-	// 초기 SSR은 최신 회차 기준으로만 수행
-	// 쿼리 파라미터는 클라이언트에서 처리
-	const now = new Date();
-	const lottoStartDate = new Date(2002, 11, 7); // 2002년 12월 7일 (1회차)
-	const diffTime = now.getTime() - lottoStartDate.getTime();
-	const diffWeeks = Math.floor(diffTime / (1000 * 60 * 60 * 24 * 7));
-	const defaultRound = Math.max(1, diffWeeks - 1);
+	let defaultRound = 0; // 기본값
 
 	try {
-		const response = await client.records("lotto_winning_stores").list({
-			order: ["win_type", "id"],
+		// 최신 레코드 하나를 가져와서 회차 확인
+		const latestResponse = await client.records("lotto_winning_stores").list({
+			order: ["-id"], // ID 역순으로 정렬 (최신부터)
+			pagination: { limit: 1 },
 		});
 
-		let stores = response.records as Array<{
+		if (latestResponse.records.length > 0) {
+			const latestRecord = latestResponse.records[0] as { round: number };
+			defaultRound = latestRecord.round;
+		}
+
+		console.log(`최신 회차: ${defaultRound}`);
+
+		// 해당 회차의 모든 당첨점 조회
+		const response = await client.records("lotto_winning_stores").list({
+			order: ["win_type", "id"],
+			filters: [
+				{ column: "round", op: "equal", value: defaultRound.toString() },
+			],
+		});
+
+		const stores = response.records as Array<{
 			id: number;
 			round: number;
 			store_name: string;
@@ -28,8 +39,7 @@ export const load: PageServerLoad = async () => {
 			selection_type?: "자동" | "수동";
 		}>;
 
-		// 기본 회차로 필터링
-		stores = stores.filter((store) => store.round === defaultRound);
+		// 서버에서 이미 필터링했으므로 클라이언트 필터링 제거
 
 		// 결과 통계 계산
 		const firstPlaceCount = stores.filter(

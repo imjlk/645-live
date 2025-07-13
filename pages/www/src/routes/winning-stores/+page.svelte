@@ -37,8 +37,8 @@ const urlRound = derived(page, ($page) => {
 	return data.initialRound;
 });
 
-// 현재 상태 변수들 - 초기값을 URL에서 설정
-let round = $urlRound;
+// 현재 상태 변수들 - 초기값을 data에서 설정
+let round = data.initialRound;
 let stores = data.initialStores;
 let statistics = data.initialStatistics;
 let loading = false;
@@ -55,7 +55,7 @@ async function fetchWinningStores() {
 		// Trailbase 쿼리 파라미터 형식으로 필터링
 		const response = await client.records("lotto_winning_stores").list({
 			order: ["win_type", "id"],
-			filters: [{ column: "round", op: "equal", value: $urlRound.toString() }],
+			filters: [{ column: "round", op: "equal", value: round.toString() }],
 		});
 
 		let fetchedStores = response.records as Array<{
@@ -113,11 +113,6 @@ onMount(() => {
 			fetchWinningStores();
 		}
 	});
-
-	// 초기 로드 - URL 파라미터가 서버 초기값과 다른 경우
-	if (round !== data.initialRound) {
-		fetchWinningStores();
-	}
 
 	// cleanup
 	return () => {
