@@ -50,6 +50,7 @@
 		"hono": "^4.7.11",
 		"nuqs-svelte": "^1.2.1",
 		"postgres": "^3.4.7",
+		"svelte-meta-tags": "^4.4.0",
 		"svelte-sonner": "^1.0.5"
 	}
 }
