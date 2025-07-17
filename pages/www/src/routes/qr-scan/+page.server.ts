@@ -82,18 +82,26 @@ export const actions: Actions = {
 
 			clearTimeout(timeoutId);
 
-			if (!response.ok) {
-				return fail(500, { error: `서버 오류: ${response.status}` });
-			}
-
 			const result = (await response.json()) as {
 				success: boolean;
 				message?: string;
+				isDuplicate?: boolean;
 				data?: {
 					uniqueNumbers: number[];
 					gamesCount: number;
 				};
 			};
+
+			if (!response.ok) {
+				// 409 Conflict는 중복 스캔을 의미
+				if (response.status === 409 || result.isDuplicate) {
+					return fail(409, {
+						error: "이미 스캔한 QR 코드입니다.",
+						isDuplicate: true,
+					});
+				}
+				return fail(500, { error: `서버 오류: ${response.status}` });
+			}
 
 			if (result.success) {
 				return {

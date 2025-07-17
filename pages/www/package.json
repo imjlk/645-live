@@ -49,6 +49,7 @@
 		"drizzle-orm": "^0.44.1",
 		"hono": "^4.7.11",
 		"nuqs-svelte": "^1.2.1",
-		"postgres": "^3.4.7"
+		"postgres": "^3.4.7",
+		"svelte-sonner": "^1.0.5"
 	}
 }

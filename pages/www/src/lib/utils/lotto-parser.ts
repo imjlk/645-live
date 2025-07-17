@@ -33,8 +33,8 @@ export function parseDhlotteryURL(url: string): LottoParseResult | null {
 			return null;
 		}
 
-		// 안전한 문자만 허용 (숫자, q만)
-		if (!/^[0-9q]+$/.test(queryValue)) {
+		// 안전한 문자만 허용 (숫자, q, n)
+		if (!/^[0-9qn]+$/.test(queryValue)) {
 			return null;
 		}
 
@@ -45,7 +45,7 @@ export function parseDhlotteryURL(url: string): LottoParseResult | null {
 			return null;
 		}
 
-		const gameStrings = queryValue.split("q");
+		const gameStrings = queryValue.split(/[qn]/);
 		gameStrings.shift(); // Remove the first element which contains the draw number
 
 		// 게임 개수 제한 (DoS 방지)
@@ -65,8 +65,19 @@ export function parseDhlotteryURL(url: string): LottoParseResult | null {
 			gameStrings.push(lastGameString.slice(0, 12)); // Take only the first 12 characters
 		}
 
+		// 빈 게임 문자열과 모든 0으로 구성된 게임 필터링
+		const validGameStrings = gameStrings.filter(gameString => {
+			// 빈 문자열 제거
+			if (!gameString || gameString.length === 0) return false;
+			// 모든 0으로 구성된 게임 제거
+			if (/^0+$/.test(gameString)) return false;
+			// 길이가 12가 아닌 게임 제거 (6개 번호 * 2자리)
+			if (gameString.length !== 12) return false;
+			return true;
+		});
+
 		// Split each game string into pairs of digits
-		const lotteryGames = gameStrings.map(
+		const lotteryGames = validGameStrings.map(
 			(gameString) => gameString.match(/.{1,2}/g) || [],
 		);
 

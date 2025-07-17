@@ -1,6 +1,11 @@
 <script lang="ts">
 import { enhance } from "$app/forms";
 import { env } from "$env/dynamic/public";
+import {
+	type LottoDrawResult,
+	getLatestLottoRoundFromAPI,
+	getLottoNumbersFromAPI,
+} from "$lib/utils/lotto-common.js";
 import { type LottoGameData, parseLottoQR } from "$lib/utils/lotto-parser.js";
 import {
 	type BarcodeFormat,
@@ -8,6 +13,7 @@ import {
 	BarqodeStream,
 	type DetectedBarcode,
 } from "barqode";
+import { Toaster, toast } from "svelte-sonner";
 import { initClient } from "trailbase";
 import type { ActionData, PageData } from "./$types";
 
@@ -46,8 +52,6 @@ let cameraFOVs = $state<Map<string, number>>(new Map());
 let lastDetected = $state("");
 let uploaded = $state("");
 let processedNumbers = $state<number[]>([]);
-let scanSuccess = $state(false);
-let scanError = $state("");
 let isSubmittingForm = $state(false);
 
 // Trailbase client
@@ -56,6 +60,152 @@ const client = initClient(env.PUBLIC_TRAILBASE_URL || "http://localhost:4000");
 // Form element reference for programmatic submission
 let scanForm: HTMLFormElement;
 let qrDataInput: HTMLInputElement;
+
+// ===== LOTTO WINNING CHECK UTILITIES =====
+interface WinningResult {
+	isWinner: boolean;
+	grade: string;
+	matchCount: number;
+	bonusMatch: boolean;
+	prize: string;
+	message: string;
+}
+
+/**
+ * 로또 당첨 등급 확인
+ */
+function checkLottoWinning(
+	userNumbers: number[],
+	winningNumbers: number[],
+	bonusNumber: number,
+	firstPrizeAmount?: number,
+): WinningResult {
+	const matchCount = userNumbers.filter((num) =>
+		winningNumbers.includes(num),
+	).length;
+	const bonusMatch = userNumbers.includes(bonusNumber);
+
+	let grade = "";
+	let prize = "";
+	let message = "";
+	let hasWin = false;
+
+	if (matchCount === 6) {
+		grade = "1등";
+		prize = firstPrizeAmount ? `${firstPrizeAmount.toLocaleString()}원` : "";
+		message = "🎉🎉🎉 1등 당첨!!! 대박!!! 🎉🎉🎉";
+		hasWin = true;
+	} else if (matchCount === 5 && bonusMatch) {
+		grade = "2등";
+		prize = "";
+		message = "🎉🎉 2등 당첨!! 축하합니다! 🎉🎉";
+		hasWin = true;
+	} else if (matchCount === 5) {
+		grade = "3등";
+		prize = "";
+		message = "🎉 3등 당첨! 축하합니다! 🎉";
+		hasWin = true;
+	} else if (matchCount === 4) {
+		grade = "4등";
+		prize = "";
+		message = "🎊 4등 당첨! 🎊";
+		hasWin = true;
+	} else if (matchCount === 3) {
+		grade = "5등";
+		prize = "";
+		message = "🎈 5등 당첨! 🎈";
+		hasWin = true;
+	}
+
+	return {
+		isWinner: hasWin,
+		grade,
+		matchCount,
+		bonusMatch,
+		prize,
+		message,
+	};
+}
+
+/**
+ * QR 코드의 게임들을 최신 당첨 번호와 비교
+ */
+async function checkQRWinning(
+	qrData: string,
+): Promise<{
+	isWinner: boolean;
+	winningResults: WinningResult[];
+	latestRound: number;
+	isUnreleased?: boolean;
+} | null> {
+	try {
+		// 최신 회차 정보 가져오기
+		const latestInfo = await getLatestLottoRoundFromAPI();
+		if (!latestInfo) {
+			console.error("최신 회차 정보를 가져올 수 없습니다");
+			return null;
+		}
+
+		// 최신 회차 당첨 번호 가져오기
+		const winningData = await getLottoNumbersFromAPI(latestInfo.drwNo);
+		if (!winningData) {
+			console.error("당첨 번호 정보를 가져올 수 없습니다");
+			return null;
+		}
+
+		// 당첨 번호가 모두 0이면 아직 발표되지 않은 회차
+		if (winningData.drwtNo1 === 0 && winningData.drwtNo2 === 0 && winningData.drwtNo3 === 0) {
+			return {
+				isWinner: false,
+				winningResults: [],
+				latestRound: latestInfo.drwNo,
+				isUnreleased: true,
+			};
+		}
+
+		const winningNumbers = [
+			winningData.drwtNo1,
+			winningData.drwtNo2,
+			winningData.drwtNo3,
+			winningData.drwtNo4,
+			winningData.drwtNo5,
+			winningData.drwtNo6,
+		];
+		const bonusNumber = winningData.bnusNo;
+
+		// QR 코드 파싱
+		const games = parseLottoQR(qrData);
+		if (!games || games.length === 0) {
+			return null;
+		}
+
+		// 각 게임에 대해 당첨 확인
+		const winningResults: WinningResult[] = [];
+		let hasWinner = false;
+
+		for (const game of games) {
+			const result = checkLottoWinning(
+				game.numbers,
+				winningNumbers,
+				bonusNumber,
+				winningData.firstWinamnt,
+			);
+			winningResults.push(result);
+			if (result.isWinner) {
+				hasWinner = true;
+			}
+		}
+
+		return {
+			isWinner: hasWinner,
+			winningResults,
+			latestRound: latestInfo.drwNo,
+		};
+	} catch (error) {
+		console.error("당첨 확인 중 오류:", error);
+		return null;
+	}
+}
 
 // ===== DERIVED STATES =====
 let deviceInfos = $derived(
@@ -102,6 +252,11 @@ async function onDetectUploaded(detectedCodes: DetectedBarcode[]) {
 		const qrData = detectedCodes[0].rawValue;
 		console.log("Detected QR from uploaded image:", qrData);
 
+		toast.info("📷 이미지에서 QR 코드 감지됨", {
+			description: "QR 코드를 처리하고 있습니다...",
+			duration: 3000,
+		});
+
 		// 서버 액션을 통해 처리
 		await submitQRData(qrData);
 	}
@@ -112,6 +267,9 @@ async function submitQRData(qrData: string) {
 	try {
 		if (!scanForm || !qrDataInput) {
 			console.error("Form elements not found");
+			toast.error("❌ 폼 요소를 찾을 수 없습니다", {
+				description: "페이지를 새로고침하고 다시 시도해주세요.",
+			});
 			return;
 		}
 
@@ -123,7 +281,9 @@ async function submitQRData(qrData: string) {
 		scanForm.requestSubmit();
 	} catch (error) {
 		console.error("Form submission error:", error);
-		scanError = "폼 제출 중 오류가 발생했습니다.";
+		toast.error("❌ 폼 제출 실패", {
+			description: "폼 제출 중 오류가 발생했습니다.",
+		});
 		isSubmittingForm = false;
 	}
 }
@@ -134,22 +294,129 @@ $effect(() => {
 		isSubmittingForm = false;
 
 		if (form.success) {
-			scanSuccess = true;
-			scanError = "";
 			if (form.data?.uniqueNumbers) {
 				processedNumbers = form.data.uniqueNumbers;
 			}
 
-			setTimeout(() => {
-				scanSuccess = false;
-			}, 3000);
+			// 실제 당첨 번호와 비교하여 당첨 여부 확인
+			const qrData = form.data?.qrData;
+
+			if (qrData) {
+				// 비동기적으로 당첨 확인 수행
+				checkQRWinning(qrData)
+					.then((winningCheck) => {
+						if (winningCheck) {
+							const { isWinner, winningResults, latestRound, isUnreleased } = winningCheck;
+
+							if (isUnreleased) {
+								// 아직 발표되지 않은 회차
+								toast.info("📝 게임 정보 기록됨", {
+									description: `${latestRound}회차 당첨 번호 미발표 | ${form.data?.gamesCount}개 게임 기록됨`,
+									duration: 5000,
+								});
+							} else if (isWinner) {
+								// 당첨된 게임들 찾기
+								const winners = winningResults.filter(
+									(result) => result.isWinner,
+								);
+								const highestGrade = winners.reduce((highest, current) => {
+									const gradeOrder = {
+										"1등": 1,
+										"2등": 2,
+										"3등": 3,
+										"4등": 4,
+										"5등": 5,
+									};
+									return gradeOrder[current.grade as keyof typeof gradeOrder] <
+										gradeOrder[highest.grade as keyof typeof gradeOrder]
+										? current
+										: highest;
+								});
+
+								// 당첨 토스트 표시 - 등급별 스타일 구분
+								if (
+									highestGrade.grade === "1등" ||
+									highestGrade.grade === "2등"
+								) {
+									// 1등, 2등은 특별한 스타일
+									const prizeText = highestGrade.prize ? ` (${highestGrade.prize})` : "";
+									toast.success(highestGrade.message, {
+										description: `${latestRound}회차 당첨 확인 - ${highestGrade.grade}${prizeText} | 총 ${form.data?.gamesCount}개 게임 중 ${winners.length}개 당첨`,
+										duration: 15000,
+										richColors: true,
+										style:
+											"background: linear-gradient(135deg, #fbbf24, #f59e0b); color: white; border: 2px solid #d97706;",
+									});
+								} else {
+									// 3등, 4등, 5등은 일반 당첨 스타일
+									const prizeText = highestGrade.prize ? ` (${highestGrade.prize})` : "";
+									toast.success(highestGrade.message, {
+										description: `${latestRound}회차 당첨 확인 - ${highestGrade.grade}${prizeText} | 총 ${form.data?.gamesCount}개 게임 중 ${winners.length}개 당첨`,
+										duration: 10000,
+										richColors: true,
+									});
+								}
+
+								// 각 당첨 게임에 대한 상세 정보
+								winners.forEach((winner, index) => {
+									setTimeout(
+										() => {
+											const prizeText = winner.prize ? ` (${winner.prize})` : "";
+											toast.info(`🎯 당첨 게임 ${index + 1}`, {
+												description: `${winner.grade} - ${winner.matchCount}개 번호 일치${winner.bonusMatch ? " + 보너스" : ""}${prizeText}`,
+												duration: 8000,
+											});
+										},
+										(index + 1) * 1000,
+									);
+								});
+							} else {
+								// 일반 성공 토스트
+								toast.success("✅ QR 스캔 성공!", {
+									description: `${latestRound}회차 당첨 확인 완료 - 당첨 없음 | ${form.data?.gamesCount}개 게임 처리됨`,
+									duration: 5000,
+								});
+							}
+						} else {
+							// 당첨 확인 실패 시 기본 성공 메시지
+							toast.success("✅ QR 스캔 성공!", {
+								description: `${form.data?.gamesCount}개 게임 처리됨 (당첨 확인 불가)`,
+								duration: 5000,
+							});
+						}
+					})
+					.catch((error) => {
+						console.error("당첨 확인 중 오류:", error);
+						// 에러 발생 시에도 기본 성공 메시지 표시
+						toast.success("✅ QR 스캔 성공!", {
+							description: `${form.data?.gamesCount}개 게임 처리됨 (당첨 확인 실패)`,
+							duration: 5000,
+						});
+					});
+			} else {
+				// QR 데이터가 없는 경우 기본 성공 메시지
+				toast.success("✅ QR 스캔 성공!", {
+					description: `${form.data?.gamesCount}개 게임 처리됨`,
+					duration: 5000,
+				});
+			}
 
 			console.log(
-				`서버 액션 스캔 완료: ${form.data?.gamesCount}개 게임, ${form.data?.uniqueNumbers?.length}개 고유 번호`,
+				`서버 액션 스캔 완료: ${form.data?.gamesCount}개 게임`,
 			);
 		} else if (form.error) {
-			scanError = form.error;
-			scanSuccess = false;
+			// 에러 메시지에 따라 다른 토스트 표시
+			if (form.error.includes("이미 스캔") || "isDuplicate" in form) {
+				toast.info("ℹ️ 이미 스캔한 QR 코드입니다", {
+					description: "중복된 QR 코드는 다시 처리되지 않습니다.",
+					duration: 4000,
+				});
+			} else {
+				toast.error("❌ 스캔 실패", {
+					description: form.error,
+					duration: 6000,
+				});
+			}
 		}
 	}
 });
@@ -391,6 +658,22 @@ async function requestPermission() {
 }
 </script>
 
+<!-- Toaster 컴포넌트 추가 -->
+<Toaster 
+	position="top-center" 
+	richColors 
+	closeButton 
+	duration={5000}
+	toastOptions={{
+		style: 'background: white; color: black; border: 1px solid #e5e7eb;',
+		classes: {
+			toast: 'shadow-lg',
+			title: 'font-medium',
+			description: 'text-sm opacity-75'
+		}
+	}}
+/>
+
 <!-- 숨겨진 폼 - QR 데이터를 서버 액션으로 전송 -->
 <form 
 	bind:this={scanForm}
@@ -472,34 +755,10 @@ async function requestPermission() {
 		</div>
 	{/if}
 
-	{#if lastDetected}
-		<div class="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-			<p class="text-sm text-green-700 font-medium">마지막 스캔 결과:</p>
-			<p class="text-green-800 break-all">{lastDetected}</p>
-		</div>
-	{/if}
-
-	{#if scanSuccess}
-		<div class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-			<p class="text-sm text-blue-700 font-medium">✅ 스캔 성공!</p>
-			{#if processedNumbers.length > 0}
-				<p class="text-blue-800 text-sm mt-1">
-					처리된 번호: {processedNumbers.join(', ')}
-				</p>
-			{/if}
-		</div>
-	{/if}
 
 	{#if isSubmittingForm}
 		<div class="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-			<p class="text-sm text-yellow-700 font-medium">⏳ 스캔 데이터 처리 중...</p>
-		</div>
-	{/if}
-
-	{#if scanError}
-		<div class="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-			<p class="text-sm text-red-700 font-medium">❌ 스캔 오류:</p>
-			<p class="text-red-800 text-sm">{scanError}</p>
+			<p class="text-sm text-yellow-700 font-medium">⏳ QR 데이터 처리 및 당첨 확인 중...</p>
 		</div>
 	{/if}
 
@@ -513,13 +772,6 @@ async function requestPermission() {
 			</div>
 		</BarqodeDropzone>
 	</div>
-
-	{#if uploaded}
-		<div class="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-			<p class="text-sm text-blue-700 font-medium">업로드 이미지 스캔 결과:</p>
-			<p class="text-blue-800 break-all">{uploaded}</p>
-		</div>
-	{/if}
 </div>
 
 {#if showPermissionModal}
