@@ -5,6 +5,7 @@ import "../app.css";
 import Footer from "$lib/layout/Footer.svelte";
 import { getScanCountApi } from "$lib/stores/streamStore";
 import LinkButton from "$lib/ui/LinkButton.svelte";
+import Clarity from "@microsoft/clarity";
 import { NuqsAdapter } from "nuqs-svelte/adapters/svelte-kit";
 import { onMount } from "svelte";
 
@@ -30,6 +31,11 @@ $effect(() => {
 });
 
 onMount(async () => {
+	// Microsoft Clarity 초기화 (프로덕션에서만)
+	if (import.meta.env.PROD) {
+		Clarity.init("qeumg5ffol");
+	}
+
 	// 실제 데이터가 있는 회차들을 가져오기
 	const api = getScanCountApi();
 	if (api) {
