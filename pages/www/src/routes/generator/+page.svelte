@@ -2,7 +2,6 @@
 import { env } from "$env/dynamic/public";
 import { onMount } from "svelte";
 import { JsonLd, MetaTags } from "svelte-meta-tags";
-import { writable } from "svelte/store";
 import { initClient } from "trailbase";
 
 // --- Type Definitions ---
@@ -58,76 +57,97 @@ interface LottoStats {
 	highLowStats: HighLowStat[];
 }
 
-// --- Trailbase Client and Data Stores ---
+// --- Trailbase Client and Reactive State ---
 const client = initClient(env.PUBLIC_TRAILBASE_URL || "http://localhost:4000");
-const lottoStats = writable<LottoStats | null>(null);
-const numberOfSets = writable(5);
-const includedNumbers = writable<Set<number>>(new Set());
-const excludedNumbers = writable<Set<number>>(new Set());
-const generatedLottoSets = writable<number[][]>([]);
-const isLoading = writable(false);
-const isLoadingStats = writable(true);
-const error = writable<string | null>(null);
+let lottoStats = $state<LottoStats | null>(null);
+let numberOfSets = $state(5);
+let includedNumbers = $state<Set<number>>(new Set());
+let excludedNumbers = $state<Set<number>>(new Set());
+let generatedLottoSets = $state<number[][]>([]);
+let isLoading = $state(false);
+let isLoadingStats = $state(true);
+let error = $state<string | null>(null);
 
-// --- Statistical Filter Stores ---
-const sumRange = writable({ min: 100, max: 180, enabled: false });
-const oddEvenRatio = writable({ odd: 3, even: 3, enabled: false });
-const highLowRatio = writable({ high: 3, low: 3, enabled: false });
-const consecutiveCount = writable({ max: 1, enabled: false });
+// --- Statistical Filter State ---
+let sumRange = $state({ min: 100, max: 180, enabled: false });
+let oddEvenRatio = $state({ odd: 3, even: 3, enabled: false });
+let highLowRatio = $state({ high: 3, low: 3, enabled: false });
+let consecutiveCount = $state({ max: 1, enabled: false });
 
-onMount(async () => {
-	isLoadingStats.set(true);
-	try {
-		const [numStats, oeStats, colStats, secStats, consStats, hlStats] =
-			await Promise.all([
-				client
-					.records("lotto_number_stats")
-					.list({ pagination: { limit: 100 } }),
-				client
-					.records("lotto_draw_odd_even_stats")
-					.list({ pagination: { limit: 1024 } }),
-				client
-					.records("lotto_draw_color_stats")
-					.list({ pagination: { limit: 1024 } }),
-				client
-					.records("lotto_draw_section_stats")
-					.list({ pagination: { limit: 1024 } }),
-				client
-					.records("lotto_draw_consecutive_stats")
-					.list({ pagination: { limit: 1024 } }),
-				client
-					.records("lotto_draw_high_low_stats")
-					.list({ pagination: { limit: 1024 } }),
-			]);
+onMount(() => {
+	// Load statistics data
+	async function loadStats() {
+		isLoadingStats = true;
+		try {
+			const [numStats, oeStats, colStats, secStats, consStats, hlStats] =
+				await Promise.all([
+					client
+						.records("lotto_number_stats")
+						.list({ pagination: { limit: 100 } }),
+					client
+						.records("lotto_draw_odd_even_stats")
+						.list({ pagination: { limit: 1024 } }),
+					client
+						.records("lotto_draw_color_stats")
+						.list({ pagination: { limit: 1024 } }),
+					client
+						.records("lotto_draw_section_stats")
+						.list({ pagination: { limit: 1024 } }),
+					client
+						.records("lotto_draw_consecutive_stats")
+						.list({ pagination: { limit: 1024 } }),
+					client
+						.records("lotto_draw_high_low_stats")
+						.list({ pagination: { limit: 1024 } }),
+				]);
 
-		lottoStats.set({
-			numberStats: numStats.records as unknown as NumberStat[],
-			oddEvenStats: oeStats.records as unknown as OddEvenStat[],
-			colorStats: colStats.records as unknown as ColorStat[],
-			sectionStats: secStats.records as unknown as SectionStat[],
-			consecutiveStats: consStats.records as unknown as ConsecutiveStat[],
-			highLowStats: hlStats.records as unknown as HighLowStat[],
-		});
-	} catch (e: unknown) {
-		const errorMessage = e instanceof Error ? e.message : String(e);
-		error.set(`통계 데이터 로딩 실패: ${errorMessage}`);
-		console.error(e);
-	} finally {
-		isLoadingStats.set(false);
+			lottoStats = {
+				numberStats: numStats.records as unknown as NumberStat[],
+				oddEvenStats: oeStats.records as unknown as OddEvenStat[],
+				colorStats: colStats.records as unknown as ColorStat[],
+				sectionStats: secStats.records as unknown as SectionStat[],
+				consecutiveStats: consStats.records as unknown as ConsecutiveStat[],
+				highLowStats: hlStats.records as unknown as HighLowStat[],
+			};
+		} catch (e: unknown) {
+			const errorMessage = e instanceof Error ? e.message : String(e);
+			error = `통계 데이터 로딩 실패: ${errorMessage}`;
+			console.error(e);
+		} finally {
+			isLoadingStats = false;
+		}
 	}
+
+	loadStats();
+
+	// Add scroll listener for mobile button visibility
+	const handleScroll = () => {
+		scrollY = window.scrollY;
+	};
+	window.addEventListener("scroll", handleScroll);
+
+	return () => {
+		window.removeEventListener("scroll", handleScroll);
+	};
 });
 
 // --- Lotto Number Generation Logic ---
 async function generateNumbers() {
-	isLoading.set(true);
-	error.set(null);
-	generatedLottoSets.set([]);
+	// Check if number of sets exceeds maximum
+	if (numberOfSets > 100) {
+		alert("생성 개수는 최대 100개까지 가능합니다.");
+		return;
+	}
+
+	isLoading = true;
+	error = null;
+	generatedLottoSets = [];
 
 	try {
 		const sets: number[][] = [];
 		const maxAttempts = 30000;
 
-		for (let i = 0; i < $numberOfSets; i++) {
+		for (let i = 0; i < numberOfSets; i++) {
 			let attempts = 0;
 			while (attempts < maxAttempts) {
 				const candidateSet = generateSingleCandidate();
@@ -143,18 +163,35 @@ async function generateNumbers() {
 				);
 			}
 		}
-		generatedLottoSets.set(sets);
+		generatedLottoSets = sets;
 	} catch (e: unknown) {
-		const errorMessage = e instanceof Error ? e.message : "An unknown error occurred.";
-		error.set(errorMessage);
+		const errorMessage =
+			e instanceof Error ? e.message : "An unknown error occurred.";
+		error = errorMessage;
 	} finally {
-		isLoading.set(false);
+		isLoading = false;
 	}
 }
 
+// Mobile-specific function that generates numbers and scrolls to results
+async function generateNumbersAndScroll() {
+	await generateNumbers();
+
+	// Scroll to results section on mobile after generation
+	setTimeout(() => {
+		const resultsSection = document.getElementById("results-section");
+		if (resultsSection) {
+			resultsSection.scrollIntoView({
+				behavior: "smooth",
+				block: "start",
+			});
+		}
+	}, 100); // Small delay to ensure DOM is updated
+}
+
 function generateSingleCandidate(): number[] {
-	const include = Array.from($includedNumbers);
-	const exclude = Array.from($excludedNumbers);
+	const include = Array.from(includedNumbers);
+	const exclude = Array.from(excludedNumbers);
 	const singleSet = new Set<number>(include);
 	const availableNumbers = Array.from({ length: 45 }, (_, i) => i + 1).filter(
 		(n) => !exclude.includes(n) && !include.includes(n),
@@ -172,56 +209,49 @@ function generateSingleCandidate(): number[] {
 }
 
 function isValid(set: number[]): boolean {
-	if ($sumRange.enabled) {
+	if (sumRange.enabled) {
 		const sum = set.reduce((a, b) => a + b, 0);
-		if (sum < $sumRange.min || sum > $sumRange.max) return false;
+		if (sum < sumRange.min || sum > sumRange.max) return false;
 	}
-	if ($oddEvenRatio.enabled) {
+	if (oddEvenRatio.enabled) {
 		const oddCount = set.filter((n) => n % 2 !== 0).length;
 		const evenCount = 6 - oddCount;
-		if (oddCount !== $oddEvenRatio.odd || evenCount !== $oddEvenRatio.even)
+		if (oddCount !== oddEvenRatio.odd || evenCount !== oddEvenRatio.even)
 			return false;
 	}
-	if ($highLowRatio.enabled) {
+	if (highLowRatio.enabled) {
 		const highCount = set.filter((n) => n >= 23).length;
 		const lowCount = 6 - highCount;
-		if (highCount !== $highLowRatio.high || lowCount !== $highLowRatio.low)
+		if (highCount !== highLowRatio.high || lowCount !== highLowRatio.low)
 			return false;
 	}
-	if ($consecutiveCount.enabled) {
+	if (consecutiveCount.enabled) {
 		let pairs = 0;
 		for (let i = 0; i < set.length - 1; i++) {
 			if (set[i + 1] - set[i] === 1) pairs++;
 		}
-		if (pairs > $consecutiveCount.max) return false;
+		if (pairs > consecutiveCount.max) return false;
 	}
 	return true;
 }
 
-function toggleNumber(
-	store: typeof includedNumbers | typeof excludedNumbers,
-	num: number,
-) {
-	store.update((set) => {
-		if (set.has(num)) {
-			set.delete(num);
+function toggleNumber(setType: "included" | "excluded", num: number) {
+	if (setType === "included") {
+		if (includedNumbers.has(num)) {
+			includedNumbers.delete(num);
 		} else {
-			if (store === includedNumbers) {
-				if (set.size >= 5) return set;
-				excludedNumbers.update((s) => {
-					s.delete(num);
-					return s;
-				});
-			} else {
-				includedNumbers.update((s) => {
-					s.delete(num);
-					return s;
-				});
-			}
-			set.add(num);
+			if (includedNumbers.size >= 5) return;
+			excludedNumbers.delete(num);
+			includedNumbers.add(num);
 		}
-		return set;
-	});
+	} else {
+		if (excludedNumbers.has(num)) {
+			excludedNumbers.delete(num);
+		} else {
+			includedNumbers.delete(num);
+			excludedNumbers.add(num);
+		}
+	}
 }
 
 function getNumberColor(n: number): string {
@@ -232,11 +262,27 @@ function getNumberColor(n: number): string {
 	return "bg-green-500 text-white";
 }
 
-$: sortedNumberStats = $lottoStats?.numberStats
-	? [...$lottoStats.numberStats].sort(
-			(a, b) => (b.draw_count || 0) - (a.draw_count || 0),
-		)
-	: [];
+// Computed property using $derived
+const sortedNumberStats = $derived(
+	lottoStats?.numberStats
+		? [...lottoStats.numberStats].sort(
+				(a, b) => (b.draw_count || 0) - (a.draw_count || 0),
+			)
+		: [],
+);
+
+// Track scroll position for mobile button visibility
+let scrollY = $state(0);
+let isNearBottom = $state(false);
+
+// Update isNearBottom when scrollY changes
+$effect(() => {
+	if (typeof window !== "undefined" && document.documentElement) {
+		const threshold =
+			document.documentElement.scrollHeight - window.innerHeight - 200;
+		isNearBottom = scrollY > threshold;
+	}
+});
 </script>
 
 <MetaTags
@@ -300,7 +346,7 @@ $: sortedNumberStats = $lottoStats?.numberStats
 					<input
 						type="number"
 						id="num-sets"
-						bind:value={$numberOfSets}
+						bind:value={numberOfSets}
 						class="input input-bordered w-24"
 						min="1"
 						max="100"
@@ -316,11 +362,11 @@ $: sortedNumberStats = $lottoStats?.numberStats
 					<div class="grid grid-cols-9 gap-2">
 						{#each Array.from({ length: 45 }, (_, i) => i + 1) as num}
 							<button
-								on:click={() => toggleNumber(includedNumbers, num)}
+								onclick={() => toggleNumber('included', num)}
 								class="btn btn-sm rounded-full transition-all"
-								class:bg-blue-500={$includedNumbers.has(num)}
-								class:text-white={$includedNumbers.has(num)}
-								disabled={$includedNumbers.size >= 5 && !$includedNumbers.has(num)}
+								class:bg-blue-500={includedNumbers.has(num)}
+								class:text-white={includedNumbers.has(num)}
+								disabled={includedNumbers.size >= 5 && !includedNumbers.has(num)}
 							>
 								{num}
 							</button>
@@ -332,10 +378,10 @@ $: sortedNumberStats = $lottoStats?.numberStats
 					<div class="grid grid-cols-9 gap-2">
 						{#each Array.from({ length: 45 }, (_, i) => i + 1) as num}
 							<button
-								on:click={() => toggleNumber(excludedNumbers, num)}
+								onclick={() => toggleNumber('excluded', num)}
 								class="btn btn-sm rounded-full transition-all"
-								class:bg-red-500={$excludedNumbers.has(num)}
-								class:text-white={$excludedNumbers.has(num)}
+								class:bg-red-500={excludedNumbers.has(num)}
+								class:text-white={excludedNumbers.has(num)}
 							>
 								{num}
 							</button>
@@ -353,7 +399,7 @@ $: sortedNumberStats = $lottoStats?.numberStats
 							<input 
 								type="checkbox" 
 								id="sum-range-filter"
-								bind:checked={$sumRange.enabled} 
+								bind:checked={sumRange.enabled} 
 								class="checkbox" 
 							/>
 							<span class="font-medium">번호 총합:</span>
@@ -363,9 +409,9 @@ $: sortedNumberStats = $lottoStats?.numberStats
 							<input 
 								type="number" 
 								id="sum-min"
-								bind:value={$sumRange.min} 
+								bind:value={sumRange.min} 
 								class="input input-bordered input-sm w-20" 
-								disabled={!$sumRange.enabled}
+								disabled={!sumRange.enabled}
 								aria-label="최소 합계"
 							/>
 							<span>~</span>
@@ -373,9 +419,9 @@ $: sortedNumberStats = $lottoStats?.numberStats
 							<input 
 								type="number" 
 								id="sum-max"
-								bind:value={$sumRange.max} 
+								bind:value={sumRange.max} 
 								class="input input-bordered input-sm w-20" 
-								disabled={!$sumRange.enabled}
+								disabled={!sumRange.enabled}
 								aria-label="최대 합계"
 							/>
 						</div>
@@ -385,7 +431,7 @@ $: sortedNumberStats = $lottoStats?.numberStats
 							<input 
 								type="checkbox" 
 								id="odd-even-filter"
-								bind:checked={$oddEvenRatio.enabled} 
+								bind:checked={oddEvenRatio.enabled} 
 								class="checkbox" 
 							/>
 							<span class="font-medium">홀:짝 비율:</span>
@@ -395,9 +441,9 @@ $: sortedNumberStats = $lottoStats?.numberStats
 							<select 
 								class="select select-bordered select-sm w-16" 
 								id="odd-count"
-								bind:value={$oddEvenRatio.odd} 
-								disabled={!$oddEvenRatio.enabled} 
-								on:change={(e) => oddEvenRatio.update((v) => ({ ...v, even: 6 - Number(e.currentTarget.value) }))}
+								bind:value={oddEvenRatio.odd} 
+								disabled={!oddEvenRatio.enabled} 
+								onchange={(e) => { oddEvenRatio.even = 6 - Number(e.currentTarget.value); }}
 								aria-label="홀수 개수"
 							>
 								{#each [0, 1, 2, 3, 4, 5, 6] as n}<option value={n}>{n}</option>{/each}
@@ -408,7 +454,7 @@ $: sortedNumberStats = $lottoStats?.numberStats
 								type="text" 
 								id="even-count"
 								readonly 
-								bind:value={$oddEvenRatio.even} 
+								bind:value={oddEvenRatio.even} 
 								class="input input-bordered input-sm w-16"
 								aria-label="짝수 개수 (자동 계산)"
 							/>
@@ -419,7 +465,7 @@ $: sortedNumberStats = $lottoStats?.numberStats
 							<input 
 								type="checkbox" 
 								id="high-low-filter"
-								bind:checked={$highLowRatio.enabled} 
+								bind:checked={highLowRatio.enabled} 
 								class="checkbox" 
 							/>
 							<span class="font-medium">고:저 비율:</span>
@@ -429,9 +475,9 @@ $: sortedNumberStats = $lottoStats?.numberStats
 							<select 
 								class="select select-bordered select-sm w-16" 
 								id="high-count"
-								bind:value={$highLowRatio.high} 
-								disabled={!$highLowRatio.enabled} 
-								on:change={(e) => highLowRatio.update((v) => ({ ...v, low: 6 - Number(e.currentTarget.value) }))}
+								bind:value={highLowRatio.high} 
+								disabled={!highLowRatio.enabled} 
+								onchange={(e) => { highLowRatio.low = 6 - Number(e.currentTarget.value); }}
 								aria-label="고수 개수 (23-45)"
 							>
 								{#each [0, 1, 2, 3, 4, 5, 6] as n}<option value={n}>{n}</option>{/each}
@@ -442,7 +488,7 @@ $: sortedNumberStats = $lottoStats?.numberStats
 								type="text" 
 								id="low-count"
 								readonly 
-								bind:value={$highLowRatio.low} 
+								bind:value={highLowRatio.low} 
 								class="input input-bordered input-sm w-16"
 								aria-label="저수 개수 (1-22, 자동 계산)"
 							/>
@@ -453,7 +499,7 @@ $: sortedNumberStats = $lottoStats?.numberStats
 							<input 
 								type="checkbox" 
 								id="consecutive-filter"
-								bind:checked={$consecutiveCount.enabled} 
+								bind:checked={consecutiveCount.enabled} 
 								class="checkbox" 
 							/>
 							<span class="font-medium">최대 연속번호:</span>
@@ -462,8 +508,8 @@ $: sortedNumberStats = $lottoStats?.numberStats
 						<select 
 							class="select select-bordered select-sm w-20" 
 							id="consecutive-max"
-							bind:value={$consecutiveCount.max} 
-							disabled={!$consecutiveCount.enabled}
+							bind:value={consecutiveCount.max} 
+							disabled={!consecutiveCount.enabled}
 							aria-label="허용할 최대 연속번호 쌍 개수"
 						>
 							<option value={0}>없음</option>
@@ -477,7 +523,7 @@ $: sortedNumberStats = $lottoStats?.numberStats
 			<!-- Statistics Info -->
 			<div class="bg-white p-6 rounded-lg shadow">
 				<h2 class="text-xl font-semibold mb-4 border-b pb-2">번호별 출현 통계</h2>
-				{#if $isLoadingStats}
+				{#if isLoadingStats}
 					<p class="text-gray-500">통계 데이터 로딩 중...</p>
 				{:else if sortedNumberStats.length > 0}
 					<div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 text-sm">
@@ -499,28 +545,22 @@ $: sortedNumberStats = $lottoStats?.numberStats
 				{/if}
 			</div>
 
-			<!-- Generation Button -->
-			<div class="text-center mt-8">
-				<button class="btn btn-primary btn-lg" on:click={generateNumbers} disabled={$isLoading || $isLoadingStats}>
-					{#if $isLoading} <span class="loading loading-spinner"></span> 생성 중... {:else if $isLoadingStats} <span class="loading loading-spinner"></span> 데이터 로딩중 {:else} 번호 생성하기 {/if}
-				</button>
-			</div>
 		</div>
 
 		<!-- Right Column: Results -->
-		<div class="bg-white p-6 rounded-lg shadow h-fit sticky top-8">
+		<div id="results-section" class="bg-white p-6 rounded-lg shadow h-fit sticky top-8">
 			<h2 class="text-xl font-semibold mb-4 border-b pb-2">생성된 번호</h2>
-			{#if $error && !$isLoading}
-				<div class="alert alert-error"><span>{$error}</span></div>
+			{#if error && !isLoading}
+				<div class="alert alert-error"><span>{error}</span></div>
 			{/if}
-			<div class="space-y-4 mt-4">
-				{#if $generatedLottoSets.length > 0}
-					{#each $generatedLottoSets as set, i}
-						<div class="flex items-center space-x-2 p-2 rounded-lg hover:bg-gray-50">
-							<span class="font-bold text-gray-500 w-8 text-center">{i + 1}.</span>
-							<div class="flex space-x-1">
+			<div class="space-y-3 mt-4 mb-6">
+				{#if generatedLottoSets.length > 0}
+					{#each generatedLottoSets as set, i}
+						<div class="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-50 border border-gray-100">
+							<span class="font-bold text-gray-500 w-6 text-center flex-shrink-0 text-sm">{i + 1}.</span>
+							<div class="flex flex-wrap gap-1 sm:gap-2">
 								{#each set as num}
-									<div class="w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm {getNumberColor(num)}">
+									<div class="w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center font-bold text-xs sm:text-sm {getNumberColor(num)} flex-shrink-0">
 										{num}
 									</div>
 								{/each}
@@ -531,6 +571,42 @@ $: sortedNumberStats = $lottoStats?.numberStats
 					<p class="text-gray-500 text-center py-8">생성 버튼을 눌러 번호를 받아보세요.</p>
 				{/if}
 			</div>
+			
+			<!-- Generation Button -->
+			<div class="border-t pt-4">
+				<button 
+					class="btn btn-primary btn-block" 
+					onclick={() => generateNumbers()}
+					disabled={isLoading || isLoadingStats}
+				>
+					{#if isLoading} 
+						<span class="loading loading-spinner"></span> 생성 중... 
+					{:else if isLoadingStats} 
+						<span class="loading loading-spinner"></span> 데이터 로딩중 
+					{:else} 
+						번호 생성하기 
+					{/if}
+				</button>
+			</div>
 		</div>
+		
+		<!-- Mobile Fixed Generate Button - hidden when near bottom -->
+		{#if !isNearBottom}
+			<div class="lg:hidden fixed bottom-4 left-4 right-4 z-50">
+				<button 
+					class="btn btn-primary btn-block btn-lg shadow-lg" 
+					onclick={() => generateNumbersAndScroll()}
+					disabled={isLoading || isLoadingStats}
+				>
+					{#if isLoading} 
+						<span class="loading loading-spinner"></span> 생성 중... 
+					{:else if isLoadingStats} 
+						<span class="loading loading-spinner"></span> 데이터 로딩중 
+					{:else} 
+						번호 생성하기 
+					{/if}
+				</button>
+			</div>
+		{/if}
 	</div>
 </div>
