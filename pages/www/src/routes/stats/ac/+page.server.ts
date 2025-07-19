@@ -4,40 +4,64 @@ import type { PageServerLoad } from "./$types";
 
 const client = initClient(env.TRAILBASE_URL || "http://localhost:4000");
 
-export const load: PageServerLoad = async ({ url }) => {
-	const page = Number(url.searchParams.get("page") || "1");
-	const rounds = Number(url.searchParams.get("rounds") || "100");
-	const limit = 50;
-	const offset = (page - 1) * limit;
+// 페이지 옵션 설정
+export const prerender = true;
 
+export const load: PageServerLoad = async () => {
 	try {
-		// AC값 통계 데이터 (최신순)
-		const acStatsResponse = await client.records("lotto_draw_ac_stats").list({
-			order: ["-round"],
-			pagination: { limit, offset },
-		});
+		// AC 통계 데이터의 실제 최대 회차 조회
+		const maxAcRoundsResponse = await client
+			.records("lotto_draw_ac_stats")
+			.list({
+				order: ["-round"],
+				pagination: { limit: 1 },
+			});
 
-		// 전체 AC값 통계 요약 (선택한 회차 수만큼)
-		const allAcResponse = await client.records("lotto_draw_ac_stats").list({
-			order: ["-round"],
-			pagination: { limit: rounds },
-		});
+		const totalRounds =
+			maxAcRoundsResponse.records.length > 0
+				? (maxAcRoundsResponse.records[0] as { round: number }).round
+				: 0;
 
-		// 통계 요약 계산
-		const records = allAcResponse.records as Array<{
+		// AC값 통계 데이터 조회 (배치 처리로 모든 데이터 가져오기)
+		let allAcStats: Array<{
 			round: number;
 			ac_value: number;
-		}>;
+		}> = [];
+		const batchSize = 1024;
+		let batchOffset = 0;
 
-		const totalRounds = records.length;
+		while (true) {
+			const acStatsResponse = await client.records("lotto_draw_ac_stats").list({
+				order: ["-round"],
+				pagination: { limit: batchSize, offset: batchOffset },
+			});
+
+			const batchRecords = acStatsResponse.records as Array<{
+				round: number;
+				ac_value: number;
+			}>;
+
+			if (batchRecords.length === 0) {
+				break;
+			}
+
+			allAcStats = allAcStats.concat(batchRecords);
+			batchOffset += batchSize;
+		}
+
+		// 통계 요약 계산
+		const records = allAcStats;
+		const analyzedRounds = records.length;
 		const acValues = records.map((r) => r.ac_value);
 
 		// 기본 통계
 		const maxAcValue = acValues.length > 0 ? Math.max(...acValues) : 0;
 		const minAcValue = acValues.length > 0 ? Math.min(...acValues) : 0;
 		const averageAcValue =
-			totalRounds > 0
-				? (acValues.reduce((sum, val) => sum + val, 0) / totalRounds).toFixed(2)
+			analyzedRounds > 0
+				? (
+						acValues.reduce((sum, val) => sum + val, 0) / analyzedRounds
+					).toFixed(2)
 				: "0.00";
 
 		// AC값 분포 계산 (0-15 범위, 일반적으로 로또 AC값 범위)
@@ -79,22 +103,22 @@ export const load: PageServerLoad = async ({ url }) => {
 		const highComplexityCount =
 			acRangeDistribution["10-12"] + acRangeDistribution["13-15"];
 		const lowComplexityRate =
-			totalRounds > 0
-				? ((lowComplexityCount / totalRounds) * 100).toFixed(1)
+			analyzedRounds > 0
+				? ((lowComplexityCount / analyzedRounds) * 100).toFixed(1)
 				: "0.0";
 		const highComplexityRate =
-			totalRounds > 0
-				? ((highComplexityCount / totalRounds) * 100).toFixed(1)
+			analyzedRounds > 0
+				? ((highComplexityCount / analyzedRounds) * 100).toFixed(1)
 				: "0.0";
 
 		// 가장 빈번한 AC값
-		const mostFrequentAc = Object.entries(acDistribution).sort(
-			(a, b) => b[1] - a[1],
-		)[0];
+		const mostFrequentAc = Object.entries(acDistribution)
+			.filter(([_, count]) => count > 0)
+			.sort((a, b) => b[1] - a[1])[0] || ["0", 0];
 
 		return {
-			acStats: acStatsResponse.records,
-			totalRounds,
+			acStats: allAcStats, // 전체 데이터 표시
+			totalRounds: totalRounds,
 			maxAcValue,
 			minAcValue,
 			averageAcValue,
@@ -104,9 +128,7 @@ export const load: PageServerLoad = async ({ url }) => {
 			lowComplexityRate,
 			highComplexityRate,
 			mostFrequentAc,
-			currentPage: page,
-			totalPages: Math.ceil((acStatsResponse.total_count || 0) / limit),
-			selectedRounds: rounds,
+			selectedRounds: 0, // 기본값은 0 (전체 보기)
 		};
 	} catch (error) {
 		console.error("AC값 통계 데이터 로드 실패:", error);
@@ -117,14 +139,18 @@ export const load: PageServerLoad = async ({ url }) => {
 			minAcValue: 0,
 			averageAcValue: "0.00",
 			acDistribution: {},
-			acRangeDistribution: {},
+			acRangeDistribution: {
+				"0-3": 0,
+				"4-6": 0,
+				"7-9": 0,
+				"10-12": 0,
+				"13-15": 0,
+			},
 			recentStats: [],
 			lowComplexityRate: "0.0",
 			highComplexityRate: "0.0",
 			mostFrequentAc: ["0", 0],
-			currentPage: 1,
-			totalPages: 1,
-			selectedRounds: rounds,
+			selectedRounds: 0,
 		};
 	}
 };

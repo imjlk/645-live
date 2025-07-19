@@ -3,20 +3,28 @@ import { createAuth } from "$lib/auth"; // path to your auth file
 import { createDrizzleClient } from "$lib/db";
 import type { Handle } from "@sveltejs/kit";
 import { svelteKitHandler } from "better-auth/svelte-kit";
+import { building } from "$app/environment";
 
 function getDatabaseUrl(event: Parameters<Handle>[0]["event"]): string {
-	if (event.platform?.env?.HYPERDRIVE?.connectionString) {
-		return event.platform.env.HYPERDRIVE.connectionString;
-	}
-
+	// 개발 환경에서는 env.DATABASE_URL을 우선 사용
 	if (env.DATABASE_URL) {
 		return env.DATABASE_URL;
+	}
+
+	// 프로덕션 환경 (Cloudflare)에서만 platform.env.HYPERDRIVE 사용
+	if (event.platform?.env?.HYPERDRIVE?.connectionString) {
+		return event.platform.env.HYPERDRIVE.connectionString;
 	}
 
 	throw new Error("No database connection available.");
 }
 
 export const handle: Handle = async ({ event, resolve }) => {
+	// 빌드 중이거나 prerender 중에는 데이터베이스 연결 스킵
+	if (building) {
+		return resolve(event);
+	}
+
 	try {
 		const databaseUrl = getDatabaseUrl(event);
 		event.locals.db = createDrizzleClient(databaseUrl);
@@ -27,6 +35,10 @@ export const handle: Handle = async ({ event, resolve }) => {
 		return await svelteKitHandler({ event, resolve, auth });
 	} catch (error) {
 		console.error("Database connection failed:", error);
+		// 개발 환경에서는 에러를 던지지 않고 계속 진행
+		if (process.env.NODE_ENV === 'development') {
+			return resolve(event);
+		}
 		throw error;
 	}
 };

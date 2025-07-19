@@ -4,55 +4,66 @@ import type { PageServerLoad } from "./$types";
 
 const client = initClient(env.TRAILBASE_URL || "http://localhost:4000");
 
-export const load: PageServerLoad = async ({ url }) => {
-	const page = Number(url.searchParams.get("page") || "1");
-	const limit = 50;
-	const offset = (page - 1) * limit;
+// 정적 페이지이므로 prerender 사용
+export const prerender = true;
+
+export const load: PageServerLoad = async () => {
 
 	try {
-		// 번호 쌍 통계 데이터 (상위 50개)
-		const pairStatsResponse = await client
-			.records("lotto_number_pair_stats")
-			.list({
-				order: ["-pair_count", "number_a", "number_b"],
-				pagination: { limit, offset },
-			});
+		// 번호 쌍 통계 데이터 (배치 처리로 모든 데이터 가져오기)
+		let allPairStats: Array<{
+			id: number;
+			number_a: number;
+			number_b: number;
+			pair_count: number;
+		}> = [];
+		const batchSize = 1024;
+		let batchOffset = 0;
 
-		// 전체 번호 쌍 통계 요약 (모든 데이터)
-		const allPairsResponse = await client
-			.records("lotto_number_pair_stats")
-			.list({
-				order: ["-pair_count"],
-			});
+		while (true) {
+			const pairStatsResponse = await client
+				.records("lotto_number_pair_stats")
+				.list({
+					order: ["-pair_count", "number_a", "number_b"],
+					pagination: { limit: batchSize, offset: batchOffset },
+				});
 
-		// 통계 요약 계산
-		const pairCounts = allPairsResponse.records.map(
-			(record) => (record as { pair_count: number }).pair_count,
-		);
-
-		const totalPairs = allPairsResponse.records.length;
-		const maxPairCount = Math.max(...pairCounts);
-		const minPairCount = Math.min(...pairCounts);
-		const averagePairCount =
-			pairCounts.reduce((sum, count) => sum + count, 0) / totalPairs;
-
-		// 번호별 동반 출현 횟수 계산
-		const numberPairCounts = new Map<number, number>();
-		for (const record of allPairsResponse.records) {
-			const pairRecord = record as {
+			const batchRecords = pairStatsResponse.records as Array<{
+				id: number;
 				number_a: number;
 				number_b: number;
 				pair_count: number;
-			};
-			const currentA = numberPairCounts.get(pairRecord.number_a) || 0;
-			const currentB = numberPairCounts.get(pairRecord.number_b) || 0;
+			}>;
+
+			if (batchRecords.length === 0) {
+				break;
+			}
+
+			allPairStats = allPairStats.concat(batchRecords);
+			batchOffset += batchSize;
+		}
+
+		// 통계 요약 계산
+		const pairCounts = allPairStats.map(record => record.pair_count);
+
+		const totalPairs = allPairStats.length;
+		const maxPairCount = pairCounts.length > 0 ? Math.max(...pairCounts) : 0;
+		const minPairCount = pairCounts.length > 0 ? Math.min(...pairCounts) : 0;
+		const averagePairCount = totalPairs > 0 ? 
+			pairCounts.reduce((sum, count) => sum + count, 0) / totalPairs : 0;
+
+		// 번호별 동반 출현 횟수 계산
+		const numberPairCounts = new Map<number, number>();
+		for (const record of allPairStats) {
+			const currentA = numberPairCounts.get(record.number_a) || 0;
+			const currentB = numberPairCounts.get(record.number_b) || 0;
 			numberPairCounts.set(
-				pairRecord.number_a,
-				currentA + pairRecord.pair_count,
+				record.number_a,
+				currentA + record.pair_count,
 			);
 			numberPairCounts.set(
-				pairRecord.number_b,
-				currentB + pairRecord.pair_count,
+				record.number_b,
+				currentB + record.pair_count,
 			);
 		}
 
@@ -83,15 +94,13 @@ export const load: PageServerLoad = async ({ url }) => {
 		}
 
 		return {
-			pairStats: pairStatsResponse.records,
+			pairStats: allPairStats,
 			totalPairs,
 			maxPairCount,
 			minPairCount,
 			averagePairCount: averagePairCount.toFixed(2),
 			topNumbersByPairCount,
 			pairCountDistribution,
-			currentPage: page,
-			totalPages: Math.ceil((pairStatsResponse.total_count || 0) / limit),
 		};
 	} catch (error) {
 		console.error("번호 쌍 통계 데이터 로드 실패:", error);
@@ -103,8 +112,6 @@ export const load: PageServerLoad = async ({ url }) => {
 			averagePairCount: "0.00",
 			topNumbersByPairCount: [],
 			pairCountDistribution: {},
-			currentPage: 1,
-			totalPages: 1,
 		};
 	}
 };

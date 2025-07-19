@@ -1,14 +1,55 @@
 <script lang="ts">
-import { page } from "$app/stores";
+import { page } from "$app/state";
+import { goto } from "$app/navigation";
+import { MetaTags, JsonLd } from 'svelte-meta-tags';
 import LinkButton from "$lib/ui/LinkButton.svelte";
-import { onMount } from "svelte";
+import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
 import type { PageData } from "./$types";
 
 export let data: PageData;
 
-// URL 상태 관리
-$: currentPage = Number($page.url.searchParams.get("page") || "1");
-$: selectedRounds = Number($page.url.searchParams.get("rounds") || "500");
+// 페이지네이션 상태 제거 - 전체 데이터 표시
+
+// 사용자 입력 상태 (기본값은 빈 값)
+let inputValue = "";
+
+// 입력값 유효성 검사
+const validateInput = (value: string): boolean => {
+	const str = String(value || "");
+	if (str.trim() === "") return false;
+	const num = Number(str);
+	return !Number.isNaN(num) && num > 0 && num <= data.totalRounds;
+};
+
+// 분석 페이지로 이동
+const navigateToAnalysis = async () => {
+	const inputStr = String(inputValue || "");
+	
+	if (inputStr.trim() === "") {
+		alert("분석할 회차 수를 입력해주세요.");
+		return;
+	}
+	
+	if (validateInput(inputStr)) {
+		const rounds = Number(inputStr);
+		console.log(`Navigating to: /stats/colors/recent/${rounds}`);
+		try {
+			await goto(`/stats/colors/recent/${rounds}`);
+		} catch (error) {
+			console.error("Navigation error:", error);
+			alert("페이지 이동 중 오류가 발생했습니다.");
+		}
+	} else {
+		alert(`1부터 ${data.totalRounds}까지의 숫자를 입력해주세요.`);
+	}
+};
+
+// Enter 키 처리
+const handleKeydown = (event: KeyboardEvent) => {
+	if (event.key === "Enter") {
+		navigateToAnalysis();
+	}
+};
 
 // 색상 정보 매핑
 const colorInfo = {
@@ -49,23 +90,6 @@ const colorInfo = {
 	},
 };
 
-// 회차 선택 옵션
-const roundOptions = [100, 200, 500, 1000];
-
-// 페이지네이션 함수
-const createPageUrl = (newPage: number) => {
-	const url = new URL($page.url);
-	url.searchParams.set("page", String(newPage));
-	return url.toString();
-};
-
-const createRoundsUrl = (newRounds: number) => {
-	const url = new URL($page.url);
-	url.searchParams.set("rounds", String(newRounds));
-	url.searchParams.delete("page");
-	return url.toString();
-};
-
 // 색상별 출현 빈도 분석
 const getFrequencyAnalysis = (colorKey: string, average: string): string => {
 	const avg = Number.parseFloat(average);
@@ -81,102 +105,203 @@ const getFrequencyAnalysis = (colorKey: string, average: string): string => {
 	return "낮음";
 };
 
-// JSON-LD 스키마 생성
-const generateJsonLd = () => {
-	return {
-		"@context": "https://schema.org",
-		"@type": "AnalysisNewsArticle",
-		headline: "로또 6/45 색상 분석 통계",
-		description:
-			"로또 6/45 당첨번호의 색상별 분포와 패턴을 분석합니다. 번호 구간별 색상(노랑, 파랑, 빨강, 회색, 초록) 조합과 출현 빈도를 제공합니다.",
-		url: "https://645.live/stats/colors",
-		datePublished: new Date().toISOString(),
-		dateModified: new Date().toISOString(),
-		author: {
-			"@type": "Organization",
-			name: "645.live",
-		},
-		publisher: {
-			"@type": "Organization",
-			name: "645.live",
-			url: "https://645.live",
-		},
-		keywords: [
-			"로또",
-			"색상분석",
-			"번호구간",
-			"로또통계",
-			"색상패턴",
-			"로또색깔",
-		],
-		mainEntity: {
-			"@type": "Dataset",
-			name: "로또 6/45 색상별 통계",
-			description: "로또 6/45 당첨번호의 색상별 분포 및 조합 패턴 데이터",
-		},
-	};
-};
-
-onMount(() => {
-	const script = document.createElement("script");
-	script.type = "application/ld+json";
-	script.textContent = JSON.stringify(generateJsonLd());
-	document.head.appendChild(script);
-
-	return () => {
-		if (document.head.contains(script)) {
-			document.head.removeChild(script);
-		}
-	};
-});
+// Breadcrumbs 데이터
+const breadcrumbItems = [
+	{ label: "홈", href: "/" },
+	{ label: "통계", href: "/stats" },
+	{ label: "색상분석", href: "/stats/colors", current: true },
+];
 </script>
 
-<svelte:head>
-	<title>로또 6/45 색상 분석 통계 | 번호 구간별 색상 패턴 | 645.live</title>
-	<meta name="description" content="로또 6/45 당첨번호의 색상별 분포와 패턴을 분석합니다. 번호 구간별 색상(노랑, 파랑, 빨강, 회색, 초록) 조합과 출현 빈도를 제공합니다." />
-	<meta name="keywords" content="로또, 색상분석, 번호구간, 로또통계, 색상패턴, 로또색깔, 로또예측" />
-	<link rel="canonical" href="https://645.live/stats/colors" />
-	
-	<!-- Open Graph -->
-	<meta property="og:title" content="로또 6/45 색상 분석 통계 | 645.live" />
-	<meta property="og:description" content="로또 6/45 당첨번호의 색상별 분포와 패턴을 분석합니다." />
-	<meta property="og:url" content="https://645.live/stats/colors" />
-	<meta property="og:type" content="article" />
-	
-	<!-- Twitter Card -->
-	<meta name="twitter:card" content="summary" />
-	<meta name="twitter:title" content="로또 6/45 색상 분석 통계" />
-	<meta name="twitter:description" content="로또 6/45 당첨번호의 색상별 분포와 패턴을 분석합니다." />
-</svelte:head>
+<MetaTags
+	title="로또 6/45 색상 분석 통계 | 번호 구간별 색상 패턴 분석"
+	titleTemplate="%s | 645.live"
+	description="로또 6/45 전체 {data.totalRounds}회차 색상별 분포와 패턴을 분석합니다. 번호 구간별 색상(노랑, 파랑, 빨강, 회색, 초록) 조합과 출현 빈도를 제공합니다."
+	canonical="https://645.live/stats/colors"
+	keywords={["로또색상분석", "번호구간분석", "로또통계분석", "색상패턴분석", "로또예측", "색상조합분석", "로또데이터분석", "6/45통계"]}
+	robots="index,follow"
+	additionalRobotsProps={{
+		maxSnippet: 320,
+		maxImagePreview: 'large',
+		maxVideoPreview: 60
+	}}
+	additionalMetaTags={[
+		{
+			name: 'application-name',
+			content: '645.live'
+		},
+		{
+			name: 'theme-color',
+			content: '#3B82F6'
+		},
+		{
+			name: 'format-detection',
+			content: 'telephone=no'
+		},
+		{
+			name: 'author',
+			content: '645.live'
+		},
+		{
+			name: 'generator',
+			content: 'SvelteKit'
+		},
+		{
+			property: 'article:publisher',
+			content: 'https://645.live'
+		}
+	]}
+	openGraph={{
+		type: 'article',
+		url: 'https://645.live/stats/colors',
+		title: `로또 6/45 색상 분석 통계 | 전체 ${data.totalRounds}회차 데이터`,
+		description: `로또 6/45 당첨번호의 색상별 분포와 패턴을 분석합니다. 최빈 색상 ${colorInfo[data.mostFrequentColor[0] as keyof typeof colorInfo]?.name}, 평균 ${data.mostFrequentColor[1]}개 등 상세한 통계 정보를 확인하세요.`,
+		locale: 'ko_KR',
+		images: [{
+			url: 'https://645.live/images/lotto-color-stats.png',
+			width: 1200,
+			height: 630,
+			alt: '로또 6/45 색상 분석 통계',
+			secureUrl: 'https://645.live/images/lotto-color-stats.png',
+			type: 'image/png'
+		}],
+		siteName: '645.live',
+		article: {
+			section: '로또 통계',
+			tags: ['로또', '색상분석', '번호구간', '당첨번호', '통계분석', '6/45'],
+			publishedTime: '2024-01-01T00:00:00.000Z',
+			modifiedTime: new Date().toISOString()
+		}
+	}}
+	twitter={{
+		cardType: 'summary_large_image',
+		site: '@645live',
+		title: '로또 6/45 색상 분석 통계',
+		description: `전체 ${data.totalRounds}회차 색상 패턴 분석 - 최빈 ${colorInfo[data.mostFrequentColor[0] as keyof typeof colorInfo]?.name}, 평균 ${data.mostFrequentColor[1]}개`,
+		image: 'https://645.live/images/lotto-color-stats.png',
+		imageAlt: '로또 6/45 색상 분석 통계'
+	}}
+/>
+
+<JsonLd
+	schema={{
+		'@type': 'Dataset',
+		name: '로또 6/45 색상 분석 통계 데이터',
+		description: `로또 6/45 당첨번호의 색상별 분포와 패턴 분석 데이터. 전체 ${data.totalRounds}회차의 색상 분포와 패턴을 분석합니다.`,
+		url: 'https://645.live/stats/colors',
+		creator: {
+			'@type': 'Organization',
+			name: '645.live'
+		},
+		temporalCoverage: `1회차/${data.totalRounds}회차`,
+		spatial: {
+			'@type': 'Country',
+			name: '대한민국'
+		},
+		distribution: {
+			'@type': 'DataDownload',
+			contentUrl: 'https://645.live/stats/colors',
+			encodingFormat: 'text/html'
+		},
+		variableMeasured: [
+			{
+				'@type': 'PropertyValue',
+				name: '노랑 색상 평균',
+				value: data.colorAverages.yellow
+			},
+			{
+				'@type': 'PropertyValue',
+				name: '파랑 색상 평균',
+				value: data.colorAverages.blue
+			},
+			{
+				'@type': 'PropertyValue',
+				name: '빨강 색상 평균',
+				value: data.colorAverages.red
+			},
+			{
+				'@type': 'PropertyValue',
+				name: '회색 색상 평균',
+				value: data.colorAverages.grey
+			},
+			{
+				'@type': 'PropertyValue',
+				name: '초록 색상 평균',
+				value: data.colorAverages.green
+			}
+		],
+		mainEntity: {
+			'@type': 'StatisticalPopulation',
+			name: '로또 6/45 당첨번호',
+			populationSize: data.totalRounds
+		}
+	}}
+/>
 
 <div class="p-6 space-y-6">
+	<!-- Breadcrumbs -->
+	<Breadcrumbs items={breadcrumbItems} />
+
 	<!-- 페이지 헤더 -->
 	<div class="text-center space-y-2">
-		<h1 class="text-3xl font-bold text-primary">색상 분석 통계</h1>
+		<h1 class="text-3xl font-bold text-primary">로또 6/45 색상 분석 통계</h1>
 		<p class="text-base-content/70">
-			로또 6/45 당첨번호의 색상별 분포를 분석합니다.<br />
-			각 번호 구간별(1-10: 노랑, 11-20: 파랑, 21-30: 빨강, 31-40: 회색, 41-45: 초록) 출현 패턴을 확인하세요.
+			<strong>색상 분석</strong>은 로또 번호를 구간별로 나누어 분석하는 핵심 지표입니다.<br />
+			전체 <strong>{data.totalRounds}회차</strong> 데이터를 기반으로 당첨번호 패턴을 분석하여 
+			다음 당첨번호 예측에 도움이 되는 통계 정보를 제공합니다.
 		</p>
+		<div class="flex justify-center gap-4 text-sm text-base-content/60 mt-4">
+			<span>📊 최빈 색상: <strong class="text-primary">{colorInfo[data.mostFrequentColor[0] as keyof typeof colorInfo]?.name}</strong></span>
+			<span>🎯 평균 개수: <strong class="text-secondary">{data.mostFrequentColor[1]}개</strong></span>
+			<span>📈 분석 회차: <strong class="text-accent">{data.totalRounds}회</strong></span>
+		</div>
 	</div>
 
-	<!-- 회차 선택 -->
+	<!-- 최근 회차 분석 -->
 	<div class="card bg-base-100 shadow-sm">
 		<div class="card-body p-4">
-			<h2 class="card-title text-lg">분석 회차 선택</h2>
-			<div class="flex flex-wrap gap-2">
-				{#each roundOptions as rounds}
-					<LinkButton
-						href={createRoundsUrl(rounds)}
-						class="btn-sm {selectedRounds === rounds ? 'btn-primary' : 'btn-outline'}"
-					>
-						최근 {rounds}회차
-					</LinkButton>
-				{/each}
+			<h2 class="card-title text-lg">최근 회차 분석</h2>
+			<div class="flex items-center gap-4 flex-wrap">
+				<div class="flex items-center gap-2">
+					<label for="rounds-input" class="text-sm font-medium">최근 몇 회차:</label>
+					<input
+						id="rounds-input"
+						type="text"
+						inputmode="numeric"
+						pattern="[0-9]*"
+						bind:value={inputValue}
+						on:keydown={handleKeydown}
+						class="input input-bordered input-sm w-24 text-center"
+						placeholder="100"
+					/>
+					<span class="text-sm opacity-60">회차 (최대 {data.totalRounds})</span>
+				</div>
+				<button
+					type="button"
+					on:click={navigateToAnalysis}
+					class="btn btn-primary btn-sm"
+				>
+					상세 분석
+				</button>
 			</div>
 			<p class="text-sm text-base-content/60">
-				현재 최근 <span class="font-semibold text-primary">{data.selectedRounds}회차</span> 데이터를 분석 중입니다.
+				현재 전체 <span class="font-semibold text-primary">{data.totalRounds}회차</span> 데이터를 표시 중입니다. 특정 회차 수를 입력하면 해당 최근 회차만 분석할 수 있습니다.
 			</p>
 		</div>
+	</div>
+
+	<!-- 요약 통계 -->
+	<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+		{#each Object.entries(data.colorAverages) as [colorKey, average]}
+			{@const info = colorInfo[colorKey as keyof typeof colorInfo]}
+			{@const frequency = getFrequencyAnalysis(colorKey, average)}
+			
+			<div class="stat bg-primary text-primary-content rounded-lg">
+				<div class="stat-title text-primary-content/70">{info.name}</div>
+				<div class="stat-value text-2xl">{average}</div>
+				<div class="stat-desc text-primary-content/70">평균 개수</div>
+			</div>
+		{/each}
 	</div>
 
 	<!-- 색상별 구간 정보 -->
@@ -224,10 +349,17 @@ onMount(() => {
 			<!-- 색상 균형 분석 -->
 			<div class="mt-6 p-4 bg-base-200 rounded-lg">
 				<h3 class="font-semibold mb-2">색상 균형 분석</h3>
-				<div class="text-sm space-y-2">
-					<p>• <strong>이론적 기댓값:</strong> 노랑~회색(2.0개), 초록(1.0개)</p>
-					<p>• <strong>균형잡힌 조합:</strong> 모든 색상 구간에서 최소 1개씩 포함</p>
-					<p>• <strong>편중된 조합:</strong> 특정 색상에만 3개 이상 집중</p>
+				<div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+					<div>
+						<span class="font-medium text-primary">적은 출현 (0-1개):</span>
+						<span class="ml-2">{data.lowComplexityRate}%</span>
+						<p class="text-xs text-base-content/60 mt-1">특정 색상에서 거의 선택되지 않음</p>
+					</div>
+					<div>
+						<span class="font-medium text-secondary">많은 출현 (4-6개):</span>
+						<span class="ml-2">{data.highComplexityRate}%</span>
+						<p class="text-xs text-base-content/60 mt-1">특정 색상에 집중된 번호 조합</p>
+					</div>
 				</div>
 			</div>
 		</div>
@@ -266,11 +398,11 @@ onMount(() => {
 		</div>
 	</div>
 
-	<!-- 최근 회차별 상세 데이터 -->
-	{#if data.colorStats.length > 0}
+	<!-- 최근 10회차 색상 분포 -->
+	{#if data.recentStats.length > 0}
 	<div class="card bg-base-100 shadow-sm">
 		<div class="card-body">
-			<h2 class="card-title">최근 회차별 색상 분포</h2>
+			<h2 class="card-title">최근 10회차 색상 분포 추이</h2>
 			
 			<div class="overflow-x-auto">
 				<table class="table table-zebra w-full">
@@ -286,49 +418,41 @@ onMount(() => {
 						</tr>
 					</thead>
 					<tbody>
-						{#each data.colorStats as stat}
-							{@const statRecord = stat as {
-								round: number;
-								yellow_count: number;
-								blue_count: number;
-								red_count: number;
-								grey_count: number;
-								green_count: number;
-							}}
+						{#each data.recentStats as stat}
 							{@const colorCounts = [
-								statRecord.yellow_count,
-								statRecord.blue_count,
-								statRecord.red_count,
-								statRecord.grey_count,
-								statRecord.green_count
+								stat.yellow_count,
+								stat.blue_count,
+								stat.red_count,
+								stat.grey_count,
+								stat.green_count
 							]}
 							{@const hasAllColors = colorCounts.every(count => count > 0)}
 							
 							<tr>
-								<td class="font-semibold">{statRecord.round}회</td>
+								<td class="font-semibold">{stat.round}회</td>
 								<td class="text-center">
-									<span class="badge {statRecord.yellow_count > 0 ? 'badge-warning' : 'badge-ghost'}">
-										{statRecord.yellow_count}
+									<span class="badge {stat.yellow_count > 0 ? 'badge-warning' : 'badge-ghost'}">
+										{stat.yellow_count}
 									</span>
 								</td>
 								<td class="text-center">
-									<span class="badge {statRecord.blue_count > 0 ? 'badge-info' : 'badge-ghost'}">
-										{statRecord.blue_count}
+									<span class="badge {stat.blue_count > 0 ? 'badge-info' : 'badge-ghost'}">
+										{stat.blue_count}
 									</span>
 								</td>
 								<td class="text-center">
-									<span class="badge {statRecord.red_count > 0 ? 'badge-error' : 'badge-ghost'}">
-										{statRecord.red_count}
+									<span class="badge {stat.red_count > 0 ? 'badge-error' : 'badge-ghost'}">
+										{stat.red_count}
 									</span>
 								</td>
 								<td class="text-center">
-									<span class="badge {statRecord.grey_count > 0 ? 'badge-neutral' : 'badge-ghost'}">
-										{statRecord.grey_count}
+									<span class="badge {stat.grey_count > 0 ? 'badge-neutral' : 'badge-ghost'}">
+										{stat.grey_count}
 									</span>
 								</td>
 								<td class="text-center">
-									<span class="badge {statRecord.green_count > 0 ? 'badge-success' : 'badge-ghost'}">
-										{statRecord.green_count}
+									<span class="badge {stat.green_count > 0 ? 'badge-success' : 'badge-ghost'}">
+										{stat.green_count}
 									</span>
 								</td>
 								<td>
@@ -351,69 +475,54 @@ onMount(() => {
 	</div>
 	{/if}
 
-	<!-- 페이지네이션 -->
-	{#if data.totalPages > 1}
-	<div class="flex justify-center">
-		<div class="join">
-			{#if currentPage > 1}
-				<LinkButton href={createPageUrl(currentPage - 1)} class="join-item btn-outline">
-					이전
-				</LinkButton>
-			{/if}
-			
-			{#each Array.from({length: Math.min(5, data.totalPages)}, (_, i) => {
-				const start = Math.max(1, currentPage - 2);
-				const end = Math.min(data.totalPages, start + 4);
-				return start + i;
-			}).filter(page => page <= data.totalPages) as pageNum}
-				<LinkButton 
-					href={createPageUrl(pageNum)} 
-					class="join-item {pageNum === currentPage ? 'btn-primary' : 'btn-outline'}"
-				>
-					{pageNum}
-				</LinkButton>
-			{/each}
-			
-			{#if currentPage < data.totalPages}
-				<LinkButton href={createPageUrl(currentPage + 1)} class="join-item btn-outline">
-					다음
-				</LinkButton>
-			{/if}
-		</div>
-	</div>
-	{/if}
 
 	<!-- 색상 분석 가이드 -->
 	<div class="card bg-base-100 shadow-sm">
 		<div class="card-body">
-			<h2 class="card-title">색상 분석 가이드</h2>
-			<div class="space-y-3 text-sm">
-				<p>
-					로또 번호는 1-45 범위에서 5개 색상 구간으로 나뉩니다. 색상 분포를 통해 번호 선택의 균형을 확인할 수 있습니다.
+			<h2 class="card-title">색상 분석 완벽 가이드</h2>
+			<div class="space-y-4 text-sm">
+				<p class="text-base leading-relaxed">
+					<strong>색상 분석</strong>은 로또 번호를 구간별로 나누어 분석하는 지표로, 
+					번호 선택의 균형성과 패턴을 측정합니다. 이 지표를 통해 당첨번호의 특성을 분석하고 
+					향후 번호 선택 전략을 수립할 수 있습니다.
 				</p>
-				<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-					<div>
-						<h4 class="font-semibold text-primary mb-2">균형잡힌 조합</h4>
-						<ul class="list-disc list-inside space-y-1 text-base-content/70">
-							<li>모든 색상에서 최소 1개씩 선택</li>
-							<li>특정 색상에 3개 이상 집중되지 않음</li>
-							<li>초록색(41-45)은 1-2개가 일반적</li>
+				
+				<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+					<div class="bg-primary/5 p-4 rounded-lg">
+						<h3 class="font-semibold text-primary mb-3 text-lg">🔸 균형잡힌 조합</h3>
+						<h4 class="font-medium mb-2">특징:</h4>
+						<ul class="list-disc list-inside space-y-1 text-base-content/70 mb-3">
+							<li><strong>고른 분산</strong> - 모든 색상에서 최소 1개씩</li>
+							<li><strong>적절한 집중</strong> - 특정 색상에 3개 이상 집중 안함</li>
+							<li><strong>초록색 고려</strong> - 1-2개가 일반적</li>
 						</ul>
+						<div class="text-xs bg-primary/10 p-2 rounded">
+							전체 {data.totalRounds}회차 중 대부분의 당첨번호가 이 패턴을 따름
+						</div>
 					</div>
-					<div>
-						<h4 class="font-semibold text-secondary mb-2">편중된 조합</h4>
-						<ul class="list-disc list-inside space-y-1 text-base-content/70">
-							<li>특정 색상에만 4개 이상 집중</li>
-							<li>2-3개 색상에서만 선택</li>
-							<li>초록색이 3개 이상 (매우 드문 경우)</li>
+					
+					<div class="bg-secondary/5 p-4 rounded-lg">
+						<h3 class="font-semibold text-secondary mb-3 text-lg">🔹 편중된 조합</h3>
+						<h4 class="font-medium mb-2">특징:</h4>
+						<ul class="list-disc list-inside space-y-1 text-base-content/70 mb-3">
+							<li><strong>극단 집중</strong> - 특정 색상에 4개 이상</li>
+							<li><strong>제한적 분산</strong> - 2-3개 색상에서만 선택</li>
+							<li><strong>초록색 과다</strong> - 3개 이상 (매우 드문)</li>
 						</ul>
+						<div class="text-xs bg-secondary/10 p-2 rounded">
+							전체 {data.totalRounds}회차 중 소수의 당첨번호가 이 패턴을 따름
+						</div>
 					</div>
 				</div>
-				<div class="mt-4 p-3 bg-info/10 rounded-lg">
-					<p class="text-info font-medium">
-						💡 팁: 대부분의 당첨번호는 4-5개 색상 구간에 분산되어 나타나며, 
-						한 색상에만 집중되는 경우는 매우 드뭅니다.
-					</p>
+
+				<div class="bg-info/5 p-4 rounded-lg mt-4">
+					<h3 class="font-semibold text-info mb-2">💡 색상 분석 활용 전략</h3>
+					<ul class="list-disc list-inside space-y-1 text-base-content/70">
+						<li><strong>균형 조합:</strong> 모든 색상 구간에서 최소 1개씩 선택하는 전략</li>
+						<li><strong>통계적 접근:</strong> 평균 색상별 개수를 참고한 조합 선택</li>
+						<li><strong>패턴 분석:</strong> 최근 당첨번호의 색상 분포 추이를 확인하여 다음 회차 예측</li>
+						<li><strong>최빈값 활용:</strong> 가장 자주 나오는 색상 {colorInfo[data.mostFrequentColor[0] as keyof typeof colorInfo]?.name} 참고</li>
+					</ul>
 				</div>
 			</div>
 		</div>

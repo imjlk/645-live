@@ -4,12 +4,20 @@ import type { PageServerLoad } from "./$types";
 
 const client = initClient(env.TRAILBASE_URL || "http://localhost:4000");
 
-// 정적 페이지이므로 prerender 사용
-export const prerender = true;
+// 동적 페이지이므로 SSR 사용
+export const prerender = false;
+export const ssr = true;
 
-export const load: PageServerLoad = async () => {
-
+export const load: PageServerLoad = async ({ params }) => {
 	try {
+		const roundsParam = params.rounds;
+		const selectedRounds = Number(roundsParam);
+
+		// 유효성 검사
+		if (Number.isNaN(selectedRounds) || selectedRounds < 1) {
+			throw new Error("잘못된 회차 파라미터입니다.");
+		}
+
 		// 전체 회차 수 조회
 		const totalRoundsResponse = await client
 			.records("lotto_draw_results")
@@ -23,42 +31,43 @@ export const load: PageServerLoad = async () => {
 				? (totalRoundsResponse.records[0] as { round: number }).round
 				: 0;
 
-		// 구간별 통계 데이터 (배치 처리로 모든 데이터 가져오기)
-		let allSectionStats: Array<{
+		// 최대 회차 검증
+		if (selectedRounds > totalRounds) {
+			throw new Error(`최대 ${totalRounds}회차까지만 조회 가능합니다.`);
+		}
+
+		// 구간 통계 데이터 조회 (최신 N회차)
+		const sectionStatsResponse = await client
+			.records("lotto_draw_section_stats")
+			.list({
+				order: ["-round"],
+				pagination: { limit: selectedRounds },
+			});
+
+		const rawRecords = sectionStatsResponse.records as Array<{
 			round: number;
 			section_1_10: number;
 			section_11_20: number;
 			section_21_30: number;
 			section_31_40: number;
 			section_41_45: number;
-		}> = [];
-		const batchSize = 1024;
-		let batchOffset = 0;
+		}>;
 
-		while (true) {
-			const sectionStatsResponse = await client
-				.records("lotto_draw_section_stats")
-				.list({
-					order: ["-round"],
-					pagination: { limit: batchSize, offset: batchOffset },
-				});
-
-			const batchRecords = sectionStatsResponse.records as Array<{
-				round: number;
-				section_1_10: number;
-				section_11_20: number;
-				section_21_30: number;
-				section_31_40: number;
-				section_41_45: number;
-			}>;
-
-			if (batchRecords.length === 0) {
-				break;
-			}
-
-			allSectionStats = allSectionStats.concat(batchRecords);
-			batchOffset += batchSize;
-		}
+		// Transform records to match template expectations
+		const records = rawRecords.map(record => ({
+			round: record.round,
+			section1_count: record.section_1_10,
+			section2_count: record.section_11_20,
+			section3_count: record.section_21_30,
+			section4_count: record.section_31_40,
+			section5_count: record.section_41_45,
+			// Keep original field names for calculations
+			section_1_10: record.section_1_10,
+			section_11_20: record.section_11_20,
+			section_21_30: record.section_21_30,
+			section_31_40: record.section_31_40,
+			section_41_45: record.section_41_45,
+		}));
 
 		// 구간별 분포 집계
 		const sectionDistribution = {
@@ -79,8 +88,7 @@ export const load: PageServerLoad = async () => {
 		};
 
 		// 전체 데이터에서 분포 계산
-		for (const statRecord of allSectionStats) {
-
+		for (const statRecord of rawRecords) {
 			// 구간별 총 개수 누적
 			sectionDistribution.section_1_10.total += statRecord.section_1_10;
 			sectionDistribution.section_11_20.total += statRecord.section_11_20;
@@ -107,7 +115,7 @@ export const load: PageServerLoad = async () => {
 		}
 
 		// 구간별 평균 계산
-		const totalRecords = allSectionStats.length;
+		const totalRecords = records.length;
 		if (totalRecords > 0) {
 			sectionDistribution.section_1_10.average =
 				sectionDistribution.section_1_10.total / totalRecords;
@@ -121,23 +129,55 @@ export const load: PageServerLoad = async () => {
 				sectionDistribution.section_41_45.total / totalRecords;
 		}
 
+		// 구간별 패턴 분포 계산
+		const patternDistribution: Record<string, number> = {};
+		for (const record of rawRecords) {
+			const pattern = `${record.section_1_10}-${record.section_11_20}-${record.section_21_30}-${record.section_31_40}-${record.section_41_45}`;
+			patternDistribution[pattern] = (patternDistribution[pattern] || 0) + 1;
+		}
+
+		// 구간별 평균 객체 생성
+		const sectionAverages = {
+			section1: sectionDistribution.section_1_10.average.toFixed(2),
+			section2: sectionDistribution.section_11_20.average.toFixed(2),
+			section3: sectionDistribution.section_21_30.average.toFixed(2),
+			section4: sectionDistribution.section_31_40.average.toFixed(2),
+			section5: sectionDistribution.section_41_45.average.toFixed(2),
+		};
+
+		// 구간별 총 개수 객체 생성
+		const sectionCounts = {
+			section1: sectionDistribution.section_1_10.total,
+			section2: sectionDistribution.section_11_20.total,
+			section3: sectionDistribution.section_21_30.total,
+			section4: sectionDistribution.section_31_40.total,
+			section5: sectionDistribution.section_41_45.total,
+		};
+
+		// 가장 빈번한 구간 찾기
+		const mostFrequentSection = Object.entries(sectionCounts)
+			.sort((a, b) => b[1] - a[1])[0] || ["section1", 0];
+
+		// 요약 객체 생성
+		const summary = {
+			sectionAverages,
+			sectionCounts,
+			totalDraws: totalRecords,
+			distribution: patternDistribution,
+			mostFrequentSection,
+		};
+
 		return {
-			sectionStats: allSectionStats,
-			sectionDistribution,
-			sectionCountDistribution,
+			sectionStats: {
+				records,
+				summary,
+			},
 			totalRounds,
-			totalRecords,
-			selectedRounds: 0, // 기본값은 0 (전체 보기)
+			selectedRounds,
+			pageTitle: `구간 통계 (최근 ${selectedRounds}회차)`,
 		};
 	} catch (error) {
-		console.error("구간별 통계 데이터 로드 실패:", error);
-		return {
-			sectionStats: [],
-			sectionDistribution: {},
-			sectionCountDistribution: {},
-			totalRounds: 0,
-			totalRecords: 0,
-			selectedRounds: 0,
-		};
+		console.error("구간 통계 데이터 로드 오류:", error);
+		throw error;
 	}
 };

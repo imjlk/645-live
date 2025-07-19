@@ -4,6 +4,10 @@ import type { PageServerLoad } from "./$types";
 
 const client = initClient(env.TRAILBASE_URL || "http://localhost:4000");
 
+// 페이지 옵션 설정 - 동적 페이지이므로 SSR 사용
+export const prerender = false;
+export const ssr = true;
+
 export const load: PageServerLoad = async ({ params }) => {
 	try {
 		const roundsParam = params.rounds;
@@ -32,17 +36,36 @@ export const load: PageServerLoad = async ({ params }) => {
 			throw new Error(`최대 ${totalRounds}회차까지만 조회 가능합니다.`);
 		}
 
-		// AC값 통계 데이터 조회
-		const acStatsResponse = await client.records("lotto_draw_ac_stats").list({
-			order: ["-round"],
-			pagination: { limit: selectedRounds },
-		});
+		// AC값 통계 데이터 조회 (배치 처리로 모든 데이터 가져오기)
+		let allRecords: Array<{ round: number; ac_value: number }> = [];
+		const batchSize = 1024;
+		let offset = 0;
+		
+		while (allRecords.length < selectedRounds) {
+			const remainingRecords = selectedRounds - allRecords.length;
+			const currentLimit = Math.min(batchSize, remainingRecords);
+			
+			const acStatsResponse = await client.records("lotto_draw_ac_stats").list({
+				order: ["-round"],
+				pagination: { limit: currentLimit, offset },
+			});
+			
+			const batchRecords = acStatsResponse.records as Array<{
+				round: number;
+				ac_value: number;
+			}>;
+			
+			if (batchRecords.length === 0) {
+				// 더 이상 데이터가 없으면 중단
+				break;
+			}
+			
+			allRecords = allRecords.concat(batchRecords);
+			offset += currentLimit;
+		}
 
-		// 통계 요약 계산
-		const records = acStatsResponse.records as Array<{
-			round: number;
-			ac_value: number;
-		}>;
+		// 통계 요약 계산 (요청한 회차 수만큼만 사용)
+		const records = allRecords.slice(0, selectedRounds);
 
 		const acValues = records.map((r) => r.ac_value);
 		const acCounts = acValues.reduce(

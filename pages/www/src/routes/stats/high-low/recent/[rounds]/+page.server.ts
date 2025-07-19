@@ -4,11 +4,20 @@ import type { PageServerLoad } from "./$types";
 
 const client = initClient(env.TRAILBASE_URL || "http://localhost:4000");
 
-// 페이지 옵션 설정 - 정적 페이지이므로 prerender 사용
-export const prerender = true;
+// 동적 페이지 설정
+export const prerender = false;
+export const ssr = true;
 
-export const load: PageServerLoad = async () => {
+export const load: PageServerLoad = async ({ params }) => {
 	try {
+		const roundsParam = params.rounds;
+		const selectedRounds = Number(roundsParam);
+
+		// 유효성 검사
+		if (Number.isNaN(selectedRounds) || selectedRounds < 1) {
+			throw new Error("잘못된 회차 파라미터입니다.");
+		}
+
 		// 전체 회차 수 조회
 		const totalRoundsResponse = await client
 			.records("lotto_draw_results")
@@ -22,36 +31,24 @@ export const load: PageServerLoad = async () => {
 				? (totalRoundsResponse.records[0] as { round: number }).round
 				: 0;
 
-		// 고저 분석 통계 데이터 조회 (배치 처리로 모든 데이터 가져오기)
-		let allHighLowStats: Array<{
+		// 최대 회차 검증
+		if (selectedRounds > totalRounds) {
+			throw new Error(`최대 ${totalRounds}회차까지만 조회 가능합니다.`);
+		}
+
+		// 고저 분석 통계 데이터 조회 (최신 N회차)
+		const highLowStatsResponse = await client
+			.records("lotto_draw_high_low_stats")
+			.list({
+				order: ["-round"],
+				pagination: { limit: selectedRounds },
+			});
+
+		const records = highLowStatsResponse.records as Array<{
 			round: number;
 			low_count: number;
 			high_count: number;
-		}> = [];
-		const batchSize = 1024;
-		let batchOffset = 0;
-
-		while (true) {
-			const highLowStatsResponse = await client
-				.records("lotto_draw_high_low_stats")
-				.list({
-					order: ["-round"],
-					pagination: { limit: batchSize, offset: batchOffset },
-				});
-
-			const batchRecords = highLowStatsResponse.records as Array<{
-				round: number;
-				low_count: number;
-				high_count: number;
-			}>;
-
-			if (batchRecords.length === 0) {
-				break;
-			}
-
-			allHighLowStats = allHighLowStats.concat(batchRecords);
-			batchOffset += batchSize;
-		}
+		}>;
 
 		// 고저 분포 분석
 		const highLowDistribution = {
@@ -86,10 +83,10 @@ export const load: PageServerLoad = async () => {
 
 		let totalLowCount = 0;
 		let totalHighCount = 0;
-		const totalRecords = allHighLowStats.length;
+		const totalRecords = records.length;
 
 		// 분포 계산
-		for (const record of allHighLowStats) {
+		for (const record of records) {
 			const lowCount = record.low_count;
 			const highCount = record.high_count;
 
@@ -118,14 +115,14 @@ export const load: PageServerLoad = async () => {
 			totalHighCount += highCount;
 		}
 
-		// 평균 계삵
+		// 평균 계산
 		const averageLowCount =
 			totalRecords > 0 ? (totalLowCount / totalRecords).toFixed(2) : "0.00";
 		const averageHighCount =
 			totalRecords > 0 ? (totalHighCount / totalRecords).toFixed(2) : "0.00";
 
 		// 최근 패턴 분석 (최근 10회차)
-		const recentStats = allHighLowStats.slice(0, 10).map((record) => {
+		const recentStats = records.slice(0, 10).map((record) => {
 			return {
 				round: record.round,
 				lowCount: record.low_count,
@@ -142,7 +139,7 @@ export const load: PageServerLoad = async () => {
 			extreme: 0, // 6:0, 0:6
 		};
 
-		for (const record of allHighLowStats) {
+		for (const record of records) {
 			const pattern = getHighLowPattern(record.low_count, record.high_count);
 
 			if (pattern === "balanced") patternStats.balanced++;
@@ -156,36 +153,40 @@ export const load: PageServerLoad = async () => {
 			.filter(([_, count]) => count > 0)
 			.sort((a, b) => b[1] - a[1])[0] || ["3", 0];
 
-		return {
-			highLowStats: allHighLowStats, // 전체 데이터 표시
-			averageLowCount,
-			averageHighCount,
-			highLowDistribution,
-			lowCountDistribution,
-			highCountDistribution,
-			recentStats,
+		// 고저 패턴별 분포 객체 생성 (저:고 형태)
+		const patternDistribution: Record<string, number> = {};
+		for (const [lowCount, count] of Object.entries(lowCountDistribution)) {
+			if (count > 0) {
+				const highCount = 6 - Number(lowCount);
+				const pattern = `${lowCount}:${highCount}`;
+				patternDistribution[pattern] = count;
+			}
+		}
+
+		// 요약 객체 생성
+		const summary = {
+			lowAverage: averageLowCount,
+			highAverage: averageHighCount,
+			lowCount: totalLowCount,
+			highCount: totalHighCount,
+			totalDraws: totalRecords,
+			distribution: patternDistribution,
 			patternStats,
-			totalRounds,
-			totalRecords,
 			mostFrequentPattern,
-			selectedRounds: 0, // 기본값은 0 (전체 보기)
+		};
+
+		return {
+			highLowStats: {
+				records,
+				summary,
+			},
+			totalRounds,
+			selectedRounds,
+			pageTitle: `고저 통계 (최근 ${selectedRounds}회차)`,
 		};
 	} catch (error) {
-		console.error("고저 분석 통계 데이터 로드 실패:", error);
-		return {
-			highLowStats: [],
-			averageLowCount: "0.00",
-			averageHighCount: "0.00",
-			highLowDistribution: {},
-			lowCountDistribution: {},
-			highCountDistribution: {},
-			recentStats: [],
-			patternStats: { balanced: 0, lowHeavy: 0, highHeavy: 0, extreme: 0 },
-			totalRounds: 0,
-			totalRecords: 0,
-			mostFrequentPattern: ["3", 0],
-			selectedRounds: 0,
-		};
+		console.error("고저 통계 데이터 로드 오류:", error);
+		throw error;
 	}
 };
 

@@ -1,14 +1,16 @@
 <script lang="ts">
-import { page } from "$app/stores";
+import { goto } from "$app/navigation";
+import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
 import LinkButton from "$lib/ui/LinkButton.svelte";
-import { onMount } from "svelte";
+import { JsonLd, MetaTags } from "svelte-meta-tags";
 import type { PageData } from "./$types";
 
 export let data: PageData;
 
-// URL 상태 관리
-$: currentPage = Number($page.url.searchParams.get("page") || "1");
-$: selectedRounds = Number($page.url.searchParams.get("rounds") || "500");
+// 페이지네이션 상태 제거 - 전체 데이터 표시
+
+// 사용자 입력 상태 (기본값은 빈 값)
+let inputValue = "";
 
 // 고저 균형 분석
 const getHighLowBalance = (
@@ -42,110 +44,215 @@ const getHighLowBalance = (
 	};
 };
 
-// 회차 선택 옵션
-const roundOptions = [100, 200, 500, 1000];
-
-// 페이지네이션 함수
-const createPageUrl = (newPage: number) => {
-	const url = new URL($page.url);
-	url.searchParams.set("page", String(newPage));
-	return url.toString();
+// 입력값 유효성 검사
+const validateInput = (value: string): boolean => {
+	const str = String(value || "");
+	if (str.trim() === "") return false;
+	const num = Number(str);
+	return !Number.isNaN(num) && num > 0 && num <= data.totalRounds;
 };
 
-const createRoundsUrl = (newRounds: number) => {
-	const url = new URL($page.url);
-	url.searchParams.set("rounds", String(newRounds));
-	url.searchParams.delete("page");
-	return url.toString();
-};
-
-// JSON-LD 스키마 생성
-const generateJsonLd = () => {
-	return {
-		"@context": "https://schema.org",
-		"@type": "AnalysisNewsArticle",
-		headline: "로또 6/45 고저 분석 통계",
-		description:
-			"로또 6/45 당첨번호의 고숫자(23-45)와 저숫자(1-22) 분포를 분석합니다. 고저 균형도와 패턴을 통해 번호 선택에 도움을 제공합니다.",
-		url: "https://645.live/stats/high-low",
-		datePublished: new Date().toISOString(),
-		dateModified: new Date().toISOString(),
-		author: {
-			"@type": "Organization",
-			name: "645.live",
-		},
-		publisher: {
-			"@type": "Organization",
-			name: "645.live",
-			url: "https://645.live",
-		},
-		keywords: ["로또", "고저분석", "고숫자", "저숫자", "로또통계", "균형분석"],
-		mainEntity: {
-			"@type": "Dataset",
-			name: "로또 6/45 고저 분석 데이터",
-			description: "로또 6/45 당첨번호의 고저 분포 및 균형 분석 데이터",
-		},
-	};
-};
-
-onMount(() => {
-	const script = document.createElement("script");
-	script.type = "application/ld+json";
-	script.textContent = JSON.stringify(generateJsonLd());
-	document.head.appendChild(script);
-
-	return () => {
-		if (document.head.contains(script)) {
-			document.head.removeChild(script);
+// 분석 페이지로 이동
+const navigateToAnalysis = async () => {
+	const inputStr = String(inputValue || "");
+	
+	if (inputStr.trim() === "") {
+		alert("분석할 회차 수를 입력해주세요.");
+		return;
+	}
+	
+	if (validateInput(inputStr)) {
+		const rounds = Number(inputStr);
+		console.log(`Navigating to: /stats/high-low/recent/${rounds}`);
+		try {
+			await goto(`/stats/high-low/recent/${rounds}`);
+		} catch (error) {
+			console.error("Navigation error:", error);
+			alert("페이지 이동 중 오류가 발생했습니다.");
 		}
-	};
-});
+	} else {
+		alert(`1부터 ${data.totalRounds}까지의 숫자를 입력해주세요.`);
+	}
+};
+
+// Enter 키 처리
+const handleKeydown = (event: KeyboardEvent) => {
+	if (event.key === "Enter") {
+		navigateToAnalysis();
+	}
+};
+
+// Breadcrumbs 데이터
+const breadcrumbItems = [
+	{ label: "홈", href: "/" },
+	{ label: "통계", href: "/stats" },
+	{ label: "고저분석", href: "/stats/high-low", current: true },
+];
 </script>
 
-<svelte:head>
-	<title>로또 6/45 고저 분석 통계 | 고숫자/저숫자 분포 패턴 | 645.live</title>
-	<meta name="description" content="로또 6/45 당첨번호의 고숫자(23-45)와 저숫자(1-22) 분포를 분석합니다. 고저 균형도와 패턴을 통해 번호 선택에 도움을 제공합니다." />
-	<meta name="keywords" content="로또, 고저분석, 고숫자, 저숫자, 로또통계, 균형분석, 로또예측" />
-	<link rel="canonical" href="https://645.live/stats/high-low" />
-	
-	<!-- Open Graph -->
-	<meta property="og:title" content="로또 6/45 고저 분석 통계 | 645.live" />
-	<meta property="og:description" content="로또 6/45 당첨번호의 고숫자(23-45)와 저숫자(1-22) 분포를 분석합니다." />
-	<meta property="og:url" content="https://645.live/stats/high-low" />
-	<meta property="og:type" content="article" />
-	
-	<!-- Twitter Card -->
-	<meta name="twitter:card" content="summary" />
-	<meta name="twitter:title" content="로또 6/45 고저 분석 통계" />
-	<meta name="twitter:description" content="로또 6/45 당첨번호의 고숫자(23-45)와 저숫자(1-22) 분포를 분석합니다." />
-</svelte:head>
+<MetaTags
+	title="로또 6/45 고저 분석 통계 | 고숫자/저숫자 분포 패턴 분석"
+	titleTemplate="%s | 645.live"
+	description="로또 6/45 전체 {data.totalRounds}회차 고저 분포와 패턴을 분석합니다. 고숫자(23-45)와 저숫자(1-22) 균형도 분석을 통해 번호 선택에 도움을 제공합니다."
+	canonical="https://645.live/stats/high-low"
+	keywords={["로또고저분석", "고숫자저숫자", "로또통계분석", "고저균형분석", "로또예측", "고저패턴분석", "로또데이터분석", "6/45통계"]}
+	robots="index,follow"
+	additionalRobotsProps={{
+		maxSnippet: 320,
+		maxImagePreview: 'large',
+		maxVideoPreview: 60
+	}}
+	additionalMetaTags={[
+		{
+			name: 'application-name',
+			content: '645.live'
+		},
+		{
+			name: 'theme-color',
+			content: '#3B82F6'
+		},
+		{
+			name: 'format-detection',
+			content: 'telephone=no'
+		},
+		{
+			name: 'author',
+			content: '645.live'
+		},
+		{
+			name: 'generator',
+			content: 'SvelteKit'
+		},
+		{
+			property: 'article:publisher',
+			content: 'https://645.live'
+		}
+	]}
+	openGraph={{
+		type: 'article',
+		url: 'https://645.live/stats/high-low',
+		title: `로또 6/45 고저 분석 통계 | 전체 ${data.totalRounds}회차 데이터`,
+		description: `로또 6/45 당첨번호의 고저 분포와 패턴을 분석합니다. 평균 고숫자 ${data.averageHighCount}개, 평균 저숫자 ${data.averageLowCount}개 등 상세한 통계 정보를 확인하세요.`,
+		locale: 'ko_KR',
+		images: [{
+			url: 'https://645.live/images/lotto-high-low-stats.png',
+			width: 1200,
+			height: 630,
+			alt: '로또 6/45 고저 분석 통계',
+			secureUrl: 'https://645.live/images/lotto-high-low-stats.png',
+			type: 'image/png'
+		}],
+		siteName: '645.live',
+		article: {
+			section: '로또 통계',
+			tags: ['로또', '고저분석', '고숫자', '저숫자', '당첨번호', '통계분석', '6/45'],
+			publishedTime: '2024-01-01T00:00:00.000Z',
+			modifiedTime: new Date().toISOString()
+		}
+	}}
+	twitter={{
+		cardType: 'summary_large_image',
+		site: '@645live',
+		title: '로또 6/45 고저 분석 통계',
+		description: `전체 ${data.totalRounds}회차 고저 패턴 분석 - 평균 고숫자 ${data.averageHighCount}개, 평균 저숫자 ${data.averageLowCount}개`,
+		image: 'https://645.live/images/lotto-high-low-stats.png',
+		imageAlt: '로또 6/45 고저 분석 통계'
+	}}
+/>
+
+<JsonLd
+	schema={{
+		'@type': 'Dataset',
+		name: '로또 6/45 고저 분석 통계 데이터',
+		description: `로또 6/45 당첨번호의 고저 분포와 패턴 분석 데이터. 전체 ${data.totalRounds}회차의 고저 분포와 균형도를 분석합니다.`,
+		url: 'https://645.live/stats/high-low',
+		creator: {
+			'@type': 'Organization',
+			name: '645.live'
+		},
+		temporalCoverage: `1회차/${data.totalRounds}회차`,
+		spatial: {
+			'@type': 'Country',
+			name: '대한민국'
+		},
+		distribution: {
+			'@type': 'DataDownload',
+			contentUrl: 'https://645.live/stats/high-low',
+			encodingFormat: 'text/html'
+		},
+		variableMeasured: [
+			{
+				'@type': 'PropertyValue',
+				name: '평균 고숫자',
+				value: data.averageHighCount
+			},
+			{
+				'@type': 'PropertyValue',
+				name: '평균 저숫자',
+				value: data.averageLowCount
+			},
+			{
+				'@type': 'PropertyValue',
+				name: '최빈 패턴',
+				value: `저${data.mostFrequentPattern[0]}:고${6 - Number(data.mostFrequentPattern[0])}`
+			}
+		],
+		mainEntity: {
+			'@type': 'StatisticalPopulation',
+			name: '로또 6/45 당첨번호',
+			populationSize: data.totalRounds
+		}
+	}}
+/>
 
 <div class="p-6 space-y-6">
+	<!-- Breadcrumbs -->
+	<Breadcrumbs items={breadcrumbItems} />
+
 	<!-- 페이지 헤더 -->
 	<div class="text-center space-y-2">
-		<h1 class="text-3xl font-bold text-primary">고저 분석 통계</h1>
+		<h1 class="text-3xl font-bold text-primary">로또 6/45 고저 분석 통계</h1>
 		<p class="text-base-content/70">
-			로또 6/45 당첨번호의 고숫자(23-45)와 저숫자(1-22) 분포를 분석합니다.<br />
-			균형잡힌 고저 조합이 가장 일반적인 패턴입니다.
+			<strong>고저 분석</strong>은 로또 번호를 고숫자(23-45)와 저숫자(1-22)로 구분하여 분석하는 핵심 지표입니다.<br />
+			전체 <strong>{data.totalRounds}회차</strong> 데이터를 기반으로 당첨번호 패턴을 분석하여 
+			다음 당첨번호 예측에 도움이 되는 통계 정보를 제공합니다.
 		</p>
+		<div class="flex justify-center gap-4 text-sm text-base-content/60 mt-4">
+			<span>📊 평균 고숫자: <strong class="text-primary">{data.averageHighCount}개</strong></span>
+			<span>🎯 평균 저숫자: <strong class="text-secondary">{data.averageLowCount}개</strong></span>
+			<span>📈 분석 회차: <strong class="text-accent">{data.totalRounds}회</strong></span>
+		</div>
 	</div>
 
-	<!-- 회차 선택 -->
+	<!-- 최근 회차 분석 -->
 	<div class="card bg-base-100 shadow-sm">
 		<div class="card-body p-4">
-			<h2 class="card-title text-lg">분석 회차 선택</h2>
-			<div class="flex flex-wrap gap-2">
-				{#each roundOptions as rounds}
-					<LinkButton
-						href={createRoundsUrl(rounds)}
-						class="btn-sm {selectedRounds === rounds ? 'btn-primary' : 'btn-outline'}"
-					>
-						최근 {rounds}회차
-					</LinkButton>
-				{/each}
+			<h2 class="card-title text-lg">최근 회차 분석</h2>
+			<div class="flex items-center gap-4 flex-wrap">
+				<div class="flex items-center gap-2">
+					<label for="rounds-input" class="text-sm font-medium">최근 몇 회차:</label>
+					<input
+						id="rounds-input"
+						type="text"
+						inputmode="numeric"
+						pattern="[0-9]*"
+						bind:value={inputValue}
+						on:keydown={handleKeydown}
+						class="input input-bordered input-sm w-24 text-center"
+						placeholder="100"
+					/>
+					<span class="text-sm opacity-60">회차 (최대 {data.totalRounds})</span>
+				</div>
+				<button
+					type="button"
+					on:click={navigateToAnalysis}
+					class="btn btn-primary btn-sm"
+				>
+					상세 분석
+				</button>
 			</div>
 			<p class="text-sm text-base-content/60">
-				현재 최근 <span class="font-semibold text-primary">{data.selectedRounds}회차</span> 데이터를 분석 중입니다.
+				현재 전체 <span class="font-semibold text-primary">{data.totalRounds}회차</span> 데이터를 표시 중입니다. 특정 회차 수를 입력하면 해당 최근 회차만 분석할 수 있습니다.
 			</p>
 		</div>
 	</div>
@@ -180,13 +287,13 @@ onMount(() => {
 		<div class="stat bg-primary text-primary-content rounded-lg">
 			<div class="stat-title text-primary-content/70">평균 고숫자</div>
 			<div class="stat-value text-2xl">{data.averageHighCount || "0.0"}</div>
-			<div class="stat-desc text-primary-content/70">최근 {data.totalRounds || 0}회차</div>
+			<div class="stat-desc text-primary-content/70">전체 {data.totalRounds || 0}회차</div>
 		</div>
 		
 		<div class="stat bg-secondary text-secondary-content rounded-lg">
 			<div class="stat-title text-secondary-content/70">평균 저숫자</div>
 			<div class="stat-value text-2xl">{data.averageLowCount || "0.0"}</div>
-			<div class="stat-desc text-secondary-content/70">최근 {data.totalRounds || 0}회차</div>
+			<div class="stat-desc text-secondary-content/70">전체 {data.totalRounds || 0}회차</div>
 		</div>
 		
 		<div class="stat bg-accent text-accent-content rounded-lg">
@@ -251,11 +358,11 @@ onMount(() => {
 		</div>
 	</div>
 
-	<!-- 최근 회차별 상세 데이터 -->
-	{#if data.highLowStats && data.highLowStats.length > 0}
+	<!-- 최근 10회차 고저 분포 추이 -->
+	{#if data.recentStats && data.recentStats.length > 0}
 	<div class="card bg-base-100 shadow-sm">
 		<div class="card-body">
-			<h2 class="card-title">최근 회차별 고저 데이터</h2>
+			<h2 class="card-title">최근 10회차 고저 분포 추이</h2>
 			
 			<div class="overflow-x-auto">
 				<table class="table table-zebra w-full">
@@ -269,23 +376,22 @@ onMount(() => {
 						</tr>
 					</thead>
 					<tbody>
-						{#each data.highLowStats.slice(0, 20) as stat}
-							{@const statRecord = stat as { round: number; high_count: number; low_count: number }}
-							{@const balance = getHighLowBalance(statRecord.high_count)}
+						{#each data.recentStats as stat}
+							{@const balance = getHighLowBalance(stat.highCount)}
 							<tr>
-								<td class="font-semibold">{statRecord.round}회</td>
+								<td class="font-semibold">{stat.round}회</td>
 								<td class="text-center">
 									<span class="badge badge-error text-white">
-										{statRecord.high_count}개
+										{stat.highCount}개
 									</span>
 								</td>
 								<td class="text-center">
 									<span class="badge badge-info text-white">
-										{statRecord.low_count}개
+										{stat.lowCount}개
 									</span>
 								</td>
 								<td class="font-medium text-center">
-									{statRecord.high_count}:{statRecord.low_count}
+									{stat.highCount}:{stat.lowCount}
 								</td>
 								<td>
 									<div class="badge {balance.color.replace('text-', 'badge-')}">
@@ -297,38 +403,6 @@ onMount(() => {
 					</tbody>
 				</table>
 			</div>
-		</div>
-	</div>
-	{/if}
-
-	<!-- 페이지네이션 -->
-	{#if data.totalPages > 1}
-	<div class="flex justify-center">
-		<div class="join">
-			{#if currentPage > 1}
-				<LinkButton href={createPageUrl(currentPage - 1)} class="join-item btn-outline">
-					이전
-				</LinkButton>
-			{/if}
-			
-			{#each Array.from({length: Math.min(5, data.totalPages)}, (_, i) => {
-				const start = Math.max(1, currentPage - 2);
-				const end = Math.min(data.totalPages, start + 4);
-				return start + i;
-			}).filter(page => page <= data.totalPages) as pageNum}
-				<LinkButton 
-					href={createPageUrl(pageNum)} 
-					class="join-item {pageNum === currentPage ? 'btn-primary' : 'btn-outline'}"
-				>
-					{pageNum}
-				</LinkButton>
-			{/each}
-			
-			{#if currentPage < data.totalPages}
-				<LinkButton href={createPageUrl(currentPage + 1)} class="join-item btn-outline">
-					다음
-				</LinkButton>
-			{/if}
 		</div>
 	</div>
 	{/if}

@@ -1,29 +1,43 @@
 <script lang="ts">
-import { page } from "$app/state";
+import { goto } from "$app/navigation";
+import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
 import LinkButton from "$lib/ui/LinkButton.svelte";
-import { onMount } from "svelte";
+import { JsonLd, MetaTags } from "svelte-meta-tags";
 import type { PageData } from "./$types";
 
 export let data: PageData;
 
 // 사용자 입력 상태
-let customRounds = data.selectedRounds;
 let inputValue = String(data.selectedRounds);
-
-// URL 상태 관리에서 params.rounds 사용
-$: currentPage = Number(page.url.searchParams.get("page") || "1");
 
 // 입력값 유효성 검사
 const validateInput = (value: string): boolean => {
-	const num = Number(value);
+	const str = String(value || "");
+	if (str.trim() === "") return false;
+	const num = Number(str);
 	return !Number.isNaN(num) && num > 0 && num <= data.totalRounds;
 };
 
 // 분석 페이지로 이동
-const navigateToAnalysis = () => {
-	if (validateInput(inputValue)) {
-		const rounds = Number(inputValue);
-		window.location.href = `/stats/odd-even/${rounds}`;
+const navigateToAnalysis = async () => {
+	const inputStr = String(inputValue || "");
+	
+	if (inputStr.trim() === "") {
+		alert("분석할 회차 수를 입력해주세요.");
+		return;
+	}
+	
+	if (validateInput(inputStr)) {
+		const rounds = Number(inputStr);
+		console.log(`Navigating to: /stats/odd-even/recent/${rounds}`);
+		try {
+			await goto(`/stats/odd-even/recent/${rounds}`);
+		} catch (error) {
+			console.error("Navigation error:", error);
+			alert("페이지 이동 중 오류가 발생했습니다.");
+		}
+	} else {
+		alert(`1부터 ${data.totalRounds}까지의 숫자를 입력해주세요.`);
 	}
 };
 
@@ -33,6 +47,14 @@ const handleKeydown = (event: KeyboardEvent) => {
 		navigateToAnalysis();
 	}
 };
+
+// Breadcrumbs 데이터
+const breadcrumbItems = [
+	{ label: "홈", href: "/" },
+	{ label: "통계", href: "/stats" },
+	{ label: "홀짝분석", href: "/stats/odd-even" },
+	{ label: `최근 ${data.selectedRounds}회차`, current: true },
+];
 
 // 홀수 개수별 라벨
 const getOddCountLabel = (count: number): string => {
@@ -103,91 +125,148 @@ const getSumRangeAnalysis = (range: string): string => {
 	return analyses[range as keyof typeof analyses] || "분석 데이터 없음";
 };
 
-// JSON-LD 스키마 생성
-const generateJsonLd = () => {
-	return {
-		"@context": "https://schema.org",
-		"@type": "AnalysisNewsArticle",
-		headline: "로또 6/45 홀짝 분석 통계",
-		description:
-			"로또 6/45 당첨번호의 홀수/짝수 분포와 번호 합계 패턴을 분석합니다. 홀짝 균형도와 트렌드를 통해 번호 선택에 도움을 제공합니다.",
-		url: `https://645.live/stats/odd-even/${data.selectedRounds}`,
-		datePublished: new Date().toISOString(),
-		dateModified: new Date().toISOString(),
-		author: {
-			"@type": "Organization",
-			name: "645.live",
-		},
-		publisher: {
-			"@type": "Organization",
-			name: "645.live",
-			url: "https://645.live",
-		},
-		keywords: [
-			"로또",
-			"홀짝분석",
-			"홀수짝수",
-			"로또통계",
-			"번호합계",
-			"로또패턴",
-		],
-		mainEntity: {
-			"@type": "Dataset",
-			name: "로또 6/45 홀짝 분석 데이터",
-			description: "로또 6/45 당첨번호의 홀수/짝수 분포 및 합계 통계",
-		},
-	};
-};
-
-onMount(() => {
-	const script = document.createElement("script");
-	script.type = "application/ld+json";
-	script.textContent = JSON.stringify(generateJsonLd());
-	document.head.appendChild(script);
-
-	return () => {
-		if (document.head.contains(script)) {
-			document.head.removeChild(script);
-		}
-	};
-});
 </script>
 
-<svelte:head>
-	<title>로또 6/45 홀짝 분석 통계 | {data.selectedRounds}회차 기준 | 645.live</title>
-	<meta name="description" content="로또 6/45 당첨번호의 홀수/짝수 분포와 번호 합계 패턴을 분석합니다. 홀짝 균형도와 트렌드를 통해 번호 선택에 도움을 제공합니다." />
-	<meta name="keywords" content="로또, 홀짝분석, 홀수짝수, 로또통계, 번호합계, 로또패턴, 로또예측" />
-	<link rel="canonical" href={`https://645.live/stats/odd-even/${data.selectedRounds}`} />
-</svelte:head>
+<MetaTags
+	title={`로또 6/45 홀짝 분석 통계 | 최근 ${data.selectedRounds}회차 기준`}
+	titleTemplate="%s | 645.live"
+	description={`로또 6/45 최근 ${data.selectedRounds}회차 당첨번호의 홀수/짝수 분포와 번호 합계 패턴을 분석합니다. 홀짝 균형도와 트렌드를 통해 번호 선택에 도움을 제공합니다.`}
+	canonical={`https://645.live/stats/odd-even/recent/${data.selectedRounds}`}
+	keywords={["로또", "홀짝분석", "홀수짝수", "로또통계", "번호합계", "로또패턴", "로또예측", "6/45통계", "홀짝균형", "번호분석", `최근${data.selectedRounds}회차`]}
+	robots="index,follow"
+	additionalRobotsProps={{
+		maxSnippet: 320,
+		maxImagePreview: 'large',
+		maxVideoPreview: 60
+	}}
+	additionalMetaTags={[
+		{
+			name: 'application-name',
+			content: '645.live'
+		},
+		{
+			name: 'theme-color',
+			content: '#3B82F6'
+		},
+		{
+			name: 'format-detection',
+			content: 'telephone=no'
+		},
+		{
+			name: 'author',
+			content: '645.live'
+		},
+		{
+			name: 'generator',
+			content: 'SvelteKit'
+		},
+		{
+			property: 'article:publisher',
+			content: 'https://645.live'
+		}
+	]}
+	openGraph={{
+		type: 'article',
+		url: `https://645.live/stats/odd-even/recent/${data.selectedRounds}`,
+		title: `로또 6/45 홀짝 분석 통계 | 최근 ${data.selectedRounds}회차 기준`,
+		description: `로또 6/45 최근 ${data.selectedRounds}회차 당첨번호의 홀수/짝수 분포와 번호 합계 패턴을 분석합니다. 홀짝 균형도와 트렌드를 통해 번호 선택에 도움을 제공합니다.`,
+		locale: 'ko_KR',
+		images: [{
+			url: 'https://645.live/images/lotto-odd-even-stats.png',
+			width: 1200,
+			height: 630,
+			alt: `로또 6/45 홀짝 분석 통계 - 최근 ${data.selectedRounds}회차`,
+			secureUrl: 'https://645.live/images/lotto-odd-even-stats.png',
+			type: 'image/png'
+		}],
+		siteName: '645.live',
+		article: {
+			section: '로또 통계',
+			tags: ['로또', '홀짝분석', '홀수짝수', '로또통계', '번호합계', '로또패턴', '6/45통계', '홀짝균형', `최근${data.selectedRounds}회차`],
+			publishedTime: '2024-01-01T00:00:00.000Z',
+			modifiedTime: new Date().toISOString()
+		}
+	}}
+	twitter={{
+		cardType: 'summary_large_image',
+		site: '@645live',
+		title: `로또 6/45 홀짝 분석 통계 - 최근 ${data.selectedRounds}회차`,
+		description: `홀수/짝수 분포와 번호 합계 패턴 분석으로 로또 번호 선택에 도움을 제공합니다.`,
+		image: 'https://645.live/images/lotto-odd-even-stats.png',
+		imageAlt: `로또 6/45 홀짝 분석 통계 - 최근 ${data.selectedRounds}회차`
+	}}
+/>
+
+<JsonLd
+	schema={{
+		'@type': 'Dataset',
+		name: `로또 6/45 홀짝 분석 통계 - 최근 ${data.selectedRounds}회차`,
+		description: `로또 6/45 최근 ${data.selectedRounds}회차 당첨번호의 홀수/짝수 분포와 번호 합계 패턴을 분석한 통계 데이터입니다.`,
+		url: `https://645.live/stats/odd-even/recent/${data.selectedRounds}`,
+		creator: {
+			'@type': 'Organization',
+			name: '645.live'
+		},
+		temporalCoverage: `최근 ${data.selectedRounds}회차`,
+		spatial: {
+			'@type': 'Country',
+			name: '대한민국'
+		},
+		variableMeasured: [
+			{
+				'@type': 'PropertyValue',
+				name: '홀수 개수별 분포',
+				value: Object.keys(data.oddEvenDistribution).length
+			},
+			{
+				'@type': 'PropertyValue',
+				name: '번호 합계 구간별 분포',
+				value: Object.keys(data.sumDistribution).length
+			},
+			{
+				'@type': 'PropertyValue',
+				name: '균형잡힌 조합 비율',
+				value: `${data.balancedRate}%`
+			},
+			{
+				'@type': 'PropertyValue',
+				name: '극단적 조합 비율',
+				value: `${data.extremeRate}%`
+			}
+		]
+	}}
+/>
 
 <div class="p-6 space-y-6">
+	<!-- Breadcrumbs -->
+	<Breadcrumbs items={breadcrumbItems} />
+
 	<!-- 페이지 헤더 -->
 	<div class="text-center space-y-2">
 		<h1 class="text-3xl font-bold text-primary">홀짝 분석 통계</h1>
 		<p class="text-base-content/70">
-			로또 6/45 당첨번호의 홀수/짝수 분포를 분석합니다.<br />
+			로또 6/45 최근 <strong class="text-primary">{data.selectedRounds}회차</strong> 당첨번호의 홀수/짝수 분포를 분석합니다.<br />
 			균형잡힌 홀짝 조합이 가장 일반적인 패턴입니다.
 		</p>
 	</div>
 
-	<!-- 회차 선택 -->
+	<!-- 최근 회차 분석 -->
 	<div class="card bg-base-100 shadow-sm">
 		<div class="card-body p-4">
-			<h2 class="card-title text-lg">분석 회차 선택</h2>
+			<h2 class="card-title text-lg">최근 회차 분석</h2>
 			<div class="flex items-center gap-4 flex-wrap">
 				<div class="flex items-center gap-2">
-					<label for="rounds-input" class="text-sm font-medium">회차 수:</label>
+					<label for="rounds-input" class="text-sm font-medium">분석 회차 (1-{data.totalRounds}):</label>
 					<input
 						id="rounds-input"
-						type="number"
-						min="1"
-						max={data.totalRounds}
+						type="text"
+						inputmode="numeric"
+						pattern="[0-9]*"
 						bind:value={inputValue}
 						on:keydown={handleKeydown}
-						class="input input-bordered input-sm w-24 text-center"
+						class="input input-bordered input-sm w-20 text-center"
 						placeholder="100"
 					/>
-					<span class="text-sm text-base-content/60">/ {data.totalRounds}</span>
 				</div>
 				<button
 					type="button"
@@ -203,7 +282,7 @@ onMount(() => {
 					전체 회차 보기
 				</LinkButton>
 			</div>
-			<p class="text-sm text-base-content/60 mt-2">
+			<p class="text-sm text-base-content/60">
 				현재 최근 <span class="font-semibold text-primary">{data.selectedRounds}회차</span> 데이터를 분석 중입니다.
 			</p>
 		</div>

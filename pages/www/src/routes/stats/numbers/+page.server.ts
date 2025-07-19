@@ -4,18 +4,18 @@ import type { PageServerLoad } from "./$types";
 
 const client = initClient(env.TRAILBASE_URL || "http://localhost:4000");
 
-export const load: PageServerLoad = async ({ url }) => {
-	const page = Number(url.searchParams.get("page") || "1");
-	const limit = 45; // 모든 번호 표시
-	const offset = (page - 1) * limit;
+// 페이지 옵션 설정 - 정적 페이지이므로 prerender 사용
+export const prerender = true;
+
+export const load: PageServerLoad = async () => {
 
 	try {
-		// 번호별 통계 (전체)
+		// 번호별 통계 (전체, 페이지네이션 제거)
 		const numberStatsResponse = await client
 			.records("lotto_number_stats")
 			.list({
 				order: ["-draw_count"],
-				pagination: { limit, offset },
+				pagination: { limit: 45 }, // 모든 번호 표시
 			});
 
 		// 번호별 상세 정보 (색깔, 구간)
@@ -40,12 +40,7 @@ export const load: PageServerLoad = async ({ url }) => {
 		}
 
 		// 전체 회차 수
-		const totalRoundsResponse = await client
-			.records("lotto_draw_results")
-			.list({
-				pagination: { limit: 1 },
-			});
-		const totalRounds = totalRoundsResponse.total_count || 0;
+		const totalRounds = latestRound; // 최신 회차가 전체 회차 수
 
 		// 번호별 상세 정보 매핑
 		const numberDetailsMap = new Map();
@@ -84,12 +79,17 @@ export const load: PageServerLoad = async ({ url }) => {
 			};
 		});
 
+		// 가장 많이 출현한 번호와 적게 출현한 번호
+		const mostFrequentNumber = enrichedStats.length > 0 ? enrichedStats[0] : null;
+		const leastFrequentNumber = enrichedStats.length > 0 ? enrichedStats[enrichedStats.length - 1] : null;
+
 		return {
 			numberStats: enrichedStats,
 			totalRounds,
 			latestRound,
-			currentPage: page,
-			totalPages: Math.ceil((numberStatsResponse.total_count || 0) / limit),
+			mostFrequentNumber,
+			leastFrequentNumber,
+			selectedRounds: 0, // 기본값은 0 (전체 보기)
 		};
 	} catch (error) {
 		console.error("번호별 통계 데이터 로드 실패:", error);
@@ -97,8 +97,9 @@ export const load: PageServerLoad = async ({ url }) => {
 			numberStats: [],
 			totalRounds: 0,
 			latestRound: 0,
-			currentPage: 1,
-			totalPages: 1,
+			mostFrequentNumber: null,
+			leastFrequentNumber: null,
+			selectedRounds: 0,
 		};
 	}
 };

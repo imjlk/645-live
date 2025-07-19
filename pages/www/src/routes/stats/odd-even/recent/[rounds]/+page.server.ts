@@ -4,10 +4,12 @@ import type { PageServerLoad } from "./$types";
 
 const client = initClient(env.TRAILBASE_URL || "http://localhost:4000");
 
-// 페이지 옵션 설정 - 정적 페이지이므로 prerender 사용
-export const prerender = true;
+// 동적 페이지이므로 SSR 사용
+export const prerender = false;
+export const ssr = true;
 
-export const load: PageServerLoad = async () => {
+export const load: PageServerLoad = async ({ params }) => {
+	const rounds = Number(params.rounds || "100");
 
 	try {
 		// 전체 회차 수 조회
@@ -23,7 +25,7 @@ export const load: PageServerLoad = async () => {
 				? (totalRoundsResponse.records[0] as { round: number }).round
 				: 0;
 
-		// 홀짝 통계 데이터 조회 (배치 처리로 모든 데이터 가져오기)
+		// 홀짝 통계 데이터 조회 (배치 처리로 지정된 회차 수만큼 가져오기)
 		let allOddEvenStats: Array<{
 			round: number;
 			odd_count: number;
@@ -32,13 +34,15 @@ export const load: PageServerLoad = async () => {
 		}> = [];
 		const batchSize = 1024;
 		let batchOffset = 0;
+		let totalFetched = 0;
 
-		while (true) {
+		while (totalFetched < rounds) {
+			const currentBatchSize = Math.min(batchSize, rounds - totalFetched);
 			const oddEvenStatsResponse = await client
 				.records("lotto_draw_odd_even_stats")
 				.list({
 					order: ["-round"],
-					pagination: { limit: batchSize, offset: batchOffset },
+					pagination: { limit: currentBatchSize, offset: batchOffset },
 				});
 
 			const batchRecords = oddEvenStatsResponse.records as Array<{
@@ -53,7 +57,8 @@ export const load: PageServerLoad = async () => {
 			}
 
 			allOddEvenStats = allOddEvenStats.concat(batchRecords);
-			batchOffset += batchSize;
+			batchOffset += currentBatchSize;
+			totalFetched += batchRecords.length;
 		}
 
 		// 홀짝 분포 집계
@@ -80,9 +85,8 @@ export const load: PageServerLoad = async () => {
 			"221-240": 0,
 		};
 
-		// 전체 데이터에서 분포 계산
+		// 선택한 회차 데이터에서 분포 계산
 		for (const stat of allOddEvenStats) {
-
 			// 홀수 개수 분포
 			if (stat.odd_count >= 0 && stat.odd_count <= 6) {
 				oddEvenDistribution[
@@ -129,7 +133,7 @@ export const load: PageServerLoad = async () => {
 		const extremeRate = analyzedRounds > 0 ? ((extremeCount / analyzedRounds) * 100).toFixed(1) : "0.0";
 
 		return {
-			oddEvenStats: allOddEvenStats, // 전체 데이터 표시
+			oddEvenStats: allOddEvenStats,
 			totalRounds,
 			totalRecords: analyzedRounds,
 			oddEvenDistribution,
@@ -140,7 +144,7 @@ export const load: PageServerLoad = async () => {
 			recentStats,
 			balancedRate,
 			extremeRate,
-			selectedRounds: 0, // 기본값은 0 (전체 보기)
+			selectedRounds: rounds,
 		};
 	} catch (error) {
 		console.error("홀짝 통계 데이터 로드 실패:", error);
@@ -156,7 +160,7 @@ export const load: PageServerLoad = async () => {
 			recentStats: [],
 			balancedRate: "0.0",
 			extremeRate: "0.0",
-			selectedRounds: 0,
+			selectedRounds: rounds,
 		};
 	}
 };

@@ -1,60 +1,108 @@
 <script lang="ts">
-import { onMount } from "svelte";
+import { MetaTags, JsonLd } from 'svelte-meta-tags';
 import type { PageData } from "./$types";
 
 export let data: PageData;
-
-// JSON-LD 스키마 생성
-const generateJsonLd = () => {
-	return {
-		"@context": "https://schema.org",
-		"@type": "Dataset",
-		name: "로또 6/45 통계 데이터",
-		description: "한국 로또 6/45 당첨번호 통계 및 분석 데이터",
-		url: "https://645.live/stats",
-		keywords: ["로또", "로또통계", "로또분석", "로또당첨번호", "로또예측"],
-		dateModified: new Date().toISOString(),
-		creator: {
-			"@type": "Organization",
-			name: "645.live",
-			url: "https://645.live",
-		},
-		distribution: {
-			"@type": "DataDownload",
-			contentUrl: "https://645.live/stats",
-			encodingFormat: "text/html",
-		},
-		temporalCoverage: "2002-12-07/..",
-		spatialCoverage: {
-			"@type": "Place",
-			name: "대한민국",
-		},
-	};
-};
-
-onMount(() => {
-	// JSON-LD 스키마 추가
-	const script = document.createElement("script");
-	script.type = "application/ld+json";
-	script.textContent = JSON.stringify(generateJsonLd());
-	document.head.appendChild(script);
-
-	return () => {
-		document.head.removeChild(script);
-	};
-});
 </script>
 
-<svelte:head>
-	<title>로또 6/45 통계 분석 | 645.live</title>
-	<meta name="description" content="로또 6/45 당첨번호 통계 및 분석 데이터. 번호별 출현 빈도, 홀짝 분포, 색깔별 통계, 구간별 분석 등 다양한 통계 정보를 제공합니다." />
-	<meta name="keywords" content="로또통계, 로또분석, 로또당첨번호, 로또예측, 번호분석, 홀짝분석" />
-	<meta property="og:title" content="로또 6/45 통계 분석" />
-	<meta property="og:description" content="로또 6/45 당첨번호 통계 및 분석 데이터" />
-	<meta property="og:url" content="https://645.live/stats" />
-	<meta property="og:type" content="website" />
-	<link rel="canonical" href="https://645.live/stats" />
-</svelte:head>
+<MetaTags
+	title="로또 6/45 통계 분석 | 번호별 출현 빈도와 패턴 분석"
+	titleTemplate="%s | 645.live"
+	description={`로또 6/45 당첨번호 통계 및 분석 데이터를 제공합니다. 전체 ${data.totalRounds}회차 데이터 기반으로 번호별 출현 빈도, 홀짝 분포, 색깔별 통계, 구간별 분석 등 종합적인 로또 분석 정보를 확인하세요.`}
+	canonical="https://645.live/stats"
+	keywords={["로또통계", "로또분석", "로또당첨번호", "번호별통계", "로또예측", "번호분석", "홀짝분석", "로또패턴", "6/45통계", "로또번호분석"]}
+	robots="index,follow"
+	additionalRobotsProps={{
+		maxSnippet: 320,
+		maxImagePreview: 'large',
+		maxVideoPreview: 60
+	}}
+	additionalMetaTags={[
+		{
+			name: 'application-name',
+			content: '645.live'
+		},
+		{
+			name: 'theme-color',
+			content: '#3B82F6'
+		},
+		{
+			name: 'format-detection',
+			content: 'telephone=no'
+		},
+		{
+			name: 'author',
+			content: '645.live'
+		},
+		{
+			name: 'generator',
+			content: 'SvelteKit'
+		},
+		{
+			property: 'article:publisher',
+			content: 'https://645.live'
+		}
+	]}
+	openGraph={{
+		type: 'website',
+		url: 'https://645.live/stats',
+		title: '로또 6/45 통계 분석 | 번호별 출현 빈도와 패턴 분석',
+		description: `로또 6/45 당첨번호 통계 및 분석 데이터를 제공합니다. 전체 ${data.totalRounds}회차 데이터 기반으로 번호별 출현 빈도, 홀짝 분포, 색깔별 통계 등 종합적인 분석 정보를 확인하세요.`,
+		locale: 'ko_KR',
+		images: [{
+			url: 'https://645.live/images/lotto-stats-main.png',
+			width: 1200,
+			height: 630,
+			alt: '로또 6/45 통계 분석',
+			secureUrl: 'https://645.live/images/lotto-stats-main.png',
+			type: 'image/png'
+		}],
+		siteName: '645.live'
+	}}
+	twitter={{
+		cardType: 'summary_large_image',
+		site: '@645live',
+		title: '로또 6/45 통계 분석',
+		description: '번호별 출현 빈도와 패턴 분석으로 로또를 더 재미있게!',
+		image: 'https://645.live/images/lotto-stats-main.png',
+		imageAlt: '로또 6/45 통계 분석'
+	}}
+/>
+
+<JsonLd
+	schema={{
+		'@type': 'Dataset',
+		name: '로또 6/45 통계 분석 데이터',
+		description: `로또 6/45 당첨번호 통계 및 분석 데이터입니다. 전체 ${data.totalRounds}회차 데이터를 기반으로 번호별 출현 빈도, 홀짝 분포, 색깔별 통계, 구간별 분석 등을 제공합니다.`,
+		url: 'https://645.live/stats',
+		creator: {
+			'@type': 'Organization',
+			name: '645.live'
+		},
+		temporalCoverage: `전체 ${data.totalRounds}회차 (2002년 12월 ~ 현재)`,
+		spatial: {
+			'@type': 'Country',
+			name: '대한민국'
+		},
+		variableMeasured: [
+			{
+				'@type': 'PropertyValue',
+				name: '번호별 출현 빈도',
+				value: `${data.topNumberStats[0]?.number}번 최다 ${data.topNumberStats[0]?.draw_count}회`
+			},
+			{
+				'@type': 'PropertyValue',
+				name: '전체 회차 수',
+				value: data.totalRounds
+			},
+			{
+				'@type': 'PropertyValue',
+				name: '최신 회차',
+				value: data.latestRound
+			}
+		]
+	}}
+/>
 
 <div class="container mx-auto px-4 py-8">
 	<header class="mb-8">
@@ -132,7 +180,7 @@ onMount(() => {
 					<div class="space-y-2">
 						{#each data.topNumberStats.slice(0, 5) as stat}
 							<div class="flex justify-between items-center">
-								<span class="lotto-ball">{stat.number}</span>
+								<a href="/stats/numbers/{stat.number}" class="lotto-ball hover:scale-110 transition-transform">{stat.number}</a>
 								<span class="text-sm text-base-content/70">{stat.draw_count}회</span>
 							</div>
 						{/each}
@@ -143,7 +191,7 @@ onMount(() => {
 					<div class="space-y-2">
 						{#each data.bottomNumberStats.slice(0, 5) as stat}
 							<div class="flex justify-between items-center">
-								<span class="lotto-ball">{stat.number}</span>
+								<a href="/stats/numbers/{stat.number}" class="lotto-ball hover:scale-110 transition-transform">{stat.number}</a>
 								<span class="text-sm text-base-content/70">{stat.draw_count}회</span>
 							</div>
 						{/each}
@@ -222,9 +270,9 @@ onMount(() => {
 				{#each data.topPairStats.slice(0, 5) as stat}
 					<div class="flex items-center justify-between">
 						<div class="flex items-center space-x-2">
-							<span class="lotto-ball small">{stat.number_a}</span>
+							<a href="/stats/numbers/{stat.number_a}" class="lotto-ball small hover:scale-110 transition-transform">{stat.number_a}</a>
 							<span class="text-base-content/40">+</span>
-							<span class="lotto-ball small">{stat.number_b}</span>
+							<a href="/stats/numbers/{stat.number_b}" class="lotto-ball small hover:scale-110 transition-transform">{stat.number_b}</a>
 						</div>
 						<span class="text-sm text-base-content/70">{stat.pair_count}회</span>
 					</div>

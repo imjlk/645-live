@@ -4,41 +4,62 @@ import type { PageServerLoad } from "./$types";
 
 const client = initClient(env.TRAILBASE_URL || "http://localhost:4000");
 
-export const load: PageServerLoad = async ({ url }) => {
-	const page = Number(url.searchParams.get("page") || "1");
-	const rounds = Number(url.searchParams.get("rounds") || "100");
-	const limit = 50;
-	const offset = (page - 1) * limit;
+// 정적 페이지이므로 prerender 사용
+export const prerender = true;
+
+export const load: PageServerLoad = async () => {
 
 	try {
-		// 연속 회차 중복 번호 통계 데이터 (최신순)
-		const repeatStatsResponse = await client
-			.records("lotto_draw_repeat_stats")
+		// 전체 회차 수 조회
+		const totalRoundsResponse = await client
+			.records("lotto_draw_results")
 			.list({
 				order: ["-round"],
-				pagination: { limit, offset },
+				pagination: { limit: 1 },
 			});
 
-		// 전체 중복 번호 통계 요약 (선택한 회차 수만큼)
-		const allRepeatResponse = await client
-			.records("lotto_draw_repeat_stats")
-			.list({
-				order: ["-round"],
-				pagination: { limit: rounds },
-			});
+		const totalRounds =
+			totalRoundsResponse.records.length > 0
+				? (totalRoundsResponse.records[0] as { round: number }).round
+				: 0;
 
-		// 통계 요약 계산
-		const records = allRepeatResponse.records as Array<{
+		// 연속 회차 중복 번호 통계 데이터 (배치 처리로 모든 데이터 가져오기)
+		let allRepeatStats: Array<{
 			round: number;
 			repeat_count: number;
-		}>;
+		}> = [];
+		const batchSize = 1024;
+		let batchOffset = 0;
 
-		const totalRounds = records.length;
+		while (true) {
+			const repeatStatsResponse = await client
+				.records("lotto_draw_repeat_stats")
+				.list({
+					order: ["-round"],
+					pagination: { limit: batchSize, offset: batchOffset },
+				});
+
+			const batchRecords = repeatStatsResponse.records as Array<{
+				round: number;
+				repeat_count: number;
+			}>;
+
+			if (batchRecords.length === 0) {
+				break;
+			}
+
+			allRepeatStats = allRepeatStats.concat(batchRecords);
+			batchOffset += batchSize;
+		}
+
+		// 통계 요약 계산
+		const records = allRepeatStats;
+		const analyzedRounds = records.length;
 		const averageRepeatCount =
-			totalRounds > 0
+			analyzedRounds > 0
 				? (
 						records.reduce((sum, record) => sum + record.repeat_count, 0) /
-						totalRounds
+						analyzedRounds
 					).toFixed(2)
 				: "0.00";
 
@@ -67,8 +88,8 @@ export const load: PageServerLoad = async ({ url }) => {
 		const recentStats = records.slice(0, 10);
 		const zeroRepeatCount = repeatCountDistribution["0"];
 		const zeroRepeatRate =
-			totalRounds > 0
-				? ((zeroRepeatCount / totalRounds) * 100).toFixed(1)
+			analyzedRounds > 0
+				? ((zeroRepeatCount / analyzedRounds) * 100).toFixed(1)
 				: "0.0";
 		const highRepeatCount =
 			repeatCountDistribution["3"] +
@@ -76,13 +97,14 @@ export const load: PageServerLoad = async ({ url }) => {
 			repeatCountDistribution["5"] +
 			repeatCountDistribution["6"];
 		const highRepeatRate =
-			totalRounds > 0
-				? ((highRepeatCount / totalRounds) * 100).toFixed(1)
+			analyzedRounds > 0
+				? ((highRepeatCount / analyzedRounds) * 100).toFixed(1)
 				: "0.0";
 
 		return {
-			repeatStats: repeatStatsResponse.records,
+			repeatStats: allRepeatStats,
 			totalRounds,
+			totalRecords: analyzedRounds,
 			averageRepeatCount,
 			maxRepeatCount,
 			repeatCountDistribution,
@@ -91,18 +113,23 @@ export const load: PageServerLoad = async ({ url }) => {
 			zeroRepeatRate,
 			highRepeatCount,
 			highRepeatRate,
-			currentPage: page,
-			totalPages: Math.ceil((repeatStatsResponse.total_count || 0) / limit),
-			selectedRounds: rounds,
+			selectedRounds: 0, // 기본값은 0 (전체 보기)
 		};
 	} catch (error) {
-		console.error("번호별 통계 데이터 로드 실패:", error);
+		console.error("연속 번호 통계 데이터 로드 실패:", error);
 		return {
-			numberStats: [],
+			repeatStats: [],
 			totalRounds: 0,
-			latestRound: 0,
-			currentPage: 1,
-			totalPages: 1,
+			totalRecords: 0,
+			averageRepeatCount: "0.00",
+			maxRepeatCount: 0,
+			repeatCountDistribution: {},
+			recentStats: [],
+			zeroRepeatCount: 0,
+			zeroRepeatRate: "0.0",
+			highRepeatCount: 0,
+			highRepeatRate: "0.0",
+			selectedRounds: 0,
 		};
 	}
 };

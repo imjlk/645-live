@@ -1,21 +1,60 @@
 <script lang="ts">
+import { page } from "$app/state";
 import { goto } from "$app/navigation";
-import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
+import { MetaTags, JsonLd } from 'svelte-meta-tags';
 import LinkButton from "$lib/ui/LinkButton.svelte";
-import { JsonLd, MetaTags } from "svelte-meta-tags";
+import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
 import type { PageData } from "./$types";
 
 export let data: PageData;
 
-// 사용자 입력 상태 (기본값은 빈 값)
-let inputValue = "";
+// 사용자 입력 상태
+let inputValue = String(data.selectedRounds);
 
 // Breadcrumbs 데이터
 const breadcrumbItems = [
 	{ label: "홈", href: "/" },
 	{ label: "통계", href: "/stats" },
-	{ label: "연속번호", href: "/stats/repeat", current: true },
+	{ label: "연속번호", href: "/stats/repeat" },
+	{ label: `최근 ${data.selectedRounds}회차`, href: `/stats/repeat/recent/${data.selectedRounds}`, current: true },
 ];
+
+// 입력값 유효성 검사
+const validateInput = (value: string): boolean => {
+	const str = String(value || "");
+	if (str.trim() === "") return false;
+	const num = Number(str);
+	return !Number.isNaN(num) && num > 0 && num <= data.totalRounds;
+};
+
+// 분석 페이지로 이동
+const navigateToAnalysis = async () => {
+	const inputStr = String(inputValue || "");
+	
+	if (inputStr.trim() === "") {
+		alert("분석할 회차 수를 입력해주세요.");
+		return;
+	}
+	
+	if (validateInput(inputStr)) {
+		const rounds = Number(inputStr);
+		try {
+			await goto(`/stats/repeat/recent/${rounds}`);
+		} catch (error) {
+			console.error("Navigation error:", error);
+			alert("페이지 이동 중 오류가 발생했습니다.");
+		}
+	} else {
+		alert(`1부터 ${data.totalRounds}까지의 숫자를 입력해주세요.`);
+	}
+};
+
+// Enter 키 처리
+const handleKeydown = (event: KeyboardEvent) => {
+	if (event.key === "Enter") {
+		navigateToAnalysis();
+	}
+};
 
 // 중복 개수별 라벨
 const getRepeatLabel = (count: number): string => {
@@ -39,74 +78,45 @@ const getRepeatAnalysis = (
 		return {
 			type: "완전 새로움",
 			description: "이전 회차와 중복 번호 없음",
-			color: "text-success",
+			color: "success",
 		};
 	}
 	if (count === 1 || count === 2) {
 		return {
 			type: "일반적 중복",
 			description: "평범한 수준의 연속성",
-			color: "text-info",
+			color: "info",
 		};
 	}
 	if (count === 3) {
 		return {
 			type: "높은 중복",
 			description: "높은 연속성",
-			color: "text-warning",
+			color: "warning",
 		};
 	}
 	return {
 		type: "매우 높은 중복",
 		description: "매우 높은 연속성 (드문 경우)",
-		color: "text-error",
+		color: "error",
 	};
 };
 
-// 입력값 유효성 검사
-const validateInput = (value: string): boolean => {
-	const str = String(value || "");
-	if (str.trim() === "") return false;
-	const num = Number(str);
-	return !Number.isNaN(num) && num > 0 && num <= data.totalRounds;
+// 백분율 계산
+const getPercentage = (count: number, total: number): string => {
+	return total > 0 ? ((count / total) * 100).toFixed(1) : "0.0";
 };
 
-// 분석 페이지로 이동
-const navigateToAnalysis = async () => {
-	const inputStr = String(inputValue || "");
-	
-	if (inputStr.trim() === "") {
-		alert("분석할 회차 수를 입력해주세요.");
-		return;
-	}
-	
-	if (validateInput(inputStr)) {
-		const rounds = Number(inputStr);
-		console.log(`Navigating to: /stats/repeat/recent/${rounds}`);
-		try {
-			await goto(`/stats/repeat/recent/${rounds}`);
-		} catch (error) {
-			console.error("Navigation error:", error);
-			alert("페이지 이동 중 오류가 발생했습니다.");
-		}
-	} else {
-		alert(`1부터 ${data.totalRounds}까지의 숫자를 입력해주세요.`);
-	}
-};
-
-// Enter 키 처리
-const handleKeydown = (event: KeyboardEvent) => {
-	if (event.key === "Enter") {
-		navigateToAnalysis();
-	}
-};
+// 중복 개수별 정렬 (출현 빈도순)
+$: sortedRepeatCounts = Object.entries(data.repeatStats.summary.repeatCounts)
+	.sort(([, a], [, b]) => Number(b) - Number(a));
 </script>
 
 <MetaTags
-	title="로또 6/45 연속번호 분석 통계 | 회차간 중복 패턴 분석"
+	title="로또 6/45 연속번호 중복 분석 통계 | 회차간 중복 패턴 분석"
 	titleTemplate="%s | 645.live"
-	description="로또 6/45 연속 회차 간 중복 번호 패턴을 분석합니다. 이전 회차와의 번호 중복 빈도와 연속성 트렌드를 제공합니다."
-	canonical="https://645.live/stats/repeat"
+	description={`로또 6/45 연속 회차 간 중복 번호 패턴을 분석합니다 (최근 ${data.selectedRounds}회차). 이전 회차와의 번호 중복 빈도와 연속성 트렌드를 제공합니다.`}
+	canonical={`https://645.live/stats/repeat/recent/${data.selectedRounds}`}
 	keywords={["로또", "연속번호", "중복번호", "로또통계", "번호패턴", "연속성분석", "로또예측", "6/45통계", "로또연속성", "번호중복분석"]}
 	robots="index,follow"
 	additionalRobotsProps={{
@@ -142,15 +152,15 @@ const handleKeydown = (event: KeyboardEvent) => {
 	]}
 	openGraph={{
 		type: 'article',
-		url: 'https://645.live/stats/repeat',
-		title: '로또 6/45 연속번호 분석 통계 | 회차간 중복 패턴',
-		description: '로또 6/45 연속 회차 간 중복 번호 패턴을 분석합니다. 이전 회차와의 번호 중복 빈도와 연속성 트렌드를 제공합니다.',
+		url: `https://645.live/stats/repeat/recent/${data.selectedRounds}`,
+		title: `로또 6/45 연속번호 중복 분석 통계 | 회차간 중복 패턴 (최근 ${data.selectedRounds}회차)`,
+		description: `로또 6/45 연속 회차 간 중복 번호 패턴을 분석합니다 (최근 ${data.selectedRounds}회차). 이전 회차와의 번호 중복 빈도와 연속성 트렌드를 제공합니다.`,
 		locale: 'ko_KR',
 		images: [{
 			url: 'https://645.live/images/lotto-repeat-stats.png',
 			width: 1200,
 			height: 630,
-			alt: '로또 6/45 연속번호 분석 통계',
+			alt: '로또 6/45 연속번호 중복 분석 통계',
 			secureUrl: 'https://645.live/images/lotto-repeat-stats.png',
 			type: 'image/png'
 		}],
@@ -165,24 +175,24 @@ const handleKeydown = (event: KeyboardEvent) => {
 	twitter={{
 		cardType: 'summary_large_image',
 		site: '@645live',
-		title: '로또 6/45 연속번호 분석 통계',
+		title: `로또 6/45 연속번호 중복 분석 통계 (최근 ${data.selectedRounds}회차)`,
 		description: '회차간 중복 패턴 분석으로 로또 번호 연속성을 파악하세요.',
 		image: 'https://645.live/images/lotto-repeat-stats.png',
-		imageAlt: '로또 6/45 연속번호 분석 통계'
+		imageAlt: '로또 6/45 연속번호 중복 분석 통계'
 	}}
 />
 
 <JsonLd
 	schema={{
 		'@type': 'Dataset',
-		name: '로또 6/45 연속번호 분석 통계',
-		description: '로또 6/45 연속 회차 간 중복 번호 패턴을 분석한 통계 데이터입니다.',
-		url: 'https://645.live/stats/repeat',
+		name: `로또 6/45 연속번호 중복 분석 통계 (최근 ${data.selectedRounds}회차)`,
+		description: `로또 6/45 연속 회차 간 중복 번호 패턴을 분석한 통계 데이터입니다 (최근 ${data.selectedRounds}회차).`,
+		url: `https://645.live/stats/repeat/recent/${data.selectedRounds}`,
 		creator: {
 			'@type': 'Organization',
 			name: '645.live'
 		},
-		temporalCoverage: `전체 ${data.totalRounds}회차`,
+		temporalCoverage: `최근 ${data.selectedRounds}회차`,
 		spatial: {
 			'@type': 'Country',
 			name: '대한민국'
@@ -191,22 +201,22 @@ const handleKeydown = (event: KeyboardEvent) => {
 			{
 				'@type': 'PropertyValue',
 				name: '평균 중복 개수',
-				value: data.averageRepeatCount
+				value: data.repeatStats.summary.averageRepeatCount
 			},
 			{
 				'@type': 'PropertyValue',
 				name: '최대 중복 개수',
-				value: data.maxRepeatCount
+				value: data.repeatStats.summary.maxRepeatCount
 			},
 			{
 				'@type': 'PropertyValue',
 				name: '중복 없음 비율',
-				value: `${data.zeroRepeatRate}%`
+				value: `${data.repeatStats.summary.zeroRepeatRate}%`
 			},
 			{
 				'@type': 'PropertyValue',
 				name: '높은 중복 비율',
-				value: `${data.highRepeatRate}%`
+				value: `${data.repeatStats.summary.highRepeatRate}%`
 			}
 		]
 	}}
@@ -218,9 +228,9 @@ const handleKeydown = (event: KeyboardEvent) => {
 
 	<!-- 페이지 헤더 -->
 	<div class="text-center space-y-2">
-		<h1 class="text-3xl font-bold text-primary">연속번호 분석 통계</h1>
+		<h1 class="text-3xl font-bold text-primary">연속번호 중복 분석 통계</h1>
 		<p class="text-base-content/70">
-			로또 6/45 연속 회차 간 중복 번호 패턴을 분석합니다.<br />
+			최근 <span class="font-semibold text-primary">{data.selectedRounds}회차</span>의 연속 회차 간 중복 번호 패턴을 분석합니다.<br />
 			이전 회차와 현재 회차의 번호 중복 빈도와 연속성을 확인하세요.
 		</p>
 	</div>
@@ -250,9 +260,15 @@ const handleKeydown = (event: KeyboardEvent) => {
 				>
 					분석하기
 				</button>
+				<LinkButton
+					href="/stats/repeat"
+					class="btn-outline btn-sm"
+				>
+					전체 회차 보기
+				</LinkButton>
 			</div>
 			<p class="text-sm text-base-content/60">
-				현재 <span class="font-semibold text-primary">전체 {data.totalRounds}회차</span> 데이터를 분석 중입니다.
+				현재 최근 <span class="font-semibold text-primary">{data.selectedRounds}회차</span> 데이터를 분석 중입니다.
 			</p>
 		</div>
 	</div>
@@ -261,25 +277,25 @@ const handleKeydown = (event: KeyboardEvent) => {
 	<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
 		<div class="stat bg-primary text-primary-content rounded-lg">
 			<div class="stat-title text-primary-content/70">평균 중복 개수</div>
-			<div class="stat-value text-2xl">{data.averageRepeatCount}</div>
-			<div class="stat-desc text-primary-content/70">전체 {data.totalRecords}회차</div>
+			<div class="stat-value text-2xl">{data.repeatStats.summary.averageRepeatCount}</div>
+			<div class="stat-desc text-primary-content/70">최근 {data.selectedRounds}회차</div>
 		</div>
 		
 		<div class="stat bg-secondary text-secondary-content rounded-lg">
 			<div class="stat-title text-secondary-content/70">최대 중복 개수</div>
-			<div class="stat-value text-2xl">{data.maxRepeatCount}</div>
+			<div class="stat-value text-2xl">{data.repeatStats.summary.maxRepeatCount}</div>
 			<div class="stat-desc text-secondary-content/70">기록상 최고치</div>
 		</div>
 		
 		<div class="stat bg-accent text-accent-content rounded-lg">
 			<div class="stat-title text-accent-content/70">중복 없음</div>
-			<div class="stat-value text-2xl">{data.zeroRepeatRate}%</div>
-			<div class="stat-desc text-accent-content/70">{data.zeroRepeatCount}회 중복 없음</div>
+			<div class="stat-value text-2xl">{data.repeatStats.summary.zeroRepeatRate}%</div>
+			<div class="stat-desc text-accent-content/70">{data.repeatStats.summary.zeroRepeatCount}회 중복 없음</div>
 		</div>
 		
 		<div class="stat bg-info text-info-content rounded-lg">
 			<div class="stat-title text-info-content/70">높은 중복</div>
-			<div class="stat-value text-2xl">{data.highRepeatRate}%</div>
+			<div class="stat-value text-2xl">{data.repeatStats.summary.highRepeatRate}%</div>
 			<div class="stat-desc text-info-content/70">3개 이상 중복</div>
 		</div>
 	</div>
@@ -293,8 +309,8 @@ const handleKeydown = (event: KeyboardEvent) => {
 			</p>
 			
 			<div class="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-7 gap-4">
-				{#each Object.entries(data.repeatCountDistribution || {}) as [repeatCount, count]}
-					{@const percentage = data.totalRecords > 0 ? ((count / data.totalRecords) * 100).toFixed(1) : "0.0"}
+				{#each sortedRepeatCounts as [repeatCount, count]}
+					{@const percentage = data.repeatStats.summary.totalDraws > 0 ? ((count / data.repeatStats.summary.totalDraws) * 100).toFixed(1) : "0.0"}
 					{@const analysis = getRepeatAnalysis(Number(repeatCount))}
 					
 					<div class="text-center space-y-2 p-4 bg-base-200 rounded-lg">
@@ -302,7 +318,7 @@ const handleKeydown = (event: KeyboardEvent) => {
 						<div class="text-2xl font-bold text-primary">{repeatCount}개</div>
 						<div class="text-lg font-semibold">{count}회</div>
 						<div class="text-sm text-base-content/60">{percentage}%</div>
-						<div class="text-xs badge badge-outline {analysis.color.replace('text-', 'badge-')}">
+						<div class="text-xs badge badge-outline badge-{analysis.color}">
 							{analysis.type}
 						</div>
 					</div>
@@ -313,14 +329,14 @@ const handleKeydown = (event: KeyboardEvent) => {
 			<div class="mt-6 p-4 bg-base-200 rounded-lg">
 				<h3 class="font-semibold mb-3">중복 패턴 분석</h3>
 				<div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-					{#each Object.entries(data.repeatCountDistribution || {}) as [repeatCount, count]}
-						{@const percentage = data.totalRecords > 0 ? ((count / data.totalRecords) * 100).toFixed(1) : "0.0"}
+					{#each sortedRepeatCounts as [repeatCount, count]}
+						{@const percentage = data.repeatStats.summary.totalDraws > 0 ? ((count / data.repeatStats.summary.totalDraws) * 100).toFixed(1) : "0.0"}
 						{@const analysis = getRepeatAnalysis(Number(repeatCount))}
 						
 						<div class="flex justify-between items-center">
 							<span class="font-medium">{getRepeatLabel(Number(repeatCount))}:</span>
 							<div class="text-right">
-								<span class="font-bold {analysis.color}">{percentage}%</span>
+								<span class="font-bold text-{analysis.color}">{percentage}%</span>
 								<div class="text-xs text-base-content/60">{analysis.description}</div>
 							</div>
 						</div>
@@ -331,10 +347,10 @@ const handleKeydown = (event: KeyboardEvent) => {
 	</div>
 
 	<!-- 최근 회차별 상세 데이터 -->
-	{#if data.recentStats && data.recentStats.length > 0}
+	{#if data.repeatStats.records && data.repeatStats.records.length > 0}
 	<div class="card bg-base-100 shadow-sm">
 		<div class="card-body">
-			<h2 class="card-title">최근 10회차 중복 데이터</h2>
+			<h2 class="card-title">최근 20회차 중복 데이터</h2>
 			
 			<div class="overflow-x-auto">
 				<table class="table table-zebra w-full">
@@ -347,7 +363,7 @@ const handleKeydown = (event: KeyboardEvent) => {
 						</tr>
 					</thead>
 					<tbody>
-						{#each data.recentStats as stat}
+						{#each data.repeatStats.records.slice(0, 20) as stat}
 							{@const statRecord = stat as { round: number; repeat_count: number }}
 							{@const analysis = getRepeatAnalysis(statRecord.repeat_count)}
 							<tr>
@@ -359,7 +375,7 @@ const handleKeydown = (event: KeyboardEvent) => {
 									</div>
 								</td>
 								<td>
-									<div class="badge {analysis.color.replace('text-', 'badge-')}">
+									<div class="badge badge-{analysis.color}">
 										{analysis.type}
 									</div>
 								</td>
@@ -371,47 +387,6 @@ const handleKeydown = (event: KeyboardEvent) => {
 		</div>
 	</div>
 	{/if}
-
-	<!-- 전체 중복 데이터 -->
-	{#if data.repeatStats && data.repeatStats.length > 0}
-	<div class="card bg-base-100 shadow-sm">
-		<div class="card-body">
-			<h2 class="card-title">전체 회차별 중복 데이터</h2>
-			
-			<div class="overflow-x-auto">
-				<table class="table table-zebra w-full">
-					<thead>
-						<tr>
-							<th>회차</th>
-							<th>중복 개수</th>
-							<th>연속성 레벨</th>
-							<th>설명</th>
-						</tr>
-					</thead>
-					<tbody>
-						{#each data.repeatStats as stat}
-							{@const statRecord = stat as { round: number; repeat_count: number }}
-							{@const analysis = getRepeatAnalysis(statRecord.repeat_count)}
-							<tr>
-								<td class="font-semibold">{statRecord.round}회</td>
-								<td class="text-lg font-bold text-primary">{statRecord.repeat_count}개</td>
-								<td>
-									<div class="badge {analysis.color.replace('text-', 'badge-')}">
-										{analysis.type}
-									</div>
-								</td>
-								<td class="text-sm text-base-content/70">
-									{analysis.description}
-								</td>
-							</tr>
-						{/each}
-					</tbody>
-				</table>
-			</div>
-		</div>
-	</div>
-	{/if}
-
 
 	<!-- 연속 번호 분석 가이드 -->
 	<div class="card bg-base-100 shadow-sm">
