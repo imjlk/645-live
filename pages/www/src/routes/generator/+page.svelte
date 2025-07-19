@@ -348,35 +348,124 @@ $: sortedNumberStats = $lottoStats?.numberStats
 			<div class="bg-white p-6 rounded-lg shadow">
 				<h2 class="text-xl font-semibold mb-4 border-b pb-2">통계 필터</h2>
 				<div class="space-y-6">
-					<div class="flex items-center space-x-4">
-						<input type="checkbox" bind:checked={$sumRange.enabled} class="checkbox" />
-						<span class="font-medium w-32">번호 총합:</span>
-						<input type="number" bind:value={$sumRange.min} class="input input-bordered w-24" disabled={!$sumRange.enabled} />
-						<span>~</span>
-						<input type="number" bind:value={$sumRange.max} class="input input-bordered w-24" disabled={!$sumRange.enabled} />
+					<div class="flex flex-col sm:flex-row sm:items-center gap-3">
+						<label class="flex items-center gap-2 cursor-pointer">
+							<input 
+								type="checkbox" 
+								id="sum-range-filter"
+								bind:checked={$sumRange.enabled} 
+								class="checkbox" 
+							/>
+							<span class="font-medium">번호 총합:</span>
+						</label>
+						<div class="flex items-center gap-2">
+							<label for="sum-min" class="sr-only">최소 합계</label>
+							<input 
+								type="number" 
+								id="sum-min"
+								bind:value={$sumRange.min} 
+								class="input input-bordered input-sm w-20" 
+								disabled={!$sumRange.enabled}
+								aria-label="최소 합계"
+							/>
+							<span>~</span>
+							<label for="sum-max" class="sr-only">최대 합계</label>
+							<input 
+								type="number" 
+								id="sum-max"
+								bind:value={$sumRange.max} 
+								class="input input-bordered input-sm w-20" 
+								disabled={!$sumRange.enabled}
+								aria-label="최대 합계"
+							/>
+						</div>
 					</div>
-					<div class="flex items-center space-x-4">
-						<input type="checkbox" bind:checked={$oddEvenRatio.enabled} class="checkbox" />
-						<span class="font-medium w-32">홀:짝 비율:</span>
-						<select class="select select-bordered" bind:value={$oddEvenRatio.odd} disabled={!$oddEvenRatio.enabled} on:change={(e) => oddEvenRatio.update((v) => ({ ...v, even: 6 - Number(e.currentTarget.value) }))}>
-							{#each [0, 1, 2, 3, 4, 5, 6] as n}<option value={n}>{n}</option>{/each}
-						</select>
-						<span>:</span>
-						<input type="text" readonly bind:value={$oddEvenRatio.even} class="input input-bordered w-16" />
+					<div class="flex flex-col sm:flex-row sm:items-center gap-3">
+						<label class="flex items-center gap-2 cursor-pointer">
+							<input 
+								type="checkbox" 
+								id="odd-even-filter"
+								bind:checked={$oddEvenRatio.enabled} 
+								class="checkbox" 
+							/>
+							<span class="font-medium">홀:짝 비율:</span>
+						</label>
+						<div class="flex items-center gap-2">
+							<label for="odd-count" class="sr-only">홀수 개수</label>
+							<select 
+								class="select select-bordered select-sm w-16" 
+								id="odd-count"
+								bind:value={$oddEvenRatio.odd} 
+								disabled={!$oddEvenRatio.enabled} 
+								on:change={(e) => oddEvenRatio.update((v) => ({ ...v, even: 6 - Number(e.currentTarget.value) }))}
+								aria-label="홀수 개수"
+							>
+								{#each [0, 1, 2, 3, 4, 5, 6] as n}<option value={n}>{n}</option>{/each}
+							</select>
+							<span>:</span>
+							<label for="even-count" class="sr-only">짝수 개수</label>
+							<input 
+								type="text" 
+								id="even-count"
+								readonly 
+								bind:value={$oddEvenRatio.even} 
+								class="input input-bordered input-sm w-16"
+								aria-label="짝수 개수 (자동 계산)"
+							/>
+						</div>
 					</div>
-					<div class="flex items-center space-x-4">
-						<input type="checkbox" bind:checked={$highLowRatio.enabled} class="checkbox" />
-						<span class="font-medium w-32">고:저 비율:</span>
-						<select class="select select-bordered" bind:value={$highLowRatio.high} disabled={!$highLowRatio.enabled} on:change={(e) => highLowRatio.update((v) => ({ ...v, low: 6 - Number(e.currentTarget.value) }))}>
-							{#each [0, 1, 2, 3, 4, 5, 6] as n}<option value={n}>{n}</option>{/each}
-						</select>
-						<span>:</span>
-						<input type="text" readonly bind:value={$highLowRatio.low} class="input input-bordered w-16" />
+					<div class="flex flex-col sm:flex-row sm:items-center gap-3">
+						<label class="flex items-center gap-2 cursor-pointer">
+							<input 
+								type="checkbox" 
+								id="high-low-filter"
+								bind:checked={$highLowRatio.enabled} 
+								class="checkbox" 
+							/>
+							<span class="font-medium">고:저 비율:</span>
+						</label>
+						<div class="flex items-center gap-2">
+							<label for="high-count" class="sr-only">고수 개수</label>
+							<select 
+								class="select select-bordered select-sm w-16" 
+								id="high-count"
+								bind:value={$highLowRatio.high} 
+								disabled={!$highLowRatio.enabled} 
+								on:change={(e) => highLowRatio.update((v) => ({ ...v, low: 6 - Number(e.currentTarget.value) }))}
+								aria-label="고수 개수 (23-45)"
+							>
+								{#each [0, 1, 2, 3, 4, 5, 6] as n}<option value={n}>{n}</option>{/each}
+							</select>
+							<span>:</span>
+							<label for="low-count" class="sr-only">저수 개수</label>
+							<input 
+								type="text" 
+								id="low-count"
+								readonly 
+								bind:value={$highLowRatio.low} 
+								class="input input-bordered input-sm w-16"
+								aria-label="저수 개수 (1-22, 자동 계산)"
+							/>
+						</div>
 					</div>
-					<div class="flex items-center space-x-4">
-						<input type="checkbox" bind:checked={$consecutiveCount.enabled} class="checkbox" />
-						<span class="font-medium w-32">최대 연속번호:</span>
-						<select class="select select-bordered" bind:value={$consecutiveCount.max} disabled={!$consecutiveCount.enabled}>
+					<div class="flex flex-col sm:flex-row sm:items-center gap-3">
+						<label class="flex items-center gap-2 cursor-pointer">
+							<input 
+								type="checkbox" 
+								id="consecutive-filter"
+								bind:checked={$consecutiveCount.enabled} 
+								class="checkbox" 
+							/>
+							<span class="font-medium">최대 연속번호:</span>
+						</label>
+						<label for="consecutive-max" class="sr-only">최대 연속번호 쌍 개수</label>
+						<select 
+							class="select select-bordered select-sm w-20" 
+							id="consecutive-max"
+							bind:value={$consecutiveCount.max} 
+							disabled={!$consecutiveCount.enabled}
+							aria-label="허용할 최대 연속번호 쌍 개수"
+						>
 							<option value={0}>없음</option>
 							<option value={1}>1쌍</option>
 							<option value={2}>2쌍</option>
@@ -393,15 +482,18 @@ $: sortedNumberStats = $lottoStats?.numberStats
 				{:else if sortedNumberStats.length > 0}
 					<div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 text-sm">
 						{#each sortedNumberStats as stat}
-							<div class="flex items-center justify-between p-2 rounded-md bg-gray-50">
-								<div class="w-6 h-6 rounded-full flex items-center justify-center font-bold text-xs {getNumberColor(stat.number)}">
+							<a 
+								href="/stats/numbers/{stat.number}" 
+								class="flex items-center justify-between p-2 rounded-md bg-gray-50 hover:bg-gray-100 transition-colors group"
+							>
+								<div class="w-6 h-6 rounded-full flex items-center justify-center font-bold text-xs {getNumberColor(stat.number)} group-hover:scale-110 transition-transform">
 									{stat.number}
 								</div>
-								<span class="font-mono text-gray-700">{stat.draw_count}회</span>
-							</div>
+								<span class="font-mono text-gray-700 group-hover:text-gray-900">{stat.draw_count}회</span>
+							</a>
 						{/each}
 					</div>
-					<p class="text-xs text-gray-400 mt-4">가장 많이 나온 번호 순으로 정렬되었습니다.</p>
+					<p class="text-xs text-gray-400 mt-4">가장 많이 나온 번호 순으로 정렬되었습니다. 번호를 클릭하면 상세 통계를 볼 수 있습니다.</p>
 				{:else}
 					<p class="text-red-500">통계 데이터를 불러오지 못했습니다.</p>
 				{/if}

@@ -1,4 +1,4 @@
-import { env } from "$env/dynamic/private";
+import { TRAILBASE_URL } from "$env/static/private";
 import type { BallNumber } from "$lib/modules/lotto/types";
 import { parseLottoQR } from "$lib/utils/lotto-parser.js";
 import { fail } from "@sveltejs/kit";
@@ -6,7 +6,7 @@ import { initClient } from "trailbase";
 import type { Actions, PageServerLoad } from "./$types";
 
 // Trailbase 클라이언트 초기화 (서버 환경)
-const client = initClient(env.TRAILBASE_URL || "http://localhost:4000");
+const client = initClient(TRAILBASE_URL || "http://localhost:4000");
 const api = client.records("numbers");
 
 export const load: PageServerLoad = async () => {
@@ -59,7 +59,7 @@ export const actions: Actions = {
 			}
 
 			// 트레일베이스 /scanned 라우트로 POST 요청 (타임아웃 추가)
-			const trailbaseUrl = env.TRAILBASE_URL || "http://localhost:4000";
+			const trailbaseUrl = TRAILBASE_URL || "http://localhost:4000";
 
 			// URL 검증
 			if (!trailbaseUrl.match(/^https?:\/\/[a-zA-Z0-9\-.]+(:[0-9]+)?$/)) {

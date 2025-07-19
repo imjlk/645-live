@@ -1,9 +1,9 @@
-import { env } from "$env/dynamic/private";
+import { TRAILBASE_URL } from "$env/static/private";
 import { error } from "@sveltejs/kit";
 import { initClient } from "trailbase";
 import type { PageServerLoad } from "./$types";
 
-const client = initClient(env.TRAILBASE_URL || "http://localhost:4000");
+const client = initClient(TRAILBASE_URL || "http://localhost:4000");
 
 export const load: PageServerLoad = async () => {
 	let defaultRound = 0; // 기본값

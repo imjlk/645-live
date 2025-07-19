@@ -16,9 +16,9 @@ preparePageTransition();
 // 실제 데이터가 있는 회차들
 let availableRounds = $state<number[]>([]);
 
-// 현재 선택된 회차 (URL에서 추출)
+// 현재 선택된 회차 (URL에서 추출) - prerendering 중에는 접근하지 않음
 const currentRound = $derived(
-	page.url.searchParams.get("round")
+	typeof window !== "undefined" && page.url.searchParams.get("round")
 		? Number(page.url.searchParams.get("round"))
 		: null,
 );
@@ -79,6 +79,14 @@ onMount(async () => {
 							href="/history"
 						>
 							지난 회차
+						</LinkButton>
+					</li>
+					<li class="flex-shrink-0">
+						<LinkButton 
+							class="btn-secondary btn-ghost rounded-full w-full whitespace-nowrap {page.url.pathname.startsWith('/generator') ? 'btn-active' : ''}" 
+							href="/generator"
+						>
+							번호 생성기
 						</LinkButton>
 					</li>
 					<li class="flex-shrink-0">
