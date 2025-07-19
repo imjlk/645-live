@@ -270,13 +270,13 @@ $: highPercentage = getPercentage(
 			<h2 class="card-title">고저 균형 요약</h2>
 			<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
 				<!-- 저 (1-22) -->
-				<div class="p-4 bg-blue-50 rounded-lg">
+				<div class="p-4 bg-blue-500/10 dark:bg-blue-400/10 rounded-lg">
 					<div class="flex items-center justify-between mb-2">
-						<h3 class="text-lg font-semibold text-blue-800">저 (1-22)</h3>
+						<h3 class="text-lg font-semibold text-blue-600 dark:text-blue-400">저 (1-22)</h3>
 						<div class="text-2xl font-bold text-blue-600">{data.highLowStats.summary.lowCount}</div>
 					</div>
-					<div class="text-sm text-blue-700 mb-3">{lowPercentage}%</div>
-					<div class="w-full bg-blue-200 rounded-full h-3">
+					<div class="text-sm text-blue-600 dark:text-blue-400 mb-3">{lowPercentage}%</div>
+					<div class="w-full bg-blue-500/20 dark:bg-blue-400/20 rounded-full h-3">
 						<div
 							class="bg-blue-600 h-3 rounded-full transition-all duration-300"
 							style="width: {lowPercentage}%"
@@ -285,13 +285,13 @@ $: highPercentage = getPercentage(
 				</div>
 
 				<!-- 고 (23-45) -->
-				<div class="p-4 bg-red-50 rounded-lg">
+				<div class="p-4 bg-red-500/10 dark:bg-red-400/10 rounded-lg">
 					<div class="flex items-center justify-between mb-2">
-						<h3 class="text-lg font-semibold text-red-800">고 (23-45)</h3>
+						<h3 class="text-lg font-semibold text-red-600 dark:text-red-400">고 (23-45)</h3>
 						<div class="text-2xl font-bold text-red-600">{data.highLowStats.summary.highCount}</div>
 					</div>
-					<div class="text-sm text-red-700 mb-3">{highPercentage}%</div>
-					<div class="w-full bg-red-200 rounded-full h-3">
+					<div class="text-sm text-red-600 dark:text-red-400 mb-3">{highPercentage}%</div>
+					<div class="w-full bg-red-500/20 dark:bg-red-400/20 rounded-full h-3">
 						<div
 							class="bg-red-600 h-3 rounded-full transition-all duration-300"
 							style="width: {highPercentage}%"

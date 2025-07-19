@@ -250,13 +250,15 @@ function getBallColorClass(ballNumber: number): string {
         {#each numbers as ball (ball.id)}
             {@const value = $ballValues[ball.id] || 0}
             {@const isUpdated = $recentlyUpdated[ball.id] || false}
-            <LinkButton class="aspect-square w-full min-h-30 relative" href="/n/{ball.id}">
+            <a href="/n/{ball.id}" class="ball-grid-item">
                 <ValueIncrementEffect show={isUpdated} message="+1" color="text-green-500" />
                 <LottoBall 
                     ballNumber={ball.id} 
                     initialValue={value}
+                    size="small"
+                    interactive={true}
                 />
-            </LinkButton>
+            </a>
         {/each}
     </div>
 {:else}
@@ -266,3 +268,32 @@ function getBallColorClass(ballNumber: number): string {
         {/each}
     </div>
 {/if}
+
+<style>
+.ball-grid-item {
+    aspect-ratio: 1;
+    width: 100%;
+    position: relative;
+    display: block;
+    transition: all 0.2s ease-in-out;
+    border-radius: 50%;
+    min-height: 80px;
+}
+
+.ball-grid-item:hover {
+    transform: scale(1.05);
+    z-index: 10;
+}
+
+.ball-grid-item:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px oklch(var(--p));
+    transform: scale(1.05);
+}
+
+@media (max-width: 640px) {
+    .ball-grid-item {
+        min-height: 70px;
+    }
+}
+</style>

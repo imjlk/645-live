@@ -101,7 +101,7 @@ const getColorClass = (color: string | undefined) => {
 	<div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
 		<div class="aspect-square w-full max-w-md mx-auto relative">
 			<ValueIncrementEffect show={$isUpdated} message="+1" color="text-green-500" />
-			<LottoBall {ballNumber} initialValue={$ballValue} />
+			<LottoBall {ballNumber} initialValue={$ballValue} size="large" interactive={false} />
 		</div>
 
 		<div class="space-y-6">

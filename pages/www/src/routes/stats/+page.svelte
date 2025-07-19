@@ -199,7 +199,7 @@ export let data: PageData;
 				</div>
 			</div>
 			<div class="mt-4 text-center">
-				<a href="/stats/numbers" class="text-blue-600 hover:text-blue-800 text-sm">
+				<a href="/stats/numbers" class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 text-sm">
 					전체 번호 통계 보기 →
 				</a>
 			</div>
@@ -216,10 +216,10 @@ export let data: PageData;
 					<div class="flex items-center justify-between">
 						<span class="text-sm text-base-content/70">{stat.round}회차</span>
 						<div class="flex items-center space-x-2">
-							<span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
+							<span class="text-xs bg-blue-500/20 text-blue-600 dark:text-blue-400 px-2 py-1 rounded">
 								홀수 {stat.odd_count}개
 							</span>
-							<span class="text-xs bg-red-100 text-red-800 px-2 py-1 rounded">
+							<span class="text-xs bg-red-500/20 text-red-600 dark:text-red-400 px-2 py-1 rounded">
 								짝수 {stat.even_count}개
 							</span>
 						</div>
@@ -227,7 +227,7 @@ export let data: PageData;
 				{/each}
 			</div>
 			<div class="mt-4 text-center">
-				<a href="/stats/odd-even" class="text-blue-600 hover:text-blue-800 text-sm">
+				<a href="/stats/odd-even" class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 text-sm">
 					홀짝 분석 상세 보기 →
 				</a>
 			</div>
@@ -254,7 +254,7 @@ export let data: PageData;
 				{/each}
 			</div>
 			<div class="mt-4 text-center">
-				<a href="/stats/colors" class="text-blue-600 hover:text-blue-800 text-sm">
+				<a href="/stats/colors" class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 text-sm">
 					색깔별 통계 상세 보기 →
 				</a>
 			</div>
@@ -279,7 +279,7 @@ export let data: PageData;
 				{/each}
 			</div>
 			<div class="mt-4 text-center">
-				<a href="/stats/pairs" class="text-blue-600 hover:text-blue-800 text-sm">
+				<a href="/stats/pairs" class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 text-sm">
 					번호 쌍 통계 상세 보기 →
 				</a>
 			</div>
@@ -287,12 +287,12 @@ export let data: PageData;
 	</div>
 
 	<!-- 통계 활용 가이드 -->
-	<section class="bg-blue-50 rounded-lg p-6">
-		<h2 class="text-xl font-bold mb-4 text-blue-900">📚 통계 활용 가이드</h2>
+	<section class="bg-base-200 rounded-lg p-6">
+		<h2 class="text-xl font-bold mb-4 text-base-content">📚 통계 활용 가이드</h2>
 		<div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
 			<div>
-				<h3 class="font-semibold mb-2">통계 분석 방법</h3>
-				<ul class="space-y-1 text-gray-700">
+				<h3 class="font-semibold mb-2 text-base-content">통계 분석 방법</h3>
+				<ul class="space-y-1 text-base-content/70">
 					<li>• 번호별 출현 빈도를 통한 패턴 분석</li>
 					<li>• 홀짝 비율의 균형성 확인</li>
 					<li>• 색깔별 분포의 다양성 검토</li>
@@ -300,8 +300,8 @@ export let data: PageData;
 				</ul>
 			</div>
 			<div>
-				<h3 class="font-semibold mb-2">주의사항</h3>
-				<ul class="space-y-1 text-gray-700">
+				<h3 class="font-semibold mb-2 text-base-content">주의사항</h3>
+				<ul class="space-y-1 text-base-content/70">
 					<li>• 과거 데이터는 미래 결과를 보장하지 않음</li>
 					<li>• 모든 번호는 동일한 확률로 추첨됨</li>
 					<li>• 통계는 참고용으로만 활용</li>
@@ -314,12 +314,12 @@ export let data: PageData;
 
 <style>
 	.stats-nav-card {
-		background-color: white;
+		background: oklch(var(--b1));
 		border-radius: 0.5rem;
 		box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
 		padding: 1rem;
 		text-align: center;
-		border: 1px solid #e5e7eb;
+		border: 1px solid oklch(var(--b3));
 		transition: box-shadow 0.2s;
 	}
 	

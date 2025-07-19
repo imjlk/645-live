@@ -23,36 +23,36 @@ const sectionInfo = {
 		name: "1구간",
 		range: "1-9",
 		class: "bg-red-500",
-		bgClass: "bg-red-100",
-		textClass: "text-red-800",
+		bgClass: "bg-red-500/20 dark:bg-red-400/20",
+		textClass: "text-red-600 dark:text-red-400",
 	},
 	section2: {
 		name: "2구간",
 		range: "10-18",
 		class: "bg-orange-500",
-		bgClass: "bg-orange-100",
-		textClass: "text-orange-800",
+		bgClass: "bg-orange-500/20 dark:bg-orange-400/20",
+		textClass: "text-orange-600 dark:text-orange-400",
 	},
 	section3: {
 		name: "3구간",
 		range: "19-27",
 		class: "bg-yellow-500",
-		bgClass: "bg-yellow-100",
-		textClass: "text-yellow-800",
+		bgClass: "bg-yellow-500/20 dark:bg-yellow-400/20",
+		textClass: "text-yellow-600 dark:text-yellow-400",
 	},
 	section4: {
 		name: "4구간",
 		range: "28-36",
 		class: "bg-blue-500",
-		bgClass: "bg-blue-100",
-		textClass: "text-blue-800",
+		bgClass: "bg-blue-500/20 dark:bg-blue-400/20",
+		textClass: "text-blue-600 dark:text-blue-400",
 	},
 	section5: {
 		name: "5구간",
 		range: "37-45",
 		class: "bg-green-500",
-		bgClass: "bg-green-100",
-		textClass: "text-green-800",
+		bgClass: "bg-green-500/20 dark:bg-green-400/20",
+		textClass: "text-green-600 dark:text-green-400",
 	},
 };
 
@@ -302,24 +302,15 @@ const getSectionBalance = (s1: number, s2: number, s3: number): string => {
 		<div class="card-body">
 			<h2 class="card-title">구간별 출현 빈도</h2>
 			<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-				{#each Object.entries(sectionInfo) as [key, info]}
-					{@const sectionData = sectionMappedData[key as keyof typeof sectionMappedData]}
+				{#each Object.entries(sectionInfo) as [, info]}
+					{@const sectionData = sectionMappedData[Object.keys(sectionMappedData).find(k => sectionInfo[k as keyof typeof sectionInfo].name === info.name) as keyof typeof sectionMappedData]}
 					{@const totalNumbers = data.totalRounds * 6}
-					<div class="p-4 rounded-lg border {info.bgClass}">
-						<div class="flex items-center mb-2">
-							<div class="w-4 h-4 rounded-full {info.class} mr-2"></div>
-							<span class="font-semibold {info.textClass}">{info.name}</span>
-						</div>
-						<div class="text-xs text-gray-600 mb-2">{info.range}</div>
-						<div class="text-lg font-bold {info.textClass} mb-1">{sectionData.total}</div>
-						<div class="text-xs {info.textClass} mb-2">
-							{getPercentage(sectionData.total, totalNumbers)}%
-						</div>
-						<div class="w-full bg-white/50 rounded-full h-2">
-							<div
-								class="{info.class} h-2 rounded-full transition-all duration-300"
-								style="width: {getPercentage(sectionData.total, totalNumbers)}%"
-							></div>
+					<div class="stat bg-base-200 rounded-lg">
+						<div class="stat-title text-base-content/70">{info.name}</div>
+						<div class="stat-value text-2xl">{sectionData.total.toLocaleString()}</div>
+						<div class="stat-desc">
+							<span class="font-semibold">{getPercentage(sectionData.total, totalNumbers)}%</span>
+							<span class="text-base-content/60"> • {info.range}</span>
 						</div>
 					</div>
 				{/each}
@@ -437,7 +428,7 @@ const getSectionBalance = (s1: number, s2: number, s3: number): string => {
 				</div>
 				
 				<div class="grid grid-cols-1 sm:grid-cols-5 gap-2 mt-3">
-					{#each Object.entries(sectionInfo) as [key, info]}
+					{#each Object.entries(sectionInfo) as [, info]}
 						<div class="flex items-center p-2 bg-base-200 rounded">
 							<div class="w-3 h-3 rounded-full {info.class} mr-2"></div>
 							<span class="text-xs font-medium">{info.name} ({info.range})</span>

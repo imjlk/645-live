@@ -67,10 +67,10 @@ const getDeviationClass = (deviation: string) => {
 		<nav class="text-sm text-gray-600 mb-4">
 			<a href="/stats" class="hover:text-blue-600">통계 홈</a>
 			<span class="mx-2">›</span>
-			<span class="text-gray-900">번호별 통계</span>
+			<span class="text-gray-900 dark:text-gray-100">번호별 통계</span>
 		</nav>
 		
-		<h1 class="text-3xl font-bold text-gray-900 mb-2">번호별 출현 통계</h1>
+		<h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">번호별 출현 통계</h1>
 		<p class="text-gray-600">
 			총 <span class="font-semibold text-blue-600">{data.totalRounds}</span>회차 데이터 분석
 			(최신: {data.latestRound}회차)
@@ -106,7 +106,7 @@ const getDeviationClass = (deviation: string) => {
 	<!-- 번호별 상세 통계 테이블 -->
 	<div class="bg-white rounded-lg shadow-md overflow-hidden">
 		<div class="px-6 py-4 bg-gray-50 border-b">
-			<h2 class="text-xl font-semibold text-gray-900">상세 통계</h2>
+			<h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100">상세 통계</h2>
 		</div>
 		
 		<div class="overflow-x-auto">
@@ -138,26 +138,26 @@ const getDeviationClass = (deviation: string) => {
 									{stat.color}
 								</span>
 							</td>
-							<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+							<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
 								{stat.section}구간 
 								<span class="text-xs text-gray-500">
 									({(stat.section - 1) * 10 + 1}-{Math.min(stat.section * 10, 45)})
 								</span>
 							</td>
 							<td class="px-6 py-4 whitespace-nowrap">
-								<div class="text-sm font-medium text-gray-900">{stat.draw_count}</div>
+								<div class="text-sm font-medium text-gray-900 dark:text-gray-100">{stat.draw_count}</div>
 								<div class="text-xs text-gray-500">순위 {index + 1}</div>
 							</td>
-							<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+							<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
 								{stat.bonus_count}
 							</td>
-							<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+							<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
 								{stat.average_frequency}%
 							</td>
 							<td class="px-6 py-4 whitespace-nowrap text-sm {getDeviationClass(stat.deviation)}">
 								{Number(stat.deviation) > 0 ? '+' : ''}{stat.deviation}
 							</td>
-							<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+							<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
 								{stat.last_draw_round ? `${stat.last_draw_round}회차` : '-'}
 							</td>
 						</tr>
@@ -169,11 +169,11 @@ const getDeviationClass = (deviation: string) => {
 
 	<!-- 분석 가이드 -->
 	<div class="mt-8 bg-blue-50 rounded-lg p-6">
-		<h3 class="text-lg font-semibold mb-4 text-blue-900">📊 분석 가이드</h3>
+		<h3 class="text-lg font-semibold mb-4 text-blue-600 dark:text-blue-400">📊 분석 가이드</h3>
 		<div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
 			<div>
 				<h4 class="font-semibold mb-2">통계 해석</h4>
-				<ul class="space-y-1 text-gray-700">
+				<ul class="space-y-1 text-gray-700 dark:text-gray-300">
 					<li>• <strong>출현률</strong>: 해당 번호가 전체 회차에서 출현한 비율</li>
 					<li>• <strong>편차</strong>: 기댓값 대비 실제 출현 횟수 차이</li>
 					<li>• <strong>양의 편차</strong>: 평균보다 많이 출현한 번호</li>
@@ -182,7 +182,7 @@ const getDeviationClass = (deviation: string) => {
 			</div>
 			<div>
 				<h4 class="font-semibold mb-2">색깔별 분포</h4>
-				<ul class="space-y-1 text-gray-700">
+				<ul class="space-y-1 text-gray-700 dark:text-gray-300">
 					<li>• <span class="inline-block w-3 h-3 rounded-full bg-yellow-500 mr-1"></span>노랑: 1, 6, 11, 16, 21, 26, 31, 36, 41</li>
 					<li>• <span class="inline-block w-3 h-3 rounded-full bg-blue-500 mr-1"></span>파랑: 2, 7, 12, 17, 22, 27, 32, 37, 42</li>
 					<li>• <span class="inline-block w-3 h-3 rounded-full bg-red-500 mr-1"></span>빨강: 3, 8, 13, 18, 23, 28, 33, 38, 43</li>

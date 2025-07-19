@@ -216,18 +216,24 @@ const getPairGrade = (pairCount: number) => {
 
 		<div class="card bg-base-100 shadow-sm">
 			<div class="card-body">
-				<h2 class="card-title">가장 활발한 번호 (동반 출현 기준)</h2>
-				<div class="space-y-2">
-					{#each data.topNumbersByPairCount as [number, totalPairCount], index}
-						<div class="flex items-center justify-between">
-							<div class="flex items-center">
-								<span class="text-sm text-base-content/70 mr-2 w-6">{index + 1}.</span>
-								<span class="lotto-ball {getNumberColorClass(number)}">{number}</span>
+				<h2 class="card-title">가장 활발한 번호 (총 동반 출현 횟수)</h2>
+				{#if data.topNumbersByPairCount && data.topNumbersByPairCount.length > 0}
+					<div class="space-y-2">
+						{#each data.topNumbersByPairCount as [number, totalPairCount], index}
+							<div class="flex items-center justify-between">
+								<div class="flex items-center">
+									<span class="text-sm text-base-content/70 mr-2 w-6">{index + 1}.</span>
+									<a href="/n/{number}" class="lotto-ball {getNumberColorClass(number)} hover:scale-110 transition-transform">{number}</a>
+								</div>
+								<span class="text-sm font-medium text-base-content">{totalPairCount.toLocaleString()}회</span>
 							</div>
-							<span class="text-sm text-base-content/70">{totalPairCount}회</span>
-						</div>
-					{/each}
-				</div>
+						{/each}
+					</div>
+				{:else}
+					<div class="text-center py-4">
+						<p class="text-base-content/60">데이터를 불러오는 중...</p>
+					</div>
+				{/if}
 			</div>
 		</div>
 	</div>
@@ -267,13 +273,13 @@ const getPairGrade = (pairCount: number) => {
 								</td>
 								<td>
 									<div class="flex items-center space-x-2">
-										<span class="lotto-ball {getNumberColorClass(statRecord.number_a)}">
+										<a href="/n/{statRecord.number_a}" class="lotto-ball {getNumberColorClass(statRecord.number_a)} hover:scale-110 transition-transform">
 											{statRecord.number_a}
-										</span>
+										</a>
 										<span class="text-base-content/40">+</span>
-										<span class="lotto-ball {getNumberColorClass(statRecord.number_b)}">
+										<a href="/n/{statRecord.number_b}" class="lotto-ball {getNumberColorClass(statRecord.number_b)} hover:scale-110 transition-transform">
 											{statRecord.number_b}
-										</span>
+										</a>
 									</div>
 								</td>
 								<td>

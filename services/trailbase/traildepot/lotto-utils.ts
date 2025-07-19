@@ -296,6 +296,22 @@ export function processLottoApiResponse(
 		return null;
 	}
 
+	// 주요 금액 필드가 0인지 체크 (초기 발표 시 0으로 나오는 경우)
+	const criticalAmountFields = [
+		{ field: "totSellamnt", name: "총 판매액" },
+		{ field: "firstWinamnt", name: "1등 당첨금" },
+		{ field: "firstAccumamnt", name: "1등 누적금액" },
+	];
+
+	let hasZeroAmounts = false;
+	for (const { field, name } of criticalAmountFields) {
+		const value = data[field as keyof LottoApiResponse];
+		if (typeof value === "number" && value === 0) {
+			console.warn(`⚠️ ${name}이 0입니다. 아직 최종 결과가 발표되지 않은 것 같습니다.`);
+			hasZeroAmounts = true;
+		}
+	}
+
 	// 회차 일치 검증
 	if (data.drwNo !== safeRound) {
 		console.warn(
@@ -311,7 +327,7 @@ export function processLottoApiResponse(
 
 	// 결과 변환
 	const numbers = drawNumbers.sort((a, b) => a - b);
-	return {
+	const result = {
 		round: data.drwNo,
 		draw_date: data.drwNoDate,
 		total_sell_amount: Math.max(0, data.totSellamnt || 0),
@@ -325,7 +341,10 @@ export function processLottoApiResponse(
 		draw_number_5: numbers[4],
 		draw_number_6: numbers[5],
 		bonus_number: data.bnusNo,
+		hasIncompleteData: hasZeroAmounts, // 0값 포함 여부 플래그 추가
 	};
+	
+	return result;
 }
 
 /**
@@ -470,38 +489,63 @@ export async function insertLottoDrawResult(
 		}
 
 		if (count > 0) {
-			console.log(`⏭️ 회차 ${data.round}는 이미 존재합니다. 건너뜁니다.`);
-			return true;
+			console.log(`🔄 회차 ${data.round}는 이미 존재합니다. 업데이트합니다.`);
+			// 기존 레코드 업데이트
+			await query(
+				`
+				UPDATE lotto_draw_results SET 
+					draw_date = ?, total_sell_amount = ?, first_prize_amount = ?, 
+					first_prize_winner_count = ?, first_prize_accumulated_amount = ?,
+					draw_number_1 = ?, draw_number_2 = ?, draw_number_3 = ?, 
+					draw_number_4 = ?, draw_number_5 = ?, draw_number_6 = ?, bonus_number = ?
+				WHERE round = ?
+			`,
+				[
+					data.draw_date,
+					data.total_sell_amount,
+					data.first_prize_amount,
+					data.first_prize_winner_count,
+					data.first_prize_accumulated_amount,
+					data.draw_number_1,
+					data.draw_number_2,
+					data.draw_number_3,
+					data.draw_number_4,
+					data.draw_number_5,
+					data.draw_number_6,
+					data.bonus_number,
+					data.round,
+				],
+			);
+		} else {
+			// 새 레코드 삽입
+			await query(
+				`
+				INSERT INTO lotto_draw_results (
+					round, draw_date, total_sell_amount, first_prize_amount, 
+					first_prize_winner_count, first_prize_accumulated_amount,
+					draw_number_1, draw_number_2, draw_number_3, 
+					draw_number_4, draw_number_5, draw_number_6, bonus_number
+				) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			`,
+				[
+					data.round,
+					data.draw_date,
+					data.total_sell_amount,
+					data.first_prize_amount,
+					data.first_prize_winner_count,
+					data.first_prize_accumulated_amount,
+					data.draw_number_1,
+					data.draw_number_2,
+					data.draw_number_3,
+					data.draw_number_4,
+					data.draw_number_5,
+					data.draw_number_6,
+					data.bonus_number,
+				],
+			);
 		}
 
-		// 새 레코드 삽입
-		await query(
-			`
-			INSERT INTO lotto_draw_results (
-				round, draw_date, total_sell_amount, first_prize_amount, 
-				first_prize_winner_count, first_prize_accumulated_amount,
-				draw_number_1, draw_number_2, draw_number_3, 
-				draw_number_4, draw_number_5, draw_number_6, bonus_number
-			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		`,
-			[
-				data.round,
-				data.draw_date,
-				data.total_sell_amount,
-				data.first_prize_amount,
-				data.first_prize_winner_count,
-				data.first_prize_accumulated_amount,
-				data.draw_number_1,
-				data.draw_number_2,
-				data.draw_number_3,
-				data.draw_number_4,
-				data.draw_number_5,
-				data.draw_number_6,
-				data.bonus_number,
-			],
-		);
-
-		console.log(`✅ 회차 ${data.round} 성공적으로 삽입됨`);
+		console.log(`✅ 회차 ${data.round} 성공적으로 처리됨`);
 		console.log(`   📅 추첨일: ${data.draw_date}`);
 		console.log(
 			`   🎱 당첨번호: ${data.draw_number_1}, ${data.draw_number_2}, ${data.draw_number_3}, ${data.draw_number_4}, ${data.draw_number_5}, ${data.draw_number_6} + ${data.bonus_number}`,
@@ -518,11 +562,73 @@ export async function insertLottoDrawResult(
 }
 
 /**
+ * 불완전한 데이터(0값 포함)가 있는 최신 회차를 확인합니다.
+ */
+async function getIncompleteLatestRound(): Promise<number | null> {
+	try {
+		const result = await query(
+			`SELECT round FROM lotto_draw_results 
+			 WHERE total_sell_amount = 0 OR first_prize_amount = 0 OR first_prize_accumulated_amount = 0
+			 ORDER BY round DESC LIMIT 1`,
+			[]
+		);
+
+		if (result.length > 0) {
+			const record = result[0];
+			let roundValue: unknown;
+			if (Array.isArray(record)) {
+				roundValue = record[0];
+			} else if (record && typeof record === "object") {
+				const recordObj = record as Record<string, unknown>;
+				roundValue = recordObj.round || recordObj[0];
+			}
+
+			if (typeof roundValue === "number" && Number.isInteger(roundValue)) {
+				return roundValue;
+			}
+		}
+		return null;
+	} catch (error) {
+		console.error("❌ 불완전한 회차 조회 오류:", error);
+		return null;
+	}
+}
+
+/**
  * 최신 로또 회차 결과를 확인하고 데이터베이스에 업데이트합니다.
  */
 export async function updateLatestLottoRound(): Promise<void> {
 	console.log("🔄 최신 로또 회차 업데이트 확인 중...");
 
+	// 1. 먼저 불완전한 데이터가 있는 최신 회차 확인
+	const incompleteRound = await getIncompleteLatestRound();
+	if (incompleteRound) {
+		console.log(`🔍 불완전한 데이터가 있는 회차 ${incompleteRound}를 먼저 업데이트합니다.`);
+		
+		const drawResult = await fetchLottoDrawResult(incompleteRound);
+		if (drawResult) {
+			console.log(`🎉 회차 ${incompleteRound} 갱신된 결과를 찾았습니다!`);
+			const success = await insertLottoDrawResult(drawResult);
+
+			if (success) {
+				if (drawResult.hasIncompleteData) {
+					console.log(`⚠️ 회차 ${incompleteRound} 업데이트했지만 여전히 일부 금액이 0입니다. 재시도합니다.`);
+					// TODO: fetch API 호출 - 0값으로 업데이트된 경우 알림
+					// await notifyIncompleteDataUpdate(incompleteRound, drawResult);
+					throw new Error(`회차 ${incompleteRound} 여전히 불완전한 데이터`);
+				}
+				console.log(`✅ 회차 ${incompleteRound} 완전한 데이터로 업데이트 완료`);
+				// TODO: fetch API 호출 - 완전한 데이터로 업데이트 완료 알림
+				// await notifyCompleteDataUpdate(incompleteRound, drawResult);
+				return; // 불완전한 회차 업데이트 완료시 종료
+			}
+			throw new Error(`회차 ${incompleteRound} DB 업데이트 실패`);
+		}
+		console.log(`ℹ️ 회차 ${incompleteRound}의 완전한 결과가 아직 없습니다. 재시도합니다.`);
+		throw new Error(`회차 ${incompleteRound} 완전한 데이터 미수신`);
+	}
+
+	// 2. 불완전한 데이터가 없으면 새로운 회차 확인
 	const latestRoundInDB = await getLatestLottoRoundFromDB();
 	console.log(`📈 DB 최신 회차: ${latestRoundInDB}`);
 
@@ -536,7 +642,16 @@ export async function updateLatestLottoRound(): Promise<void> {
 		const success = await insertLottoDrawResult(drawResult);
 
 		if (success) {
+			// 불완전한 데이터가 있으면 재시도를 위해 에러 발생
+			if (drawResult.hasIncompleteData) {
+				console.log(`⚠️ 회차 ${nextRound} 저장 완료했지만 일부 금액이 0입니다. 재시도합니다.`);
+				// TODO: fetch API 호출 - 새 회차 0값으로 첫 저장된 경우 알림
+				// await notifyNewRoundIncompleteData(nextRound, drawResult);
+				throw new Error(`회차 ${nextRound} 불완전한 데이터`);
+			}
 			console.log(`✅ 회차 ${nextRound} 업데이트 완료`);
+			// TODO: fetch API 호출 - 새 회차 완전한 데이터로 저장 완료 알림
+			// await notifyNewRoundCompleteData(nextRound, drawResult);
 		} else {
 			throw new Error(`회차 ${nextRound} DB 삽입 실패`);
 		}
@@ -549,10 +664,82 @@ export async function updateLatestLottoRound(): Promise<void> {
 }
 
 /**
+ * TODO: 불완전한 데이터 업데이트 알림 함수
+ * @param round 회차 번호
+ * @param data 로또 추첨 결과 데이터
+ */
+// async function notifyIncompleteDataUpdate(round: number, data: LottoDrawResult): Promise<void> {
+//   try {
+//     const response = await fetch('/api/notify/incomplete-update', {
+//       method: 'POST',
+//       headers: { 'Content-Type': 'application/json' },
+//       body: JSON.stringify({ round, data, timestamp: new Date().toISOString() })
+//     });
+//     if (!response.ok) console.error('불완전 데이터 업데이트 알림 실패:', response.status);
+//   } catch (error) {
+//     console.error('불완전 데이터 업데이트 알림 오류:', error);
+//   }
+// }
+
+/**
+ * TODO: 완전한 데이터 업데이트 완료 알림 함수
+ * @param round 회차 번호
+ * @param data 로또 추첨 결과 데이터
+ */
+// async function notifyCompleteDataUpdate(round: number, data: LottoDrawResult): Promise<void> {
+//   try {
+//     const response = await fetch('/api/notify/complete-update', {
+//       method: 'POST',
+//       headers: { 'Content-Type': 'application/json' },
+//       body: JSON.stringify({ round, data, timestamp: new Date().toISOString() })
+//     });
+//     if (!response.ok) console.error('완전 데이터 업데이트 알림 실패:', response.status);
+//   } catch (error) {
+//     console.error('완전 데이터 업데이트 알림 오류:', error);
+//   }
+// }
+
+/**
+ * TODO: 새 회차 불완전 데이터 첫 저장 알림 함수
+ * @param round 회차 번호
+ * @param data 로또 추첨 결과 데이터
+ */
+// async function notifyNewRoundIncompleteData(round: number, data: LottoDrawResult): Promise<void> {
+//   try {
+//     const response = await fetch('/api/notify/new-round-incomplete', {
+//       method: 'POST',
+//       headers: { 'Content-Type': 'application/json' },
+//       body: JSON.stringify({ round, data, timestamp: new Date().toISOString() })
+//     });
+//     if (!response.ok) console.error('새 회차 불완전 데이터 알림 실패:', response.status);
+//   } catch (error) {
+//     console.error('새 회차 불완전 데이터 알림 오류:', error);
+//   }
+// }
+
+/**
+ * TODO: 새 회차 완전한 데이터 저장 완료 알림 함수
+ * @param round 회차 번호
+ * @param data 로또 추첨 결과 데이터
+ */
+// async function notifyNewRoundCompleteData(round: number, data: LottoDrawResult): Promise<void> {
+//   try {
+//     const response = await fetch('/api/notify/new-round-complete', {
+//       method: 'POST',
+//       headers: { 'Content-Type': 'application/json' },
+//       body: JSON.stringify({ round, data, timestamp: new Date().toISOString() })
+//     });
+//     if (!response.ok) console.error('새 회차 완전 데이터 알림 실패:', response.status);
+//   } catch (error) {
+//     console.error('새 회차 완전 데이터 알림 오류:', error);
+//   }
+// }
+
+/**
  * 로또 업데이트 실행 (내부 재시도 로직 포함)
  */
 export async function executeLottoUpdate(): Promise<void> {
-	const maxRetries = 7;
+	const maxRetries = 20;
 	const retryDelayMs = 60 * 1000; // 1분
 
 	for (let attempt = 1; attempt <= maxRetries; attempt++) {

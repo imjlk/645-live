@@ -6,10 +6,12 @@ export const preparePageTransition = () => {
 			return;
 		}
 
-		return new Promise((oldStateCaptureResolve) => {
+		return new Promise((resolve) => {
 			document.startViewTransition(async () => {
-				oldStateCaptureResolve();
+				resolve();
 				await navigation.complete;
+				// Give DOM time to mount new components before transition finishes
+				await new Promise((r) => setTimeout(r, 16));
 			});
 		});
 	});

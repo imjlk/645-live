@@ -53,19 +53,22 @@ export const load: PageServerLoad = async () => {
 				? pairCounts.reduce((sum, count) => sum + count, 0) / totalPairs
 				: 0;
 
-		// 번호별 동반 출현 횟수 계산
-		const numberPairCounts = new Map<number, number>();
+		// 번호별 총 동반 출현 횟수 계산 (다른 모든 번호와의 총 동반 출현 횟수)
+		const numberTotalPairCounts = new Map<number, number>();
 		for (const record of allPairStats) {
-			const currentA = numberPairCounts.get(record.number_a) || 0;
-			const currentB = numberPairCounts.get(record.number_b) || 0;
-			numberPairCounts.set(record.number_a, currentA + record.pair_count);
-			numberPairCounts.set(record.number_b, currentB + record.pair_count);
+			const currentA = numberTotalPairCounts.get(record.number_a) || 0;
+			const currentB = numberTotalPairCounts.get(record.number_b) || 0;
+			numberTotalPairCounts.set(record.number_a, currentA + record.pair_count);
+			numberTotalPairCounts.set(record.number_b, currentB + record.pair_count);
 		}
 
-		// 가장 많이 동반 출현한 번호들 (상위 10개)
-		const topNumbersByPairCount = Array.from(numberPairCounts.entries())
-			.sort((a, b) => b[1] - a[1])
-			.slice(0, 10);
+		// 디버깅: 상위 3개 번호의 데이터 확인
+		const sortedNumbers = Array.from(numberTotalPairCounts.entries()).sort((a, b) => b[1] - a[1]);
+		console.log('Top 3 numbers by total pair count:', sortedNumbers.slice(0, 3));
+		console.log('Sample pair records for debugging:', allPairStats.slice(0, 5));
+
+		// 가장 높은 총 동반 출현 횟수를 가진 번호들 (상위 10개)
+		const topNumbersByPairCount = sortedNumbers.slice(0, 10);
 
 		// 분포 분석
 		const pairCountDistribution = {
