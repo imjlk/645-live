@@ -1,7 +1,7 @@
 <script lang="ts">
 import { goto } from "$app/navigation";
 import { page } from "$app/stores";
-import { env } from "$env/static/public";
+import { PUBLIC_TRAILBASE_URL } from "$env/static/public";
 import { calculateExpectedLatestRound } from "$lib/utils/lotto-common";
 import { onMount } from "svelte";
 import { derived } from "svelte/store";
@@ -25,7 +25,7 @@ export let data: {
 };
 
 // Trailbase client 초기화
-const client = initClient(env.PUBLIC_TRAILBASE_URL || "http://localhost:4000");
+const client = initClient(PUBLIC_TRAILBASE_URL || "http://localhost:4000");
 
 // URL에서 파라미터를 derived store로 추출
 const urlRound = derived(page, ($page) => {

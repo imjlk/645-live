@@ -1,8 +1,8 @@
-import { env } from "$env/static/public";
+import { PUBLIC_TRAILBASE_URL } from "$env/static/public";
 import { initClient } from "trailbase";
 import type { PageServerLoad } from "./$types";
 
-const client = initClient(env.PUBLIC_TRAILBASE_URL || "http://localhost:4000");
+const client = initClient(PUBLIC_TRAILBASE_URL || "http://localhost:4000");
 
 // 동적 페이지 설정
 export const prerender = false;
