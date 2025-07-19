@@ -20,8 +20,6 @@ export const load: PageServerLoad = async () => {
 			defaultRound = latestRecord.round;
 		}
 
-		console.log(`최신 회차: ${defaultRound}`);
-
 		// 해당 회차의 모든 당첨점 조회
 		const response = await client.records("lotto_winning_stores").list({
 			order: ["win_type", "id"],

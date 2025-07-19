@@ -59,14 +59,6 @@ onMount(async () => {
 				<ul class="flex flex-row sm:flex-col gap-4 overflow-scroll py-2 sm:py-4 px-3">
 					<li class="flex-shrink-0">
 						<LinkButton 
-							class="btn-secondary btn-ghost rounded-full w-full whitespace-nowrap {page.url.pathname === '/' ? 'btn-active' : ''}" 
-							href="/"
-						>
-							홈
-						</LinkButton>
-					</li>
-					<li class="flex-shrink-0">
-						<LinkButton 
 							class="btn-secondary btn-ghost rounded-full w-full whitespace-nowrap {page.url.pathname === '/qr-scan' ? 'btn-active' : ''}" 
 							href="/qr-scan"
 						>

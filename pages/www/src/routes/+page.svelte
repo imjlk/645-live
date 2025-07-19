@@ -215,28 +215,34 @@ function getBallColorClass(ballNumber: number): string {
     <p class="text-red-500 p-4">Error loading data: {error}</p>
 {:else if numbers.length > 0}
     <!-- Header with round and total scans info -->
-    <div class="p-4 bg-gray-100 dark:bg-gray-800 rounded-lg mb-4 mx-4">
-        <div class="flex justify-between items-center text-sm mb-3">
-            <span class="font-semibold">
-                {#if currentRound}
-                    회차: {currentRound}
-                    {#if data.latestRound && currentRound === data.latestRound}
-                        <span class="text-green-600 text-xs">(발표됨)</span>
-                    {:else if data.latestRound && currentRound > data.latestRound}
-                        <span class="text-blue-600 text-xs">(예측중)</span>
+    <div class="px-4 py-2 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-gray-800 dark:to-gray-700 rounded-xl mt-4 mb-3 max-sm:mx-0 mx-4 border border-blue-100 dark:border-gray-600 shadow-lg">
+        <div class="flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <div class="w-3 h-3 bg-blue-500 rounded-full animate-pulse"></div>
+                <span class="text-lg font-bold text-gray-800 dark:text-white">
+                    {#if currentRound}
+                        {currentRound}회차
+                        {#if data.latestRound && currentRound === data.latestRound}
+                            <span class="ml-2 px-2 py-1 bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100 text-xs font-medium rounded-full">발표됨</span>
+                        {/if}
+                    {:else if data.displayRound}
+                        {data.displayRound}회차
+                        {#if data.latestRound && data.displayRound === data.latestRound}
+                            <span class="ml-2 px-2 py-1 bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100 text-xs font-medium rounded-full">발표됨</span>
+                        {/if}
+                    {:else}
+                        로또 스캔 현황
                     {/if}
-                {:else if data.displayRound}
-                    회차: {data.displayRound}
-                    <span class="text-blue-600 text-xs">(예측중)</span>
-                {:else if data.latestRound}
-                    최신 회차: {data.latestRound}
-                {:else}
-                    로또 스캔 현황
-                {/if}
-            </span>
-            <span class="text-blue-600 dark:text-blue-400 font-bold">
-                총 스캔: {totalScans.toLocaleString()}회
-            </span>
+                </span>
+            </div>
+            <div class="flex items-center gap-2 px-3 py-2 bg-white dark:bg-gray-800 rounded-lg shadow-md">
+                <svg class="w-4 h-4 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                <span class="text-blue-600 dark:text-blue-400 font-bold text-sm">
+                    총 스캔: {totalScans.toLocaleString()}회
+                </span>
+            </div>
         </div>
     </div>
     

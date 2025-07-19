@@ -238,18 +238,34 @@ function isValid(set: number[]): boolean {
 function toggleNumber(setType: "included" | "excluded", num: number) {
 	if (setType === "included") {
 		if (includedNumbers.has(num)) {
-			includedNumbers.delete(num);
+			// Remove from included
+			const newIncluded = new Set(includedNumbers);
+			newIncluded.delete(num);
+			includedNumbers = newIncluded;
 		} else {
 			if (includedNumbers.size >= 5) return;
-			excludedNumbers.delete(num);
-			includedNumbers.add(num);
+			// Add to included and remove from excluded
+			const newIncluded = new Set(includedNumbers);
+			const newExcluded = new Set(excludedNumbers);
+			newExcluded.delete(num);
+			newIncluded.add(num);
+			includedNumbers = newIncluded;
+			excludedNumbers = newExcluded;
 		}
 	} else {
 		if (excludedNumbers.has(num)) {
-			excludedNumbers.delete(num);
+			// Remove from excluded
+			const newExcluded = new Set(excludedNumbers);
+			newExcluded.delete(num);
+			excludedNumbers = newExcluded;
 		} else {
-			includedNumbers.delete(num);
-			excludedNumbers.add(num);
+			// Add to excluded and remove from included
+			const newIncluded = new Set(includedNumbers);
+			const newExcluded = new Set(excludedNumbers);
+			newIncluded.delete(num);
+			newExcluded.add(num);
+			includedNumbers = newIncluded;
+			excludedNumbers = newExcluded;
 		}
 	}
 }
@@ -329,7 +345,7 @@ $effect(() => {
 	}}
 />
 
-<div class="container mx-auto p-4 md:p-8">
+<div class="container mx-auto max-sm:px-0 p-8">
 	<h1 class="text-3xl font-bold mb-4">로또 번호 생성기</h1>
 	<p class="mb-8 text-gray-600">
 		통계 데이터를 기반으로 다양한 조건을 적용하여 나만의 로또 번호를 생성해보세요.
@@ -337,62 +353,71 @@ $effect(() => {
 
 	<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
 		<!-- Left Column: Controls -->
-		<div class="lg:col-span-2 space-y-8">
+		<div class="lg:col-span-2 space-y-4">
 			<!-- Basic Settings -->
-			<div class="bg-white p-6 rounded-lg shadow">
-				<h2 class="text-xl font-semibold mb-4 border-b pb-2">기본 설정</h2>
-				<div class="flex items-center space-x-4">
-					<label for="num-sets" class="font-medium">생성 개수:</label>
-					<input
-						type="number"
-						id="num-sets"
-						bind:value={numberOfSets}
-						class="input input-bordered w-24"
-						min="1"
-						max="100"
-					/>
+			<div class="bg-base-100 rounded-lg border border-base-300">
+				<div class="p-4">
+				<h2 class="text-xl font-semibold mb-4 pb-2">기본 설정</h2>
+					<div class="flex items-center space-x-4">
+						<label for="num-sets" class="font-medium">생성 개수:</label>
+						<input
+							type="number"
+							id="num-sets"
+							bind:value={numberOfSets}
+							class="input input-bordered w-24"
+							min="1"
+							max="100"
+						/>
+					</div>
 				</div>
 			</div>
 
 			<!-- Number Selection -->
-			<div class="bg-white p-6 rounded-lg shadow">
-				<h2 class="text-xl font-semibold mb-4 border-b pb-2">번호 선택</h2>
-				<div class="mb-4">
-					<h3 class="font-medium mb-2">포함할 번호 (최대 5개)</h3>
-					<div class="grid grid-cols-9 gap-2">
-						{#each Array.from({ length: 45 }, (_, i) => i + 1) as num}
-							<button
-								onclick={() => toggleNumber('included', num)}
-								class="btn btn-sm rounded-full transition-all"
-								class:bg-blue-500={includedNumbers.has(num)}
-								class:text-white={includedNumbers.has(num)}
-								disabled={includedNumbers.size >= 5 && !includedNumbers.has(num)}
-							>
-								{num}
-							</button>
-						{/each}
-					</div>
-				</div>
-				<div>
-					<h3 class="font-medium mb-2">제외할 번호</h3>
-					<div class="grid grid-cols-9 gap-2">
-						{#each Array.from({ length: 45 }, (_, i) => i + 1) as num}
-							<button
-								onclick={() => toggleNumber('excluded', num)}
-								class="btn btn-sm rounded-full transition-all"
-								class:bg-red-500={excludedNumbers.has(num)}
-								class:text-white={excludedNumbers.has(num)}
-							>
-								{num}
-							</button>
-						{/each}
+			<div class="collapse collapse-arrow bg-base-100 border border-base-300">
+				<input type="radio" name="generator-accordion" checked />
+				<h2 class="collapse-title text-xl font-semibold mb-4 pb-2">번호 선택</h2>
+				<div class="collapse-content">
+					<div class="space-y-6">
+						<div>
+							<h3 class="font-medium mb-3">포함할 번호 (최대 5개)</h3>
+							<div class="grid grid-cols-9 gap-2">
+								{#each Array.from({ length: 45 }, (_, i) => i + 1) as num}
+									<button
+										onclick={() => toggleNumber('included', num)}
+										class="btn btn-sm rounded-full transition-all"
+										class:bg-blue-500={includedNumbers.has(num)}
+										class:text-white={includedNumbers.has(num)}
+										disabled={includedNumbers.size >= 5 && !includedNumbers.has(num)}
+									>
+										{num}
+									</button>
+								{/each}
+							</div>
+						</div>
+						<div>
+							<h3 class="font-medium mb-3">제외할 번호</h3>
+							<div class="grid grid-cols-9 gap-2">
+								{#each Array.from({ length: 45 }, (_, i) => i + 1) as num}
+									<button
+										onclick={() => toggleNumber('excluded', num)}
+										class="btn btn-sm rounded-full transition-all"
+										class:bg-red-500={excludedNumbers.has(num)}
+										class:text-white={excludedNumbers.has(num)}
+									>
+										{num}
+									</button>
+								{/each}
+							</div>
+						</div>
 					</div>
 				</div>
 			</div>
 
 			<!-- Statistical Filters -->
-			<div class="bg-white p-6 rounded-lg shadow">
-				<h2 class="text-xl font-semibold mb-4 border-b pb-2">통계 필터</h2>
+			<div class="collapse collapse-arrow bg-base-100 border border-base-300">
+				<input type="radio" name="generator-accordion" />
+				<h2 class="collapse-title text-xl font-semibold mb-4 pb-2">통계 필터</h2>
+				<div class="collapse-content">
 				<div class="space-y-6">
 					<div class="flex flex-col sm:flex-row sm:items-center gap-3">
 						<label class="flex items-center gap-2 cursor-pointer">
@@ -517,12 +542,15 @@ $effect(() => {
 							<option value={2}>2쌍</option>
 						</select>
 					</div>
+					</div>
 				</div>
 			</div>
 
 			<!-- Statistics Info -->
-			<div class="bg-white p-6 rounded-lg shadow">
-				<h2 class="text-xl font-semibold mb-4 border-b pb-2">번호별 출현 통계</h2>
+			<div class="collapse collapse-arrow bg-base-100 border border-base-300">
+				<input type="radio" name="generator-accordion" />
+				<h2 class="collapse-title text-xl font-semibold mb-4 pb-2">번호별 출현 통계</h2>
+				<div class="collapse-content">
 				{#if isLoadingStats}
 					<p class="text-gray-500">통계 데이터 로딩 중...</p>
 				{:else if sortedNumberStats.length > 0}
@@ -539,56 +567,59 @@ $effect(() => {
 							</a>
 						{/each}
 					</div>
-					<p class="text-xs text-gray-400 mt-4">가장 많이 나온 번호 순으로 정렬되었습니다. 번호를 클릭하면 상세 통계를 볼 수 있습니다.</p>
-				{:else}
-					<p class="text-red-500">통계 데이터를 불러오지 못했습니다.</p>
-				{/if}
+						<p class="text-xs text-gray-400 mt-4">가장 많이 나온 번호 순으로 정렬되었습니다. 번호를 클릭하면 상세 통계를 볼 수 있습니다.</p>
+					{:else}
+						<p class="text-red-500">통계 데이터를 불러오지 못했습니다.</p>
+					{/if}
+					</div>
+				</div>
 			</div>
 
-		</div>
 
 		<!-- Right Column: Results -->
-		<div id="results-section" class="bg-white p-6 rounded-lg shadow h-fit sticky top-8">
-			<h2 class="text-xl font-semibold mb-4 border-b pb-2">생성된 번호</h2>
-			{#if error && !isLoading}
-				<div class="alert alert-error"><span>{error}</span></div>
-			{/if}
-			<div class="space-y-3 mt-4 mb-6">
-				{#if generatedLottoSets.length > 0}
-					{#each generatedLottoSets as set, i}
-						<div class="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-50 border border-gray-100">
-							<span class="font-bold text-gray-500 w-6 text-center flex-shrink-0 text-sm">{i + 1}.</span>
-							<div class="flex flex-wrap gap-1 sm:gap-2">
-								{#each set as num}
-									<div class="w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center font-bold text-xs sm:text-sm {getNumberColor(num)} flex-shrink-0">
-										{num}
-									</div>
-								{/each}
-							</div>
-						</div>
-					{/each}
-				{:else}
-					<p class="text-gray-500 text-center py-8">생성 버튼을 눌러 번호를 받아보세요.</p>
+			<div id="results-section" class="bg-white p-6 rounded-lg shadow h-fit sticky top-8">
+				<h2 class="text-xl font-semibold mb-4 pb-2">생성된 번호</h2>
+				{#if error && !isLoading}
+					<div class="alert alert-error"><span>{error}</span></div>
 				{/if}
-			</div>
-			
-			<!-- Generation Button -->
-			<div class="border-t pt-4">
-				<button 
-					class="btn btn-primary btn-block" 
-					onclick={() => generateNumbers()}
-					disabled={isLoading || isLoadingStats}
-				>
-					{#if isLoading} 
-						<span class="loading loading-spinner"></span> 생성 중... 
-					{:else if isLoadingStats} 
-						<span class="loading loading-spinner"></span> 데이터 로딩중 
-					{:else} 
-						번호 생성하기 
+				<div class="space-y-3 mt-4 mb-6">
+					{#if generatedLottoSets.length > 0}
+						{#each generatedLottoSets as set, i}
+							<div class="flex items-center gap-1 p-2 pl-1 rounded-lg hover:bg-gray-50 border border-gray-100">
+								<span class="font-bold text-gray-500 w-6 text-center flex-shrink-0 text-sm">{i + 1}.</span>
+								<div class="flex flex-wrap gap-1 sm:gap-2">
+									{#each set as num}
+										<div class="w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center font-bold text-xs sm:text-sm {getNumberColor(num)} flex-shrink-0">
+											{num}
+										</div>
+									{/each}
+								</div>
+							</div>
+						{/each}
+					{:else}
+						<p class="text-gray-500 text-center py-8">생성 버튼을 눌러 번호를 받아보세요.</p>
 					{/if}
-				</button>
+				</div>
+				
+				<!-- Generation Button -->
+				<div class="border-t pt-4">
+					<button 
+						class="btn btn-primary btn-block" 
+						onclick={() => generateNumbers()}
+						disabled={isLoading || isLoadingStats}
+					>
+						{#if isLoading} 
+							<span class="loading loading-spinner"></span> 생성 중... 
+						{:else if isLoadingStats} 
+							<span class="loading loading-spinner"></span> 데이터 로딩중 
+						{:else} 
+							번호 생성하기 
+						{/if}
+					</button>
+				</div>
 			</div>
 		</div>
+
 		
 		<!-- Mobile Fixed Generate Button - hidden when near bottom -->
 		{#if !isNearBottom}
@@ -609,4 +640,4 @@ $effect(() => {
 			</div>
 		{/if}
 	</div>
-</div>
+
