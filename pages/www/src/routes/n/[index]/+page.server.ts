@@ -30,9 +30,9 @@ function getNumberColor(num: number): string {
 	if (num >= 1 && num <= 10) return "yellow";
 	if (num >= 11 && num <= 20) return "blue";
 	if (num >= 21 && num <= 30) return "red";
-	if (num >= 31 && num <= 40) return "grey";
+	if (num >= 31 && num <= 40) return "gray";
 	if (num >= 41 && num <= 45) return "green";
-	return "grey";
+	return "gray";
 }
 
 // Define specific types for data records
@@ -42,12 +42,6 @@ interface NumberDetails {
 	section: number;
 }
 
-interface PairStat {
-	id: number;
-	number_a: number;
-	number_b: number;
-	pair_count: number;
-}
 
 export const load: PageServerLoad = async ({ params }) => {
 	try {
@@ -57,11 +51,18 @@ export const load: PageServerLoad = async ({ params }) => {
 			error(404, { message: "Ball number must be between 1 and 45" });
 		}
 
-		const totalRoundsResponse = await client
+		// Get total rounds by reading the latest round number
+		const latestRoundResponse = await client
 			.records("lotto_draw_results")
-			.list({ pagination: { limit: 1 } });
-		const totalRounds = totalRoundsResponse.total_count || 0;
-
+			.list({ 
+				order: ["-round"],
+				pagination: { limit: 1 } 
+			});
+		
+		const totalRounds = latestRoundResponse.records.length > 0 
+			? (latestRoundResponse.records[0] as { round: number }).round 
+			: 0;
+		
 		const numberStatsResponse = await client
 			.records("lotto_number_stats")
 			.list({
@@ -74,18 +75,19 @@ export const load: PageServerLoad = async ({ params }) => {
 		let numberStats = null;
 		if (numberStatsResponse.records.length > 0) {
 			const stats = numberStatsResponse.records[0] as {
-				count: number;
+				draw_count: number;
 				last_draw_round: number;
 			};
+			const averageFrequency = totalRounds > 0 ? ((stats.draw_count / totalRounds) * 100).toFixed(2) : "0.00";
+			const expectedFrequency = totalRounds > 0 ? (totalRounds * 6) / 45 : 0;
+			const deviation = totalRounds > 0 ? stats.draw_count - (totalRounds * 6) / 45 : 0;
+			
 			numberStats = {
-				frequency: stats.count,
+				frequency: stats.draw_count,
 				lastDrawRound: stats.last_draw_round,
-				averageFrequency:
-					totalRounds > 0
-						? ((stats.count / totalRounds) * 100).toFixed(2)
-						: "0.00",
-				expectedFrequency: totalRounds > 0 ? (totalRounds * 6) / 45 : 0,
-				deviation: totalRounds > 0 ? stats.count - (totalRounds * 6) / 45 : 0,
+				averageFrequency,
+				expectedFrequency,
+				deviation,
 			};
 		}
 
@@ -151,18 +153,8 @@ export const load: PageServerLoad = async ({ params }) => {
 			isEven: ballNumber % 2 === 0,
 		};
 
-
-
-		const latestRoundResponse = await client
-			.records("lotto_draw_results")
-			.list({
-				order: ["-round"],
-				pagination: { limit: 1 },
-			});
-		const latestRound =
-			latestRoundResponse.records.length > 0
-				? (latestRoundResponse.records[0] as { round: number }).round
-				: 0;
+		// Use the same totalRounds as latestRound (since we already fetched it)
+		const latestRound = totalRounds;
 
 		return {
 			ballNumber,

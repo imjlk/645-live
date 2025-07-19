@@ -79,7 +79,7 @@ const getColorClass = (color: string | undefined) => {
 		yellow: "bg-yellow-400 text-black",
 		blue: "bg-blue-500 text-white",
 		red: "bg-red-500 text-white",
-		grey: "bg-gray-500 text-white",
+		gray: "bg-gray-500 text-white",
 		green: "bg-green-500 text-white",
 	};
 	return color ? colorMap[color] : "bg-gray-300 text-black";
