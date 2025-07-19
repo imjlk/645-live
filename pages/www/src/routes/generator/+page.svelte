@@ -305,16 +305,16 @@ $effect(() => {
 	title="로또 번호 생성기"
 	titleTemplate="%s | 645.live"
 	description="통계 기반 로또 번호 생성기. 제외수, 포함수, 홀짝, 고저, 총합, 연속번호 등 다양한 필터를 적용하여 나만의 로또 번호를 만들어보세요."
-	canonical="https://645.live/lotto/generator"
+	canonical="https://www.645.live/lotto/generator"
 	keywords={['로또', '로또번호', '로또생성기', '로또번호생성기', '로또통계', '제외수']}
 	openGraph={{
 		type: 'website',
-		url: 'https://645.live/lotto/generator',
+		url: 'https://www.645.live/lotto/generator',
 		title: '통계 기반 로또 번호 생성기',
 		description: '다양한 통계 필터를 적용하여 나만의 로또 번호를 생성하세요.',
 		images: [
 			{
-				url: 'https://645.live/images/og-lotto-generator.png',
+				url: 'https://www.645.live/images/og-lotto-generator.png',
 				width: 1200,
 				height: 630,
 				alt: '로또 번호 생성기 OG 이미지'
@@ -327,7 +327,7 @@ $effect(() => {
 		site: '@645live',
 		title: '통계 기반 로또 번호 생성기',
 		description: '다양한 통계 필터를 적용하여 나만의 로또 번호를 생성하세요.',
-		image: 'https://645.live/images/twitter-lotto-generator.png',
+		image: 'https://www.645.live/images/twitter-lotto-generator.png',
 		imageAlt: '로또 번호 생성기 트위터 이미지'
 	}}
 />
@@ -335,11 +335,11 @@ $effect(() => {
 <JsonLd
 	schema={{
 		'@type': 'WebSite',
-		url: 'https://645.live/lotto/generator',
+		url: 'https://www.645.live/lotto/generator',
 		name: '로또 번호 생성기 | 645.live',
 		potentialAction: {
 			'@type': 'SearchAction',
-			target: 'https://645.live/search?q={search_term_string}',
+			target: 'https://www.645.live/search?q={search_term_string}',
 			'query-input': 'required name=search_term_string'
 		}
 	}}

@@ -20,7 +20,7 @@ const breadcrumbSchema = $derived({
 		"@type": "ListItem",
 		position: index + 1,
 		name: item.label,
-		...(item.href && { item: `https://645.live${item.href}` }),
+		...(item.href && { item: `https://www.645.live${item.href}` }),
 	})),
 });
 </script>

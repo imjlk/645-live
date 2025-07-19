@@ -89,7 +89,7 @@ const getColorClass = (color: string | undefined) => {
 <MetaTags
 	title={`로또 번호 ${ballNumber} 실시간 스캔 현황 - 당첨 통계 및 궁합번호`}
 	description={`로또 번호 ${ballNumber}의 실시간 스캔 현황과 과거 당첨 통계를 확인하세요. ${data.numberStats ? `총 ${data.numberStats.frequency}회 출현, 출현률 ${data.numberStats.averageFrequency}%` : '실시간 스캔 데이터 제공'}`}
-	canonical={`https://645.live/n/${ballNumber}`}
+	canonical={`https://www.645.live/n/${ballNumber}`}
 	keywords={[
 		`로또${ballNumber}`,
 		`로또번호${ballNumber}`,
@@ -107,13 +107,13 @@ const getColorClass = (color: string | undefined) => {
 	openGraph={{
 		title: `로또 번호 ${ballNumber} 실시간 스캔 현황`,
 		description: `로또 번호 ${ballNumber}의 실시간 스캔 현황과 과거 당첨 통계를 확인하세요.`,
-		url: `https://645.live/n/${ballNumber}`,
+		url: `https://www.645.live/n/${ballNumber}`,
 		type: "article",
 		siteName: "645.live",
 		locale: "ko_KR",
 		images: [
 			{
-				url: `https://645.live/og-number-${ballNumber}.png`,
+				url: `https://www.645.live/og-number-${ballNumber}.png`,
 				width: 1200,
 				height: 630,
 				alt: `로또 번호 ${ballNumber} 스캔 현황`
@@ -125,7 +125,7 @@ const getColorClass = (color: string | undefined) => {
 		site: "@645live",
 		title: `로또 번호 ${ballNumber} 실시간 스캔 현황`,
 		description: `로또 번호 ${ballNumber}의 실시간 스캔 현황과 과거 당첨 통계를 확인하세요.`,
-		image: `https://645.live/og-number-${ballNumber}.png`
+		image: `https://www.645.live/og-number-${ballNumber}.png`
 	}}
 	additionalMetaTags={[
 		{

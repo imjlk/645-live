@@ -80,7 +80,7 @@ const breadcrumbItems = [
 	title="로또 6/45 AC값 통계 분석 | 산술적 복잡도 패턴 분석"
 	titleTemplate="%s | 645.live"
 	description="로또 6/45 전체 {data.totalRounds}회차 AC값(Arithmetic Complexity) 통계 분석. 번호 조합의 복잡도 패턴을 분석하여 다음 당첨번호 예측에 도움이 되는 데이터를 제공합니다."
-	canonical="https://645.live/stats/ac"
+	canonical="https://www.645.live/stats/ac"
 	keywords={["로또 AC값", "산술적복잡도", "로또통계분석", "당첨번호패턴", "로또예측", "번호조합복잡도", "로또데이터분석", "6/45통계"]}
 	robots="index,follow"
 	additionalRobotsProps={{
@@ -111,21 +111,21 @@ const breadcrumbItems = [
 		},
 		{
 			property: 'article:publisher',
-			content: 'https://645.live'
+			content: 'https://www.645.live'
 		}
 	]}
 	openGraph={{
 		type: 'article',
-		url: 'https://645.live/stats/ac',
+		url: 'https://www.645.live/stats/ac',
 		title: `로또 6/45 AC값 통계 분석 | 전체 ${data.totalRounds}회차 데이터`,
 		description: `로또 6/45 당첨번호의 산술적 복잡도(AC값) 패턴을 분석합니다. 평균 AC값 ${data.averageAcValue}, 최빈값 ${data.mostFrequentAc[0]} 등 상세한 통계 정보를 확인하세요.`,
 		locale: 'ko_KR',
 		images: [{
-			url: 'https://645.live/images/lotto-ac-stats.png',
+			url: 'https://www.645.live/images/lotto-ac-stats.png',
 			width: 1200,
 			height: 630,
 			alt: '로또 6/45 AC값 통계 분석',
-			secureUrl: 'https://645.live/images/lotto-ac-stats.png',
+			secureUrl: 'https://www.645.live/images/lotto-ac-stats.png',
 			type: 'image/png'
 		}],
 		siteName: '645.live',
@@ -141,7 +141,7 @@ const breadcrumbItems = [
 		site: '@645live',
 		title: '로또 6/45 AC값 통계 분석',
 		description: `전체 ${data.totalRounds}회차 AC값 패턴 분석 - 평균 ${data.averageAcValue}, 복잡도 분포 및 패턴 분석`,
-		image: 'https://645.live/images/lotto-ac-stats.png',
+		image: 'https://www.645.live/images/lotto-ac-stats.png',
 		imageAlt: '로또 6/45 AC값 통계 분석'
 	}}
 />
@@ -151,7 +151,7 @@ const breadcrumbItems = [
 		'@type': 'Dataset',
 		name: '로또 6/45 AC값 통계 데이터',
 		description: `로또 6/45 당첨번호의 산술적 복잡도(AC값) 통계 분석 데이터. 전체 ${data.totalRounds}회차의 AC값 분포와 패턴을 분석합니다.`,
-		url: 'https://645.live/stats/ac',
+		url: 'https://www.645.live/stats/ac',
 		creator: {
 			'@type': 'Organization',
 			name: '645.live'
@@ -163,7 +163,7 @@ const breadcrumbItems = [
 		},
 		distribution: {
 			'@type': 'DataDownload',
-			contentUrl: 'https://645.live/stats/ac',
+			contentUrl: 'https://www.645.live/stats/ac',
 			encodingFormat: 'text/html'
 		},
 		variableMeasured: [

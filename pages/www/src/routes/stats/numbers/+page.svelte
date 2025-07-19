@@ -12,7 +12,7 @@ const generateJsonLd = () => {
 		name: "로또 6/45 번호별 출현 통계",
 		description:
 			"로또 6/45 각 번호의 출현 빈도, 색깔별 분포, 구간별 분석 데이터",
-		url: "https://645.live/stats/numbers",
+		url: "https://www.645.live/stats/numbers",
 		keywords: ["로또번호통계", "로또번호분석", "로또출현빈도", "로또색깔분석"],
 		temporalCoverage: "2002-12-07/..",
 		creator: {
@@ -59,7 +59,7 @@ const getDeviationClass = (deviation: string) => {
 	<meta name="keywords" content="로또번호통계, 로또번호분석, 로또출현빈도, 로또색깔분석" />
 	<meta property="og:title" content="로또 6/45 번호별 출현 통계" />
 	<meta property="og:description" content="로또 6/45 각 번호의 출현 빈도와 상세 분석" />
-	<link rel="canonical" href="https://645.live/stats/numbers" />
+	<link rel="canonical" href="https://www.645.live/stats/numbers" />
 </svelte:head>
 
 <div class="container mx-auto px-4 py-8">
