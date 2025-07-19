@@ -1,9 +1,9 @@
-import { env } from "$env/dynamic/private";
+import { TRAILBASE_URL } from "$env/static/private";
 import { error } from "@sveltejs/kit";
 import { initClient } from "trailbase";
 import type { PageServerLoad } from "./$types";
 
-const client = initClient(env.TRAILBASE_URL || "http://localhost:4000");
+const client = initClient(TRAILBASE_URL || "http://localhost:4000");
 
 // Helper functions for mathematical properties
 function isPrime(n: number): boolean {
@@ -42,7 +42,6 @@ interface NumberDetails {
 	section: number;
 }
 
-
 export const load: PageServerLoad = async ({ params }) => {
 	try {
 		const ballNumber = Number(params.index);
@@ -54,15 +53,16 @@ export const load: PageServerLoad = async ({ params }) => {
 		// Get total rounds by reading the latest round number
 		const latestRoundResponse = await client
 			.records("lotto_draw_results")
-			.list({ 
+			.list({
 				order: ["-round"],
-				pagination: { limit: 1 } 
+				pagination: { limit: 1 },
 			});
-		
-		const totalRounds = latestRoundResponse.records.length > 0 
-			? (latestRoundResponse.records[0] as { round: number }).round 
-			: 0;
-		
+
+		const totalRounds =
+			latestRoundResponse.records.length > 0
+				? (latestRoundResponse.records[0] as { round: number }).round
+				: 0;
+
 		const numberStatsResponse = await client
 			.records("lotto_number_stats")
 			.list({
@@ -78,10 +78,14 @@ export const load: PageServerLoad = async ({ params }) => {
 				draw_count: number;
 				last_draw_round: number;
 			};
-			const averageFrequency = totalRounds > 0 ? ((stats.draw_count / totalRounds) * 100).toFixed(2) : "0.00";
+			const averageFrequency =
+				totalRounds > 0
+					? ((stats.draw_count / totalRounds) * 100).toFixed(2)
+					: "0.00";
 			const expectedFrequency = totalRounds > 0 ? (totalRounds * 6) / 45 : 0;
-			const deviation = totalRounds > 0 ? stats.draw_count - (totalRounds * 6) / 45 : 0;
-			
+			const deviation =
+				totalRounds > 0 ? stats.draw_count - (totalRounds * 6) / 45 : 0;
+
 			numberStats = {
 				frequency: stats.draw_count,
 				lastDrawRound: stats.last_draw_round,
@@ -120,25 +124,33 @@ export const load: PageServerLoad = async ({ params }) => {
 
 		// Combine and aggregate pair counts
 		const pairMap = new Map<number, number>();
-		
+
 		// Add pairs where our number is number_a
 		for (const record of pairStatsA.records) {
 			const otherNumber = record.number_b as number;
-			pairMap.set(otherNumber, (pairMap.get(otherNumber) || 0) + (record.pair_count as number));
+			pairMap.set(
+				otherNumber,
+				(pairMap.get(otherNumber) || 0) + (record.pair_count as number),
+			);
 		}
-		
+
 		// Add pairs where our number is number_b
 		for (const record of pairStatsB.records) {
 			const otherNumber = record.number_a as number;
-			pairMap.set(otherNumber, (pairMap.get(otherNumber) || 0) + (record.pair_count as number));
+			pairMap.set(
+				otherNumber,
+				(pairMap.get(otherNumber) || 0) + (record.pair_count as number),
+			);
 		}
 
 		// Convert to array and sort
-		const allPairs = Array.from(pairMap.entries()).map(([otherNumber, pair_count]) => ({
-			otherNumber,
-			pair_count,
-			otherNumberDetails: { color: getNumberColor(otherNumber) },
-		}));
+		const allPairs = Array.from(pairMap.entries()).map(
+			([otherNumber, pair_count]) => ({
+				otherNumber,
+				pair_count,
+				otherNumberDetails: { color: getNumberColor(otherNumber) },
+			}),
+		);
 
 		// Get top and bottom pairs
 		const sortedPairs = allPairs.sort((a, b) => b.pair_count - a.pair_count);
