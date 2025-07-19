@@ -1,7 +1,7 @@
 <script lang="ts">
 import { goto } from "$app/navigation";
 import { page } from "$app/stores";
-import { env } from "$env/dynamic/public";
+import { env } from "$env/static/public";
 import { calculateExpectedLatestRound } from "$lib/utils/lotto-common";
 import { onMount } from "svelte";
 import { derived } from "svelte/store";
