@@ -11,25 +11,25 @@ import {
 } from "$lib/stores/streamStore";
 import LinkButton from "$lib/ui/LinkButton.svelte";
 import { onDestroy, onMount } from "svelte";
-import { type Writable, writable } from "svelte/store";
+import { MetaTags, JsonLd } from "svelte-meta-tags";
 import type { PageData } from "./$types";
 
-export let data: PageData;
+let { data }: { data: PageData } = $props();
 
 // Track which balls have recently changed value to show animation
-const recentlyUpdated: Writable<Record<number, boolean>> = writable({});
+let recentlyUpdated = $state<Record<number, boolean>>({});
 
 // Client-side initial data and error state
-let error: string | null = null;
+let error = $state<string | null>(null);
 
 // Initialize numbers with a default empty array - will be generated for 1-45
-let numbers: BallNumber[] = [];
-// Create a reactive store for the values from scan counts
-const ballValues: Writable<Record<number, number>> = writable({});
+let numbers = $state<BallNumber[]>([]);
+// Create a reactive state for the values from scan counts
+let ballValues = $state<Record<number, number>>({});
 // Store the current round data
-let currentRound: number | null = null;
+let currentRound = $state<number | null>(null);
 // Store total scan count
-let totalScans = 0;
+let totalScans = $state(0);
 
 // 전역 스트림 구독 해제 함수
 let unsubscribeStream: (() => void) | null = null;
@@ -57,7 +57,7 @@ async function loadInitialData() {
 					const scanCountField = `scan_count_${i}` as keyof LottoDrawScanCount;
 					values[i] = Number(scanData[scanCountField]) || 0;
 				}
-				ballValues.set(values);
+				ballValues = values;
 
 				// Generate numbers array for rendering (1-45)
 				numbers = Array.from({ length: 45 }, (_, i) => ({
@@ -78,7 +78,7 @@ async function loadInitialData() {
 			for (let i = 1; i <= 45; i++) {
 				values[i] = 0;
 			}
-			ballValues.set(values);
+			ballValues = values;
 
 			// Generate numbers array for rendering (1-45)
 			numbers = Array.from({ length: 45 }, (_, i) => ({
@@ -102,7 +102,7 @@ async function loadInitialData() {
 				const scanCountField = `scan_count_${i}` as keyof LottoDrawScanCount;
 				values[i] = Number(latestRound[scanCountField]) || 0;
 			}
-			ballValues.set(values);
+			ballValues = values;
 
 			// Generate numbers array for rendering (1-45)
 			numbers = Array.from({ length: 45 }, (_, i) => ({
@@ -118,7 +118,7 @@ async function loadInitialData() {
 			for (let i = 1; i <= 45; i++) {
 				values[i] = 0;
 			}
-			ballValues.set(values);
+			ballValues = values;
 
 			// Generate numbers array for rendering (1-45)
 			numbers = Array.from({ length: 45 }, (_, i) => ({
@@ -147,42 +147,42 @@ onMount(async () => {
 			console.log(`Round updated to: ${currentRound}`);
 		}
 
-		// Update the ballValues store with new scan counts
-		ballValues.update((values) => {
-			const newValues = { ...values };
-			let hasChanges = false;
+		// Update the ballValues with new scan counts
+		const newValues = { ...ballValues };
+		let hasChanges = false;
 
-			// Check each scan count field for changes
-			for (let i = 1; i <= 45; i++) {
-				const scanCountField = `scan_count_${i}` as keyof LottoDrawScanCount;
-				const newCount = Number(scanData[scanCountField]) || 0;
-				const currentCount = values[i] || 0;
+		// Check each scan count field for changes
+		for (let i = 1; i <= 45; i++) {
+			const scanCountField = `scan_count_${i}` as keyof LottoDrawScanCount;
+			const newCount = Number(scanData[scanCountField]) || 0;
+			const currentCount = ballValues[i] || 0;
 
-				if (newCount !== currentCount) {
-					console.log(
-						`Ball ${i} scan count updated from ${currentCount} to ${newCount}`,
-					);
-					newValues[i] = newCount;
-					hasChanges = true;
+			if (newCount !== currentCount) {
+				console.log(
+					`Ball ${i} scan count updated from ${currentCount} to ${newCount}`,
+				);
+				newValues[i] = newCount;
+				hasChanges = true;
 
-					// Trigger animation for this ball
-					recentlyUpdated.update((balls) => ({
-						...balls,
-						[i]: true,
-					}));
+				// Trigger animation for this ball
+				recentlyUpdated = {
+					...recentlyUpdated,
+					[i]: true,
+				};
 
-					// Remove the animation after a delay
-					setTimeout(() => {
-						recentlyUpdated.update((balls) => ({
-							...balls,
-							[i]: false,
-						}));
-					}, 1000);
-				}
+				// Remove the animation after a delay
+				setTimeout(() => {
+					recentlyUpdated = {
+						...recentlyUpdated,
+						[i]: false,
+					};
+				}, 1000);
 			}
+		}
 
-			return newValues;
-		});
+		if (hasChanges) {
+			ballValues = newValues;
+		}
 
 		// Update total scans
 		const newTotalScans = Number(scanData.total_scans) || 0;
@@ -201,15 +201,89 @@ onDestroy(() => {
 	}
 });
 
-// Helper function to get ball color class based on its number
-function getBallColorClass(ballNumber: number): string {
-	if (ballNumber <= 10) return "bg-yellow-500";
-	if (ballNumber <= 20) return "bg-blue-500";
-	if (ballNumber <= 30) return "bg-red-500";
-	if (ballNumber <= 40) return "bg-gray-500";
-	return "bg-green-500";
-}
 </script>
+
+<MetaTags
+	title="로또 6/45 실시간 스캔 현황 및 통계 분석 - 645.live"
+	description="로또 6/45 번호별 실시간 스캔 현황을 확인하고, 당첨번호 통계 분석을 통해 다음 회차를 예측해보세요. 번호별 출현 빈도, 통계 기반 번호 생성기 제공."
+	canonical="https://645.live"
+	keywords={["로또", "로또645", "로또당첨번호", "로또스캔", "로또통계", "로또분석", "로또번호생성기", "로또예측", "실시간로또", "로또현황", "동행복권", "한국로또", "로또번호추천", "로또패턴분석"]}
+	openGraph={{
+		type: "website",
+		url: "https://645.live",
+		title: "로또 6/45 실시간 스캔 현황 및 통계 분석",
+		description: "로또 6/45 번호별 실시간 스캔 현황을 확인하고, 당첨번호 통계 분석을 통해 다음 회차를 예측해보세요.",
+		siteName: "645.live",
+		locale: "ko_KR",
+		images: [
+			{
+				url: "https://645.live/og-image.png",
+				width: 1200,
+				height: 630,
+				alt: "로또 6/45 실시간 스캔 현황"
+			}
+		]
+	}}
+	twitter={{
+		cardType: "summary_large_image",
+		site: "@645live",
+		creator: "@645live",
+		title: "로또 6/45 실시간 스캔 현황 및 통계 분석",
+		description: "로또 6/45 번호별 실시간 스캔 현황을 확인하고, 당첨번호 통계 분석을 통해 다음 회차를 예측해보세요.",
+		image: "https://645.live/og-image.png",
+		imageAlt: "로또 6/45 실시간 스캔 현황"
+	}}
+	additionalMetaTags={[
+		{
+			name: "robots",
+			content: "index,follow"
+		},
+		{
+			name: "author",
+			content: "645.live"
+		},
+		{
+			name: "theme-color",
+			content: "#3b82f6"
+		},
+		{
+			property: "og:locale:alternate",
+			content: "en_US"
+		}
+	]}
+/>
+
+<JsonLd
+	schema={{
+		"@context": "https://schema.org",
+		"@type": "WebSite",
+		"name": "645.live",
+		"description": "로또 6/45 실시간 스캔 현황 및 통계 분석 서비스",
+		"url": "https://645.live",
+		"potentialAction": {
+			"@type": "SearchAction",
+			"target": "https://645.live/n/{search_term_string}",
+			"query-input": "required name=search_term_string"
+		},
+		"publisher": {
+			"@type": "Organization",
+			"name": "645.live",
+			"url": "https://645.live"
+		},
+		"mainEntity": {
+			"@type": "WebApplication",
+			"name": "로또 6/45 스캔 현황",
+			"description": "로또 번호별 실시간 스캔 현황 및 통계 분석",
+			"applicationCategory": "Entertainment",
+			"operatingSystem": "Web Browser",
+			"offers": {
+				"@type": "Offer",
+				"price": "0",
+				"priceCurrency": "KRW"
+			}
+		}
+	}}
+/>
 
 {#if error}
     <p class="text-red-500 p-4">Error loading data: {error}</p>
@@ -248,8 +322,8 @@ function getBallColorClass(ballNumber: number): string {
     
     <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 p-0 py-4 sm:p-4 gap-4">
         {#each numbers as ball (ball.id)}
-            {@const value = $ballValues[ball.id] || 0}
-            {@const isUpdated = $recentlyUpdated[ball.id] || false}
+            {@const value = ballValues[ball.id] || 0}
+            {@const isUpdated = recentlyUpdated[ball.id] || false}
             <a href="/n/{ball.id}" class="ball-grid-item">
                 <ValueIncrementEffect show={isUpdated} message="+1" color="text-green-500" />
                 <LottoBall 
@@ -263,7 +337,7 @@ function getBallColorClass(ballNumber: number): string {
     </div>
 {:else}
     <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 p-0 py-4 sm:p-4 gap-4">
-        {#each Array(45) as _, i}
+        {#each Array(45) as _}
             <div class="skeleton aspect-square w-full min-h-30 rounded-full"></div>
         {/each}
     </div>

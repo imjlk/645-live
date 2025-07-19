@@ -87,14 +87,64 @@ const getColorClass = (color: string | undefined) => {
 </script>
 
 <MetaTags
-	title={`#${ballNumber} 로또 번호 통계 - 645.live`}
-	description={`로또 번호 ${ballNumber}의 실시간 스캔 수, 출현 통계, 궁합 번호 등 상세 정보를 확인하세요.`}
+	title={`로또 번호 ${ballNumber} 실시간 스캔 현황 - 당첨 통계 및 궁합번호`}
+	description={`로또 번호 ${ballNumber}의 실시간 스캔 현황과 과거 당첨 통계를 확인하세요. ${data.numberStats ? `총 ${data.numberStats.frequency}회 출현, 출현률 ${data.numberStats.averageFrequency}%` : '실시간 스캔 데이터 제공'}`}
+	canonical={`https://645.live/n/${ballNumber}`}
+	keywords={[
+		`로또${ballNumber}`,
+		`로또번호${ballNumber}`,
+		`${ballNumber}번스캔`,
+		`로또${ballNumber}번스캔현황`,
+		`로또${ballNumber}번궁합`,
+		"로또스캔",
+		"로또실시간", 
+		"로또당첨번호",
+		"로또스캔현황",
+		"로또번호스캔",
+		"645로또",
+		"로또현황"
+	]}
 	openGraph={{
-		title: `#${ballNumber} 로또 번호 통계 - 645.live`,
-		description: `로또 번호 ${ballNumber}의 실시간 스캔 수, 출현 통계, 궁합 번호 등 상세 정보를 확인하세요.`,
+		title: `로또 번호 ${ballNumber} 실시간 스캔 현황`,
+		description: `로또 번호 ${ballNumber}의 실시간 스캔 현황과 과거 당첨 통계를 확인하세요.`,
 		url: `https://645.live/n/${ballNumber}`,
-		type: "website",
+		type: "article",
+		siteName: "645.live",
+		locale: "ko_KR",
+		images: [
+			{
+				url: `https://645.live/og-number-${ballNumber}.png`,
+				width: 1200,
+				height: 630,
+				alt: `로또 번호 ${ballNumber} 스캔 현황`
+			}
+		]
 	}}
+	twitter={{
+		cardType: "summary_large_image",
+		site: "@645live",
+		title: `로또 번호 ${ballNumber} 실시간 스캔 현황`,
+		description: `로또 번호 ${ballNumber}의 실시간 스캔 현황과 과거 당첨 통계를 확인하세요.`,
+		image: `https://645.live/og-number-${ballNumber}.png`
+	}}
+	additionalMetaTags={[
+		{
+			name: "robots",
+			content: "index,follow"
+		},
+		{
+			name: "author",
+			content: "645.live"
+		},
+		{
+			property: "article:section",
+			content: "로또스캔현황"
+		},
+		{
+			property: "article:tag", 
+			content: `로또${ballNumber},로또스캔,로또현황`
+		}
+	]}
 />
 
 <div class="container mx-auto p-4">

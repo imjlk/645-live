@@ -1,0 +1,16 @@
+User-agent: *
+Allow: /
+
+# Allow all lotto number pages
+Allow: /n/
+Allow: /stats/
+Allow: /generator
+
+# Block admin or private areas if any exist
+Disallow: /api/
+
+# Sitemap location
+Sitemap: https://www.645.live/sitemap.xml
+
+# Crawl-delay for respectful crawling
+Crawl-delay: 1

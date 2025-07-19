@@ -8,6 +8,7 @@ import LinkButton from "$lib/ui/LinkButton.svelte";
 import Clarity from "@microsoft/clarity";
 import { NuqsAdapter } from "nuqs-svelte/adapters/svelte-kit";
 import { onMount } from "svelte";
+import { MetaTags } from "svelte-meta-tags";
 
 let { children } = $props();
 import { preparePageTransition } from "$lib/layout/page-transition";
@@ -54,6 +55,35 @@ onMount(async () => {
 	}
 });
 </script>
+
+<MetaTags
+	titleTemplate="%s | 645.live - 로또 6/45 통계 및 분석"
+	description="로또 6/45 번호 통계 분석 및 예측 서비스"
+	openGraph={{
+		type: 'website',
+		locale: 'ko_KR',
+		siteName: '645.live',
+		url: 'https://645.live'
+	}}
+	twitter={{
+		cardType: 'summary_large_image',
+		site: '@645live'
+	}}
+	additionalMetaTags={[
+		{
+			name: 'viewport',
+			content: 'width=device-width, initial-scale=1'
+		},
+		{
+			name: 'robots',
+			content: 'index,follow'
+		},
+		{
+			name: 'theme-color',
+			content: '#3b82f6'
+		}
+	]}
+/>
 
 <NuqsAdapter>
 	<div class="min-h-dvh flex flex-col max-w-7xl mx-auto">
