@@ -235,7 +235,6 @@ let selectedCameraLabel = $derived(() => {
 async function onDetect(detectedCodes: DetectedBarcode[]) {
 	if (detectedCodes.length > 0) {
 		lastDetected = detectedCodes[0].rawValue;
-		console.log(detectedCodes.map((detectedCode) => detectedCode.rawValue));
 
 		// 서버 액션을 통해 처리
 		await submitQRData(lastDetected);
@@ -250,7 +249,6 @@ async function onDetectUploaded(detectedCodes: DetectedBarcode[]) {
 	// 업로드된 이미지에서도 로또 QR 코드 파싱 및 처리
 	if (detectedCodes.length > 0) {
 		const qrData = detectedCodes[0].rawValue;
-		console.log("Detected QR from uploaded image:", qrData);
 
 		toast.info("📷 이미지에서 QR 코드 감지됨", {
 			description: "QR 코드를 처리하고 있습니다...",
@@ -401,7 +399,6 @@ $effect(() => {
 				});
 			}
 
-			console.log(
 				`서버 액션 스캔 완료: ${form.data?.gamesCount}개 게임`,
 			);
 		} else if (form.error) {
@@ -650,10 +647,8 @@ async function requestPermission() {
 		permissionDenied = false;
 		window.location.reload();
 	} catch (error) {
-		console.log("Permission request failed:", error);
 		// Show guidance modal for enabling camera in browser settings
 		showPermissionModal = true;
-		console.log(showPermissionModal);
 	}
 }
 </script>

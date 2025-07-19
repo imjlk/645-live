@@ -201,10 +201,6 @@ export function parseLottoQR(qrData: string): LottoGameData[] | null {
 			return null;
 		}
 
-		console.log(
-			"Parsing QR data:",
-			qrData.slice(0, 100) + (qrData.length > 100 ? "..." : ""),
-		);
 
 		// dhlottery.co.kr URL 형식 파싱
 		if (qrData.includes("dhlottery.co.kr")) {

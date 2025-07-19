@@ -89,7 +89,6 @@ const navigateToAnalysis = async () => {
 	
 	if (validateInput(inputStr)) {
 		const rounds = Number(inputStr);
-		console.log(`Navigating to: /stats/sections/recent/${rounds}`);
 		try {
 			await goto(`/stats/sections/recent/${rounds}`);
 		} catch (error) {

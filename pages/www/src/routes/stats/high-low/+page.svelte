@@ -63,7 +63,6 @@ const navigateToAnalysis = async () => {
 
 	if (validateInput(inputStr)) {
 		const rounds = Number(inputStr);
-		console.log(`Navigating to: /stats/high-low/recent/${rounds}`);
 		try {
 			await goto(`/stats/high-low/recent/${rounds}`);
 		} catch (error) {

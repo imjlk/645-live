@@ -67,9 +67,6 @@ async function loadInitialData() {
 				return; // Successfully loaded target round data
 			}
 
-			console.log(
-				`No scan data found for round ${targetRound}, initializing with zeros`,
-			);
 			// Round not found, initialize with zeros for the target round
 			currentRound = targetRound;
 			totalScans = 0;
@@ -138,13 +135,11 @@ onMount(async () => {
 
 	// Set up global stream subscription for real-time updates
 	unsubscribeStream = subscribeToScanCountUpdates("main-page", (scanData) => {
-		console.log("Received scan count data via global stream:", scanData);
 
 		// Only update if this is for the current round we're displaying
 		if (scanData.round !== currentRound) {
 			// Update current round if it changed
 			currentRound = scanData.round;
-			console.log(`Round updated to: ${currentRound}`);
 		}
 
 		// Update the ballValues with new scan counts
@@ -158,9 +153,6 @@ onMount(async () => {
 			const currentCount = ballValues[i] || 0;
 
 			if (newCount !== currentCount) {
-				console.log(
-					`Ball ${i} scan count updated from ${currentCount} to ${newCount}`,
-				);
 				newValues[i] = newCount;
 				hasChanges = true;
 
@@ -188,7 +180,6 @@ onMount(async () => {
 		const newTotalScans = Number(scanData.total_scans) || 0;
 		if (newTotalScans !== totalScans) {
 			totalScans = newTotalScans;
-			console.log(`Total scans updated to: ${totalScans}`);
 		}
 	});
 });

@@ -88,9 +88,6 @@ class GlobalStreamManager {
 
 	// 구독자 추가
 	subscribe(id: string, callback: SubscriberCallback): () => void {
-		console.log(
-			`Adding subscriber: ${id}, total: ${this.subscribers.size + 1}`,
-		);
 		this.subscribers.set(id, callback);
 
 		// 첫 구독자이거나 스트림이 없는 경우 스트림 시작
@@ -100,15 +97,11 @@ class GlobalStreamManager {
 
 		// 구독 해제 함수 반환
 		return () => {
-			console.log(
-				`Removing subscriber: ${id}, remaining: ${this.subscribers.size - 1}`,
-			);
 			this.subscribers.delete(id);
 
 			// 잠시 대기 후 구독자가 없으면 스트림 정리 (페이지 전환 시 짧은 틈 허용)
 			setTimeout(() => {
 				if (this.subscribers.size === 0 && this.isReading) {
-					console.log("No more subscribers, cleaning up stream");
 					this.cleanup();
 				}
 			}, 100); // 100ms 지연
@@ -118,16 +111,13 @@ class GlobalStreamManager {
 	// 스트림 시작
 	private async startStream() {
 		if (this.isReading || this.isStarting || !this.api) {
-			console.log("Stream already running or starting, skipping");
 			return;
 		}
 
 		this.isStarting = true;
-		console.log("Starting global stream...");
 
 		try {
 			this.stream = await this.api.subscribe("*");
-			console.log("Global stream connected for lotto_draw_scan_counts");
 
 			if (this.stream) {
 				this.reader = this.stream.getReader();
@@ -136,7 +126,6 @@ class GlobalStreamManager {
 				this.readStreamData();
 			}
 		} catch (err) {
-			console.error("Error setting up global stream:", err);
 			this.isStarting = false;
 		}
 	}
@@ -150,7 +139,6 @@ class GlobalStreamManager {
 				const { done, value } = await this.reader.read();
 
 				if (done) {
-					console.log("Global stream completed");
 					break;
 				}
 
@@ -163,13 +151,13 @@ class GlobalStreamManager {
 						try {
 							callback(scanData);
 						} catch (err) {
-							console.error("Error in subscriber callback:", err);
+							// Silently handle callback errors
 						}
 					}
 				}
 			}
 		} catch (err) {
-			console.error("Error reading global stream:", err);
+			// Silently handle stream reading errors
 		} finally {
 			if (this.isReading) {
 				await this.cleanup();
@@ -179,16 +167,14 @@ class GlobalStreamManager {
 
 	// 스트림 정리
 	private async cleanup() {
-		console.log("Cleaning up global stream resources");
 		this.isReading = false;
 		this.isStarting = false;
 
 		if (this.reader) {
 			try {
 				await this.reader.cancel();
-				console.log("Global stream reader cancelled");
 			} catch (err) {
-				console.error("Error cancelling global reader:", err);
+				// Silently handle cancellation errors
 			}
 			this.reader = null;
 		}
@@ -197,7 +183,6 @@ class GlobalStreamManager {
 
 	// 강제 재연결 (디버깅용)
 	async reconnect() {
-		console.log("Forcing stream reconnection...");
 		await this.cleanup();
 		if (this.subscribers.size > 0) {
 			this.startStream();
@@ -228,8 +213,7 @@ class GlobalStreamManager {
 			) {
 				return null;
 			}
-			// 다른 종류의 에러는 로그에 남김
-			console.error(`Error fetching scan data for round ${round}:`, err);
+			// Silently handle other errors
 			return null;
 		}
 	}
@@ -249,7 +233,6 @@ class GlobalStreamManager {
 			}
 			return null;
 		} catch (err) {
-			console.error("Error fetching latest scan data:", err);
 			return null;
 		}
 	}

@@ -28,15 +28,14 @@ const validateInput = (value: string): boolean => {
 // 분석 페이지로 이동
 const navigateToAnalysis = async () => {
 	const inputStr = String(inputValue || "");
-	
+
 	if (inputStr.trim() === "") {
 		alert("분석할 회차 수를 입력해주세요.");
 		return;
 	}
-	
+
 	if (validateInput(inputStr)) {
 		const rounds = Number(inputStr);
-		console.log(`Navigating to: /stats/unit-digit/recent/${rounds}`);
 		try {
 			await goto(`/stats/unit-digit/recent/${rounds}`);
 		} catch (error) {
@@ -86,7 +85,9 @@ const getDigitLightColorClass = (digit: string) => {
 		"bg-orange-500/20 text-orange-600 dark:text-orange-400",
 		"bg-gray-500/20 text-gray-600 dark:text-gray-400",
 	];
-	return colors[Number(digit)] || "bg-gray-500/20 text-gray-600 dark:text-gray-400";
+	return (
+		colors[Number(digit)] || "bg-gray-500/20 text-gray-600 dark:text-gray-400"
+	);
 };
 </script>
 
@@ -94,7 +95,7 @@ const getDigitLightColorClass = (digit: string) => {
 	title="로또 6/45 끝수 분석 통계 | 끝자리 숫자별 출현 패턴"
 	titleTemplate="%s | 645.live"
 	description="로또 6/45 당첨번호의 끝수(0-9) 분포 및 출현 패턴을 분석합니다. 각 끝수별 출현 빈도와 통계를 확인하세요."
-	canonical="https://645.live/stats/unit-digit"
+	canonical="https://www.645.live/stats/unit-digit"
 	keywords={["로또", "끝수분석", "끝자리숫자", "로또통계", "끝수패턴", "로또예측", "6/45통계", "끝수분포", "숫자분석", "로또끝수통계"]}
 	robots="index,follow"
 	additionalRobotsProps={{
@@ -125,21 +126,21 @@ const getDigitLightColorClass = (digit: string) => {
 		},
 		{
 			property: 'article:publisher',
-			content: 'https://645.live'
+			content: 'https://www.645.live'
 		}
 	]}
 	openGraph={{
 		type: 'article',
-		url: 'https://645.live/stats/unit-digit',
+		url: 'https://www.645.live/stats/unit-digit',
 		title: '로또 6/45 끝수 분석 통계 | 끝자리 숫자별 출현 패턴',
 		description: '로또 6/45 당첨번호의 끝수(0-9) 분포 및 출현 패턴을 분석합니다. 각 끝수별 출현 빈도와 통계를 확인하세요.',
 		locale: 'ko_KR',
 		images: [{
-			url: 'https://645.live/images/lotto-unit-digit-stats.png',
+			url: 'https://www.645.live/images/lotto-unit-digit-stats.png',
 			width: 1200,
 			height: 630,
 			alt: '로또 6/45 끝수 분석 통계',
-			secureUrl: 'https://645.live/images/lotto-unit-digit-stats.png',
+			secureUrl: 'https://www.645.live/images/lotto-unit-digit-stats.png',
 			type: 'image/png'
 		}],
 		siteName: '645.live',
@@ -155,7 +156,7 @@ const getDigitLightColorClass = (digit: string) => {
 		site: '@645live',
 		title: '로또 6/45 끝수 분석 통계',
 		description: '끝자리 숫자별 출현 패턴으로 로또 번호 분석을 파악하세요.',
-		image: 'https://645.live/images/lotto-unit-digit-stats.png',
+		image: 'https://www.645.live/images/lotto-unit-digit-stats.png',
 		imageAlt: '로또 6/45 끝수 분석 통계'
 	}}
 />
@@ -165,7 +166,7 @@ const getDigitLightColorClass = (digit: string) => {
 		'@type': 'Dataset',
 		name: '로또 6/45 끝수 분석 통계',
 		description: '로또 6/45 당첨번호의 끝수(0-9) 분포 및 출현 패턴을 분석한 통계 데이터입니다.',
-		url: 'https://645.live/stats/unit-digit',
+		url: 'https://www.645.live/stats/unit-digit',
 		creator: {
 			'@type': 'Organization',
 			name: '645.live'

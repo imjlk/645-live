@@ -21,7 +21,6 @@ export const createAuth = (db: DrizzleClient, event?: RequestEvent) =>
 			emailOTP({
 				async sendVerificationOTP({ email, otp, type }) {
 					if (type === "sign-in") {
-						console.log(`Sending OTP for sign-in to ${email}: ${otp}`);
 					}
 				},
 			}),

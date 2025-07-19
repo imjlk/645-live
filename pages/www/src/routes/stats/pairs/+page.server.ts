@@ -64,8 +64,6 @@ export const load: PageServerLoad = async () => {
 
 		// 디버깅: 상위 3개 번호의 데이터 확인
 		const sortedNumbers = Array.from(numberTotalPairCounts.entries()).sort((a, b) => b[1] - a[1]);
-		console.log('Top 3 numbers by total pair count:', sortedNumbers.slice(0, 3));
-		console.log('Sample pair records for debugging:', allPairStats.slice(0, 5));
 
 		// 가장 높은 총 동반 출현 횟수를 가진 번호들 (상위 10개)
 		const topNumbersByPairCount = sortedNumbers.slice(0, 10);

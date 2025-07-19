@@ -40,7 +40,6 @@ api.get("/", (c) => {
 api.get("/otp", async (c) => {
 	const databaseUrl = c.env?.DB?.connectionString || env.DATABASE_URL;
 	const db = createDrizzleClient(databaseUrl);
-	console.log(databaseUrl);
 	const [latestOtp] = await db
 		.select({ value: verification.value })
 		.from(verification)

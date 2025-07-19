@@ -29,7 +29,6 @@ const navigateToAnalysis = async () => {
 
 	if (validateInput(inputStr)) {
 		const rounds = Number(inputStr);
-		console.log(`Navigating to: /stats/odd-even/recent/${rounds}`);
 		try {
 			await goto(`/stats/odd-even/recent/${rounds}`);
 		} catch (error) {

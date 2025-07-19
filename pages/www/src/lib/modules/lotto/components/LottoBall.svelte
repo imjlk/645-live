@@ -4,7 +4,7 @@ interface Props {
 	number?: number;
 	initialValue?: number;
 	class?: string;
-	size?: 'small' | 'large';
+	size?: "small" | "large";
 	interactive?: boolean;
 }
 
@@ -13,7 +13,7 @@ let {
 	number,
 	initialValue,
 	class: className,
-	size = 'small',
+	size = "small",
 	interactive = true,
 	...rest
 }: Props = $props();
@@ -32,17 +32,17 @@ function getBallColor(num: number): string {
 
 // Get text size based on size prop
 function getTextSize(size: string): string {
-	return size === 'large' ? 'text-4xl md:text-5xl' : 'text-lg md:text-xl';
+	return size === "large" ? "text-4xl md:text-5xl" : "text-lg md:text-xl";
 }
 
 // Get scan text size
 function getScanTextSize(size: string): string {
-	return size === 'large' ? 'text-sm md:text-base' : 'text-xs';
+	return size === "large" ? "text-sm md:text-base" : "text-xs";
 }
 
 // Get shine effect size
 function getShineSize(size: string): string {
-	return size === 'large' ? 'w-6 h-6 top-3 left-3' : 'w-3 h-3 top-1.5 left-1.5';
+	return size === "large" ? "w-6 h-6 top-3 left-3" : "w-3 h-3 top-1.5 left-1.5";
 }
 </script>
 

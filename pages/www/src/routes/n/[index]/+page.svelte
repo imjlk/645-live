@@ -1,4 +1,5 @@
 <script lang="ts">
+import { goto } from "$app/navigation";
 import { page } from "$app/stores";
 import LottoBall from "$lib/modules/lotto/components/LottoBall.svelte";
 import ValueIncrementEffect from "$lib/modules/lotto/components/ValueIncrementEffect.svelte";
@@ -10,16 +11,16 @@ import {
 import { calculateDisplayRound } from "$lib/utils/lotto-api";
 import { onDestroy, onMount } from "svelte";
 import { MetaTags } from "svelte-meta-tags";
-import { type Writable, writable } from "svelte/store";
 import type { PageData } from "./$types";
 
-export let data: PageData;
+let { data }: { data: PageData } = $props();
 
-const ballNumber = Number($page.params.index);
+// Get ballNumber from URL params - ensure it updates when route changes
+const ballNumber = $derived(Number($page.params.index));
 
-// Reactive stores for real-time updates
-const ballValue: Writable<number> = writable(0);
-const isUpdated: Writable<boolean> = writable(false);
+// Reactive states for real-time updates
+let ballValue = $state(0);
+let isUpdated = $state(false);
 
 // 전역 스트림 구독 해제 함수
 let unsubscribeStream: (() => void) | null = null;
@@ -32,12 +33,9 @@ onMount(async () => {
 		const scanCountField =
 			`scan_count_${ballNumber}` as keyof LottoDrawScanCount;
 		const ballScanCount = Number(scanData[scanCountField]) || 0;
-		ballValue.set(ballScanCount);
+		ballValue = ballScanCount;
 	} else {
-		console.log(
-			`No scan data for round ${displayRound}, ball ${ballNumber}, init with 0`,
-		);
-		ballValue.set(0);
+		ballValue = 0;
 	}
 
 	unsubscribeStream = subscribeToScanCountUpdates(
@@ -48,13 +46,13 @@ onMount(async () => {
 					`scan_count_${ballNumber}` as keyof LottoDrawScanCount;
 				const newScanCount = Number(scanData[scanCountField]) || 0;
 
-				ballValue.update((currentValue) => {
-					if (newScanCount > currentValue) {
-						isUpdated.set(true);
-						setTimeout(() => isUpdated.set(false), 1000);
-					}
-					return newScanCount;
-				});
+				if (newScanCount > ballValue) {
+					isUpdated = true;
+					setTimeout(() => {
+					isUpdated = false;
+				}, 1000);
+				}
+				ballValue = newScanCount;
 			}
 		},
 	);
@@ -66,12 +64,26 @@ onDestroy(() => {
 	}
 });
 
-const getDeviationClass = (deviation: number) => {
-	if (deviation > 10) return "text-red-600 font-bold";
-	if (deviation > 5) return "text-orange-600";
-	if (deviation < -10) return "text-blue-600 font-bold";
-	if (deviation < -5) return "text-blue-500";
-	return "text-gray-600";
+// Navigation functions
+const goToPrevious = () => {
+	if (ballNumber > 1) {
+		goto(`/n/${ballNumber - 1}`);
+	}
+};
+
+const goToNext = () => {
+	if (ballNumber < 45) {
+		goto(`/n/${ballNumber + 1}`);
+	}
+};
+
+// Keyboard navigation
+const handleKeydown = (event: KeyboardEvent) => {
+	if (event.key === 'ArrowLeft') {
+		goToPrevious();
+	} else if (event.key === 'ArrowRight') {
+		goToNext();
+	}
 };
 
 const getColorClass = (color: string | undefined) => {
@@ -147,6 +159,9 @@ const getColorClass = (color: string | undefined) => {
 	]}
 />
 
+<svelte:window onkeydown={handleKeydown} />
+
+{#key ballNumber}
 <div class="container mx-auto p-4 max-w-6xl">
 	<!-- 헤더 섹션 -->
 	<div class="text-center mb-8">
@@ -160,8 +175,8 @@ const getColorClass = (color: string | undefined) => {
 		<div class="lg:col-span-1 space-y-6">
 			<!-- 볼 컴포넌트 -->
 			<div class="aspect-square w-full max-w-xs mx-auto relative">
-				<ValueIncrementEffect show={$isUpdated} message="+1" color="text-green-500" />
-				<LottoBall {ballNumber} initialValue={$ballValue} size="large" interactive={false} />
+				<ValueIncrementEffect show={isUpdated} message="+1" color="text-green-500" />
+				<LottoBall {ballNumber} initialValue={ballValue} size="large" interactive={false} />
 			</div>
 
 			<!-- 번호 기본 정보 -->
@@ -327,16 +342,17 @@ const getColorClass = (color: string | undefined) => {
 		</div>
 		<div class="flex justify-center gap-2">
 			{#if ballNumber > 1}
-				<a href="/n/{ballNumber - 1}" class="btn btn-circle btn-outline btn-sm">
+				<button onclick={goToPrevious} class="btn btn-circle btn-outline btn-sm">
 					<span class="text-lg">←</span>
-				</a>
+				</button>
 			{/if}
 			<span class="btn btn-circle btn-sm btn-disabled">{ballNumber}</span>
 			{#if ballNumber < 45}
-				<a href="/n/{ballNumber + 1}" class="btn btn-circle btn-outline btn-sm">
+				<button onclick={goToNext} class="btn btn-circle btn-outline btn-sm">
 					<span class="text-lg">→</span>
-				</a>
+				</button>
 			{/if}
 		</div>
 	</div>
 </div>
+{/key}
