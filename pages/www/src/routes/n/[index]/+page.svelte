@@ -147,127 +147,196 @@ const getColorClass = (color: string | undefined) => {
 	]}
 />
 
-<div class="container mx-auto p-4">
-	<div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
-		<div class="aspect-square w-full max-w-md mx-auto relative">
-			<ValueIncrementEffect show={$isUpdated} message="+1" color="text-green-500" />
-			<LottoBall {ballNumber} initialValue={$ballValue} size="large" interactive={false} />
-		</div>
+<div class="container mx-auto p-4 max-w-6xl">
+	<!-- 헤더 섹션 -->
+	<div class="text-center mb-8">
+		<h1 class="text-4xl font-bold text-gray-900 dark:text-gray-100 mb-2">로또 번호 {ballNumber}</h1>
+		<p class="text-lg text-gray-600 dark:text-gray-400">실시간 스캔 현황 및 당첨 통계</p>
+	</div>
 
-		<div class="space-y-6">
-			<div class="p-6 rounded-lg bg-gray-50 dark:bg-gray-800 shadow-sm">
-				<h2 class="text-2xl font-bold mb-4 text-gray-900 dark:text-gray-100">번호 {ballNumber} 기본 통계</h2>
-				{#if data.numberStats}
-					<div class="space-y-3 text-base text-gray-700 dark:text-gray-300">
-						<div class="flex justify-between">
-							<span>총 출현 횟수:</span>
-							<span class="font-semibold text-gray-900 dark:text-gray-100">{data.numberStats.frequency}회</span>
-						</div>
-						<div class="flex justify-between">
-							<span>마지막 당첨:</span>
-							<span class="font-semibold text-gray-900 dark:text-gray-100">{data.numberStats.lastDrawRound}회차</span>
-						</div>
-						{#if data.latestRound && data.numberStats.lastDrawRound}
-							<div class="flex justify-between">
-								<span>미출현 기간:</span>
-								<span class="font-semibold text-gray-900 dark:text-gray-100">{data.latestRound - data.numberStats.lastDrawRound}회</span>
-							</div>
-						{/if}
-						<div class="flex justify-between">
-							<span>출현률:</span>
-							<span class="font-semibold text-gray-900 dark:text-gray-100">{data.numberStats.averageFrequency}%</span>
-						</div>
-						<div class="flex justify-between">
-							<span>기대 편차:</span>
-							<span class={getDeviationClass(data.numberStats.deviation)}>{data.numberStats.deviation.toFixed(2)}</span>
-						</div>
-					</div>
-				{:else}
-					<p class="text-gray-500">아직 이 번호에 대한 통계 정보가 없습니다.</p>
-				{/if}
+	<!-- 메인 콘텐츠 -->
+	<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+		<!-- 왼쪽: 볼 및 기본 정보 -->
+		<div class="lg:col-span-1 space-y-6">
+			<!-- 볼 컴포넌트 -->
+			<div class="aspect-square w-full max-w-xs mx-auto relative">
+				<ValueIncrementEffect show={$isUpdated} message="+1" color="text-green-500" />
+				<LottoBall {ballNumber} initialValue={$ballValue} size="large" interactive={false} />
 			</div>
 
+			<!-- 번호 기본 정보 -->
 			{#if data.numberDetails}
-				<div class="p-6 rounded-lg bg-gray-50 dark:bg-gray-800 shadow-sm">
-					<h2 class="text-2xl font-bold mb-4 text-gray-900 dark:text-gray-100">번호 상세 정보</h2>
-					<div class="space-y-3 text-base text-gray-700 dark:text-gray-300">
+				<div class="p-4 rounded-lg bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-900 border border-blue-100 dark:border-gray-700">
+					<h3 class="text-lg font-bold mb-3 text-gray-900 dark:text-gray-100">번호 정보</h3>
+					<div class="space-y-2">
 						<div class="flex justify-between items-center">
-							<span>색상:</span>
+							<span class="text-gray-600 dark:text-gray-400">색상</span>
 							<span class="px-3 py-1 text-sm font-semibold rounded-full {getColorClass(data.numberDetails.color)}">{data.numberDetails.color}</span>
 						</div>
 						<div class="flex justify-between">
-							<span>구간:</span>
-							<span class="font-semibold text-gray-900 dark:text-gray-100">{data.numberDetails.section}구간</span>
+							<span class="text-gray-600 dark:text-gray-400">구간</span>
+							<span class="font-semibold text-gray-900 dark:text-gray-100">{data.numberDetails.section}구간 ({(data.numberDetails.section - 1) * 10 + 1}-{data.numberDetails.section * 10})</span>
+						</div>
+						<div class="flex justify-between">
+							<span class="text-gray-600 dark:text-gray-400">끝자리</span>
+							<span class="font-semibold text-gray-900 dark:text-gray-100">{ballNumber % 10}</span>
+						</div>
+						<div class="flex justify-between">
+							<span class="text-gray-600 dark:text-gray-400">홀/짝</span>
+							<span class="font-semibold text-gray-900 dark:text-gray-100">{data.mathematicalProperties?.isEven ? '짝수' : '홀수'}</span>
 						</div>
 					</div>
 				</div>
 			{/if}
 
+			<!-- 수학적 속성 -->
 			{#if data.mathematicalProperties}
-				<div class="p-6 rounded-lg bg-gray-50 dark:bg-gray-800 shadow-sm">
-					<h2 class="text-2xl font-bold mb-4 text-gray-900 dark:text-gray-100">수학적 속성</h2>
-					<div class="grid grid-cols-2 gap-4">
+				<div class="p-4 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+					<h3 class="text-lg font-bold mb-3 text-gray-900 dark:text-gray-100">수학적 속성</h3>
+					<div class="grid grid-cols-2 gap-3">
 						<div class="flex items-center gap-2">
-							<span class="text-sm text-gray-600 dark:text-gray-400">소수:</span>
+							<span class="text-sm text-gray-600 dark:text-gray-400">소수</span>
 							<span class="font-semibold {data.mathematicalProperties.isPrime ? 'text-green-600' : 'text-gray-500'}">{data.mathematicalProperties.isPrime ? '✓' : '✗'}</span>
 						</div>
 						<div class="flex items-center gap-2">
-							<span class="text-sm text-gray-600 dark:text-gray-400">완전제곱수:</span>
+							<span class="text-sm text-gray-600 dark:text-gray-400">완전제곱수</span>
 							<span class="font-semibold {data.mathematicalProperties.isPerfectSquare ? 'text-green-600' : 'text-gray-500'}">{data.mathematicalProperties.isPerfectSquare ? '✓' : '✗'}</span>
 						</div>
 						<div class="flex items-center gap-2">
-							<span class="text-sm text-gray-600 dark:text-gray-400">피보나치:</span>
+							<span class="text-sm text-gray-600 dark:text-gray-400">피보나치</span>
 							<span class="font-semibold {data.mathematicalProperties.isFibonacci ? 'text-green-600' : 'text-gray-500'}">{data.mathematicalProperties.isFibonacci ? '✓' : '✗'}</span>
 						</div>
 						<div class="flex items-center gap-2">
-							<span class="text-sm text-gray-600 dark:text-gray-400">홀/짝:</span>
-							<span class="font-semibold text-gray-900 dark:text-gray-100">{data.mathematicalProperties.isEven ? '짝수' : '홀수'}</span>
+							<span class="text-sm text-gray-600 dark:text-gray-400">합성수</span>
+							<span class="font-semibold {!data.mathematicalProperties.isPrime && ballNumber > 1 ? 'text-green-600' : 'text-gray-500'}">{!data.mathematicalProperties.isPrime && ballNumber > 1 ? '✓' : '✗'}</span>
 						</div>
 					</div>
 				</div>
 			{/if}
+		</div>
 
-			{#if data.topPairs && data.topPairs.length > 0}
-				<div class="p-6 rounded-lg bg-gray-50 dark:bg-gray-800 shadow-sm">
-					<h2 class="text-2xl font-bold mb-4 text-gray-900 dark:text-gray-100">궁합 번호 Top 5</h2>
-					<div class="space-y-3">
-						{#each data.topPairs as pair}
-							<div class="flex items-center justify-between p-2 rounded-md bg-white dark:bg-gray-700">
-								<div class="flex items-center gap-3">
-									<div class="w-10 h-10 flex items-center justify-center rounded-full {getColorClass(pair.otherNumberDetails?.color)} text-lg font-bold">{pair.otherNumber}</div>
-									<span class="font-medium text-gray-800 dark:text-gray-200">번호 {pair.otherNumber}</span>
-								</div>
-								<span class="font-semibold text-lg text-green-600">{pair.pair_count}회</span>
+		<!-- 중앙 및 오른쪽: 통계 정보 -->
+		<div class="lg:col-span-2 space-y-6">
+			<!-- 당첨 통계 -->
+			{#if data.numberStats}
+				<div class="p-6 rounded-lg bg-gradient-to-br from-green-50 to-emerald-50 dark:from-gray-800 dark:to-gray-900 border border-green-100 dark:border-gray-700">
+					<h2 class="text-2xl font-bold mb-4 text-gray-900 dark:text-gray-100 flex items-center gap-2">
+						<span class="text-green-600">📊</span> 당첨 통계
+					</h2>
+					<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+						<div class="text-center p-4 bg-white dark:bg-gray-800 rounded-lg border border-green-200 dark:border-gray-600">
+							<div class="text-2xl font-bold text-green-600 dark:text-green-400">{data.numberStats.frequency}</div>
+							<div class="text-sm text-gray-600 dark:text-gray-400">총 출현 횟수</div>
+						</div>
+						<div class="text-center p-4 bg-white dark:bg-gray-800 rounded-lg border border-green-200 dark:border-gray-600">
+							<div class="text-2xl font-bold text-blue-600 dark:text-blue-400">{data.numberStats.averageFrequency}%</div>
+							<div class="text-sm text-gray-600 dark:text-gray-400">출현률</div>
+						</div>
+						<div class="text-center p-4 bg-white dark:bg-gray-800 rounded-lg border border-green-200 dark:border-gray-600">
+							<div class="text-2xl font-bold {data.numberStats.deviation > 0 ? 'text-red-600' : data.numberStats.deviation < 0 ? 'text-blue-600' : 'text-gray-600'}">{data.numberStats.deviation > 0 ? '+' : ''}{data.numberStats.deviation.toFixed(1)}</div>
+							<div class="text-sm text-gray-600 dark:text-gray-400">기대 편차</div>
+						</div>
+						<div class="text-center p-4 bg-white dark:bg-gray-800 rounded-lg border border-green-200 dark:border-gray-600">
+							<div class="text-2xl font-bold text-purple-600 dark:text-purple-400">{data.numberStats.lastDrawRound}</div>
+							<div class="text-sm text-gray-600 dark:text-gray-400">마지막 당첨 회차</div>
+						</div>
+						{#if data.latestRound && data.numberStats.lastDrawRound}
+							<div class="text-center p-4 bg-white dark:bg-gray-800 rounded-lg border border-green-200 dark:border-gray-600">
+								<div class="text-2xl font-bold text-orange-600 dark:text-orange-400">{data.latestRound - data.numberStats.lastDrawRound}</div>
+								<div class="text-sm text-gray-600 dark:text-gray-400">미출현 기간</div>
 							</div>
-						{/each}
+						{/if}
+						<div class="text-center p-4 bg-white dark:bg-gray-800 rounded-lg border border-green-200 dark:border-gray-600">
+							<div class="text-2xl font-bold text-gray-600 dark:text-gray-400">{data.numberStats.expectedFrequency.toFixed(1)}</div>
+							<div class="text-sm text-gray-600 dark:text-gray-400">기대 출현 횟수</div>
+						</div>
 					</div>
+				</div>
+			{:else}
+				<div class="p-6 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+					<p class="text-gray-500 text-center">아직 이 번호에 대한 통계 정보가 없습니다.</p>
 				</div>
 			{/if}
 
-			{#if data.bottomPairs && data.bottomPairs.length > 0}
-				<div class="p-6 rounded-lg bg-gray-50 dark:bg-gray-800 shadow-sm">
-					<h2 class="text-2xl font-bold mb-4 text-gray-900 dark:text-gray-100">궁합 번호 Bottom 5</h2>
-					<div class="space-y-3">
-						{#each data.bottomPairs as pair}
-							<div class="flex items-center justify-between p-2 rounded-md bg-white dark:bg-gray-700">
-								<div class="flex items-center gap-3">
-									<div class="w-10 h-10 flex items-center justify-center rounded-full {getColorClass(pair.otherNumberDetails?.color)} text-lg font-bold">{pair.otherNumber}</div>
-									<span class="font-medium text-gray-800 dark:text-gray-200">번호 {pair.otherNumber}</span>
+			<!-- 궁합 번호 -->
+			<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+				{#if data.topPairs && data.topPairs.length > 0}
+					<div class="p-6 rounded-lg bg-gradient-to-br from-rose-50 to-pink-50 dark:from-gray-800 dark:to-gray-900 border border-rose-100 dark:border-gray-700">
+						<h3 class="text-xl font-bold mb-4 text-gray-900 dark:text-gray-100 flex items-center gap-2">
+							<span class="text-rose-600">🤝</span> 최고 궁합 번호
+						</h3>
+						<div class="space-y-3">
+							{#each data.topPairs as pair}
+								<div class="flex items-center justify-between p-3 rounded-md bg-white dark:bg-gray-800 border border-rose-200 dark:border-gray-600">
+									<div class="flex items-center gap-3">
+										<div class="w-8 h-8 flex items-center justify-center rounded-full {getColorClass(pair.otherNumberDetails?.color)} text-sm font-bold">{pair.otherNumber}</div>
+										<span class="font-medium text-gray-800 dark:text-gray-200">{pair.otherNumber}번</span>
+									</div>
+									<span class="font-semibold text-rose-600 dark:text-rose-400">{pair.pair_count}회</span>
 								</div>
-								<span class="font-semibold text-lg text-red-600">{pair.pair_count}회</span>
-							</div>
-						{/each}
+							{/each}
+						</div>
 					</div>
-				</div>
-			{/if}
+				{/if}
 
-
-
-			<div class="mt-6 text-center">
-				<a href="/stats/numbers" class="text-blue-600 dark:text-blue-400 hover:underline font-medium">
-					전체 번호 통계 보기 &rarr;
-				</a>
+				{#if data.bottomPairs && data.bottomPairs.length > 0}
+					<div class="p-6 rounded-lg bg-gradient-to-br from-slate-50 to-gray-50 dark:from-gray-800 dark:to-gray-900 border border-slate-100 dark:border-gray-700">
+						<h3 class="text-xl font-bold mb-4 text-gray-900 dark:text-gray-100 flex items-center gap-2">
+							<span class="text-slate-600">💔</span> 최저 궁합 번호
+						</h3>
+						<div class="space-y-3">
+							{#each data.bottomPairs as pair}
+								<div class="flex items-center justify-between p-3 rounded-md bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-600">
+									<div class="flex items-center gap-3">
+										<div class="w-8 h-8 flex items-center justify-center rounded-full {getColorClass(pair.otherNumberDetails?.color)} text-sm font-bold">{pair.otherNumber}</div>
+										<span class="font-medium text-gray-800 dark:text-gray-200">{pair.otherNumber}번</span>
+									</div>
+									<span class="font-semibold text-slate-600 dark:text-slate-400">{pair.pair_count}회</span>
+								</div>
+							{/each}
+						</div>
+					</div>
+				{/if}
 			</div>
+
+			<!-- 회차별 스캔 현황 -->
+			{#if data.historicalScanData && data.historicalScanData.length > 0}
+				<div class="p-6 rounded-lg bg-gradient-to-br from-amber-50 to-yellow-50 dark:from-gray-800 dark:to-gray-900 border border-amber-100 dark:border-gray-700">
+					<h3 class="text-xl font-bold mb-4 text-gray-900 dark:text-gray-100 flex items-center gap-2">
+						<span class="text-amber-600">📈</span> 최근 스캔 현황
+					</h3>
+					<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
+						{#each data.historicalScanData as scanData}
+							<div class="text-center p-3 bg-white dark:bg-gray-800 rounded-lg border border-amber-200 dark:border-gray-600">
+								<div class="text-lg font-bold text-amber-600 dark:text-amber-400">{scanData.scanCount.toLocaleString()}</div>
+								<div class="text-xs text-gray-600 dark:text-gray-400">{scanData.round}회차</div>
+							</div>
+						{/each}
+					</div>
+				</div>
+			{/if}
+		</div>
+	</div>
+
+	<!-- 하단 네비게이션 -->
+	<div class="mt-8 text-center space-y-4">
+		<div class="flex flex-wrap justify-center gap-4">
+			<a href="/stats/numbers" class="btn btn-outline btn-primary">전체 번호 통계</a>
+			<a href="/generator" class="btn btn-outline btn-secondary">번호 생성기</a>
+			<a href="/" class="btn btn-outline">홈으로</a>
+		</div>
+		<div class="flex justify-center gap-2">
+			{#if ballNumber > 1}
+				<a href="/n/{ballNumber - 1}" class="btn btn-circle btn-outline btn-sm">
+					<span class="text-lg">←</span>
+				</a>
+			{/if}
+			<span class="btn btn-circle btn-sm btn-disabled">{ballNumber}</span>
+			{#if ballNumber < 45}
+				<a href="/n/{ballNumber + 1}" class="btn btn-circle btn-outline btn-sm">
+					<span class="text-lg">→</span>
+				</a>
+			{/if}
 		</div>
 	</div>
 </div>

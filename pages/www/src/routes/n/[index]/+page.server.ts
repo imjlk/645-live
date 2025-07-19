@@ -165,6 +165,30 @@ export const load: PageServerLoad = async ({ params }) => {
 			isEven: ballNumber % 2 === 0,
 		};
 
+		// Get historical scan data for this number (last 10 rounds)
+		let historicalScanData: Array<{ round: number; scanCount: number }> = [];
+		try {
+			const scanDataResponse = await client
+				.records("lotto_draw_scan_counts")
+				.list({
+					order: ["-round"],
+					pagination: { limit: 10 },
+				});
+			
+			if (scanDataResponse.records.length > 0) {
+				historicalScanData = scanDataResponse.records.map((record) => {
+					const scanRecord = record as Record<string, unknown>;
+					const scanCountField = `scan_count_${ballNumber}`;
+					return {
+						round: Number(scanRecord.round) || 0,
+						scanCount: Number(scanRecord[scanCountField]) || 0,
+					};
+				}).filter(item => item.round > 0);
+			}
+		} catch (scanError) {
+			console.error("Failed to fetch historical scan data:", scanError);
+		}
+
 		// Use the same totalRounds as latestRound (since we already fetched it)
 		const latestRound = totalRounds;
 
@@ -176,6 +200,7 @@ export const load: PageServerLoad = async ({ params }) => {
 			bottomPairs,
 			mathematicalProperties,
 			latestRound,
+			historicalScanData,
 		};
 	} catch (e) {
 		console.error("Failed to load number stats:", e);
