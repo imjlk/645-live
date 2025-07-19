@@ -11,7 +11,7 @@ import {
 } from "$lib/stores/streamStore";
 import LinkButton from "$lib/ui/LinkButton.svelte";
 import { onDestroy, onMount } from "svelte";
-import { MetaTags, JsonLd } from "svelte-meta-tags";
+import { JsonLd, MetaTags } from "svelte-meta-tags";
 import type { PageData } from "./$types";
 
 let { data }: { data: PageData } = $props();
@@ -200,7 +200,6 @@ onDestroy(() => {
 		unsubscribeStream = null;
 	}
 });
-
 </script>
 
 <MetaTags
@@ -336,9 +335,12 @@ onDestroy(() => {
         {/each}
     </div>
 {:else}
+    <!-- Skeleton loading state with round info -->
+    <div class="skeleton h-14 mx-4 mt-4 mb-3 rounded-xl"></div>
+    
     <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 p-0 py-4 sm:p-4 gap-4">
         {#each Array(45) as _}
-            <div class="skeleton aspect-square w-full min-h-30 rounded-full"></div>
+            <div class="skeleton aspect-square w-full min-h-20 rounded-full"></div>
         {/each}
     </div>
 {/if}
