@@ -1,9 +1,9 @@
 <script lang="ts">
-import { page } from "$app/state";
 import { goto } from "$app/navigation";
-import { MetaTags, JsonLd } from 'svelte-meta-tags';
-import LinkButton from "$lib/ui/LinkButton.svelte";
+import { page } from "$app/state";
 import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
+import LinkButton from "$lib/ui/LinkButton.svelte";
+import { JsonLd, MetaTags } from "svelte-meta-tags";
 import type { PageData } from "./$types";
 
 export let data: PageData;
@@ -22,12 +22,12 @@ const validateInput = (value: string): boolean => {
 // 분석 페이지로 이동
 const navigateToAnalysis = async () => {
 	const inputStr = String(inputValue || "");
-	
+
 	if (inputStr.trim() === "") {
 		alert("분석할 회차 수를 입력해주세요.");
 		return;
 	}
-	
+
 	if (validateInput(inputStr)) {
 		const rounds = Number(inputStr);
 		try {
@@ -102,7 +102,7 @@ const breadcrumbItems = [
 	{ label: "홈", href: "/" },
 	{ label: "통계", href: "/stats" },
 	{ label: "색상분석", href: "/stats/colors" },
-	{ label: `최근 ${data.selectedRounds}회차`, current: true }
+	{ label: "최근 회차 분석", current: true },
 ];
 </script>
 
@@ -256,7 +256,7 @@ const breadcrumbItems = [
 			<h2 class="card-title text-lg">최근 회차 분석</h2>
 			<div class="flex items-center gap-4 flex-wrap">
 				<div class="flex items-center gap-2">
-					<label for="rounds-input" class="text-sm font-medium">최근 몇 회차:</label>
+					<label for="rounds-input" class="text-sm font-medium">최근:</label>
 					<input
 						id="rounds-input"
 						type="text"
@@ -334,13 +334,13 @@ const breadcrumbItems = [
 
 	<!-- 자주 나오는 색상 패턴 -->
 	<div class="card bg-base-100 shadow-sm">
-		<h2 class="card-title">자주 나오는 색상 패턴 (상위 10개)</h2>
 		<div class="card-body">
+			<h2 class="card-title">자주 나오는 색상 패턴 (상위 10개)</h2>
 			<div class="space-y-3">
 				{#each sortedPatterns as [pattern, count]}
 					{@const colors = pattern.split('-')}
-					<div class="flex items-center justify-between p-3 bg-base-200 rounded-lg">
-						<div class="flex items-center space-x-4">
+					<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 bg-base-200 rounded-lg">
+						<div class="flex flex-col sm:flex-row sm:items-center sm:space-x-4 space-y-2 sm:space-y-0">
 							<div class="flex items-center space-x-1">
 								{#each colors as colorCount, index}
 									{@const colorKey = Object.keys(colorInfo)[index] as keyof typeof colorInfo}
@@ -355,7 +355,7 @@ const breadcrumbItems = [
 								({colors.map((c, i) => `${colorInfo[Object.keys(colorInfo)[i] as keyof typeof colorInfo].name} ${c}개`).join(', ')})
 							</div>
 						</div>
-						<div class="flex items-center space-x-2">
+						<div class="flex items-center space-x-2 mt-2 sm:mt-0">
 							<span class="font-semibold">{count}회</span>
 							<span class="text-sm text-base-content/60">
 								({getPercentage(Number(count), data.colorStats.summary.totalDraws)}%)

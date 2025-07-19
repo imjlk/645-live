@@ -1,9 +1,9 @@
 <script lang="ts">
-import { page } from "$app/state";
 import { goto } from "$app/navigation";
-import { MetaTags, JsonLd } from 'svelte-meta-tags';
-import LinkButton from "$lib/ui/LinkButton.svelte";
+import { page } from "$app/state";
 import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
+import LinkButton from "$lib/ui/LinkButton.svelte";
+import { JsonLd, MetaTags } from "svelte-meta-tags";
 import type { PageData } from "./$types";
 
 export let data: PageData;
@@ -24,12 +24,12 @@ const validateInput = (value: string): boolean => {
 // 분석 페이지로 이동
 const navigateToAnalysis = async () => {
 	const inputStr = String(inputValue || "");
-	
+
 	if (inputStr.trim() === "") {
 		alert("분석할 회차 수를 입력해주세요.");
 		return;
 	}
-	
+
 	if (validateInput(inputStr)) {
 		const rounds = Number(inputStr);
 		console.log(`Navigating to: /stats/colors/recent/${rounds}`);
@@ -207,27 +207,27 @@ const breadcrumbItems = [
 			{
 				'@type': 'PropertyValue',
 				name: '노랑 색상 평균',
-				value: data.colorAverages.yellow
+				value: (data.colorAverages as any)?.yellow || '0.00'
 			},
 			{
 				'@type': 'PropertyValue',
 				name: '파랑 색상 평균',
-				value: data.colorAverages.blue
+				value: (data.colorAverages as any)?.blue || '0.00'
 			},
 			{
 				'@type': 'PropertyValue',
 				name: '빨강 색상 평균',
-				value: data.colorAverages.red
+				value: (data.colorAverages as any)?.red || '0.00'
 			},
 			{
 				'@type': 'PropertyValue',
 				name: '회색 색상 평균',
-				value: data.colorAverages.grey
+				value: (data.colorAverages as any)?.grey || '0.00'
 			},
 			{
 				'@type': 'PropertyValue',
 				name: '초록 색상 평균',
-				value: data.colorAverages.green
+				value: (data.colorAverages as any)?.green || '0.00'
 			}
 		],
 		mainEntity: {
@@ -263,7 +263,7 @@ const breadcrumbItems = [
 			<h2 class="card-title text-lg">최근 회차 분석</h2>
 			<div class="flex items-center gap-4 flex-wrap">
 				<div class="flex items-center gap-2">
-					<label for="rounds-input" class="text-sm font-medium">최근 몇 회차:</label>
+					<label for="rounds-input" class="text-sm font-medium">최근:</label>
 					<input
 						id="rounds-input"
 						type="text"
@@ -382,7 +382,7 @@ const breadcrumbItems = [
 						<h3 class="font-semibold text-lg {info.textClass}">{info.name} ({info.description})</h3>
 					</div>
 					
-					<div class="grid grid-cols-7 gap-2">
+					<div class="flex flex-col sm:grid sm:grid-cols-7 gap-2">
 						{#each Object.entries(distribution) as [count, frequency]}
 							{@const percentage = data.totalRecords > 0 ? ((frequency / data.totalRecords) * 100).toFixed(1) : "0.0"}
 							

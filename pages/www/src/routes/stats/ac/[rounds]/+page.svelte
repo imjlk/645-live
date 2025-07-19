@@ -31,7 +31,7 @@ const navigateToAnalysis = async () => {
 	if (validateInput(inputStr)) {
 		const rounds = Number(inputStr);
 		try {
-			await goto(`/stats/ac/recent/${rounds}`);
+			await goto(`/stats/ac/${rounds}`);
 		} catch (error) {
 			console.error("Navigation error:", error);
 			alert("페이지 이동 중 오류가 발생했습니다.");
@@ -85,7 +85,7 @@ const breadcrumbItems = [
 	{ label: "홈", href: "/" },
 	{ label: "통계", href: "/stats" },
 	{ label: "AC값", href: "/stats/ac" },
-	{ label: "최근 회차 분석", current: true },
+	{ label: `최근 ${data.selectedRounds}회차`, current: true },
 ];
 </script>
 
@@ -93,7 +93,7 @@ const breadcrumbItems = [
 	title={`로또 6/45 AC값 분석 (최근 ${data.selectedRounds}회차) | 산술적 복잡도 상세 분석`}
 	titleTemplate="%s | 645.live"
 	description={`로또 6/45 최근 ${data.selectedRounds}회차 AC값 상세 분석. 평균 AC값 ${data.acStats.summary.avgAC.toFixed(2)}, 분포 패턴 및 복잡도 분석을 통한 당첨번호 예측 정보 제공.`}
-	canonical={`https://645.live/stats/ac/recent/${data.selectedRounds}`}
+	canonical={`https://645.live/stats/ac/${data.selectedRounds}`}
 	keywords={[`로또 ${data.selectedRounds}회차`, "AC값 분석", "산술적복잡도", "당첨번호패턴", "로또통계", "복잡도분석", "6/45통계", "번호예측"]}
 	robots="index,follow"
 	additionalRobotsProps={{
@@ -129,7 +129,7 @@ const breadcrumbItems = [
 	]}
 	openGraph={{
 		type: 'article',
-		url: `https://645.live/stats/ac/recent/${data.selectedRounds}`,
+		url: `https://645.live/stats/ac/${data.selectedRounds}`,
 		title: `로또 6/45 AC값 분석 (최근 ${data.selectedRounds}회차) | 상세 통계`,
 		description: `최근 ${data.selectedRounds}회차 AC값 상세 분석 - 평균 ${data.acStats.summary.avgAC.toFixed(2)}, 최대 ${data.acStats.summary.maxAC}, 최소 ${data.acStats.summary.minAC}`,
 		locale: 'ko_KR',
@@ -164,7 +164,7 @@ const breadcrumbItems = [
 		'@type': 'Dataset',
 		name: `로또 6/45 AC값 ${data.selectedRounds}회차 분석 데이터`,
 		description: `로또 6/45 최근 ${data.selectedRounds}회차의 산술적 복잡도(AC값) 상세 분석 데이터. 평균 AC값 ${data.acStats.summary.avgAC.toFixed(2)}, 분포 패턴 및 통계 정보를 제공합니다.`,
-		url: `https://645.live/stats/ac/recent/${data.selectedRounds}`,
+		url: `https://645.live/stats/ac/${data.selectedRounds}`,
 		creator: {
 			'@type': 'Organization',
 			name: '645.live'

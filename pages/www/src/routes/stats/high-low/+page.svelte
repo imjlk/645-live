@@ -55,12 +55,12 @@ const validateInput = (value: string): boolean => {
 // 분석 페이지로 이동
 const navigateToAnalysis = async () => {
 	const inputStr = String(inputValue || "");
-	
+
 	if (inputStr.trim() === "") {
 		alert("분석할 회차 수를 입력해주세요.");
 		return;
 	}
-	
+
 	if (validateInput(inputStr)) {
 		const rounds = Number(inputStr);
 		console.log(`Navigating to: /stats/high-low/recent/${rounds}`);
@@ -230,7 +230,7 @@ const breadcrumbItems = [
 			<h2 class="card-title text-lg">최근 회차 분석</h2>
 			<div class="flex items-center gap-4 flex-wrap">
 				<div class="flex items-center gap-2">
-					<label for="rounds-input" class="text-sm font-medium">최근 몇 회차:</label>
+					<label for="rounds-input" class="text-sm font-medium">최근:</label>
 					<input
 						id="rounds-input"
 						type="text"

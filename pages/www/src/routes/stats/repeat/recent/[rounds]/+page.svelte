@@ -1,9 +1,9 @@
 <script lang="ts">
-import { page } from "$app/state";
 import { goto } from "$app/navigation";
-import { MetaTags, JsonLd } from 'svelte-meta-tags';
-import LinkButton from "$lib/ui/LinkButton.svelte";
+import { page } from "$app/state";
 import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
+import LinkButton from "$lib/ui/LinkButton.svelte";
+import { JsonLd, MetaTags } from "svelte-meta-tags";
 import type { PageData } from "./$types";
 
 export let data: PageData;
@@ -16,7 +16,7 @@ const breadcrumbItems = [
 	{ label: "홈", href: "/" },
 	{ label: "통계", href: "/stats" },
 	{ label: "연속번호", href: "/stats/repeat" },
-	{ label: `최근 ${data.selectedRounds}회차`, href: `/stats/repeat/recent/${data.selectedRounds}`, current: true },
+	{ label: "최근 회차 분석", current: true },
 ];
 
 // 입력값 유효성 검사
@@ -30,12 +30,12 @@ const validateInput = (value: string): boolean => {
 // 분석 페이지로 이동
 const navigateToAnalysis = async () => {
 	const inputStr = String(inputValue || "");
-	
+
 	if (inputStr.trim() === "") {
 		alert("분석할 회차 수를 입력해주세요.");
 		return;
 	}
-	
+
 	if (validateInput(inputStr)) {
 		const rounds = Number(inputStr);
 		try {
@@ -108,8 +108,9 @@ const getPercentage = (count: number, total: number): string => {
 };
 
 // 중복 개수별 정렬 (출현 빈도순)
-$: sortedRepeatCounts = Object.entries(data.repeatStats.summary.repeatCounts)
-	.sort(([, a], [, b]) => Number(b) - Number(a));
+$: sortedRepeatCounts = Object.entries(
+	data.repeatStats.summary.repeatCounts,
+).sort(([, a], [, b]) => Number(b) - Number(a));
 </script>
 
 <MetaTags

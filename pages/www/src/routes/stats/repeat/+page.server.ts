@@ -1,14 +1,13 @@
-import { env } from "$env/dynamic/private";
+import { env } from "$env/dynamic/public";
 import { initClient } from "trailbase";
 import type { PageServerLoad } from "./$types";
 
-const client = initClient(env.TRAILBASE_URL || "http://localhost:4000");
+const client = initClient(env.PUBLIC_TRAILBASE_URL || "http://localhost:4000");
 
 // 정적 페이지이므로 prerender 사용
 export const prerender = true;
 
 export const load: PageServerLoad = async () => {
-
 	try {
 		// 전체 회차 수 조회
 		const totalRoundsResponse = await client

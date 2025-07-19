@@ -1,8 +1,8 @@
-import { env } from "$env/dynamic/private";
+import { env } from "$env/dynamic/public";
 import { initClient } from "trailbase";
 import type { PageServerLoad } from "./$types";
 
-const client = initClient(env.TRAILBASE_URL || "http://localhost:4000");
+const client = initClient(env.PUBLIC_TRAILBASE_URL || "http://localhost:4000");
 
 // 동적 페이지이므로 SSR 사용
 export const prerender = false;
@@ -126,21 +126,52 @@ export const load: PageServerLoad = async ({ params }) => {
 		// 끝자리수별 평균 계산
 		const totalRecords = records.length;
 		const digitAverages = {
-			digit0: totalRecords > 0 ? (digitCounts.digit0 / totalRecords).toFixed(2) : "0.00",
-			digit1: totalRecords > 0 ? (digitCounts.digit1 / totalRecords).toFixed(2) : "0.00",
-			digit2: totalRecords > 0 ? (digitCounts.digit2 / totalRecords).toFixed(2) : "0.00",
-			digit3: totalRecords > 0 ? (digitCounts.digit3 / totalRecords).toFixed(2) : "0.00",
-			digit4: totalRecords > 0 ? (digitCounts.digit4 / totalRecords).toFixed(2) : "0.00",
-			digit5: totalRecords > 0 ? (digitCounts.digit5 / totalRecords).toFixed(2) : "0.00",
-			digit6: totalRecords > 0 ? (digitCounts.digit6 / totalRecords).toFixed(2) : "0.00",
-			digit7: totalRecords > 0 ? (digitCounts.digit7 / totalRecords).toFixed(2) : "0.00",
-			digit8: totalRecords > 0 ? (digitCounts.digit8 / totalRecords).toFixed(2) : "0.00",
-			digit9: totalRecords > 0 ? (digitCounts.digit9 / totalRecords).toFixed(2) : "0.00",
+			digit0:
+				totalRecords > 0
+					? (digitCounts.digit0 / totalRecords).toFixed(2)
+					: "0.00",
+			digit1:
+				totalRecords > 0
+					? (digitCounts.digit1 / totalRecords).toFixed(2)
+					: "0.00",
+			digit2:
+				totalRecords > 0
+					? (digitCounts.digit2 / totalRecords).toFixed(2)
+					: "0.00",
+			digit3:
+				totalRecords > 0
+					? (digitCounts.digit3 / totalRecords).toFixed(2)
+					: "0.00",
+			digit4:
+				totalRecords > 0
+					? (digitCounts.digit4 / totalRecords).toFixed(2)
+					: "0.00",
+			digit5:
+				totalRecords > 0
+					? (digitCounts.digit5 / totalRecords).toFixed(2)
+					: "0.00",
+			digit6:
+				totalRecords > 0
+					? (digitCounts.digit6 / totalRecords).toFixed(2)
+					: "0.00",
+			digit7:
+				totalRecords > 0
+					? (digitCounts.digit7 / totalRecords).toFixed(2)
+					: "0.00",
+			digit8:
+				totalRecords > 0
+					? (digitCounts.digit8 / totalRecords).toFixed(2)
+					: "0.00",
+			digit9:
+				totalRecords > 0
+					? (digitCounts.digit9 / totalRecords).toFixed(2)
+					: "0.00",
 		};
 
 		// 최빈 끝자리수 찾기
-		const mostFrequentDigit = Object.entries(digitAverages).reduce((prev, curr) => 
-			Number.parseFloat(curr[1]) > Number.parseFloat(prev[1]) ? curr : prev
+		const mostFrequentDigit = Object.entries(digitAverages).reduce(
+			(prev, curr) =>
+				Number.parseFloat(curr[1]) > Number.parseFloat(prev[1]) ? curr : prev,
 		);
 
 		const summary = {

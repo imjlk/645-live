@@ -1,14 +1,13 @@
-import { env } from "$env/dynamic/private";
+import { env } from "$env/dynamic/public";
 import { initClient } from "trailbase";
 import type { PageServerLoad } from "./$types";
 
-const client = initClient(env.TRAILBASE_URL || "http://localhost:4000");
+const client = initClient(env.PUBLIC_TRAILBASE_URL || "http://localhost:4000");
 
 // 정적 페이지이므로 prerender 사용
 export const prerender = true;
 
 export const load: PageServerLoad = async () => {
-
 	try {
 		// 번호 쌍 통계 데이터 (배치 처리로 모든 데이터 가져오기)
 		let allPairStats: Array<{
@@ -44,27 +43,23 @@ export const load: PageServerLoad = async () => {
 		}
 
 		// 통계 요약 계산
-		const pairCounts = allPairStats.map(record => record.pair_count);
+		const pairCounts = allPairStats.map((record) => record.pair_count);
 
 		const totalPairs = allPairStats.length;
 		const maxPairCount = pairCounts.length > 0 ? Math.max(...pairCounts) : 0;
 		const minPairCount = pairCounts.length > 0 ? Math.min(...pairCounts) : 0;
-		const averagePairCount = totalPairs > 0 ? 
-			pairCounts.reduce((sum, count) => sum + count, 0) / totalPairs : 0;
+		const averagePairCount =
+			totalPairs > 0
+				? pairCounts.reduce((sum, count) => sum + count, 0) / totalPairs
+				: 0;
 
 		// 번호별 동반 출현 횟수 계산
 		const numberPairCounts = new Map<number, number>();
 		for (const record of allPairStats) {
 			const currentA = numberPairCounts.get(record.number_a) || 0;
 			const currentB = numberPairCounts.get(record.number_b) || 0;
-			numberPairCounts.set(
-				record.number_a,
-				currentA + record.pair_count,
-			);
-			numberPairCounts.set(
-				record.number_b,
-				currentB + record.pair_count,
-			);
+			numberPairCounts.set(record.number_a, currentA + record.pair_count);
+			numberPairCounts.set(record.number_b, currentB + record.pair_count);
 		}
 
 		// 가장 많이 동반 출현한 번호들 (상위 10개)

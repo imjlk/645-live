@@ -1,8 +1,8 @@
-import { env } from "$env/dynamic/private";
+import { env } from "$env/dynamic/public";
 import { initClient } from "trailbase";
 import type { PageServerLoad } from "./$types";
 
-const client = initClient(env.TRAILBASE_URL || "http://localhost:4000");
+const client = initClient(env.PUBLIC_TRAILBASE_URL || "http://localhost:4000");
 
 // 페이지 옵션 설정 - 동적 페이지이므로 SSR 사용
 export const prerender = false;
@@ -91,7 +91,7 @@ export const load: PageServerLoad = async ({ params }) => {
 
 			// 중복 개수 분포 기록
 			const repeatKey = String(
-				Math.min(record.repeat_count, 6)
+				Math.min(record.repeat_count, 6),
 			) as keyof typeof repeatCounts;
 			repeatCounts[repeatKey]++;
 
@@ -106,14 +106,22 @@ export const load: PageServerLoad = async ({ params }) => {
 			totalRecords > 0 ? (totalRepeatCount / totalRecords).toFixed(2) : "0.00";
 
 		// 통계 지표 계산
-		const maxRepeatCount = records.length > 0 ? Math.max(...records.map(r => r.repeat_count)) : 0;
+		const maxRepeatCount =
+			records.length > 0 ? Math.max(...records.map((r) => r.repeat_count)) : 0;
 		const zeroRepeatCount = repeatCounts["0"];
 		const zeroRepeatRate =
-			totalRecords > 0 ? ((zeroRepeatCount / totalRecords) * 100).toFixed(1) : "0.0";
+			totalRecords > 0
+				? ((zeroRepeatCount / totalRecords) * 100).toFixed(1)
+				: "0.0";
 		const highRepeatCount =
-			repeatCounts["3"] + repeatCounts["4"] + repeatCounts["5"] + repeatCounts["6"];
+			repeatCounts["3"] +
+			repeatCounts["4"] +
+			repeatCounts["5"] +
+			repeatCounts["6"];
 		const highRepeatRate =
-			totalRecords > 0 ? ((highRepeatCount / totalRecords) * 100).toFixed(1) : "0.0";
+			totalRecords > 0
+				? ((highRepeatCount / totalRecords) * 100).toFixed(1)
+				: "0.0";
 
 		const summary = {
 			totalDraws: records.length,

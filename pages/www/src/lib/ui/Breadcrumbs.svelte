@@ -1,5 +1,5 @@
 <script lang="ts">
-import { JsonLd } from 'svelte-meta-tags';
+import { JsonLd } from "svelte-meta-tags";
 
 export interface BreadcrumbItem {
 	label: string;
@@ -7,19 +7,22 @@ export interface BreadcrumbItem {
 	current?: boolean;
 }
 
-export let items: BreadcrumbItem[] = [];
-export let siteName = "645.live";
+interface Props {
+	items?: BreadcrumbItem[];
+}
+
+let { items = [] }: Props = $props();
 
 // JSON-LD 스키마 생성
-$: breadcrumbSchema = {
-	'@type': 'BreadcrumbList',
+const breadcrumbSchema = $derived({
+	"@type": "BreadcrumbList",
 	itemListElement: items.map((item, index) => ({
-		'@type': 'ListItem',
+		"@type": "ListItem",
 		position: index + 1,
 		name: item.label,
-		...(item.href && { item: `https://645.live${item.href}` })
-	}))
-};
+		...(item.href && { item: `https://645.live${item.href}` }),
+	})),
+});
 </script>
 
 <!-- JSON-LD 스키마 -->

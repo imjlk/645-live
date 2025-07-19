@@ -1,8 +1,8 @@
-import { env } from "$env/dynamic/private";
+import { env } from "$env/dynamic/public";
 import { initClient } from "trailbase";
 import type { PageServerLoad } from "./$types";
 
-const client = initClient(env.TRAILBASE_URL || "http://localhost:4000");
+const client = initClient(env.PUBLIC_TRAILBASE_URL || "http://localhost:4000");
 
 // 페이지 옵션 설정 - 동적 페이지이므로 SSR 사용
 export const prerender = false;
@@ -106,16 +106,30 @@ export const load: PageServerLoad = async ({ params }) => {
 		// 색상별 평균 계산
 		const totalRecords = records.length;
 		const colorAverages = {
-			yellow: totalRecords > 0 ? (colorCounts.yellow / totalRecords).toFixed(2) : "0.00",
-			blue: totalRecords > 0 ? (colorCounts.blue / totalRecords).toFixed(2) : "0.00",
-			red: totalRecords > 0 ? (colorCounts.red / totalRecords).toFixed(2) : "0.00",
-			grey: totalRecords > 0 ? (colorCounts.grey / totalRecords).toFixed(2) : "0.00",
-			green: totalRecords > 0 ? (colorCounts.green / totalRecords).toFixed(2) : "0.00",
+			yellow:
+				totalRecords > 0
+					? (colorCounts.yellow / totalRecords).toFixed(2)
+					: "0.00",
+			blue:
+				totalRecords > 0
+					? (colorCounts.blue / totalRecords).toFixed(2)
+					: "0.00",
+			red:
+				totalRecords > 0 ? (colorCounts.red / totalRecords).toFixed(2) : "0.00",
+			grey:
+				totalRecords > 0
+					? (colorCounts.grey / totalRecords).toFixed(2)
+					: "0.00",
+			green:
+				totalRecords > 0
+					? (colorCounts.green / totalRecords).toFixed(2)
+					: "0.00",
 		};
 
 		// 최빈 색상 찾기
-		const mostFrequentColor = Object.entries(colorAverages).reduce((prev, curr) => 
-			Number.parseFloat(curr[1]) > Number.parseFloat(prev[1]) ? curr : prev
+		const mostFrequentColor = Object.entries(colorAverages).reduce(
+			(prev, curr) =>
+				Number.parseFloat(curr[1]) > Number.parseFloat(prev[1]) ? curr : prev,
 		);
 
 		const summary = {

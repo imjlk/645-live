@@ -1,9 +1,9 @@
 <script lang="ts">
-import { page } from "$app/state";
 import { goto } from "$app/navigation";
-import { MetaTags, JsonLd } from 'svelte-meta-tags';
-import LinkButton from "$lib/ui/LinkButton.svelte";
+import { page } from "$app/state";
 import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
+import LinkButton from "$lib/ui/LinkButton.svelte";
+import { JsonLd, MetaTags } from "svelte-meta-tags";
 import type { PageData } from "./$types";
 
 export let data: PageData;
@@ -16,7 +16,10 @@ const breadcrumbItems = [
 	{ label: "홈", href: "/" },
 	{ label: "통계", href: "/stats" },
 	{ label: "고저분석", href: "/stats/high-low" },
-	{ label: `최근 ${data.selectedRounds}회차`, href: `/stats/high-low/recent/${data.selectedRounds}`, current: true },
+	{
+		label: "최근 회차 분석",
+		current: true,
+	},
 ];
 
 // 입력값 유효성 검사
@@ -30,12 +33,12 @@ const validateInput = (value: string): boolean => {
 // 분석 페이지로 이동
 const navigateToAnalysis = async () => {
 	const inputStr = String(inputValue || "");
-	
+
 	if (inputStr.trim() === "") {
 		alert("분석할 회차 수를 입력해주세요.");
 		return;
 	}
-	
+
 	if (validateInput(inputStr)) {
 		const rounds = Number(inputStr);
 		try {
@@ -213,7 +216,7 @@ $: highPercentage = getPercentage(
 			<h2 class="card-title text-lg">최근 회차 분석</h2>
 			<div class="flex items-center gap-4 flex-wrap">
 				<div class="flex items-center gap-2">
-					<label for="rounds-input" class="text-sm font-medium">최근 몇 회차:</label>
+					<label for="rounds-input" class="text-sm font-medium">최근:</label>
 					<input
 						id="rounds-input"
 						type="text"

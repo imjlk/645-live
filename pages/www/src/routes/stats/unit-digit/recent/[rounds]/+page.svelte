@@ -1,23 +1,31 @@
 <script lang="ts">
-import { page } from "$app/state";
 import { goto } from "$app/navigation";
-import { MetaTags, JsonLd } from 'svelte-meta-tags';
-import LinkButton from "$lib/ui/LinkButton.svelte";
+import { page } from "$app/state";
 import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
+import LinkButton from "$lib/ui/LinkButton.svelte";
+import { JsonLd, MetaTags } from "svelte-meta-tags";
 import type { PageData } from "./$types";
 
-export let data: PageData;
+interface Props {
+	data: PageData;
+}
+
+let { data }: Props = $props();
 
 // 사용자 입력 상태
-let inputValue = String(data.selectedRounds);
+let inputValue = $state(String(data.selectedRounds));
 
 // Breadcrumbs 데이터
-const breadcrumbItems = [
+const breadcrumbItems = $derived([
 	{ label: "홈", href: "/" },
 	{ label: "통계", href: "/stats" },
 	{ label: "끝자리수", href: "/stats/unit-digit" },
-	{ label: `최근 ${data.selectedRounds}회차`, href: `/stats/unit-digit/recent/${data.selectedRounds}`, current: true },
-];
+	{
+		label: `최근 ${data.selectedRounds}회차`,
+		href: `/stats/unit-digit/recent/${data.selectedRounds}`,
+		current: true,
+	},
+]);
 
 // 입력값 유효성 검사
 const validateInput = (value: string): boolean => {
@@ -30,12 +38,12 @@ const validateInput = (value: string): boolean => {
 // 분석 페이지로 이동
 const navigateToAnalysis = async () => {
 	const inputStr = String(inputValue || "");
-	
+
 	if (inputStr.trim() === "") {
 		alert("분석할 회차 수를 입력해주세요.");
 		return;
 	}
-	
+
 	if (validateInput(inputStr)) {
 		const rounds = Number(inputStr);
 		try {
@@ -58,16 +66,66 @@ const handleKeydown = (event: KeyboardEvent) => {
 
 // 끝자리수별 정보
 const digitInfo = {
-	digit0: { name: "0", class: "bg-gray-500", bgClass: "bg-gray-100", textClass: "text-gray-800" },
-	digit1: { name: "1", class: "bg-red-500", bgClass: "bg-red-100", textClass: "text-red-800" },
-	digit2: { name: "2", class: "bg-orange-500", bgClass: "bg-orange-100", textClass: "text-orange-800" },
-	digit3: { name: "3", class: "bg-yellow-500", bgClass: "bg-yellow-100", textClass: "text-yellow-800" },
-	digit4: { name: "4", class: "bg-green-500", bgClass: "bg-green-100", textClass: "text-green-800" },
-	digit5: { name: "5", class: "bg-blue-500", bgClass: "bg-blue-100", textClass: "text-blue-800" },
-	digit6: { name: "6", class: "bg-purple-500", bgClass: "bg-purple-100", textClass: "text-purple-800" },
-	digit7: { name: "7", class: "bg-pink-500", bgClass: "bg-pink-100", textClass: "text-pink-800" },
-	digit8: { name: "8", class: "bg-indigo-500", bgClass: "bg-indigo-100", textClass: "text-indigo-800" },
-	digit9: { name: "9", class: "bg-teal-500", bgClass: "bg-teal-100", textClass: "text-teal-800" },
+	digit0: {
+		name: "0",
+		class: "bg-gray-500",
+		bgClass: "bg-gray-100",
+		textClass: "text-gray-800",
+	},
+	digit1: {
+		name: "1",
+		class: "bg-red-500",
+		bgClass: "bg-red-100",
+		textClass: "text-red-800",
+	},
+	digit2: {
+		name: "2",
+		class: "bg-orange-500",
+		bgClass: "bg-orange-100",
+		textClass: "text-orange-800",
+	},
+	digit3: {
+		name: "3",
+		class: "bg-yellow-500",
+		bgClass: "bg-yellow-100",
+		textClass: "text-yellow-800",
+	},
+	digit4: {
+		name: "4",
+		class: "bg-green-500",
+		bgClass: "bg-green-100",
+		textClass: "text-green-800",
+	},
+	digit5: {
+		name: "5",
+		class: "bg-blue-500",
+		bgClass: "bg-blue-100",
+		textClass: "text-blue-800",
+	},
+	digit6: {
+		name: "6",
+		class: "bg-purple-500",
+		bgClass: "bg-purple-100",
+		textClass: "text-purple-800",
+	},
+	digit7: {
+		name: "7",
+		class: "bg-pink-500",
+		bgClass: "bg-pink-100",
+		textClass: "text-pink-800",
+	},
+	digit8: {
+		name: "8",
+		class: "bg-indigo-500",
+		bgClass: "bg-indigo-100",
+		textClass: "text-indigo-800",
+	},
+	digit9: {
+		name: "9",
+		class: "bg-teal-500",
+		bgClass: "bg-teal-100",
+		textClass: "text-teal-800",
+	},
 } as const;
 
 // 백분율 계산
@@ -76,9 +134,11 @@ const getPercentage = (count: number, total: number): string => {
 };
 
 // 끝자리수 패턴 정렬 (출현 빈도순)
-$: sortedPatterns = Object.entries(data.unitDigitStats.summary.distribution)
-	.sort(([, a], [, b]) => Number(b) - Number(a))
-	.slice(0, 10); // 상위 10개만 표시
+const sortedPatterns = $derived(
+	Object.entries(data.unitDigitStats.summary.distribution)
+		.sort(([, a], [, b]) => Number(b) - Number(a))
+		.slice(0, 10), // 상위 10개만 표시
+);
 </script>
 
 <MetaTags
@@ -221,14 +281,14 @@ $: sortedPatterns = Object.entries(data.unitDigitStats.summary.distribution)
 			<h2 class="card-title text-lg">최근 회차 분석</h2>
 			<div class="flex items-center gap-4 flex-wrap">
 				<div class="flex items-center gap-2">
-					<label for="rounds-input" class="text-sm font-medium">최근 몇 회차:</label>
+					<label for="rounds-input" class="text-sm font-medium">최근:</label>
 					<input
 						id="rounds-input"
 						type="text"
 						inputmode="numeric"
 						pattern="[0-9]*"
 						bind:value={inputValue}
-						on:keydown={handleKeydown}
+						onkeydown={handleKeydown}
 						class="input input-bordered input-sm w-24 text-center"
 						placeholder="100"
 					/>
@@ -236,7 +296,7 @@ $: sortedPatterns = Object.entries(data.unitDigitStats.summary.distribution)
 				</div>
 				<button
 					type="button"
-					on:click={navigateToAnalysis}
+					onclick={navigateToAnalysis}
 					class="btn btn-primary btn-sm"
 				>
 					분석하기

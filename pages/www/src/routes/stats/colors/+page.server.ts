@@ -1,14 +1,13 @@
-import { env } from "$env/dynamic/private";
+import { env } from "$env/dynamic/public";
 import { initClient } from "trailbase";
 import type { PageServerLoad } from "./$types";
 
-const client = initClient(env.TRAILBASE_URL || "http://localhost:4000");
+const client = initClient(env.PUBLIC_TRAILBASE_URL || "http://localhost:4000");
 
 // 페이지 옵션 설정 - 정적 페이지이므로 prerender 사용
 export const prerender = true;
 
 export const load: PageServerLoad = async ({ url }) => {
-
 	try {
 		// 전체 회차 수 조회
 		const totalRoundsResponse = await client
@@ -108,26 +107,53 @@ export const load: PageServerLoad = async ({ url }) => {
 		// 색깔별 평균 계산
 		const totalRecords = allColorStats.length;
 		const colorAverages = {
-			yellow: totalRecords > 0 ? (colorDistribution.yellow.total / totalRecords).toFixed(2) : "0.00",
-			blue: totalRecords > 0 ? (colorDistribution.blue.total / totalRecords).toFixed(2) : "0.00",
-			red: totalRecords > 0 ? (colorDistribution.red.total / totalRecords).toFixed(2) : "0.00",
-			grey: totalRecords > 0 ? (colorDistribution.grey.total / totalRecords).toFixed(2) : "0.00",
-			green: totalRecords > 0 ? (colorDistribution.green.total / totalRecords).toFixed(2) : "0.00",
+			yellow:
+				totalRecords > 0
+					? (colorDistribution.yellow.total / totalRecords).toFixed(2)
+					: "0.00",
+			blue:
+				totalRecords > 0
+					? (colorDistribution.blue.total / totalRecords).toFixed(2)
+					: "0.00",
+			red:
+				totalRecords > 0
+					? (colorDistribution.red.total / totalRecords).toFixed(2)
+					: "0.00",
+			grey:
+				totalRecords > 0
+					? (colorDistribution.grey.total / totalRecords).toFixed(2)
+					: "0.00",
+			green:
+				totalRecords > 0
+					? (colorDistribution.green.total / totalRecords).toFixed(2)
+					: "0.00",
 		};
 
 		// 최빈 색상 찾기
-		const mostFrequentColor = Object.entries(colorAverages).reduce((prev, curr) => 
-			Number.parseFloat(curr[1]) > Number.parseFloat(prev[1]) ? curr : prev
+		const mostFrequentColor = Object.entries(colorAverages).reduce(
+			(prev, curr) =>
+				Number.parseFloat(curr[1]) > Number.parseFloat(prev[1]) ? curr : prev,
 		);
 
 		// 복잡도 범위별 분포 계산
-		const lowComplexityCount = Object.values(colorCountDistribution)
-			.reduce((sum, colorCounts) => sum + colorCounts["0"] + colorCounts["1"], 0);
-		const highComplexityCount = Object.values(colorCountDistribution)
-			.reduce((sum, colorCounts) => sum + colorCounts["4"] + colorCounts["5"] + colorCounts["6"], 0);
+		const lowComplexityCount = Object.values(colorCountDistribution).reduce(
+			(sum, colorCounts) => sum + colorCounts["0"] + colorCounts["1"],
+			0,
+		);
+		const highComplexityCount = Object.values(colorCountDistribution).reduce(
+			(sum, colorCounts) =>
+				sum + colorCounts["4"] + colorCounts["5"] + colorCounts["6"],
+			0,
+		);
 
-		const lowComplexityRate = totalRecords > 0 ? ((lowComplexityCount / (totalRecords * 5)) * 100).toFixed(1) : "0.0";
-		const highComplexityRate = totalRecords > 0 ? ((highComplexityCount / (totalRecords * 5)) * 100).toFixed(1) : "0.0";
+		const lowComplexityRate =
+			totalRecords > 0
+				? ((lowComplexityCount / (totalRecords * 5)) * 100).toFixed(1)
+				: "0.0";
+		const highComplexityRate =
+			totalRecords > 0
+				? ((highComplexityCount / (totalRecords * 5)) * 100).toFixed(1)
+				: "0.0";
 
 		// 최근 10회차 데이터
 		const recentStats = allColorStats.slice(0, 10);

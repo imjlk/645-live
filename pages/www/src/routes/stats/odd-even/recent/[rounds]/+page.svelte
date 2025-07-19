@@ -21,12 +21,12 @@ const validateInput = (value: string): boolean => {
 // 분석 페이지로 이동
 const navigateToAnalysis = async () => {
 	const inputStr = String(inputValue || "");
-	
+
 	if (inputStr.trim() === "") {
 		alert("분석할 회차 수를 입력해주세요.");
 		return;
 	}
-	
+
 	if (validateInput(inputStr)) {
 		const rounds = Number(inputStr);
 		console.log(`Navigating to: /stats/odd-even/recent/${rounds}`);
@@ -53,7 +53,7 @@ const breadcrumbItems = [
 	{ label: "홈", href: "/" },
 	{ label: "통계", href: "/stats" },
 	{ label: "홀짝분석", href: "/stats/odd-even" },
-	{ label: `최근 ${data.selectedRounds}회차`, current: true },
+	{ label: "최근 회차 분석", current: true },
 ];
 
 // 홀수 개수별 라벨
@@ -102,13 +102,6 @@ const getBalanceAnalysis = (
 	};
 };
 
-// 페이지네이션 함수
-const createPageUrl = (newPage: number) => {
-	const url = new URL(page.url);
-	url.searchParams.set("page", String(newPage));
-	return url.toString();
-};
-
 // 합계 구간 분석
 const getSumRangeAnalysis = (range: string): string => {
 	const analyses = {
@@ -124,7 +117,6 @@ const getSumRangeAnalysis = (range: string): string => {
 	};
 	return analyses[range as keyof typeof analyses] || "분석 데이터 없음";
 };
-
 </script>
 
 <MetaTags

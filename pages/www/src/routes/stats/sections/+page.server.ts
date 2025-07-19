@@ -1,14 +1,13 @@
-import { env } from "$env/dynamic/private";
+import { env } from "$env/dynamic/public";
 import { initClient } from "trailbase";
 import type { PageServerLoad } from "./$types";
 
-const client = initClient(env.TRAILBASE_URL || "http://localhost:4000");
+const client = initClient(env.PUBLIC_TRAILBASE_URL || "http://localhost:4000");
 
 // 정적 페이지이므로 prerender 사용
 export const prerender = true;
 
 export const load: PageServerLoad = async () => {
-
 	try {
 		// 전체 회차 수 조회
 		const totalRoundsResponse = await client
@@ -80,7 +79,6 @@ export const load: PageServerLoad = async () => {
 
 		// 전체 데이터에서 분포 계산
 		for (const statRecord of allSectionStats) {
-
 			// 구간별 총 개수 누적
 			sectionDistribution.section_1_10.total += statRecord.section_1_10;
 			sectionDistribution.section_11_20.total += statRecord.section_11_20;

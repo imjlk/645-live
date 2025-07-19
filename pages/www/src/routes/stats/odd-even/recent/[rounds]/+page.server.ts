@@ -1,8 +1,8 @@
-import { env } from "$env/dynamic/private";
+import { env } from "$env/dynamic/public";
 import { initClient } from "trailbase";
 import type { PageServerLoad } from "./$types";
 
-const client = initClient(env.TRAILBASE_URL || "http://localhost:4000");
+const client = initClient(env.PUBLIC_TRAILBASE_URL || "http://localhost:4000");
 
 // 동적 페이지이므로 SSR 사용
 export const prerender = false;
@@ -114,8 +114,18 @@ export const load: PageServerLoad = async ({ params }) => {
 		const evenCounts = records.map((r) => r.even_count);
 
 		// 기본 통계
-		const averageOddCount = analyzedRounds > 0 ? (oddCounts.reduce((sum, val) => sum + val, 0) / analyzedRounds).toFixed(2) : "0.00";
-		const averageEvenCount = analyzedRounds > 0 ? (evenCounts.reduce((sum, val) => sum + val, 0) / analyzedRounds).toFixed(2) : "0.00";
+		const averageOddCount =
+			analyzedRounds > 0
+				? (
+						oddCounts.reduce((sum, val) => sum + val, 0) / analyzedRounds
+					).toFixed(2)
+				: "0.00";
+		const averageEvenCount =
+			analyzedRounds > 0
+				? (
+						evenCounts.reduce((sum, val) => sum + val, 0) / analyzedRounds
+					).toFixed(2)
+				: "0.00";
 
 		// 가장 빈번한 홀짝 패턴 찾기
 		const mostFrequentPattern = Object.entries(oddEvenDistribution)
@@ -127,10 +137,17 @@ export const load: PageServerLoad = async ({ params }) => {
 
 		// 복잡도 범위별 분포 계산
 		const balancedCount = oddEvenDistribution["3"] || 0; // 3:3 균형
-		const extremeCount = (oddEvenDistribution["0"] || 0) + (oddEvenDistribution["6"] || 0); // 0:6 또는 6:0
+		const extremeCount =
+			(oddEvenDistribution["0"] || 0) + (oddEvenDistribution["6"] || 0); // 0:6 또는 6:0
 
-		const balancedRate = analyzedRounds > 0 ? ((balancedCount / analyzedRounds) * 100).toFixed(1) : "0.0";
-		const extremeRate = analyzedRounds > 0 ? ((extremeCount / analyzedRounds) * 100).toFixed(1) : "0.0";
+		const balancedRate =
+			analyzedRounds > 0
+				? ((balancedCount / analyzedRounds) * 100).toFixed(1)
+				: "0.0";
+		const extremeRate =
+			analyzedRounds > 0
+				? ((extremeCount / analyzedRounds) * 100).toFixed(1)
+				: "0.0";
 
 		return {
 			oddEvenStats: allOddEvenStats,

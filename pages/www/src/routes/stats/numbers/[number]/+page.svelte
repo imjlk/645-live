@@ -21,12 +21,12 @@ const validateInput = (value: string): boolean => {
 // 다른 번호 분석 페이지로 이동
 const navigateToNumber = async () => {
 	const inputStr = String(inputValue || "");
-	
+
 	if (inputStr.trim() === "") {
 		alert("분석할 번호를 입력해주세요.");
 		return;
 	}
-	
+
 	if (validateInput(inputStr)) {
 		const number = Number(inputStr);
 		try {
@@ -51,21 +51,22 @@ const handleKeydown = (event: KeyboardEvent) => {
 const getFrequencyAnalysis = (frequency: string): string => {
 	const freq = Number.parseFloat(frequency);
 	const expected = (6 / 45) * 100; // 약 13.33%
-	
+
 	if (freq > expected + 2) return "높음";
 	if (freq < expected - 2) return "낮음";
 	return "보통";
 };
 
 // 색상 정보
-$: colorDetail = data.colorInfo[data.numberStats.color as keyof typeof data.colorInfo];
+$: colorDetail =
+	data.colorInfo[data.numberStats.color as keyof typeof data.colorInfo];
 
 // Breadcrumbs 데이터
 const breadcrumbItems = [
 	{ label: "홈", href: "/" },
 	{ label: "통계", href: "/stats" },
 	{ label: "번호별통계", href: "/stats/numbers" },
-	{ label: `${data.selectedNumber}번`, current: true }
+	{ label: "번호별 상세", current: true },
 ];
 </script>
 

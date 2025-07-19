@@ -11,6 +11,8 @@
 		"Helvetica Neue", Arial, sans-serif,
 		/* 이모지 폰트 */
 		"Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+
+	word-break: keep-all;
 }
 
 body {

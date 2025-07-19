@@ -1,8 +1,8 @@
-import { env } from "$env/dynamic/private";
+import { env } from "$env/dynamic/public";
 import { initClient } from "trailbase";
 import type { PageServerLoad } from "./$types";
 
-const client = initClient(env.TRAILBASE_URL || "http://localhost:4000");
+const client = initClient(env.PUBLIC_TRAILBASE_URL || "http://localhost:4000");
 
 // 동적 페이지이므로 SSR 사용
 export const prerender = false;
@@ -54,7 +54,7 @@ export const load: PageServerLoad = async ({ params }) => {
 		}>;
 
 		// Transform records to match template expectations
-		const records = rawRecords.map(record => ({
+		const records = rawRecords.map((record) => ({
 			round: record.round,
 			section1_count: record.section_1_10,
 			section2_count: record.section_11_20,
@@ -155,8 +155,9 @@ export const load: PageServerLoad = async ({ params }) => {
 		};
 
 		// 가장 빈번한 구간 찾기
-		const mostFrequentSection = Object.entries(sectionCounts)
-			.sort((a, b) => b[1] - a[1])[0] || ["section1", 0];
+		const mostFrequentSection = Object.entries(sectionCounts).sort(
+			(a, b) => b[1] - a[1],
+		)[0] || ["section1", 0];
 
 		// 요약 객체 생성
 		const summary = {

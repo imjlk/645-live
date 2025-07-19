@@ -1,8 +1,8 @@
-import { env } from "$env/dynamic/private";
+import { env } from "$env/dynamic/public";
 import { initClient } from "trailbase";
 import type { PageServerLoad } from "./$types";
 
-const client = initClient(env.TRAILBASE_URL || "http://localhost:4000");
+const client = initClient(env.PUBLIC_TRAILBASE_URL || "http://localhost:4000");
 
 // 페이지 옵션 설정 - 동적 페이지이므로 SSR 사용
 export const prerender = false;
@@ -40,26 +40,26 @@ export const load: PageServerLoad = async ({ params }) => {
 		let allRecords: Array<{ round: number; ac_value: number }> = [];
 		const batchSize = 1024;
 		let offset = 0;
-		
+
 		while (allRecords.length < selectedRounds) {
 			const remainingRecords = selectedRounds - allRecords.length;
 			const currentLimit = Math.min(batchSize, remainingRecords);
-			
+
 			const acStatsResponse = await client.records("lotto_draw_ac_stats").list({
 				order: ["-round"],
 				pagination: { limit: currentLimit, offset },
 			});
-			
+
 			const batchRecords = acStatsResponse.records as Array<{
 				round: number;
 				ac_value: number;
 			}>;
-			
+
 			if (batchRecords.length === 0) {
 				// 더 이상 데이터가 없으면 중단
 				break;
 			}
-			
+
 			allRecords = allRecords.concat(batchRecords);
 			offset += currentLimit;
 		}

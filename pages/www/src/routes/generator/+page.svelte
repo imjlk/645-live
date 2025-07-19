@@ -14,14 +14,48 @@ interface NumberStat {
 	updated_at: string;
 }
 
+interface OddEvenStat {
+	round: number;
+	odd_count: number;
+	even_count: number;
+}
+
+interface ColorStat {
+	round: number;
+	yellow_count: number;
+	blue_count: number;
+	red_count: number;
+	grey_count: number;
+	green_count: number;
+}
+
+interface SectionStat {
+	round: number;
+	section_1_10: number;
+	section_11_20: number;
+	section_21_30: number;
+	section_31_40: number;
+	section_41_45: number;
+}
+
+interface ConsecutiveStat {
+	round: number;
+	consecutive_count: number;
+}
+
+interface HighLowStat {
+	round: number;
+	low_count: number;
+	high_count: number;
+}
+
 interface LottoStats {
 	numberStats: NumberStat[];
-	// Define other stat types as needed, for now using 'any'
-	oddEvenStats: any[];
-	colorStats: any[];
-	sectionStats: any[];
-	consecutiveStats: any[];
-	highLowStats: any[];
+	oddEvenStats: OddEvenStat[];
+	colorStats: ColorStat[];
+	sectionStats: SectionStat[];
+	consecutiveStats: ConsecutiveStat[];
+	highLowStats: HighLowStat[];
 }
 
 // --- Trailbase Client and Data Stores ---
@@ -67,15 +101,16 @@ onMount(async () => {
 			]);
 
 		lottoStats.set({
-			numberStats: numStats.records as NumberStat[],
-			oddEvenStats: oeStats.records,
-			colorStats: colStats.records,
-			sectionStats: secStats.records,
-			consecutiveStats: consStats.records,
-			highLowStats: hlStats.records,
+			numberStats: numStats.records as unknown as NumberStat[],
+			oddEvenStats: oeStats.records as unknown as OddEvenStat[],
+			colorStats: colStats.records as unknown as ColorStat[],
+			sectionStats: secStats.records as unknown as SectionStat[],
+			consecutiveStats: consStats.records as unknown as ConsecutiveStat[],
+			highLowStats: hlStats.records as unknown as HighLowStat[],
 		});
-	} catch (e: any) {
-		error.set("통계 데이터 로딩 실패: " + e.message);
+	} catch (e: unknown) {
+		const errorMessage = e instanceof Error ? e.message : String(e);
+		error.set(`통계 데이터 로딩 실패: ${errorMessage}`);
 		console.error(e);
 	} finally {
 		isLoadingStats.set(false);
@@ -109,8 +144,9 @@ async function generateNumbers() {
 			}
 		}
 		generatedLottoSets.set(sets);
-	} catch (e: any) {
-		error.set(e.message || "An unknown error occurred.");
+	} catch (e: unknown) {
+		const errorMessage = e instanceof Error ? e.message : "An unknown error occurred.";
+		error.set(errorMessage);
 	} finally {
 		isLoading.set(false);
 	}
@@ -172,9 +208,15 @@ function toggleNumber(
 		} else {
 			if (store === includedNumbers) {
 				if (set.size >= 5) return set;
-				excludedNumbers.update((s) => (s.delete(num), s));
+				excludedNumbers.update((s) => {
+					s.delete(num);
+					return s;
+				});
 			} else {
-				includedNumbers.update((s) => (s.delete(num), s));
+				includedNumbers.update((s) => {
+					s.delete(num);
+					return s;
+				});
 			}
 			set.add(num);
 		}
