@@ -1,10 +1,11 @@
 {
-	"name": "bunzzlekit-monorepo",
+	"name": "645-live-monorepo",
 	"module": "index.ts",
 	"type": "module",
 	"private": true,
 	"scripts": {
 		"www": "bun --cwd pages/www --",
+		"og": "bun --cwd workers/og-645-live --",
 		"format": "biome check --write .",
 		"lint": "biome lint .",
 		"clean": "find . \\( -name 'node_modules' -o -name '.svelte-kit' \\) -type d -exec rm -rf {} + && rm -rf bun.lockb",
@@ -21,7 +22,7 @@
 		"packages": ["pages/*", "workers/*", "packages/*"],
 		"catalog": {
 			"vite": "^6.3.5",
-			"wrangler": "^4.19.1",
+			"wrangler": "^4.25.0",
 			"hono": "^4.8.5"
 		}
 	}
