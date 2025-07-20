@@ -1,6 +1,6 @@
 <script lang="ts">
-import { onMount } from "svelte";
 import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
+import { onMount } from "svelte";
 import type { PageData } from "./$types";
 
 export let data: PageData;

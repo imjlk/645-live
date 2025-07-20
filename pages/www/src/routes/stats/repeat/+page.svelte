@@ -74,12 +74,12 @@ const validateInput = (value: string): boolean => {
 // 분석 페이지로 이동
 const navigateToAnalysis = async () => {
 	const inputStr = String(inputValue || "");
-	
+
 	if (inputStr.trim() === "") {
 		alert("분석할 회차 수를 입력해주세요.");
 		return;
 	}
-	
+
 	if (validateInput(inputStr)) {
 		const rounds = Number(inputStr);
 		try {

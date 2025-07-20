@@ -1,5 +1,5 @@
 <script lang="ts">
-import { MetaTags, JsonLd } from 'svelte-meta-tags';
+import { JsonLd, MetaTags } from "svelte-meta-tags";
 import type { PageData } from "./$types";
 
 export let data: PageData;

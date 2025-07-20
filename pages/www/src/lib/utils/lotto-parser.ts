@@ -66,7 +66,7 @@ export function parseDhlotteryURL(url: string): LottoParseResult | null {
 		}
 
 		// 빈 게임 문자열과 모든 0으로 구성된 게임 필터링
-		const validGameStrings = gameStrings.filter(gameString => {
+		const validGameStrings = gameStrings.filter((gameString) => {
 			// 빈 문자열 제거
 			if (!gameString || gameString.length === 0) return false;
 			// 모든 0으로 구성된 게임 제거
@@ -200,7 +200,6 @@ export function parseLottoQR(qrData: string): LottoGameData[] | null {
 			console.error("QR 데이터가 너무 깁니다");
 			return null;
 		}
-
 
 		// dhlottery.co.kr URL 형식 파싱
 		if (qrData.includes("dhlottery.co.kr")) {

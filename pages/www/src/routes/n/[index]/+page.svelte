@@ -49,8 +49,8 @@ onMount(async () => {
 				if (newScanCount > ballValue) {
 					isUpdated = true;
 					setTimeout(() => {
-					isUpdated = false;
-				}, 1000);
+						isUpdated = false;
+					}, 1000);
 				}
 				ballValue = newScanCount;
 			}
@@ -79,9 +79,9 @@ const goToNext = () => {
 
 // Keyboard navigation
 const handleKeydown = (event: KeyboardEvent) => {
-	if (event.key === 'ArrowLeft') {
+	if (event.key === "ArrowLeft") {
 		goToPrevious();
-	} else if (event.key === 'ArrowRight') {
+	} else if (event.key === "ArrowRight") {
 		goToNext();
 	}
 };

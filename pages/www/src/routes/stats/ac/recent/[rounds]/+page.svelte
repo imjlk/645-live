@@ -72,11 +72,16 @@ const getPercentage = (count: number, total: number): string => {
 
 // AC값별 색상 클래스
 const getACColorClass = (ac: number): string => {
-	if (ac <= 1) return "bg-red-500/20 text-red-600 dark:bg-red-400/20 dark:text-red-400";
-	if (ac <= 3) return "bg-orange-500/20 text-orange-600 dark:bg-orange-400/20 dark:text-orange-400";
-	if (ac <= 5) return "bg-yellow-500/20 text-yellow-600 dark:bg-yellow-400/20 dark:text-yellow-400";
-	if (ac <= 7) return "bg-green-500/20 text-green-600 dark:bg-green-400/20 dark:text-green-400";
-	if (ac <= 9) return "bg-blue-500/20 text-blue-600 dark:bg-blue-400/20 dark:text-blue-400";
+	if (ac <= 1)
+		return "bg-red-500/20 text-red-600 dark:bg-red-400/20 dark:text-red-400";
+	if (ac <= 3)
+		return "bg-orange-500/20 text-orange-600 dark:bg-orange-400/20 dark:text-orange-400";
+	if (ac <= 5)
+		return "bg-yellow-500/20 text-yellow-600 dark:bg-yellow-400/20 dark:text-yellow-400";
+	if (ac <= 7)
+		return "bg-green-500/20 text-green-600 dark:bg-green-400/20 dark:text-green-400";
+	if (ac <= 9)
+		return "bg-blue-500/20 text-blue-600 dark:bg-blue-400/20 dark:text-blue-400";
 	return "bg-purple-500/20 text-purple-600 dark:bg-purple-400/20 dark:text-purple-400";
 };
 

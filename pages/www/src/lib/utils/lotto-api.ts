@@ -28,7 +28,9 @@ export { calculateExpectedLatestRound };
 export function calculateDisplayRound(): number {
 	// 한국 시간으로 현재 시간 생성
 	const now = new Date();
-	const koreaTime = new Date(now.toLocaleString("en-US", {timeZone: "Asia/Seoul"}));
+	const koreaTime = new Date(
+		now.toLocaleString("en-US", { timeZone: "Asia/Seoul" }),
+	);
 
 	const dayOfWeek = koreaTime.getDay(); // 0=일요일, 6=토요일
 	const hour = koreaTime.getHours();

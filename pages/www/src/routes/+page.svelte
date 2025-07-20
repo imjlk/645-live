@@ -135,7 +135,6 @@ onMount(async () => {
 
 	// Set up global stream subscription for real-time updates
 	unsubscribeStream = subscribeToScanCountUpdates("main-page", (scanData) => {
-
 		// Only update if this is for the current round we're displaying
 		if (scanData.round !== currentRound) {
 			// Update current round if it changed

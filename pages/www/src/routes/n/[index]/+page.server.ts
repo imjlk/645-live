@@ -174,16 +174,18 @@ export const load: PageServerLoad = async ({ params }) => {
 					order: ["-round"],
 					pagination: { limit: 10 },
 				});
-			
+
 			if (scanDataResponse.records.length > 0) {
-				historicalScanData = scanDataResponse.records.map((record) => {
-					const scanRecord = record as Record<string, unknown>;
-					const scanCountField = `scan_count_${ballNumber}`;
-					return {
-						round: Number(scanRecord.round) || 0,
-						scanCount: Number(scanRecord[scanCountField]) || 0,
-					};
-				}).filter(item => item.round > 0);
+				historicalScanData = scanDataResponse.records
+					.map((record) => {
+						const scanRecord = record as Record<string, unknown>;
+						const scanCountField = `scan_count_${ballNumber}`;
+						return {
+							round: Number(scanRecord.round) || 0,
+							scanCount: Number(scanRecord[scanCountField]) || 0,
+						};
+					})
+					.filter((item) => item.round > 0);
 			}
 		} catch (scanError) {
 			console.error("Failed to fetch historical scan data:", scanError);
