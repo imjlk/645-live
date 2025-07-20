@@ -1,0 +1,22 @@
+{
+	"name": "@645/og-645-live",
+	"version": "0.0.1",
+	"type": "module",
+	"main": "./src/index.tsx",
+	"exports": {
+		".": "./src/index.tsx"
+	},
+	"scripts": {
+		"dev": "wrangler dev",
+		"deploy": "wrangler deploy --minify",
+		"cf-typegen": "wrangler types --env-interface CloudflareBindings"
+	},
+	"dependencies": {
+		"@cf-wasm/og": "^0.1.41",
+		"hono": "catalog:",
+		"@645/og-image-core": "workspace:*"
+	},
+	"devDependencies": {
+		"wrangler": "catalog:"
+	}
+}

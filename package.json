@@ -21,7 +21,8 @@
 		"packages": ["pages/*", "workers/*", "packages/*"],
 		"catalog": {
 			"vite": "^6.3.5",
-			"wrangler": "^4.19.1"
+			"wrangler": "^4.19.1",
+			"hono": "^4.8.5"
 		}
 	}
 }

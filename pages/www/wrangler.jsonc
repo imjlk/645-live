@@ -10,5 +10,11 @@
 			"binding": "HYPERDRIVE",
 			"localConnectionString": "postgres://root:mysecretpassword@localhost:5432/local"
 		}
+	],
+	"services": [
+		{
+			"binding": "OG_645_LIVE",
+			"service": "og-645-live"
+		}
 	]
 }

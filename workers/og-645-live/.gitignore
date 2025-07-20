@@ -1,0 +1,25 @@
+# Dependencies
+/node_modules
+
+# Wrangler specific
+.wrangler/
+.dev.vars
+wrangler.toml.bak
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Local environment variables
+.env
+.env.local
+.env.*.local
+
+# Test & Benchmark reports
+benchmark-results-*.json
+load-test-results-*.json
+performance-comparison-*.json
+performance-comparison-*.md
