@@ -152,56 +152,55 @@ const getPairGrade = (pairCount: number) => {
 	}}
 />
 
-<div class="p-6 space-y-6">
+<div class="p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-6">
 	<!-- Breadcrumbs -->
 	<Breadcrumbs items={breadcrumbItems} />
 
 	<!-- 페이지 헤더 -->
 	<div class="text-center space-y-2">
-		<h1 class="text-3xl font-bold text-primary">번호쌍 분석 통계</h1>
-		<p class="text-base-content/70">
-			로또 6/45 당첨번호의 동반 출현 패턴 및 번호 쌍 분석<br />
-			함께 출현하는 번호들의 패턴을 확인하세요.
+		<h1 class="text-2xl sm:text-3xl lg:text-4xl font-bold text-primary">번호쌍 분석 통계</h1>
+		<p class="text-sm sm:text-base text-base-content/70 px-2">
+			로또 6/45 당첨번호의 동반 출현 패턴 및 번호 쌍 분석 함께 출현하는 번호들의 패턴을 확인하세요.
 		</p>
 	</div>
 
 	<!-- 통계 요약 -->
-	<div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-		<div class="stat bg-primary text-primary-content rounded-lg">
-			<div class="stat-title text-primary-content/70">총 번호 쌍</div>
-			<div class="stat-value text-2xl">{data.totalPairs}</div>
-			<div class="stat-desc text-primary-content/70">전체 조합</div>
+	<div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+		<div class="stat bg-primary text-primary-content rounded-lg p-3 sm:p-4">
+			<div class="stat-title text-xs sm:text-sm text-primary-content/70">총 번호 쌍</div>
+			<div class="stat-value text-lg sm:text-xl lg:text-2xl">{data.totalPairs}</div>
+			<div class="stat-desc text-xs sm:text-sm text-primary-content/70">전체 조합</div>
 		</div>
-		<div class="stat bg-secondary text-secondary-content rounded-lg">
-			<div class="stat-title text-secondary-content/70">평균 동반 출현</div>
-			<div class="stat-value text-2xl">{data.averagePairCount}</div>
-			<div class="stat-desc text-secondary-content/70">회</div>
+		<div class="stat bg-secondary text-secondary-content rounded-lg p-3 sm:p-4">
+			<div class="stat-title text-xs sm:text-sm text-secondary-content/70">평균 동반 출현</div>
+			<div class="stat-value text-lg sm:text-xl lg:text-2xl">{data.averagePairCount}</div>
+			<div class="stat-desc text-xs sm:text-sm text-secondary-content/70">회</div>
 		</div>
-		<div class="stat bg-accent text-accent-content rounded-lg">
-			<div class="stat-title text-accent-content/70">최대 동반 출현</div>
-			<div class="stat-value text-2xl">{data.maxPairCount}</div>
-			<div class="stat-desc text-accent-content/70">최고 기록</div>
+		<div class="stat bg-accent text-accent-content rounded-lg p-3 sm:p-4">
+			<div class="stat-title text-xs sm:text-sm text-accent-content/70">최대 동반 출현</div>
+			<div class="stat-value text-lg sm:text-xl lg:text-2xl">{data.maxPairCount}</div>
+			<div class="stat-desc text-xs sm:text-sm text-accent-content/70">최고 기록</div>
 		</div>
-		<div class="stat bg-info text-info-content rounded-lg">
-			<div class="stat-title text-info-content/70">최소 동반 출현</div>
-			<div class="stat-value text-2xl">{data.minPairCount}</div>
-			<div class="stat-desc text-info-content/70">최저 기록</div>
+		<div class="stat bg-info text-info-content rounded-lg p-3 sm:p-4">
+			<div class="stat-title text-xs sm:text-sm text-info-content/70">최소 동반 출현</div>
+			<div class="stat-value text-lg sm:text-xl lg:text-2xl">{data.minPairCount}</div>
+			<div class="stat-desc text-xs sm:text-sm text-info-content/70">최저 기록</div>
 		</div>
 	</div>
 
 	<!-- 동반 출현 분포 및 활발한 번호 -->
-	<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+	<div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
 		<div class="card bg-base-100 shadow-sm">
-			<div class="card-body">
-				<h2 class="card-title">동반 출현 횟수 분포</h2>
-				<div class="space-y-3">
+			<div class="card-body p-4 sm:p-6">
+				<h2 class="card-title text-lg sm:text-xl">동반 출현 횟수 분포</h2>
+				<div class="space-y-2 sm:space-y-3">
 					{#each Object.entries(data.pairCountDistribution) as [range, count]}
 						{@const maxCount = Math.max(...Object.values(data.pairCountDistribution))}
 						<div class="flex items-center justify-between">
-							<span class="text-sm font-medium">{range}회</span>
+							<span class="text-xs sm:text-sm font-medium">{range}회</span>
 							<div class="flex items-center">
-								<span class="text-sm text-base-content/70 mr-2 w-12 text-right">{count}</span>
-								<div class="w-32 bg-base-300 rounded-full h-2">
+								<span class="text-xs sm:text-sm text-base-content/70 mr-2 w-8 sm:w-12 text-right">{count}</span>
+								<div class="w-20 sm:w-32 bg-base-300 rounded-full h-2">
 									<div 
 										class="bg-primary h-2 rounded-full" 
 										style="width: {maxCount > 0 ? (count / maxCount) * 100 : 0}%"
@@ -215,23 +214,23 @@ const getPairGrade = (pairCount: number) => {
 		</div>
 
 		<div class="card bg-base-100 shadow-sm">
-			<div class="card-body">
-				<h2 class="card-title">가장 활발한 번호 (총 동반 출현 횟수)</h2>
+			<div class="card-body p-4 sm:p-6">
+				<h2 class="card-title text-lg sm:text-xl">가장 활발한 번호 <span class="text-sm font-normal text-base-content/70">(총 동반 출현 횟수)</span></h2>
 				{#if data.topNumbersByPairCount && data.topNumbersByPairCount.length > 0}
 					<div class="space-y-2">
 						{#each data.topNumbersByPairCount as [number, totalPairCount], index}
 							<div class="flex items-center justify-between">
 								<div class="flex items-center">
-									<span class="text-sm text-base-content/70 mr-2 w-6">{index + 1}.</span>
-									<a href="/n/{number}" class="lotto-ball {getNumberColorClass(number)} hover:scale-110 transition-transform">{number}</a>
+									<span class="text-xs sm:text-sm text-base-content/70 mr-2 w-4 sm:w-6">{index + 1}.</span>
+									<a href="/n/{number}" class="lotto-ball-mobile {getNumberColorClass(number)} hover:scale-110 transition-transform">{number}</a>
 								</div>
-								<span class="text-sm font-medium text-base-content">{totalPairCount.toLocaleString()}회</span>
+								<span class="text-xs sm:text-sm font-medium text-base-content">{totalPairCount.toLocaleString()}회</span>
 							</div>
 						{/each}
 					</div>
 				{:else}
 					<div class="text-center py-4">
-						<p class="text-base-content/60">데이터를 불러오는 중...</p>
+						<p class="text-sm text-base-content/60">데이터를 불러오는 중...</p>
 					</div>
 				{/if}
 			</div>
@@ -240,18 +239,18 @@ const getPairGrade = (pairCount: number) => {
 
 	<!-- 번호 쌍 상세 통계 -->
 	<div class="card bg-base-100 shadow-sm">
-		<div class="card-body">
-			<h2 class="card-title">번호 쌍 상세 통계</h2>
-			<p class="text-sm text-base-content/60 mb-4">동반 출현 횟수별로 정렬된 번호 쌍 목록</p>
+		<div class="card-body p-4 sm:p-6">
+			<h2 class="card-title text-lg sm:text-xl">번호 쌍 상세 통계</h2>
+			<p class="text-xs sm:text-sm text-base-content/60 mb-3 sm:mb-4">동반 출현 횟수별로 정렬된 번호 쌍 목록</p>
 			
-			<div class="overflow-x-auto">
+			<div class="overflow-x-auto -mx-3 sm:mx-0">
 				<table class="table table-zebra w-full">
 					<thead>
 						<tr>
-							<th>순위</th>
-							<th>번호 쌍</th>
-							<th>동반 출현</th>
-							<th>등급</th>
+							<th class="sticky left-0 bg-base-200 z-10 min-w-[60px] text-xs sm:text-sm">순위</th>
+							<th class="min-w-[140px] text-xs sm:text-sm">번호 쌍</th>
+							<th class="min-w-[80px] text-xs sm:text-sm">동반 출현</th>
+							<th class="min-w-[60px] text-xs sm:text-sm">등급</th>
 						</tr>
 					</thead>
 					<tbody>
@@ -260,37 +259,37 @@ const getPairGrade = (pairCount: number) => {
 							{@const grade = getPairGrade(statRecord.pair_count)}
 							{@const rank = index + 1}
 							<tr>
-								<td>
-									<div class="text-sm font-medium">
-										{#if rank <= 3}
-											<span class="inline-flex items-center justify-center w-6 h-6 rounded-full {rank === 1 ? 'bg-yellow-400' : rank === 2 ? 'bg-gray-400' : 'bg-amber-600'} text-white text-xs font-bold">
+								<td class="sticky left-0 bg-base-100 z-10">
+										<div class="text-xs sm:text-sm font-medium">
+											{#if rank <= 3}
+												<span class="inline-flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full {rank === 1 ? 'bg-yellow-400' : rank === 2 ? 'bg-gray-400' : 'bg-amber-600'} text-white text-xs font-bold">
+													{rank}
+												</span>
+											{:else}
 												{rank}
-											</span>
-										{:else}
-											{rank}
-										{/if}
-									</div>
+											{/if}
+										</div>
+									</td>
+									<td>
+										<div class="flex items-center space-x-1 sm:space-x-2">
+											<a href="/n/{statRecord.number_a}" class="lotto-ball-mobile {getNumberColorClass(statRecord.number_a)} hover:scale-110 transition-transform">
+												{statRecord.number_a}
+											</a>
+											<span class="text-base-content/40 text-xs sm:text-sm">+</span>
+											<a href="/n/{statRecord.number_b}" class="lotto-ball-mobile {getNumberColorClass(statRecord.number_b)} hover:scale-110 transition-transform">
+												{statRecord.number_b}
+											</a>
+										</div>
+									</td>
+								<td class="text-center">
+									<div class="text-xs sm:text-sm font-medium">{statRecord.pair_count}회</div>
 								</td>
-								<td>
-									<div class="flex items-center space-x-2">
-										<a href="/n/{statRecord.number_a}" class="lotto-ball {getNumberColorClass(statRecord.number_a)} hover:scale-110 transition-transform">
-											{statRecord.number_a}
-										</a>
-										<span class="text-base-content/40">+</span>
-										<a href="/n/{statRecord.number_b}" class="lotto-ball {getNumberColorClass(statRecord.number_b)} hover:scale-110 transition-transform">
-											{statRecord.number_b}
-										</a>
-									</div>
-								</td>
-								<td>
-									<div class="text-sm font-medium">{statRecord.pair_count}회</div>
-								</td>
-								<td>
-									<span class="inline-flex items-center justify-center w-8 h-8 rounded-full text-xs font-bold {grade.class}">
+								<td class="text-center">
+									<span class="inline-flex items-center justify-center w-6 h-6 sm:w-8 sm:h-8 rounded-full text-xs font-bold {grade.class}">
 										{grade.grade}
 									</span>
 								</td>
-							</tr>
+								</tr>
 						{/each}
 					</tbody>
 				</table>
@@ -300,22 +299,22 @@ const getPairGrade = (pairCount: number) => {
 
 	<!-- 분석 가이드 -->
 	<div class="card bg-base-100 shadow-sm">
-		<div class="card-body">
-			<h2 class="card-title">👥 번호 쌍 분석 가이드</h2>
-			<div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+		<div class="card-body p-4 sm:p-6">
+			<h2 class="card-title text-lg sm:text-xl">👥 번호 쌍 분석 가이드</h2>
+			<div class="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 text-xs sm:text-sm">
 				<div>
-					<h4 class="font-semibold mb-2 text-primary">동반 출현 등급</h4>
-					<ul class="space-y-1 text-base-content/70">
-						<li>• <span class="inline-block w-4 h-4 bg-red-500 text-white text-xs text-center rounded mr-1">S</span><strong>S등급</strong>: 25회 이상 (매우 높음)</li>
-						<li>• <span class="inline-block w-4 h-4 bg-orange-500 text-white text-xs text-center rounded mr-1">A</span><strong>A등급</strong>: 20-24회 (높음)</li>
-						<li>• <span class="inline-block w-4 h-4 bg-yellow-500 text-white text-xs text-center rounded mr-1">B</span><strong>B등급</strong>: 15-19회 (보통)</li>
-						<li>• <span class="inline-block w-4 h-4 bg-green-500 text-white text-xs text-center rounded mr-1">C</span><strong>C등급</strong>: 10-14회 (낮음)</li>
-						<li>• <span class="inline-block w-4 h-4 bg-blue-500 text-white text-xs text-center rounded mr-1">D</span><strong>D등급</strong>: 5-9회 (매우 낮음)</li>
+					<h4 class="font-semibold mb-2 sm:mb-3 text-primary text-sm sm:text-base">동반 출현 등급</h4>
+					<ul class="space-y-1 sm:space-y-2 text-base-content/70">
+						<li class="flex items-center">• <span class="inline-block w-4 h-4 bg-red-500 text-white text-xs text-center rounded mr-2 flex-shrink-0">S</span><strong>S등급</strong>: 25회 이상 (매우 높음)</li>
+						<li class="flex items-center">• <span class="inline-block w-4 h-4 bg-orange-500 text-white text-xs text-center rounded mr-2 flex-shrink-0">A</span><strong>A등급</strong>: 20-24회 (높음)</li>
+						<li class="flex items-center">• <span class="inline-block w-4 h-4 bg-yellow-500 text-white text-xs text-center rounded mr-2 flex-shrink-0">B</span><strong>B등급</strong>: 15-19회 (보통)</li>
+						<li class="flex items-center">• <span class="inline-block w-4 h-4 bg-green-500 text-white text-xs text-center rounded mr-2 flex-shrink-0">C</span><strong>C등급</strong>: 10-14회 (낮음)</li>
+						<li class="flex items-center">• <span class="inline-block w-4 h-4 bg-blue-500 text-white text-xs text-center rounded mr-2 flex-shrink-0">D</span><strong>D등급</strong>: 5-9회 (매우 낮음)</li>
 					</ul>
 				</div>
 				<div>
-					<h4 class="font-semibold mb-2 text-secondary">번호 쌍 활용법</h4>
-					<ul class="space-y-1 text-base-content/70">
+					<h4 class="font-semibold mb-2 sm:mb-3 text-secondary text-sm sm:text-base">번호 쌍 활용법</h4>
+					<ul class="space-y-1 sm:space-y-2 text-base-content/70">
 						<li>• 상위 등급 번호 쌍은 함께 선택 고려</li>
 						<li>• 동반 출현이 낮은 쌍도 미래에 나올 가능성 존재</li>
 						<li>• 연속 번호보다 간격이 있는 번호 쌍이 더 자주 출현</li>
@@ -323,8 +322,8 @@ const getPairGrade = (pairCount: number) => {
 					</ul>
 				</div>
 			</div>
-			<div class="mt-4 p-3 bg-info/10 rounded-lg">
-				<p class="text-info font-medium">
+			<div class="mt-3 sm:mt-4 p-3 sm:p-4 bg-info/10 rounded-lg">
+				<p class="text-info font-medium text-xs sm:text-sm leading-relaxed">
 					💡 팁: 전체 {data.totalPairs}개의 번호 쌍 중 평균 {data.averagePairCount}회 동반 출현합니다. 
 					상위 등급 번호 쌍을 참고하여 번호 선택에 활용해보세요.
 				</p>
@@ -344,6 +343,26 @@ const getPairGrade = (pairCount: number) => {
 		color: white;
 		font-weight: bold;
 		font-size: 0.875rem;
+	}
+
+	.lotto-ball-mobile {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 1.75rem;
+		height: 1.75rem;
+		border-radius: 50%;
+		color: white;
+		font-weight: bold;
+		font-size: 0.75rem;
+	}
+
+	@media (min-width: 640px) {
+		.lotto-ball-mobile {
+			width: 2rem;
+			height: 2rem;
+			font-size: 0.875rem;
+		}
 	}
 
 	.pagination-link {

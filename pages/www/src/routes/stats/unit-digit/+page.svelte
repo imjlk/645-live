@@ -218,8 +218,8 @@ const getDigitLightColorClass = (digit: string) => {
 	<div class="card bg-base-100 shadow-sm">
 		<div class="card-body p-4">
 			<h2 class="card-title text-lg">최근 회차 분석</h2>
-			<div class="flex items-center gap-4 flex-wrap">
-				<div class="flex items-center gap-2">
+			<div class="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+				<div class="flex flex-col sm:flex-row sm:items-center gap-2">
 					<label for="rounds-input" class="text-sm font-medium">분석 회차 (1-{data.totalRounds}):</label>
 					<input
 						id="rounds-input"
@@ -228,14 +228,14 @@ const getDigitLightColorClass = (digit: string) => {
 						pattern="[0-9]*"
 						bind:value={inputValue}
 						on:keydown={handleKeydown}
-						class="input input-bordered input-sm w-20 text-center"
+						class="input input-bordered input-sm w-24 text-center"
 						placeholder="100"
 					/>
 				</div>
 				<button
 					type="button"
 					on:click={navigateToAnalysis}
-					class="btn btn-primary btn-sm"
+					class="btn btn-primary btn-sm w-full sm:w-auto"
 				>
 					분석하기
 				</button>
@@ -275,13 +275,13 @@ const getDigitLightColorClass = (digit: string) => {
 
 	<!-- 끝수별 요약 통계 -->
 	<div class="card bg-base-100 shadow-sm">
-		<div class="card-body">
-			<h2 class="card-title">끝수별 출현 현황</h2>
+		<div class="card-body p-3 sm:p-6">
+			<h2 class="card-title text-lg sm:text-xl">끝수별 출현 현황</h2>
 			<p class="text-sm text-base-content/60 mb-4">
 				각 끝수(0-9)별 출현 빈도와 평균 개수를 나타냅니다.
 			</p>
 			
-			<div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+			<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
 				{#each Object.entries(data.digitTotals) as [digit, total]}
 					<div class="text-center space-y-2 p-4 bg-base-200 rounded-lg">
 						<div class="inline-flex items-center justify-center w-12 h-12 rounded-full {getDigitColorClass(digit)} text-white text-xl font-bold">
@@ -303,10 +303,10 @@ const getDigitLightColorClass = (digit: string) => {
 	</div>
 
 	<!-- 끝수별 분포 차트 -->
-	<div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+	<div class="grid grid-cols-1 gap-8">
 		<div class="card bg-base-100 shadow-sm">
-			<div class="card-body">
-				<h3 class="card-title">끝수별 총 출현 횟수</h3>
+			<div class="card-body p-3 sm:p-6">
+				<h3 class="card-title text-lg sm:text-xl">끝수별 총 출현 횟수</h3>
 				<div class="space-y-3">
 					{#each Object.entries(data.digitTotals) as [digit, total]}
 						{@const maxTotal = Math.max(...Object.values(data.digitTotals))}
@@ -333,9 +333,9 @@ const getDigitLightColorClass = (digit: string) => {
 		</div>
 
 		<div class="card bg-base-100 shadow-sm">
-			<div class="card-body">
-				<h3 class="card-title">끝수별 개수 분포</h3>
-				<div class="grid grid-cols-5 gap-2 text-xs">
+			<div class="card-body p-3 sm:p-6">
+				<h3 class="card-title text-lg sm:text-xl">끝수별 개수 분포</h3>
+				<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 text-xs">
 					{#each Object.entries(data.digitTotals) as [digit, total]}
 						<div class="text-center">
 							<div class="w-6 h-6 rounded-full {getDigitColorClass(digit)} mx-auto mb-1 text-white text-xs font-bold flex items-center justify-center">
@@ -359,30 +359,30 @@ const getDigitLightColorClass = (digit: string) => {
 
 	<!-- 최근 회차 끝수 현황 -->
 	<div class="card bg-base-100 shadow-sm">
-		<div class="card-body">
-			<h3 class="card-title">최근 10회차 끝수 현황</h3>
-			<div class="overflow-x-auto">
+		<div class="card-body p-3 sm:p-6">
+			<h3 class="card-title text-lg sm:text-xl">최근 10회차 끝수 현황</h3>
+			<div class="overflow-x-auto -mx-3 sm:mx-0">
 				<table class="table table-zebra w-full">
 					<thead>
 						<tr>
-							<th>회차</th>
-							<th class="text-center">0</th>
-							<th class="text-center">1</th>
-							<th class="text-center">2</th>
-							<th class="text-center">3</th>
-							<th class="text-center">4</th>
-							<th class="text-center">5</th>
-							<th class="text-center">6</th>
-							<th class="text-center">7</th>
-							<th class="text-center">8</th>
-							<th class="text-center">9</th>
+							<th class="sticky left-0 bg-base-200 z-10 text-xs sm:text-sm min-w-[60px]">회차</th>
+							<th class="text-center min-w-[40px] text-xs sm:text-sm">0</th>
+							<th class="text-center min-w-[40px] text-xs sm:text-sm">1</th>
+							<th class="text-center min-w-[40px] text-xs sm:text-sm">2</th>
+							<th class="text-center min-w-[40px] text-xs sm:text-sm">3</th>
+							<th class="text-center min-w-[40px] text-xs sm:text-sm">4</th>
+							<th class="text-center min-w-[40px] text-xs sm:text-sm">5</th>
+							<th class="text-center min-w-[40px] text-xs sm:text-sm">6</th>
+							<th class="text-center min-w-[40px] text-xs sm:text-sm">7</th>
+							<th class="text-center min-w-[40px] text-xs sm:text-sm">8</th>
+							<th class="text-center min-w-[40px] text-xs sm:text-sm">9</th>
 						</tr>
 					</thead>
 					<tbody>
 						{#each data.recentStats as stat}
 							{@const statRecord = stat as Record<string, any>}
 							<tr>
-								<td class="font-semibold">{statRecord.round}회</td>
+								<td class="font-semibold sticky left-0 bg-base-100 z-10 text-xs sm:text-sm">{statRecord.round}회</td>
 								<td class="text-center">
 									<span class="inline-flex items-center justify-center w-6 h-6 rounded-full {
 										statRecord.digit_0_count > 0 ? getDigitColorClass('0') + ' text-white' : 'bg-base-300 text-base-content/50'
@@ -463,8 +463,8 @@ const getDigitLightColorClass = (digit: string) => {
 
 	<!-- 끝수 분석 가이드 -->
 	<div class="card bg-base-100 shadow-sm">
-		<div class="card-body">
-			<h2 class="card-title">끝수 분석 가이드</h2>
+		<div class="card-body p-3 sm:p-6">
+			<h2 class="card-title text-lg sm:text-xl">끝수 분석 가이드</h2>
 			<div class="space-y-3 text-sm">
 				<p>
 					끝수 분석은 번호의 마지막 자리수(0-9)를 기준으로 분석하는 방법입니다.

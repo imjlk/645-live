@@ -218,25 +218,27 @@ const breadcrumbItems = [
 	<div class="card bg-base-100 shadow-sm">
 		<div class="card-body p-4">
 			<h2 class="card-title text-lg">최근 회차 분석</h2>
-			<div class="flex items-center gap-4 flex-wrap">
-				<div class="flex items-center gap-2">
+			<div class="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+				<div class="flex flex-col sm:flex-row sm:items-center gap-2">
 					<label for="rounds-input" class="text-sm font-medium">최근:</label>
-					<input
-						id="rounds-input"
-						type="text"
-						inputmode="numeric"
-						pattern="[0-9]*"
-						bind:value={inputValue}
-						on:keydown={handleKeydown}
-						class="input input-bordered input-sm w-24 text-center"
-						placeholder="100"
-					/>
-					<span class="text-sm opacity-60">회차 (최대 {data.totalRounds})</span>
+					<div class="flex items-center gap-2">
+						<input
+							id="rounds-input"
+							type="text"
+							inputmode="numeric"
+							pattern="[0-9]*"
+							bind:value={inputValue}
+							on:keydown={handleKeydown}
+							class="input input-bordered input-sm w-24 text-center"
+							placeholder="100"
+						/>
+						<span class="text-sm opacity-60">회차 (최대 {data.totalRounds})</span>
+					</div>
 				</div>
 				<button
 					type="button"
 					on:click={navigateToAnalysis}
-					class="btn btn-primary btn-sm"
+					class="btn btn-primary btn-sm w-full sm:w-auto"
 				>
 					상세 분석
 				</button>
@@ -248,7 +250,7 @@ const breadcrumbItems = [
 	</div>
 
 	<!-- 요약 통계 -->
-	<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+	<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
 		<div class="stat bg-primary text-primary-content rounded-lg">
 			<div class="stat-title text-primary-content/70">평균 AC값</div>
 			<div class="stat-value text-2xl">{data.averageAcValue}</div>
@@ -279,7 +281,7 @@ const breadcrumbItems = [
 		<div class="card-body">
 			<h2 class="card-title">AC값 복잡도 분포</h2>
 			
-			<div class="grid grid-cols-1 md:grid-cols-5 gap-4 mt-4">
+			<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mt-4">
 				{#each Object.entries(data.acRangeDistribution) as [range, count]}
 					{@const totalAnalyzed = Object.values(data.acRangeDistribution).reduce((sum, val) => sum + val, 0)}
 					{@const percentage = totalAnalyzed > 0 ? ((count / totalAnalyzed) * 100).toFixed(1) : "0.0"}
@@ -298,7 +300,7 @@ const breadcrumbItems = [
 			<!-- 복잡도 분석 -->
 			<div class="mt-6 p-4 bg-base-200 rounded-lg">
 				<h3 class="font-semibold mb-2">복잡도 분석</h3>
-				<div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+				<div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
 					<div>
 						<span class="font-medium text-primary">낮은 복잡도 (0-6):</span>
 						<span class="ml-2">{data.lowComplexityRate}%</span>
@@ -317,30 +319,30 @@ const breadcrumbItems = [
 	<!-- 최근 10회차 AC값 -->
 	{#if data.recentStats.length > 0}
 	<div class="card bg-base-100 shadow-sm">
-		<div class="card-body">
-			<h2 class="card-title">최근 10회차 AC값 추이</h2>
+		<div class="card-body p-3 sm:p-6">
+			<h2 class="card-title text-lg sm:text-xl">최근 10회차 AC값 추이</h2>
 			
-			<div class="overflow-x-auto">
+			<div class="overflow-x-auto -mx-3 sm:mx-0">
 				<table class="table table-zebra w-full">
 					<thead>
 						<tr>
-							<th>회차</th>
-							<th>AC값</th>
-							<th>복잡도</th>
-							<th>설명</th>
+							<th class="sticky left-0 bg-base-200 z-10 text-xs sm:text-sm min-w-[60px]">회차</th>
+							<th class="text-center min-w-[60px] text-xs sm:text-sm">AC값</th>
+							<th class="text-center min-w-[80px] text-xs sm:text-sm">복잡도</th>
+							<th class="min-w-[120px] text-xs sm:text-sm">설명</th>
 						</tr>
 					</thead>
 					<tbody>
 						{#each data.recentStats as stat}
 							<tr>
-								<td class="font-semibold">{stat.round}회</td>
-								<td class="text-lg font-bold text-primary">{stat.ac_value}</td>
-								<td>
-									<div class="badge badge-outline">
+								<td class="font-semibold sticky left-0 bg-base-100 z-10 text-xs sm:text-sm">{stat.round}회</td>
+								<td class="text-center text-xs sm:text-sm font-bold text-primary">{stat.ac_value}</td>
+								<td class="text-center">
+									<div class="badge badge-outline text-xs">
 										{getComplexityLabel(stat.ac_value)}
 									</div>
 								</td>
-								<td class="text-sm text-base-content/70">
+								<td class="text-xs sm:text-sm text-base-content/70">
 									{getComplexityDescription(stat.ac_value)}
 								</td>
 							</tr>
@@ -354,17 +356,17 @@ const breadcrumbItems = [
 
 	<!-- 전체 AC값 분포 테이블 -->
 	<div class="card bg-base-100 shadow-sm">
-		<div class="card-body">
-			<h2 class="card-title">AC값별 상세 분포</h2>
+		<div class="card-body p-3 sm:p-6">
+			<h2 class="card-title text-lg sm:text-xl">AC값별 상세 분포</h2>
 			
-			<div class="overflow-x-auto">
+			<div class="overflow-x-auto -mx-3 sm:mx-0">
 				<table class="table table-zebra w-full">
 					<thead>
 						<tr>
-							<th>AC값</th>
-							<th>출현 횟수</th>
-							<th>출현 비율</th>
-							<th>복잡도</th>
+							<th class="sticky left-0 bg-base-200 z-10 text-xs sm:text-sm min-w-[60px]">AC값</th>
+							<th class="text-center min-w-[80px] text-xs sm:text-sm">출현 횟수</th>
+							<th class="text-center min-w-[80px] text-xs sm:text-sm">출현 비율</th>
+							<th class="min-w-[80px] text-xs sm:text-sm">복잡도</th>
 						</tr>
 					</thead>
 					<tbody>
@@ -374,11 +376,11 @@ const breadcrumbItems = [
 							{@const totalDistributed = Object.values(data.acDistribution).reduce((sum, val) => sum + val, 0)}
 							{@const percentage = totalDistributed > 0 ? ((count / totalDistributed) * 100).toFixed(1) : "0.0"}
 							<tr>
-								<td class="font-semibold text-lg">{acValue}</td>
-								<td>{count}회</td>
-								<td>{percentage}%</td>
+								<td class="font-semibold sticky left-0 bg-base-100 z-10 text-xs sm:text-sm">{acValue}</td>
+								<td class="text-center text-xs sm:text-sm">{count}회</td>
+								<td class="text-center text-xs sm:text-sm">{percentage}%</td>
 								<td>
-									<div class="badge badge-outline">
+									<div class="badge badge-outline text-xs">
 										{getComplexityLabel(Number(acValue))}
 									</div>
 								</td>
@@ -402,7 +404,7 @@ const breadcrumbItems = [
 					향후 번호 선택 전략을 수립할 수 있습니다.
 				</p>
 				
-				<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+				<div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
 					<div class="bg-primary/5 p-4 rounded-lg">
 						<h3 class="font-semibold text-primary mb-3 text-lg">🔸 낮은 AC값 (0-6)</h3>
 						<h4 class="font-medium mb-2">특징:</h4>

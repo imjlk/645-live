@@ -101,10 +101,10 @@ function isWinningNumber(num: number): boolean {
 		<!-- Round Navigation -->
 		<div class="bg-base-100 rounded-lg shadow-md p-4 md:p-6 mb-6 md:mb-8">
 			<div class="flex flex-col gap-4">
-				<div class="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4">
-					<span class="text-base md:text-lg font-semibold text-base-content">회차 선택:</span>
+				<div class="flex flex-col gap-3">
+					<span class="text-sm sm:text-base md:text-lg font-semibold text-base-content">회차 선택:</span>
 					<select 
-						class="border border-gray-300 rounded-lg px-3 py-2 text-sm md:text-base focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-full sm:w-auto"
+						class="border border-gray-300 rounded-lg px-3 py-2 text-sm md:text-base focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-full"
 						value={data.targetRound}
 						on:change={(e) => {
 							const target = e.target as HTMLSelectElement;
@@ -133,7 +133,7 @@ function isWinningNumber(num: number): boolean {
 
 		<!-- Current Round Info -->
 		<div class="bg-base-100 rounded-lg shadow-md p-4 md:p-6 mb-6 md:mb-8">
-			<div class="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
+			<div class="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6">
 				<div class="text-center md:text-left">
 					<h3 class="text-base md:text-lg font-semibold text-base-content mb-2">현재 보기</h3>
 					<p class="text-xl md:text-2xl font-bold text-blue-600">{data.targetRound}회차</p>
@@ -172,7 +172,7 @@ function isWinningNumber(num: number): boolean {
 			<h3 class="text-lg md:text-xl font-semibold text-base-content mb-4 md:mb-6">번호별 스캔 통계</h3>
 			
 			{#if numbers.length > 0}
-				<div class="grid grid-cols-5 md:grid-cols-9 lg:grid-cols-15 gap-2 md:gap-3">
+				<div class="grid grid-cols-5 sm:grid-cols-6 md:grid-cols-9 lg:grid-cols-15 gap-2 md:gap-3">
 					{#each numbers as ball}
 						<div class="relative flex flex-col items-center">
 							<SimpleBall 
@@ -204,7 +204,7 @@ function isWinningNumber(num: number): boolean {
 		{#if numbers.length > 0}
 			<div class="bg-base-200 rounded-lg p-4 md:p-6">
 				<h3 class="text-base md:text-lg font-semibold text-base-content mb-4">통계 요약</h3>
-				<div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
+				<div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
 					<div class="bg-white rounded-lg p-3 md:p-4">
 						<p class="text-xs md:text-sm text-base-content/70 mb-1">최다 스캔 번호</p>
 						<p class="text-lg md:text-xl font-bold text-blue-600">

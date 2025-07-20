@@ -117,7 +117,7 @@ export let data: PageData;
 
 	<!-- 통계 카테고리 네비게이션 -->
 	<nav class="mb-8">
-		<div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+		<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
 			<a href="/stats/numbers" class="stats-nav-card">
 				<div class="text-2xl mb-2">🔢</div>
 				<h3 class="font-semibold text-sm">번호별 통계</h3>
@@ -167,14 +167,14 @@ export let data: PageData;
 	</nav>
 
 	<!-- 주요 통계 요약 -->
-	<div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+	<div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
 		<!-- 번호별 통계 요약 -->
 		<section class="bg-base-100 rounded-lg shadow-md p-6">
 			<h2 class="text-xl font-bold mb-4 flex items-center">
 				<span class="text-2xl mr-2">🔢</span>
 				번호별 출현 빈도
 			</h2>
-			<div class="grid grid-cols-2 gap-4">
+			<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
 				<div>
 					<h3 class="font-semibold text-success mb-2">최다 출현 번호</h3>
 					<div class="space-y-2">
@@ -289,7 +289,7 @@ export let data: PageData;
 	<!-- 통계 활용 가이드 -->
 	<section class="bg-base-200 rounded-lg p-6">
 		<h2 class="text-xl font-bold mb-4 text-base-content">📚 통계 활용 가이드</h2>
-		<div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+		<div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
 			<div>
 				<h3 class="font-semibold mb-2 text-base-content">통계 분석 방법</h3>
 				<ul class="space-y-1 text-base-content/70">

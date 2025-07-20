@@ -223,14 +223,14 @@ $: sortedRepeatCounts = Object.entries(
 	}}
 />
 
-<div class="p-6 space-y-6">
+<div class="p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-6">
 	<!-- Breadcrumbs -->
 	<Breadcrumbs items={breadcrumbItems} />
 
 	<!-- 페이지 헤더 -->
 	<div class="text-center space-y-2">
-		<h1 class="text-3xl font-bold text-primary">연속번호 중복 분석 통계</h1>
-		<p class="text-base-content/70">
+		<h1 class="text-2xl sm:text-3xl font-bold text-primary">연속번호 중복 분석 통계</h1>
+		<p class="text-sm sm:text-base text-base-content/70">
 			최근 <span class="font-semibold text-primary">{data.selectedRounds}회차</span>의 연속 회차 간 중복 번호 패턴을 분석합니다.<br />
 			이전 회차와 현재 회차의 번호 중복 빈도와 연속성을 확인하세요.
 		</p>
@@ -238,11 +238,11 @@ $: sortedRepeatCounts = Object.entries(
 
 	<!-- 최근 회차 분석 -->
 	<div class="card bg-base-100 shadow-sm">
-		<div class="card-body p-4">
-			<h2 class="card-title text-lg">최근 회차 분석</h2>
-			<div class="flex items-center gap-4 flex-wrap">
-				<div class="flex items-center gap-2">
-					<label for="rounds-input" class="text-sm font-medium">분석 회차 (1-{data.totalRounds}):</label>
+		<div class="card-body p-3 sm:p-4">
+			<h2 class="card-title text-base sm:text-lg">최근 회차 분석</h2>
+			<div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
+				<div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+					<label for="rounds-input" class="text-xs sm:text-sm font-medium">분석 회차 (1-{data.totalRounds}):</label>
 					<input
 						id="rounds-input"
 						type="text"
@@ -250,76 +250,78 @@ $: sortedRepeatCounts = Object.entries(
 						pattern="[0-9]*"
 						bind:value={inputValue}
 						on:keydown={handleKeydown}
-						class="input input-bordered input-sm w-20 text-center"
+						class="input input-bordered input-sm w-full sm:w-20 text-center"
 						placeholder="100"
 					/>
 				</div>
-				<button
-					type="button"
-					on:click={navigateToAnalysis}
-					class="btn btn-primary btn-sm"
-				>
-					분석하기
-				</button>
-				<LinkButton
-					href="/stats/repeat"
-					class="btn-outline btn-sm"
-				>
-					전체 회차 보기
-				</LinkButton>
+				<div class="flex flex-col sm:flex-row gap-2 sm:gap-4">
+					<button
+						type="button"
+						on:click={navigateToAnalysis}
+						class="btn btn-primary btn-sm w-full sm:w-auto min-h-[2.5rem] sm:min-h-[2rem]"
+					>
+						분석하기
+					</button>
+					<LinkButton
+						href="/stats/repeat"
+						class="btn btn-outline btn-sm w-full sm:w-auto min-h-[2.5rem] sm:min-h-[2rem]"
+					>
+						전체 회차 보기
+					</LinkButton>
+				</div>
 			</div>
-			<p class="text-sm text-base-content/60">
+			<p class="text-xs sm:text-sm text-base-content/60">
 				현재 최근 <span class="font-semibold text-primary">{data.selectedRounds}회차</span> 데이터를 분석 중입니다.
 			</p>
 		</div>
 	</div>
 
 	<!-- 요약 통계 -->
-	<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-		<div class="stat bg-primary text-primary-content rounded-lg">
-			<div class="stat-title text-primary-content/70">평균 중복 개수</div>
-			<div class="stat-value text-2xl">{data.repeatStats.summary.averageRepeatCount}</div>
-			<div class="stat-desc text-primary-content/70">최근 {data.selectedRounds}회차</div>
+	<div class="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4">
+		<div class="stat bg-primary text-primary-content rounded-lg p-3 sm:p-6">
+			<div class="stat-title text-primary-content/70 text-xs sm:text-sm">평균 중복 개수</div>
+			<div class="stat-value text-lg sm:text-2xl">{data.repeatStats.summary.averageRepeatCount}</div>
+			<div class="stat-desc text-primary-content/70 text-xs sm:text-sm">최근 {data.selectedRounds}회차</div>
 		</div>
 		
-		<div class="stat bg-secondary text-secondary-content rounded-lg">
-			<div class="stat-title text-secondary-content/70">최대 중복 개수</div>
-			<div class="stat-value text-2xl">{data.repeatStats.summary.maxRepeatCount}</div>
-			<div class="stat-desc text-secondary-content/70">기록상 최고치</div>
+		<div class="stat bg-secondary text-secondary-content rounded-lg p-3 sm:p-6">
+			<div class="stat-title text-secondary-content/70 text-xs sm:text-sm">최대 중복 개수</div>
+			<div class="stat-value text-lg sm:text-2xl">{data.repeatStats.summary.maxRepeatCount}</div>
+			<div class="stat-desc text-secondary-content/70 text-xs sm:text-sm">기록상 최고치</div>
 		</div>
 		
-		<div class="stat bg-accent text-accent-content rounded-lg">
-			<div class="stat-title text-accent-content/70">중복 없음</div>
-			<div class="stat-value text-2xl">{data.repeatStats.summary.zeroRepeatRate}%</div>
-			<div class="stat-desc text-accent-content/70">{data.repeatStats.summary.zeroRepeatCount}회 중복 없음</div>
+		<div class="stat bg-accent text-accent-content rounded-lg p-3 sm:p-6">
+			<div class="stat-title text-accent-content/70 text-xs sm:text-sm">중복 없음</div>
+			<div class="stat-value text-lg sm:text-2xl">{data.repeatStats.summary.zeroRepeatRate}%</div>
+			<div class="stat-desc text-accent-content/70 text-xs sm:text-sm">{data.repeatStats.summary.zeroRepeatCount}회 중복 없음</div>
 		</div>
 		
-		<div class="stat bg-info text-info-content rounded-lg">
-			<div class="stat-title text-info-content/70">높은 중복</div>
-			<div class="stat-value text-2xl">{data.repeatStats.summary.highRepeatRate}%</div>
-			<div class="stat-desc text-info-content/70">3개 이상 중복</div>
+		<div class="stat bg-info text-info-content rounded-lg p-3 sm:p-6">
+			<div class="stat-title text-info-content/70 text-xs sm:text-sm">높은 중복</div>
+			<div class="stat-value text-lg sm:text-2xl">{data.repeatStats.summary.highRepeatRate}%</div>
+			<div class="stat-desc text-info-content/70 text-xs sm:text-sm">3개 이상 중복</div>
 		</div>
 	</div>
 
 	<!-- 중복 개수별 분포 -->
 	<div class="card bg-base-100 shadow-sm">
-		<div class="card-body">
-			<h2 class="card-title">중복 개수별 분포</h2>
-			<p class="text-sm text-base-content/60 mb-4">
+		<div class="card-body p-3 sm:p-6">
+			<h2 class="card-title text-base sm:text-lg">중복 개수별 분포</h2>
+			<p class="text-xs sm:text-sm text-base-content/60 mb-3 sm:mb-4">
 				이전 회차와 중복되는 번호의 개수별 분포를 나타냅니다.
 			</p>
 			
-			<div class="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-7 gap-4">
+			<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-2 sm:gap-4">
 				{#each sortedRepeatCounts as [repeatCount, count]}
 					{@const percentage = data.repeatStats.summary.totalDraws > 0 ? ((count / data.repeatStats.summary.totalDraws) * 100).toFixed(1) : "0.0"}
 					{@const analysis = getRepeatAnalysis(Number(repeatCount))}
 					
-					<div class="text-center space-y-2 p-4 bg-base-200 rounded-lg">
+					<div class="text-center space-y-1 sm:space-y-2 p-2 sm:p-4 bg-base-200 rounded-lg">
 						<div class="text-xs text-base-content/70">중복</div>
-						<div class="text-2xl font-bold text-primary">{repeatCount}개</div>
-						<div class="text-lg font-semibold">{count}회</div>
-						<div class="text-sm text-base-content/60">{percentage}%</div>
-						<div class="text-xs badge badge-outline badge-{analysis.color}">
+						<div class="text-lg sm:text-2xl font-bold text-primary">{repeatCount}개</div>
+						<div class="text-sm sm:text-lg font-semibold">{count}회</div>
+						<div class="text-xs sm:text-sm text-base-content/60">{percentage}%</div>
+						<div class="text-xs badge badge-outline badge-{analysis.color} whitespace-nowrap">
 							{analysis.type}
 						</div>
 					</div>
@@ -327,16 +329,16 @@ $: sortedRepeatCounts = Object.entries(
 			</div>
 
 			<!-- 중복 패턴 분석 -->
-			<div class="mt-6 p-4 bg-base-200 rounded-lg">
-				<h3 class="font-semibold mb-3">중복 패턴 분석</h3>
-				<div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+			<div class="mt-4 sm:mt-6 p-3 sm:p-4 bg-base-200 rounded-lg">
+				<h3 class="font-semibold mb-2 sm:mb-3 text-sm sm:text-base">중복 패턴 분석</h3>
+				<div class="grid grid-cols-1 gap-3 sm:gap-4 text-xs sm:text-sm">
 					{#each sortedRepeatCounts as [repeatCount, count]}
 						{@const percentage = data.repeatStats.summary.totalDraws > 0 ? ((count / data.repeatStats.summary.totalDraws) * 100).toFixed(1) : "0.0"}
 						{@const analysis = getRepeatAnalysis(Number(repeatCount))}
 						
-						<div class="flex justify-between items-center">
+						<div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1 sm:gap-0">
 							<span class="font-medium">{getRepeatLabel(Number(repeatCount))}:</span>
-							<div class="text-right">
+							<div class="text-left sm:text-right">
 								<span class="font-bold text-{analysis.color}">{percentage}%</span>
 								<div class="text-xs text-base-content/60">{analysis.description}</div>
 							</div>
@@ -350,17 +352,17 @@ $: sortedRepeatCounts = Object.entries(
 	<!-- 최근 회차별 상세 데이터 -->
 	{#if data.repeatStats.records && data.repeatStats.records.length > 0}
 	<div class="card bg-base-100 shadow-sm">
-		<div class="card-body">
-			<h2 class="card-title">최근 20회차 중복 데이터</h2>
+		<div class="card-body p-3 sm:p-6">
+			<h2 class="card-title text-base sm:text-lg">최근 20회차 중복 데이터</h2>
 			
-			<div class="overflow-x-auto">
+			<div class="overflow-x-auto -mx-3 sm:mx-0">
 				<table class="table table-zebra w-full">
 					<thead>
 						<tr>
-							<th>회차</th>
-							<th>중복 개수</th>
-							<th>연속성</th>
-							<th>패턴 유형</th>
+							<th class="sticky left-0 bg-base-200 z-10 text-xs sm:text-sm min-w-[60px]">회차</th>
+							<th class="min-w-[70px] text-center text-xs sm:text-sm">중복 개수</th>
+							<th class="min-w-[80px] text-center text-xs sm:text-sm">연속성</th>
+							<th class="min-w-[80px] text-center text-xs sm:text-sm">패턴 유형</th>
 						</tr>
 					</thead>
 					<tbody>
@@ -368,15 +370,15 @@ $: sortedRepeatCounts = Object.entries(
 							{@const statRecord = stat as { round: number; repeat_count: number }}
 							{@const analysis = getRepeatAnalysis(statRecord.repeat_count)}
 							<tr>
-								<td class="font-semibold">{statRecord.round}회</td>
-								<td class="text-lg font-bold text-primary">{statRecord.repeat_count}개</td>
-								<td>
-									<div class="badge badge-outline">
+								<td class="sticky left-0 bg-base-100 z-10 font-semibold text-xs sm:text-sm">{statRecord.round}회</td>
+								<td class="text-sm sm:text-lg font-bold text-primary text-center">{statRecord.repeat_count}개</td>
+								<td class="text-center">
+									<div class="badge badge-outline badge-sm whitespace-nowrap">
 										{getRepeatLabel(statRecord.repeat_count)}
 									</div>
 								</td>
-								<td>
-									<div class="badge badge-{analysis.color}">
+								<td class="text-center">
+									<div class="badge badge-{analysis.color} badge-sm whitespace-nowrap">
 										{analysis.type}
 									</div>
 								</td>
@@ -391,32 +393,34 @@ $: sortedRepeatCounts = Object.entries(
 
 	<!-- 연속 번호 분석 가이드 -->
 	<div class="card bg-base-100 shadow-sm">
-		<div class="card-body">
-			<h2 class="card-title">연속 번호 분석 가이드</h2>
-			<div class="space-y-3 text-sm">
+		<div class="card-body p-3 sm:p-6">
+			<h2 class="card-title text-base sm:text-lg">연속 번호 분석 가이드</h2>
+			<div class="space-y-2 sm:space-y-3 text-xs sm:text-sm">
 				<p>
 					연속 회차 간 중복 번호는 로또의 연속성을 파악하는 중요한 지표입니다.
 				</p>
-				<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-					<div>
-						<h4 class="font-semibold text-primary mb-2">일반적인 패턴</h4>
-						<ul class="list-disc list-inside space-y-1 text-base-content/70">
-							<li><strong>중복 없음:</strong> 완전히 새로운 번호 조합</li>
-							<li><strong>1-2개 중복:</strong> 가장 일반적인 패턴</li>
-							<li><strong>평균 중복:</strong> 약 1-2개 수준</li>
-						</ul>
-					</div>
-					<div>
-						<h4 class="font-semibold text-secondary mb-2">특별한 패턴</h4>
-						<ul class="list-disc list-inside space-y-1 text-base-content/70">
-							<li><strong>3개 이상 중복:</strong> 높은 연속성 (드문 경우)</li>
-							<li><strong>0개 중복:</strong> 완전 새로운 패턴</li>
-							<li><strong>4개 이상:</strong> 매우 드문 극단적 연속성</li>
-						</ul>
+				<div class="grid grid-cols-1 gap-3 sm:gap-4">
+					<div class="space-y-3">
+						<div>
+							<h4 class="font-semibold text-primary mb-1 sm:mb-2 text-sm sm:text-base">일반적인 패턴</h4>
+							<ul class="list-disc list-inside space-y-1 text-base-content/70">
+								<li><strong>중복 없음:</strong> 완전히 새로운 번호 조합</li>
+								<li><strong>1-2개 중복:</strong> 가장 일반적인 패턴</li>
+								<li><strong>평균 중복:</strong> 약 1-2개 수준</li>
+							</ul>
+						</div>
+						<div>
+							<h4 class="font-semibold text-secondary mb-1 sm:mb-2 text-sm sm:text-base">특별한 패턴</h4>
+							<ul class="list-disc list-inside space-y-1 text-base-content/70">
+								<li><strong>3개 이상 중복:</strong> 높은 연속성 (드문 경우)</li>
+								<li><strong>0개 중복:</strong> 완전 새로운 패턴</li>
+								<li><strong>4개 이상:</strong> 매우 드문 극단적 연속성</li>
+							</ul>
+						</div>
 					</div>
 				</div>
-				<div class="mt-4 p-3 bg-info/10 rounded-lg">
-					<p class="text-info font-medium">
+				<div class="mt-3 sm:mt-4 p-2 sm:p-3 bg-info/10 rounded-lg">
+					<p class="text-info font-medium text-xs sm:text-sm">
 						💡 팁: 대부분의 회차에서 이전 회차와 1-2개 번호가 중복되며, 
 						완전히 새로운 조합이나 높은 중복은 상대적으로 드뭅니다.
 					</p>

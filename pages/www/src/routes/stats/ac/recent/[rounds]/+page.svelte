@@ -204,32 +204,32 @@ const breadcrumbItems = [
 	}}
 />
 
-<div class="p-6 space-y-6">
+<div class="p-4 sm:p-6 space-y-4 sm:space-y-6">
 	<!-- Breadcrumbs -->
 	<Breadcrumbs items={breadcrumbItems} />
 
 	<!-- 페이지 헤더 -->
 	<div class="text-center space-y-2">
-		<h1 class="text-3xl font-bold text-primary">로또 6/45 AC값 상세 분석</h1>
-		<p class="text-base-content/70">
-			최근 <strong class="text-primary">{data.selectedRounds}회차</strong>의 <strong>AC값(Arithmetic Complexity)</strong> 분포와 패턴을 상세히 분석합니다.<br />
+		<h1 class="text-2xl sm:text-3xl font-bold text-primary">로또 6/45 AC값 상세 분석</h1>
+		<p class="text-sm sm:text-base text-base-content/70 px-2">
+			최근 <strong class="text-primary">{data.selectedRounds}회차</strong>의 <strong>AC값(Arithmetic Complexity)</strong> 분포와 패턴을 상세히 분석합니다.<br class="hidden sm:block" />
 			평균 AC값 <strong class="text-secondary">{data.acStats.summary.avgAC.toFixed(2)}</strong>, 범위 <strong class="text-accent">{data.acStats.summary.minAC}~{data.acStats.summary.maxAC}</strong>의 복잡도 분석을 통해 
 			당첨번호 패턴을 파악해보세요.
 		</p>
-		<div class="flex justify-center gap-4 text-sm text-base-content/60 mt-4">
+		<div class="flex flex-col sm:flex-row justify-center gap-2 sm:gap-4 text-xs sm:text-sm text-base-content/60 mt-4">
 			<span>📊 평균 AC값: <strong class="text-primary">{data.acStats.summary.avgAC.toFixed(2)}</strong></span>
 			<span>📈 분석 회차: <strong class="text-secondary">{data.selectedRounds}회</strong></span>
 			<span>🎯 범위: <strong class="text-accent">{data.acStats.summary.minAC}~{data.acStats.summary.maxAC}</strong></span>
 		</div>
 	</div>
 
-	<!-- 최근 회차 분석 변경 -->
+	<!-- 최근 회차 분석 -->
 	<div class="card bg-base-100 shadow-sm">
-		<div class="card-body p-4">
-			<h2 class="card-title text-lg">최근 회차 분석</h2>
-			<div class="flex items-center gap-4 flex-wrap">
-				<div class="flex items-center gap-2">
-					<label for="rounds-input" class="text-sm font-medium">최근:</label>
+		<div class="card-body p-3 sm:p-4">
+			<h2 class="card-title text-base sm:text-lg">최근 회차 분석</h2>
+			<div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
+				<div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+					<label for="rounds-input" class="text-xs sm:text-sm font-medium">분석 회차 (1-{data.totalRounds}):</label>
 					<input
 						id="rounds-input"
 						type="text"
@@ -237,72 +237,73 @@ const breadcrumbItems = [
 						pattern="[0-9]*"
 						bind:value={inputValue}
 						on:keydown={handleKeydown}
-						class="input input-bordered input-sm w-24 text-center"
+						class="input input-bordered input-sm w-full sm:w-20 text-center"
 						placeholder="100"
 					/>
-					<span class="text-sm opacity-60">회차 (최대 {data.totalRounds})</span>
 				</div>
-				<button
-					type="button"
-					on:click={navigateToAnalysis}
-					class="btn btn-primary btn-sm"
-				>
-					분석하기
-				</button>
-				<LinkButton
-					href="/stats/ac"
-					class="btn btn-outline btn-sm"
-				>
-					전체 회차 보기
-				</LinkButton>
+				<div class="flex flex-col sm:flex-row gap-2 sm:gap-4">
+					<button
+						type="button"
+						on:click={navigateToAnalysis}
+						class="btn btn-primary btn-sm w-full sm:w-auto min-h-[2.5rem] sm:min-h-[2rem]"
+					>
+						분석하기
+					</button>
+					<LinkButton
+						href="/stats/ac"
+						class="btn btn-outline btn-sm w-full sm:w-auto min-h-[2.5rem] sm:min-h-[2rem]"
+					>
+						전체 회차 보기
+					</LinkButton>
+				</div>
 			</div>
-			<p class="text-sm text-base-content/60">
-				현재 최근 <span class="font-semibold text-primary">{data.selectedRounds}회차</span> 데이터를 분석 중입니다. 다른 회차 수를 입력하여 비교 분석해보세요.
+			<p class="text-xs sm:text-sm text-base-content/60">
+				현재 최근 <span class="font-semibold text-primary">{data.selectedRounds}회차</span> 데이터를 분석 중입니다.
 			</p>
 		</div>
 	</div>
 
 	<!-- 요약 통계 -->
-	<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-		<div class="stat bg-primary text-primary-content rounded-lg">
-			<div class="stat-title text-primary-content/70">평균 AC값</div>
-			<div class="stat-value text-2xl">{data.acStats.summary.avgAC.toFixed(2)}</div>
-			<div class="stat-desc text-primary-content/70">최근 {data.selectedRounds}회차</div>
+	<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+		<div class="stat bg-primary text-primary-content rounded-lg p-4">
+			<div class="stat-title text-primary-content/70 text-xs sm:text-sm">평균 AC값</div>
+			<div class="stat-value text-xl sm:text-2xl">{data.acStats.summary.avgAC.toFixed(2)}</div>
+			<div class="stat-desc text-primary-content/70 text-xs">최근 {data.selectedRounds}회차</div>
 		</div>
 		
-		<div class="stat bg-secondary text-secondary-content rounded-lg">
-			<div class="stat-title text-secondary-content/70">최대 AC값</div>
-			<div class="stat-value text-2xl">{data.acStats.summary.maxAC}</div>
-			<div class="stat-desc text-secondary-content/70">{getComplexityLabel(data.acStats.summary.maxAC)}</div>
+		<div class="stat bg-secondary text-secondary-content rounded-lg p-4">
+			<div class="stat-title text-secondary-content/70 text-xs sm:text-sm">최대 AC값</div>
+			<div class="stat-value text-xl sm:text-2xl">{data.acStats.summary.maxAC}</div>
+			<div class="stat-desc text-secondary-content/70 text-xs">{getComplexityLabel(data.acStats.summary.maxAC)}</div>
 		</div>
 		
-		<div class="stat bg-accent text-accent-content rounded-lg">
-			<div class="stat-title text-accent-content/70">최소 AC값</div>
-			<div class="stat-value text-2xl">{data.acStats.summary.minAC}</div>
-			<div class="stat-desc text-accent-content/70">{getComplexityLabel(data.acStats.summary.minAC)}</div>
+		<div class="stat bg-accent text-accent-content rounded-lg p-4">
+			<div class="stat-title text-accent-content/70 text-xs sm:text-sm">최소 AC값</div>
+			<div class="stat-value text-xl sm:text-2xl">{data.acStats.summary.minAC}</div>
+			<div class="stat-desc text-accent-content/70 text-xs">{getComplexityLabel(data.acStats.summary.minAC)}</div>
 		</div>
 		
-		<div class="stat bg-info text-info-content rounded-lg">
-			<div class="stat-title text-info-content/70">분석 회차</div>
-			<div class="stat-value text-2xl">{data.acStats.summary.totalDraws}</div>
-			<div class="stat-desc text-info-content/70">총 추첨 회수</div>
+		<div class="stat bg-info text-info-content rounded-lg p-4">
+			<div class="stat-title text-info-content/70 text-xs sm:text-sm">분석 회차</div>
+			<div class="stat-value text-xl sm:text-2xl">{data.acStats.summary.totalDraws}</div>
+			<div class="stat-desc text-info-content/70 text-xs">총 추첨 회수</div>
 		</div>
 	</div>
 
 	<!-- AC값 분포 -->
 	<div class="card bg-base-100 shadow-sm">
-		<div class="card-body">
-			<h2 class="card-title">AC값 상세 분포</h2>
+		<div class="card-body p-3 sm:p-6">
+			<h2 class="card-title text-lg sm:text-xl">AC값 상세 분포</h2>
 			
-			<div class="overflow-x-auto">
+			<div class="overflow-x-auto -mx-3 sm:mx-0">
 				<table class="table table-zebra w-full">
 					<thead>
 						<tr>
-							<th>AC값</th>
-							<th>출현 횟수</th>
-							<th>출현 비율</th>
-							<th>복잡도</th>
-							<th>설명</th>
+							<th class="sticky left-0 bg-base-200 z-10 text-xs sm:text-sm min-w-[60px]">AC값</th>
+							<th class="text-xs sm:text-sm min-w-[70px] text-center">출현 횟수</th>
+							<th class="text-xs sm:text-sm min-w-[70px] text-center">출현 비율</th>
+							<th class="text-xs sm:text-sm min-w-[80px] text-center">복잡도</th>
+							<th class="text-xs sm:text-sm min-w-[120px]">설명</th>
 						</tr>
 					</thead>
 					<tbody>
@@ -310,15 +311,15 @@ const breadcrumbItems = [
 							.filter(([_, count]) => count > 0)
 							.sort(([a], [b]) => Number(a) - Number(b)) as [ac, count]}
 							<tr>
-								<td class="font-semibold text-lg">{ac}</td>
-								<td>{count}회</td>
-								<td>{getPercentage(Number(count), data.acStats.summary.totalDraws)}%</td>
-								<td>
-									<div class="badge badge-outline">
+								<td class="sticky left-0 bg-base-100 z-10 font-semibold text-xs sm:text-sm">{ac}</td>
+								<td class="text-center text-xs sm:text-sm">{count}회</td>
+								<td class="font-medium text-primary text-center text-xs sm:text-sm">{getPercentage(Number(count), data.acStats.summary.totalDraws)}%</td>
+								<td class="text-center">
+									<div class="badge badge-outline badge-sm whitespace-nowrap">
 										{getComplexityLabel(Number(ac))}
 									</div>
 								</td>
-								<td class="text-sm text-base-content/70">
+								<td class="text-xs sm:text-sm text-base-content/70">
 									{getComplexityDescription(Number(ac))}
 								</td>
 							</tr>
@@ -331,30 +332,30 @@ const breadcrumbItems = [
 
 	<!-- 추첨 결과 -->
 	<div class="card bg-base-100 shadow-sm">
-		<div class="card-body">
-			<h2 class="card-title">추첨 결과 ({data.selectedRounds}회차)</h2>
+		<div class="card-body p-3 sm:p-6">
+			<h2 class="card-title text-lg sm:text-xl">추첨 결과 ({data.selectedRounds}회차)</h2>
 			
-			<div class="overflow-x-auto">
+			<div class="overflow-x-auto -mx-3 sm:mx-0">
 				<table class="table table-zebra w-full">
 					<thead>
 						<tr>
-							<th>회차</th>
-							<th>AC값</th>
-							<th>복잡도</th>
-							<th>설명</th>
+							<th class="sticky left-0 bg-base-200 z-10 text-xs sm:text-sm min-w-[60px]">회차</th>
+							<th class="text-xs sm:text-sm min-w-[70px] text-center">AC값</th>
+							<th class="text-xs sm:text-sm min-w-[80px] text-center">복잡도</th>
+							<th class="text-xs sm:text-sm min-w-[120px]">설명</th>
 						</tr>
 					</thead>
 					<tbody>
 						{#each data.acStats.records as record}
 							<tr>
-								<td class="font-semibold">{record.round}회</td>
-								<td class="text-lg font-bold text-primary">{record.ac_value}</td>
-								<td>
-									<div class="badge badge-outline">
+								<td class="sticky left-0 bg-base-100 z-10 font-semibold text-xs sm:text-sm">{record.round}회</td>
+								<td class="text-sm sm:text-lg font-bold text-primary text-center">{record.ac_value}</td>
+								<td class="text-center">
+									<div class="badge badge-outline badge-sm whitespace-nowrap">
 										{getComplexityLabel(record.ac_value)}
 									</div>
 								</td>
-								<td class="text-sm text-base-content/70">
+								<td class="text-xs sm:text-sm text-base-content/70">
 									{getComplexityDescription(record.ac_value)}
 								</td>
 							</tr>
@@ -367,18 +368,18 @@ const breadcrumbItems = [
 
 	<!-- AC값 가이드 -->
 	<div class="card bg-base-100 shadow-sm">
-		<div class="card-body">
-			<h2 class="card-title">AC값 분석 요약</h2>
+		<div class="card-body p-3 sm:p-6">
+			<h2 class="card-title text-lg sm:text-xl">AC값 분석 요약</h2>
 			<div class="space-y-4 text-sm">
-				<p class="text-base leading-relaxed">
+				<p class="text-sm sm:text-base leading-relaxed">
 					최근 <strong class="text-primary">{data.selectedRounds}회차</strong>의 AC값을 분석한 결과입니다. 
 					평균 AC값은 <strong class="text-secondary">{data.acStats.summary.avgAC.toFixed(2)}</strong>이며, 
 					{data.acStats.summary.minAC}~{data.acStats.summary.maxAC} 범위에서 분포하고 있습니다.
 				</p>
 				
-				<div class="bg-info/5 p-4 rounded-lg">
-					<h3 class="font-semibold text-info mb-2">💡 이 분석으로 알 수 있는 것</h3>
-					<ul class="list-disc list-inside space-y-1 text-base-content/70">
+				<div class="bg-info/5 p-3 sm:p-4 rounded-lg">
+					<h3 class="font-semibold text-info mb-2 text-sm sm:text-base">💡 이 분석으로 알 수 있는 것</h3>
+					<ul class="list-disc list-inside space-y-1 text-xs sm:text-sm text-base-content/70">
 						<li><strong>복잡도 패턴:</strong> 번호 조합의 복잡성 분포</li>
 						<li><strong>출현 빈도:</strong> 각 AC값의 출현 횟수와 비율</li>
 						<li><strong>트렌드 분석:</strong> 최근 {data.selectedRounds}회차의 AC값 변화 추이</li>

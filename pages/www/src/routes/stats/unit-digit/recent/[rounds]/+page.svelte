@@ -275,13 +275,13 @@ const sortedPatterns = $derived(
 		</div>
 	</div>
 
-	<!-- 최근 회차 분석 변경 -->
+	<!-- 최근 회차 분석 -->
 	<div class="card bg-base-100 shadow-sm">
-		<div class="card-body p-4">
-			<h2 class="card-title text-lg">최근 회차 분석</h2>
-			<div class="flex items-center gap-4 flex-wrap">
-				<div class="flex items-center gap-2">
-					<label for="rounds-input" class="text-sm font-medium">최근:</label>
+		<div class="card-body p-3 sm:p-4">
+			<h2 class="card-title text-base sm:text-lg">최근 회차 분석</h2>
+			<div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
+				<div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+					<label for="rounds-input" class="text-xs sm:text-sm font-medium">분석 회차 (1-{data.totalRounds}):</label>
 					<input
 						id="rounds-input"
 						type="text"
@@ -289,33 +289,34 @@ const sortedPatterns = $derived(
 						pattern="[0-9]*"
 						bind:value={inputValue}
 						onkeydown={handleKeydown}
-						class="input input-bordered input-sm w-24 text-center"
+						class="input input-bordered input-sm w-full sm:w-20 text-center"
 						placeholder="100"
 					/>
-					<span class="text-sm opacity-60">회차 (최대 {data.totalRounds})</span>
 				</div>
-				<button
-					type="button"
-					onclick={navigateToAnalysis}
-					class="btn btn-primary btn-sm"
-				>
-					분석하기
-				</button>
-				<LinkButton
-					href="/stats/unit-digit"
-					class="btn btn-outline btn-sm"
-				>
-					전체 회차 보기
-				</LinkButton>
+				<div class="flex flex-col sm:flex-row gap-2 sm:gap-4">
+					<button
+						type="button"
+						onclick={navigateToAnalysis}
+						class="btn btn-primary btn-sm w-full sm:w-auto min-h-[2.5rem] sm:min-h-[2rem]"
+					>
+						분석하기
+					</button>
+					<LinkButton
+						href="/stats/unit-digit"
+						class="btn btn-outline btn-sm w-full sm:w-auto min-h-[2.5rem] sm:min-h-[2rem]"
+					>
+						전체 회차 보기
+					</LinkButton>
+				</div>
 			</div>
-			<p class="text-sm text-base-content/60">
-				현재 최근 <span class="font-semibold text-primary">{data.selectedRounds}회차</span> 데이터를 분석 중입니다. 다른 회차 수를 입력하여 비교 분석해보세요.
+			<p class="text-xs sm:text-sm text-base-content/60">
+				현재 최근 <span class="font-semibold text-primary">{data.selectedRounds}회차</span> 데이터를 분석 중입니다.
 			</p>
 		</div>
 	</div>
 
 	<!-- 요약 통계 -->
-	<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+	<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
 		{#each Object.entries(data.unitDigitStats.summary.digitAverages).slice(0, 5) as [digitKey, average]}
 			{@const info = digitInfo[digitKey as keyof typeof digitInfo]}
 			
@@ -329,13 +330,13 @@ const sortedPatterns = $derived(
 
 	<!-- 끝자리수별 통계 -->
 	<div class="card bg-base-100 shadow-sm">
-		<div class="card-body">
-			<h2 class="card-title">끝자리수별 출현 빈도</h2>
-			<div class="grid grid-cols-2 sm:grid-cols-5 lg:grid-cols-10 gap-4">
+		<div class="card-body p-3 sm:p-6">
+			<h2 class="card-title text-lg sm:text-xl">끝자리수별 출현 빈도</h2>
+			<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-10 gap-4">
 				{#each Object.entries(digitInfo) as [key, info]}
 					{@const count = data.unitDigitStats.summary.digitCounts[key as keyof typeof data.unitDigitStats.summary.digitCounts]}
 					{@const totalNumbers = data.unitDigitStats.summary.totalDraws * 6}
-					<div class="p-4 rounded-lg border {info.bgClass}">
+					<div class="p-4 rounded-lg {info.bgClass}">
 						<div class="flex items-center justify-center mb-2">
 							<div class="w-8 h-8 rounded-full {info.class} flex items-center justify-center text-white font-bold">
 								{info.name}
@@ -359,14 +360,14 @@ const sortedPatterns = $derived(
 
 	<!-- 자주 나오는 끝자리수 패턴 -->
 	<div class="card bg-base-100 shadow-sm">
-		<h2 class="card-title">자주 나오는 끝자리수 패턴 (상위 10개)</h2>
-		<div class="card-body">
+		<div class="card-body p-3 sm:p-6">
+			<h2 class="card-title text-lg sm:text-xl">자주 나오는 끝자리수 패턴 (상위 10개)</h2>
 			<div class="space-y-3">
 				{#each sortedPatterns as [pattern, count]}
 					{@const digits = pattern.split('-')}
-					<div class="flex items-center justify-between p-3 bg-base-200 rounded-lg">
-						<div class="flex items-center space-x-4">
-							<div class="flex items-center space-x-1">
+					<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 bg-base-200 rounded-lg gap-3">
+						<div class="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+							<div class="flex items-center space-x-1 flex-wrap">
 								{#each digits as digitCount, index}
 									{@const digitKey = Object.keys(digitInfo)[index] as keyof typeof digitInfo}
 									{@const info = digitInfo[digitKey]}
@@ -376,11 +377,11 @@ const sortedPatterns = $derived(
 									</div>
 								{/each}
 							</div>
-							<div class="text-sm text-base-content/60">
+							<div class="text-xs sm:text-sm text-base-content/60 hidden sm:block">
 								({digits.map((c, i) => `${digitInfo[Object.keys(digitInfo)[i] as keyof typeof digitInfo].name} ${c}개`).join(', ')})
 							</div>
 						</div>
-						<div class="flex items-center space-x-2">
+						<div class="flex items-center justify-between sm:justify-end space-x-2">
 							<span class="font-semibold">{count}회</span>
 							<span class="text-sm text-base-content/60">
 								({getPercentage(Number(count), data.unitDigitStats.summary.totalDraws)}%)
@@ -394,25 +395,25 @@ const sortedPatterns = $derived(
 
 	<!-- 추첨 결과 -->
 	<div class="card bg-base-100 shadow-sm">
-		<div class="card-body">
-			<h2 class="card-title">추첨 결과 ({data.selectedRounds}회차)</h2>
+		<div class="card-body p-3 sm:p-6">
+			<h2 class="card-title text-lg sm:text-xl">추첨 결과 ({data.selectedRounds}회차)</h2>
 			
-			<div class="overflow-x-auto">
+			<div class="overflow-x-auto -mx-3 sm:mx-0">
 				<table class="table table-zebra w-full">
 					<thead>
 						<tr>
-							<th>회차</th>
-							<th class="text-gray-600">0</th>
-							<th class="text-red-600">1</th>
-							<th class="text-orange-600">2</th>
-							<th class="text-yellow-600">3</th>
-							<th class="text-green-600">4</th>
-							<th class="text-blue-600">5</th>
-							<th class="text-purple-600">6</th>
-							<th class="text-pink-600">7</th>
-							<th class="text-indigo-600">8</th>
-							<th class="text-teal-600">9</th>
-							<th>분포 균형</th>
+							<th class="sticky left-0 bg-base-200 z-10 text-xs sm:text-sm min-w-[60px]">회차</th>
+							<th class="text-gray-600 min-w-[40px] text-center text-xs sm:text-sm">0</th>
+							<th class="text-red-600 min-w-[40px] text-center text-xs sm:text-sm">1</th>
+							<th class="text-orange-600 min-w-[40px] text-center text-xs sm:text-sm">2</th>
+							<th class="text-yellow-600 min-w-[40px] text-center text-xs sm:text-sm">3</th>
+							<th class="text-green-600 min-w-[40px] text-center text-xs sm:text-sm">4</th>
+							<th class="text-blue-600 min-w-[40px] text-center text-xs sm:text-sm">5</th>
+							<th class="text-purple-600 min-w-[40px] text-center text-xs sm:text-sm">6</th>
+							<th class="text-pink-600 min-w-[40px] text-center text-xs sm:text-sm">7</th>
+							<th class="text-indigo-600 min-w-[40px] text-center text-xs sm:text-sm">8</th>
+							<th class="text-teal-600 min-w-[40px] text-center text-xs sm:text-sm">9</th>
+							<th class="min-w-[80px] text-center text-xs sm:text-sm">분포 균형</th>
 						</tr>
 					</thead>
 					<tbody>
@@ -429,69 +430,68 @@ const sortedPatterns = $derived(
 								record.digit_8_count,
 								record.digit_9_count
 							]}
-							{@const hasAllDigits = digitCounts.every(count => count > 0)}
 							
 							<tr>
-								<td class="font-semibold">{record.round}회</td>
+								<td class="sticky left-0 bg-base-100 z-10 font-semibold text-xs sm:text-sm">{record.round}회</td>
 								<td class="text-center">
-									<span class="badge {record.digit_0_count > 0 ? 'badge-neutral' : 'badge-ghost'}">
+									<span class="badge badge-sm whitespace-nowrap {record.digit_0_count > 0 ? 'badge-neutral' : 'badge-ghost'}">
 										{record.digit_0_count}
 									</span>
 								</td>
 								<td class="text-center">
-									<span class="badge {record.digit_1_count > 0 ? 'badge-error' : 'badge-ghost'}">
+									<span class="badge badge-sm whitespace-nowrap {record.digit_1_count > 0 ? 'badge-error' : 'badge-ghost'}">
 										{record.digit_1_count}
 									</span>
 								</td>
 								<td class="text-center">
-									<span class="badge {record.digit_2_count > 0 ? 'badge-warning' : 'badge-ghost'}">
+									<span class="badge badge-sm whitespace-nowrap {record.digit_2_count > 0 ? 'badge-warning' : 'badge-ghost'}">
 										{record.digit_2_count}
 									</span>
 								</td>
 								<td class="text-center">
-									<span class="badge {record.digit_3_count > 0 ? 'badge-accent' : 'badge-ghost'}">
+									<span class="badge badge-sm whitespace-nowrap {record.digit_3_count > 0 ? 'badge-accent' : 'badge-ghost'}">
 										{record.digit_3_count}
 									</span>
 								</td>
 								<td class="text-center">
-									<span class="badge {record.digit_4_count > 0 ? 'badge-success' : 'badge-ghost'}">
+									<span class="badge badge-sm whitespace-nowrap {record.digit_4_count > 0 ? 'badge-success' : 'badge-ghost'}">
 										{record.digit_4_count}
 									</span>
 								</td>
 								<td class="text-center">
-									<span class="badge {record.digit_5_count > 0 ? 'badge-info' : 'badge-ghost'}">
+									<span class="badge badge-sm whitespace-nowrap {record.digit_5_count > 0 ? 'badge-info' : 'badge-ghost'}">
 										{record.digit_5_count}
 									</span>
 								</td>
 								<td class="text-center">
-									<span class="badge {record.digit_6_count > 0 ? 'badge-secondary' : 'badge-ghost'}">
+									<span class="badge badge-sm whitespace-nowrap {record.digit_6_count > 0 ? 'badge-secondary' : 'badge-ghost'}">
 										{record.digit_6_count}
 									</span>
 								</td>
 								<td class="text-center">
-									<span class="badge {record.digit_7_count > 0 ? 'badge-primary' : 'badge-ghost'}">
+									<span class="badge badge-sm whitespace-nowrap {record.digit_7_count > 0 ? 'badge-primary' : 'badge-ghost'}">
 										{record.digit_7_count}
 									</span>
 								</td>
 								<td class="text-center">
-									<span class="badge {record.digit_8_count > 0 ? 'badge-neutral' : 'badge-ghost'}">
+									<span class="badge badge-sm whitespace-nowrap {record.digit_8_count > 0 ? 'badge-neutral' : 'badge-ghost'}">
 										{record.digit_8_count}
 									</span>
 								</td>
 								<td class="text-center">
-									<span class="badge {record.digit_9_count > 0 ? 'badge-accent' : 'badge-ghost'}">
+									<span class="badge badge-sm whitespace-nowrap {record.digit_9_count > 0 ? 'badge-accent' : 'badge-ghost'}">
 										{record.digit_9_count}
 									</span>
 								</td>
-								<td>
+								<td class="text-center">
 									{#if digitCounts.filter(c => c > 0).length >= 7}
-										<span class="badge badge-success">매우 분산</span>
+										<span class="badge badge-success badge-sm">매우 분산</span>
 									{:else if digitCounts.filter(c => c > 0).length >= 5}
-										<span class="badge badge-info">균형</span>
+										<span class="badge badge-info badge-sm">균형</span>
 									{:else if digitCounts.filter(c => c > 0).length >= 3}
-										<span class="badge badge-warning">부분 편중</span>
+										<span class="badge badge-warning badge-sm">부분 편중</span>
 									{:else}
-										<span class="badge badge-error">심한 편중</span>
+										<span class="badge badge-error badge-sm">심한 편중</span>
 									{/if}
 								</td>
 							</tr>
@@ -504,8 +504,8 @@ const sortedPatterns = $derived(
 
 	<!-- 끝자리수 분석 요약 -->
 	<div class="card bg-base-100 shadow-sm">
-		<div class="card-body">
-			<h2 class="card-title">끝자리수 분석 요약</h2>
+		<div class="card-body p-3 sm:p-6">
+			<h2 class="card-title text-lg sm:text-xl">끝자리수 분석 요약</h2>
 			<div class="space-y-4 text-sm">
 				<p class="text-base leading-relaxed">
 					최근 <strong class="text-primary">{data.selectedRounds}회차</strong>의 끝자리수 분포를 분석한 결과입니다. 

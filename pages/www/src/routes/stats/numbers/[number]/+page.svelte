@@ -185,18 +185,18 @@ const breadcrumbItems = [
 	}}
 />
 
-<div class="p-6 space-y-6">
+<div class="p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-5 lg:space-y-6">
 	<!-- Breadcrumbs -->
 	<Breadcrumbs items={breadcrumbItems} />
 
 	<!-- 페이지 헤더 -->
 	<div class="text-center space-y-2">
-		<h1 class="text-3xl font-bold text-primary">번호 {data.selectedNumber}번 상세 분석</h1>
-		<p class="text-base-content/70">
+		<h1 class="text-xl sm:text-2xl lg:text-3xl font-bold text-primary">번호 {data.selectedNumber}번 상세 분석</h1>
+		<p class="text-sm sm:text-base text-base-content/70">
 			로또 6/45 번호 <strong class="text-primary">{data.selectedNumber}번</strong>의 상세 분석 정보입니다.<br />
 			총 <strong class="text-secondary">{data.numberStats.draw_count}회</strong> 출현하여 <strong class="text-accent">{data.numberStats.averageFrequency}%</strong>의 출현율을 보입니다.
 		</p>
-		<div class="flex justify-center items-center gap-4 text-sm text-base-content/60 mt-4">
+		<div class="flex flex-col sm:flex-row justify-center items-center gap-2 sm:gap-4 text-xs sm:text-sm text-base-content/60 mt-4">
 			<span>🎯 출현 횟수: <strong class="text-primary">{data.numberStats.draw_count}회</strong></span>
 			<span>🎁 보너스 출현: <strong class="text-secondary">{data.numberStats.bonus_count}회</strong></span>
 			<span>📊 출현율: <strong class="text-accent">{data.numberStats.averageFrequency}%</strong></span>
@@ -205,11 +205,11 @@ const breadcrumbItems = [
 
 	<!-- 번호 분석 변경 -->
 	<div class="card bg-base-100 shadow-sm">
-		<div class="card-body p-4">
-			<h2 class="card-title text-lg">다른 번호 분석</h2>
-			<div class="flex items-center gap-4 flex-wrap">
-				<div class="flex items-center gap-2">
-					<label for="number-input" class="text-sm font-medium">번호 (1-45):</label>
+		<div class="card-body p-3 sm:p-4">
+			<h2 class="card-title text-base sm:text-lg">다른 번호 분석</h2>
+			<div class="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
+				<div class="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-2 w-full">
+					<label for="number-input" class="text-xs sm:text-sm font-medium whitespace-nowrap">번호 (1-45):</label>
 					<input
 						id="number-input"
 						type="text"
@@ -217,23 +217,25 @@ const breadcrumbItems = [
 						pattern="[0-9]*"
 						bind:value={inputValue}
 						on:keydown={handleKeydown}
-						class="input input-bordered input-sm w-20 text-center"
+						class="input input-bordered input-sm w-full sm:w-20 text-center"
 						placeholder="1"
 					/>
 				</div>
-				<button
-					type="button"
-					on:click={navigateToNumber}
-					class="btn btn-primary btn-sm"
-				>
-					분석하기
-				</button>
-				<LinkButton
-					href="/stats/numbers"
-					class="btn btn-outline btn-sm"
-				>
-					전체 번호 보기
-				</LinkButton>
+				<div class="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+					<button
+						type="button"
+						on:click={navigateToNumber}
+						class="btn btn-primary btn-sm w-full sm:w-auto"
+					>
+						분석하기
+					</button>
+					<LinkButton
+						href="/stats/numbers"
+						class="btn btn-outline btn-sm w-full sm:w-auto"
+					>
+						전체 번호 보기
+					</LinkButton>
+				</div>
 			</div>
 		</div>
 	</div>
@@ -242,28 +244,28 @@ const breadcrumbItems = [
 	<div class="card bg-base-100 shadow-sm">
 		<div class="card-body">
 			<h2 class="card-title">번호 기본 정보</h2>
-			<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+			<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
 				<!-- 번호 표시 -->
-				<div class="text-center p-6 bg-primary/10 rounded-lg">
-					<div class="text-6xl font-bold text-primary mb-2">{data.selectedNumber}</div>
-					<div class="text-sm text-base-content/70">번호</div>
+				<div class="text-center p-4 sm:p-6 bg-primary/10 rounded-lg">
+					<div class="text-4xl sm:text-5xl lg:text-6xl font-bold text-primary mb-2">{data.selectedNumber}</div>
+					<div class="text-xs sm:text-sm text-base-content/70">번호</div>
 				</div>
 
 				<!-- 색상 정보 -->
 				{#if colorDetail}
-				<div class="text-center p-6 bg-base-200 rounded-lg">
-					<div class="w-12 h-12 {colorDetail.bgClass} rounded-full mx-auto mb-3"></div>
-					<div class="text-lg font-semibold {colorDetail.textClass}">{colorDetail.name}</div>
-					<div class="text-sm text-base-content/70">{colorDetail.range}</div>
+				<div class="text-center p-4 sm:p-6 bg-base-200 rounded-lg">
+					<div class="w-10 h-10 sm:w-12 sm:h-12 {colorDetail.bgClass} rounded-full mx-auto mb-3"></div>
+					<div class="text-base sm:text-lg font-semibold {colorDetail.textClass}">{colorDetail.name}</div>
+					<div class="text-xs sm:text-sm text-base-content/70">{colorDetail.range}</div>
 				</div>
 				{/if}
 
 				<!-- 고저 구분 -->
-				<div class="text-center p-6 bg-base-200 rounded-lg">
-					<div class="text-2xl font-bold mb-2 {data.isHighNumber ? 'text-red-600' : 'text-blue-600'}">
+				<div class="text-center p-4 sm:p-6 bg-base-200 rounded-lg">
+					<div class="text-lg sm:text-xl lg:text-2xl font-bold mb-2 {data.isHighNumber ? 'text-red-600' : 'text-blue-600'}">
 						{data.isHighNumber ? '고숫자' : '저숫자'}
 					</div>
-					<div class="text-sm text-base-content/70">
+					<div class="text-xs sm:text-sm text-base-content/70">
 						{data.isHighNumber ? '23-45 구간' : '1-22 구간'}
 					</div>
 				</div>
@@ -272,29 +274,29 @@ const breadcrumbItems = [
 	</div>
 
 	<!-- 출현 통계 -->
-	<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-		<div class="stat bg-primary text-primary-content rounded-lg">
-			<div class="stat-title text-primary-content/70">본 번호 출현</div>
-			<div class="stat-value text-2xl">{data.numberStats.draw_count}회</div>
-			<div class="stat-desc text-primary-content/70">전체 {data.totalRounds}회차 중</div>
+	<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+		<div class="stat bg-primary text-primary-content rounded-lg p-3 sm:p-4">
+			<div class="stat-title text-primary-content/70 text-xs sm:text-sm">본 번호 출현</div>
+			<div class="stat-value text-lg sm:text-xl lg:text-2xl">{data.numberStats.draw_count}회</div>
+			<div class="stat-desc text-primary-content/70 text-xs sm:text-sm">전체 {data.totalRounds}회차 중</div>
 		</div>
 		
-		<div class="stat bg-secondary text-secondary-content rounded-lg">
-			<div class="stat-title text-secondary-content/70">보너스 출현</div>
-			<div class="stat-value text-2xl">{data.numberStats.bonus_count}회</div>
-			<div class="stat-desc text-secondary-content/70">보너스 번호로</div>
+		<div class="stat bg-secondary text-secondary-content rounded-lg p-3 sm:p-4">
+			<div class="stat-title text-secondary-content/70 text-xs sm:text-sm">보너스 출현</div>
+			<div class="stat-value text-lg sm:text-xl lg:text-2xl">{data.numberStats.bonus_count}회</div>
+			<div class="stat-desc text-secondary-content/70 text-xs sm:text-sm">보너스 번호로</div>
 		</div>
 		
-		<div class="stat bg-accent text-accent-content rounded-lg">
-			<div class="stat-title text-accent-content/70">출현율</div>
-			<div class="stat-value text-2xl">{data.numberStats.averageFrequency}%</div>
-			<div class="stat-desc text-accent-content/70">{getFrequencyAnalysis(data.numberStats.averageFrequency)}</div>
+		<div class="stat bg-accent text-accent-content rounded-lg p-3 sm:p-4">
+			<div class="stat-title text-accent-content/70 text-xs sm:text-sm">출현율</div>
+			<div class="stat-value text-lg sm:text-xl lg:text-2xl">{data.numberStats.averageFrequency}%</div>
+			<div class="stat-desc text-accent-content/70 text-xs sm:text-sm">{getFrequencyAnalysis(data.numberStats.averageFrequency)}</div>
 		</div>
 		
-		<div class="stat bg-info text-info-content rounded-lg">
-			<div class="stat-title text-info-content/70">마지막 출현</div>
-			<div class="stat-value text-2xl">{data.numberStats.last_draw_round}회</div>
-			<div class="stat-desc text-info-content/70">최근 회차</div>
+		<div class="stat bg-info text-info-content rounded-lg p-3 sm:p-4">
+			<div class="stat-title text-info-content/70 text-xs sm:text-sm">마지막 출현</div>
+			<div class="stat-value text-lg sm:text-xl lg:text-2xl">{data.numberStats.last_draw_round}회</div>
+			<div class="stat-desc text-info-content/70 text-xs sm:text-sm">최근 회차</div>
 		</div>
 	</div>
 
@@ -302,24 +304,24 @@ const breadcrumbItems = [
 	<div class="card bg-base-100 shadow-sm">
 		<div class="card-body">
 			<h2 class="card-title">기대값 대비 분석</h2>
-			<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-				<div class="text-center p-4 bg-base-200 rounded-lg">
-					<div class="text-lg font-semibold text-primary">실제 출현</div>
-					<div class="text-2xl font-bold">{data.numberStats.draw_count}회</div>
+			<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+				<div class="text-center p-3 sm:p-4 bg-base-200 rounded-lg">
+					<div class="text-sm sm:text-base lg:text-lg font-semibold text-primary">실제 출현</div>
+					<div class="text-lg sm:text-xl lg:text-2xl font-bold">{data.numberStats.draw_count}회</div>
 				</div>
-				<div class="text-center p-4 bg-base-200 rounded-lg">
-					<div class="text-lg font-semibold text-secondary">기대값</div>
-					<div class="text-2xl font-bold">{data.numberStats.expectedFrequency}회</div>
+				<div class="text-center p-3 sm:p-4 bg-base-200 rounded-lg">
+					<div class="text-sm sm:text-base lg:text-lg font-semibold text-secondary">기대값</div>
+					<div class="text-lg sm:text-xl lg:text-2xl font-bold">{data.numberStats.expectedFrequency}회</div>
 				</div>
-				<div class="text-center p-4 bg-base-200 rounded-lg">
-					<div class="text-lg font-semibold text-accent">편차</div>
-					<div class="text-2xl font-bold {Number(data.numberStats.deviation) > 0 ? 'text-success' : 'text-error'}">
+				<div class="text-center p-3 sm:p-4 bg-base-200 rounded-lg">
+					<div class="text-sm sm:text-base lg:text-lg font-semibold text-accent">편차</div>
+					<div class="text-lg sm:text-xl lg:text-2xl font-bold {Number(data.numberStats.deviation) > 0 ? 'text-success' : 'text-error'}">
 						{Number(data.numberStats.deviation) > 0 ? '+' : ''}{data.numberStats.deviation}
 					</div>
 				</div>
 			</div>
-			<div class="mt-4 p-4 bg-info/10 rounded-lg">
-				<p class="text-sm text-info">
+			<div class="mt-3 sm:mt-4 p-3 sm:p-4 bg-info/10 rounded-lg">
+				<p class="text-xs sm:text-sm text-info">
 					💡 각 번호의 이론적 출현 기대값은 전체 회차 × 6 ÷ 45 = {data.numberStats.expectedFrequency}회입니다.
 					{Number(data.numberStats.deviation) > 0 ? '이 번호는 기대값보다 많이 출현했습니다.' : '이 번호는 기대값보다 적게 출현했습니다.'}
 				</p>
@@ -331,47 +333,47 @@ const breadcrumbItems = [
 	{#if data.recentDraws.length > 0}
 	<div class="card bg-base-100 shadow-sm">
 		<div class="card-body">
-			<h2 class="card-title">최근 출현 이력 (최근 20회)</h2>
+			<h2 class="card-title text-base sm:text-lg">최근 출현 이력 (최근 20회)</h2>
 			
 			<div class="overflow-x-auto">
-				<table class="table table-zebra w-full">
+				<table class="table table-zebra w-full min-w-[640px]">
 					<thead>
 						<tr>
-							<th>회차</th>
-							<th>당첨번호</th>
-							<th>보너스</th>
-							<th>출현 유형</th>
-							<th>추첨일</th>
+							<th class="sticky left-0 bg-base-100 text-xs sm:text-sm min-w-[60px]">회차</th>
+							<th class="text-xs sm:text-sm min-w-[200px]">당첨번호</th>
+							<th class="text-xs sm:text-sm min-w-[60px]">보너스</th>
+							<th class="text-xs sm:text-sm min-w-[80px]">출현 유형</th>
+							<th class="text-xs sm:text-sm min-w-[80px]">추첨일</th>
 						</tr>
 					</thead>
 					<tbody>
 						{#each data.recentDraws as draw}
 							<tr>
-								<td class="font-semibold">{draw.round}회</td>
+								<td class="sticky left-0 bg-base-100 font-semibold text-xs sm:text-sm">{draw.round}회</td>
 								<td>
-									<div class="flex gap-1">
+									<div class="flex gap-1 flex-wrap">
 										{#each draw.numbers.sort((a, b) => a - b) as num}
-											<span class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold {num === data.selectedNumber ? 'bg-primary text-primary-content' : 'bg-base-300 text-base-content'}">
+											<span class="w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs font-bold {num === data.selectedNumber ? 'bg-primary text-primary-content' : 'bg-base-300 text-base-content'}">
 												{num}
 											</span>
 										{/each}
 									</div>
 								</td>
 								<td class="text-center">
-									<span class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold {draw.bonusNumber === data.selectedNumber ? 'bg-warning text-warning-content' : 'bg-base-300 text-base-content'}">
+									<span class="w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs font-bold mx-auto {draw.bonusNumber === data.selectedNumber ? 'bg-warning text-warning-content' : 'bg-base-300 text-base-content'}">
 										{draw.bonusNumber}
 									</span>
 								</td>
 								<td>
 									{#if draw.isMain}
-										<span class="badge badge-primary">본 번호</span>
+										<span class="badge badge-primary badge-sm">본 번호</span>
 									{:else if draw.isBonus}
-										<span class="badge badge-warning">보너스</span>
+										<span class="badge badge-warning badge-sm">보너스</span>
 									{:else}
-										<span class="badge badge-ghost">-</span>
+										<span class="badge badge-ghost badge-sm">-</span>
 									{/if}
 								</td>
-								<td class="text-sm text-base-content/70">
+								<td class="text-xs sm:text-sm text-base-content/70">
 									{new Date(draw.drawDate).toLocaleDateString('ko-KR')}
 								</td>
 							</tr>
@@ -386,17 +388,17 @@ const breadcrumbItems = [
 	<!-- 번호 분석 정보 -->
 	<div class="card bg-base-100 shadow-sm">
 		<div class="card-body">
-			<h2 class="card-title">번호 분석 정보</h2>
-			<div class="space-y-4 text-sm">
-				<p class="text-base leading-relaxed">
+			<h2 class="card-title text-base sm:text-lg">번호 분석 정보</h2>
+			<div class="space-y-3 sm:space-y-4 text-xs sm:text-sm">
+				<p class="text-sm sm:text-base leading-relaxed">
 					번호 <strong class="text-primary">{data.selectedNumber}번</strong>은 전체 {data.totalRounds}회차 중 
 					<strong class="text-secondary">{data.numberStats.draw_count}회</strong> 출현하여 
 					<strong class="text-accent">{data.numberStats.averageFrequency}%</strong>의 출현율을 보입니다.
 				</p>
 				
-				<div class="bg-info/5 p-4 rounded-lg">
-					<h3 class="font-semibold text-info mb-2">💡 이 번호의 특징</h3>
-					<ul class="list-disc list-inside space-y-1 text-base-content/70">
+				<div class="bg-info/5 p-3 sm:p-4 rounded-lg">
+					<h3 class="font-semibold text-info mb-2 text-sm sm:text-base">💡 이 번호의 특징</h3>
+					<ul class="list-disc list-inside space-y-1 text-base-content/70 text-xs sm:text-sm">
 						<li><strong>색상 구간:</strong> {colorDetail?.name} ({colorDetail?.range})</li>
 						<li><strong>고저 구분:</strong> {data.isHighNumber ? '고숫자 (23-45)' : '저숫자 (1-22)'}</li>
 						<li><strong>출현 빈도:</strong> {getFrequencyAnalysis(data.numberStats.averageFrequency)} (기대값 대비 {Number(data.numberStats.deviation) > 0 ? '+' : ''}{data.numberStats.deviation})</li>

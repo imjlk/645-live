@@ -81,12 +81,12 @@ const validateInput = (value: string): boolean => {
 // 분석 페이지로 이동
 const navigateToAnalysis = async () => {
 	const inputStr = String(inputValue || "");
-	
+
 	if (inputStr.trim() === "") {
 		alert("분석할 회차 수를 입력해주세요.");
 		return;
 	}
-	
+
 	if (validateInput(inputStr)) {
 		const rounds = Number(inputStr);
 		try {
@@ -114,7 +114,6 @@ const getSectionBalance = (s1: number, s2: number, s3: number): string => {
 	if ([s1, s2, s3].filter((s) => s === 0).length === 1) return "부분 편중";
 	return "심한 편중";
 };
-
 </script>
 
 <MetaTags
@@ -232,19 +231,18 @@ const getSectionBalance = (s1: number, s2: number, s3: number): string => {
 	}}
 />
 
-<div class="p-6 space-y-6">
+<div class="p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-6">
 	<!-- Breadcrumbs -->
 	<Breadcrumbs items={breadcrumbItems} />
 
 	<!-- 페이지 헤더 -->
-	<div class="text-center space-y-2">
-		<h1 class="text-3xl font-bold text-primary">로또 6/45 구간별 분석 통계</h1>
-		<p class="text-base-content/70">
-			로또 6/45 당첨번호의 <strong>구간별 분포</strong>와 패턴을 분석합니다.<br />
-			1구간 평균 <strong class="text-secondary">{sectionMappedData.section1.average.toFixed(2)}개</strong>, 2구간 평균 <strong class="text-accent">{sectionMappedData.section2.average.toFixed(2)}개</strong>의 구간별 분포 분석을 통해 
-			당첨번호 패턴을 파악해보세요.
+	<div class="text-center space-y-3 sm:space-y-4">
+		<h1 class="text-xl sm:text-2xl lg:text-3xl font-bold text-primary px-2">로또 6/45 구간별 분석 통계</h1>
+		<p class="text-sm sm:text-base text-base-content/70 px-2 leading-relaxed">
+			로또 6/45 당첨번호의 <strong>구간별 분포</strong>와 패턴을 분석합니다.<br class="hidden sm:block" />
+			<span class="block sm:inline mt-2 sm:mt-0">1구간 평균 <strong class="text-secondary">{sectionMappedData.section1.average.toFixed(2)}개</strong>, 2구간 평균 <strong class="text-accent">{sectionMappedData.section2.average.toFixed(2)}개</strong>의 구간별 분포 분석을 통해 당첨번호 패턴을 파악해보세요.</span>
 		</p>
-		<div class="flex justify-center gap-4 text-sm text-base-content/60 mt-4">
+		<div class="flex flex-col sm:flex-row justify-center gap-2 sm:gap-4 text-xs sm:text-sm text-base-content/60 mt-3 sm:mt-4">
 			<span>📊 전체 분석: <strong class="text-primary">{data.totalRounds}회차</strong></span>
 			<span>📈 구간 수: <strong class="text-secondary">5개 구간</strong></span>
 			<span>🎯 분석 범위: <strong class="text-accent">1-45번</strong></span>
@@ -253,11 +251,11 @@ const getSectionBalance = (s1: number, s2: number, s3: number): string => {
 
 	<!-- 최근 회차 분석 -->
 	<div class="card bg-base-100 shadow-sm">
-		<div class="card-body p-4">
-			<h2 class="card-title text-lg">최근 회차 분석</h2>
-			<div class="flex items-center gap-4 flex-wrap">
-				<div class="flex items-center gap-2">
-					<label for="rounds-input" class="text-sm font-medium">분석 회차 (1-{data.totalRounds}):</label>
+		<div class="card-body p-3 sm:p-4">
+			<h2 class="card-title text-base sm:text-lg mb-3">최근 회차 분석</h2>
+			<div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
+				<div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+					<label for="rounds-input" class="text-sm font-medium whitespace-nowrap mb-1 sm:mb-0">분석 회차 (1-{data.totalRounds}):</label>
 					<input
 						id="rounds-input"
 						type="text"
@@ -265,51 +263,51 @@ const getSectionBalance = (s1: number, s2: number, s3: number): string => {
 						pattern="[0-9]*"
 						bind:value={inputValue}
 						on:keydown={handleKeydown}
-						class="input input-bordered input-sm w-20 text-center"
+						class="input input-bordered input-sm w-full sm:w-24 text-center min-h-[44px]"
 						placeholder="100"
 					/>
 				</div>
 				<button
 					type="button"
 					on:click={navigateToAnalysis}
-					class="btn btn-primary btn-sm"
+					class="btn btn-primary btn-sm w-full sm:w-auto min-h-[44px]"
 				>
 					분석하기
 				</button>
 			</div>
-			<p class="text-sm text-base-content/60">
+			<p class="text-xs sm:text-sm text-base-content/60 mt-2">
 				현재 <span class="font-semibold text-primary">전체 {data.totalRounds}회차</span> 데이터를 분석 중입니다.
 			</p>
 		</div>
 	</div>
 
 	<!-- 요약 통계 -->
-	<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+	<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
 		{#each Object.entries(sectionMappedData) as [sectionKey, sectionData]}
 			{@const info = sectionInfo[sectionKey as keyof typeof sectionInfo]}
 			
-			<div class="stat bg-primary text-primary-content rounded-lg">
-				<div class="stat-title text-primary-content/70">{info.name}</div>
-				<div class="stat-value text-2xl">{sectionData.average.toFixed(2)}</div>
-				<div class="stat-desc text-primary-content/70">평균 개수</div>
+			<div class="stat bg-primary text-primary-content rounded-lg p-3 sm:p-4 min-h-[120px] sm:min-h-[140px]">
+				<div class="stat-title text-primary-content/70 text-xs sm:text-sm truncate">{info.name}</div>
+				<div class="stat-value text-lg sm:text-xl lg:text-2xl">{sectionData.average.toFixed(2)}</div>
+				<div class="stat-desc text-primary-content/70 text-xs sm:text-sm">평균 개수</div>
 			</div>
 		{/each}
 	</div>
 
 	<!-- 구간별 통계 -->
 	<div class="card bg-base-100 shadow-sm">
-		<div class="card-body">
-			<h2 class="card-title">구간별 출현 빈도</h2>
-			<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+		<div class="card-body p-3 sm:p-4 lg:p-6">
+			<h2 class="card-title text-base sm:text-lg mb-3 sm:mb-4">구간별 출현 빈도</h2>
+			<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
 				{#each Object.entries(sectionInfo) as [, info]}
 					{@const sectionData = sectionMappedData[Object.keys(sectionMappedData).find(k => sectionInfo[k as keyof typeof sectionInfo].name === info.name) as keyof typeof sectionMappedData]}
 					{@const totalNumbers = data.totalRounds * 6}
-					<div class="stat bg-base-200 rounded-lg">
-						<div class="stat-title text-base-content/70">{info.name}</div>
-						<div class="stat-value text-2xl">{sectionData.total.toLocaleString()}</div>
-						<div class="stat-desc">
+					<div class="stat bg-base-200 rounded-lg p-3 sm:p-4 min-h-[120px] sm:min-h-[140px]">
+						<div class="stat-title text-base-content/70 text-xs sm:text-sm truncate">{info.name}</div>
+						<div class="stat-value text-base sm:text-lg lg:text-xl">{sectionData.total.toLocaleString()}</div>
+						<div class="stat-desc text-xs sm:text-sm">
 							<span class="font-semibold">{getPercentage(sectionData.total, totalNumbers)}%</span>
-							<span class="text-base-content/60"> • {info.range}</span>
+							<span class="text-base-content/60 block sm:inline"> • {info.range}</span>
 						</div>
 					</div>
 				{/each}
@@ -322,20 +320,20 @@ const getSectionBalance = (s1: number, s2: number, s3: number): string => {
 	<!-- 최근 회차별 상세 데이터 -->
 	{#if data.sectionStats && data.sectionStats.length > 0}
 	<div class="card bg-base-100 shadow-sm">
-		<div class="card-body">
-			<h2 class="card-title">최근 20회차 구간 분포</h2>
+		<div class="card-body p-3 sm:p-4 lg:p-6">
+			<h2 class="card-title text-base sm:text-lg mb-3 sm:mb-4">최근 20회차 구간 분포</h2>
 			
-			<div class="overflow-x-auto">
-				<table class="table table-zebra w-full">
+			<div class="overflow-x-auto -mx-3 sm:mx-0">
+				<table class="table table-zebra w-full text-xs sm:text-sm">
 					<thead>
 						<tr>
-							<th>회차</th>
-							<th class="text-red-600">1구간</th>
-							<th class="text-orange-600">2구간</th>
-							<th class="text-yellow-600">3구간</th>
-							<th class="text-blue-600">4구간</th>
-							<th class="text-green-600">5구간</th>
-							<th>구간 조합</th>
+							<th class="sticky left-0 bg-base-200 z-10 min-w-[60px] text-xs sm:text-sm">회차</th>
+							<th class="text-red-600 min-w-[60px] text-xs sm:text-sm whitespace-nowrap">1구간 <span class="text-xs opacity-60">(1-9)</span></th>
+							<th class="text-orange-600 min-w-[60px] text-xs sm:text-sm whitespace-nowrap">2구간 <span class="text-xs opacity-60">(10-18)</span></th>
+							<th class="text-yellow-600 min-w-[60px] text-xs sm:text-sm whitespace-nowrap">3구간 <span class="text-xs opacity-60">(19-27)</span></th>
+							<th class="text-blue-600 min-w-[60px] text-xs sm:text-sm whitespace-nowrap">4구간 <span class="text-xs opacity-60">(28-36)</span></th>
+							<th class="text-green-600 min-w-[60px] text-xs sm:text-sm whitespace-nowrap">5구간 <span class="text-xs opacity-60">(37-45)</span></th>
+							<th class="min-w-[90px] text-xs sm:text-sm">구간 조합</th>
 						</tr>
 					</thead>
 					<tbody>
@@ -358,47 +356,47 @@ const getSectionBalance = (s1: number, s2: number, s3: number): string => {
 							{@const hasAllSections = sectionCounts.every(count => count > 0)}
 							
 							<tr>
-								<td class="font-semibold">{statRecord.round}회</td>
+								<td class="sticky left-0 bg-base-100 z-10 font-semibold text-xs sm:text-sm">{statRecord.round}회</td>
 								<td class="text-center">
-									<span class="badge {statRecord.section_1_10 > 0 ? 'badge-error' : 'badge-ghost'}">
+									<span class="badge badge-sm whitespace-nowrap {statRecord.section_1_10 > 0 ? 'badge-error' : 'badge-ghost'}">
 										{statRecord.section_1_10}
 									</span>
 								</td>
 								<td class="text-center">
-									<span class="badge {statRecord.section_11_20 > 0 ? 'badge-warning' : 'badge-ghost'}">
+									<span class="badge badge-sm whitespace-nowrap {statRecord.section_11_20 > 0 ? 'badge-warning' : 'badge-ghost'}">
 										{statRecord.section_11_20}
 									</span>
 								</td>
 								<td class="text-center">
-									<span class="badge {statRecord.section_21_30 > 0 ? 'badge-accent' : 'badge-ghost'}">
+									<span class="badge badge-sm whitespace-nowrap {statRecord.section_21_30 > 0 ? 'badge-accent' : 'badge-ghost'}">
 										{statRecord.section_21_30}
 									</span>
 								</td>
 								<td class="text-center">
-									<span class="badge {statRecord.section_31_40 > 0 ? 'badge-info' : 'badge-ghost'}">
+									<span class="badge badge-sm whitespace-nowrap {statRecord.section_31_40 > 0 ? 'badge-info' : 'badge-ghost'}">
 										{statRecord.section_31_40}
 									</span>
 								</td>
 								<td class="text-center">
-									<span class="badge {statRecord.section_41_45 > 0 ? 'badge-success' : 'badge-ghost'}">
+									<span class="badge badge-sm whitespace-nowrap {statRecord.section_41_45 > 0 ? 'badge-success' : 'badge-ghost'}">
 										{statRecord.section_41_45}
 									</span>
 								</td>
-								<td>
+								<td class="text-center text-xs sm:text-sm">
 									{#if hasAllSections}
-										<span class="badge badge-success">완전 분산</span>
+										<span class="badge badge-sm whitespace-nowrap badge-success">완전 분산</span>
 									{:else if sectionCounts.filter(c => c > 0).length >= 4}
-										<span class="badge badge-info">균형</span>
+										<span class="badge badge-sm whitespace-nowrap badge-info">균형</span>
 									{:else if sectionCounts.filter(c => c > 0).length >= 3}
-										<span class="badge badge-warning">부분 편중</span>
+										<span class="badge badge-sm whitespace-nowrap badge-warning">부분 편중</span>
 									{:else}
-										<span class="badge badge-error">심한 편중</span>
+										<span class="badge badge-sm whitespace-nowrap badge-error">심한 편중</span>
 									{/if}
 								</td>
 							</tr>
-						{/each}
-					</tbody>
-				</table>
+					{/each}
+				</tbody>
+			</table>
 			</div>
 		</div>
 	</div>
@@ -407,18 +405,18 @@ const getSectionBalance = (s1: number, s2: number, s3: number): string => {
 
 	<!-- 구간 분석 요약 -->
 	<div class="card bg-base-100 shadow-sm">
-		<div class="card-body">
-			<h2 class="card-title">구간 분석 요약</h2>
-			<div class="space-y-4 text-sm">
-				<p class="text-base leading-relaxed">
+		<div class="card-body p-3 sm:p-4 lg:p-6">
+			<h2 class="card-title text-base sm:text-lg mb-3 sm:mb-4">구간 분석 요약</h2>
+			<div class="space-y-3 sm:space-y-4 text-sm">
+				<p class="text-sm sm:text-base leading-relaxed">
 					전체 <strong class="text-primary">{data.totalRounds}회차</strong>의 구간별 분포를 분석한 결과입니다. 
 					1구간 평균 <strong class="text-secondary">{sectionMappedData.section1.average.toFixed(2)}개</strong>, 
 					2구간 평균 <strong class="text-accent">{sectionMappedData.section2.average.toFixed(2)}개</strong> 등의 분포를 보이고 있습니다.
 				</p>
 				
-				<div class="bg-info/5 p-4 rounded-lg">
-					<h3 class="font-semibold text-info mb-2">💡 이 분석으로 알 수 있는 것</h3>
-					<ul class="list-disc list-inside space-y-1 text-base-content/70">
+				<div class="bg-info/5 p-3 sm:p-4 rounded-lg">
+					<h3 class="font-semibold text-info mb-2 text-sm sm:text-base">💡 이 분석으로 알 수 있는 것</h3>
+					<ul class="list-disc list-inside space-y-1 text-xs sm:text-sm text-base-content/70">
 						<li><strong>구간별 분포 균형:</strong> 각 구간에서 번호가 얼마나 균등하게 선택되는지</li>
 						<li><strong>출현 패턴:</strong> 특정 구간에 집중되는 경향이나 분산 패턴</li>
 						<li><strong>트렌드 분석:</strong> 전체 {data.totalRounds}회차의 구간별 분포 변화 추이</li>
@@ -426,10 +424,10 @@ const getSectionBalance = (s1: number, s2: number, s3: number): string => {
 					</ul>
 				</div>
 				
-				<div class="grid grid-cols-1 sm:grid-cols-5 gap-2 mt-3">
+				<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 mt-3">
 					{#each Object.entries(sectionInfo) as [, info]}
-						<div class="flex items-center p-2 bg-base-200 rounded">
-							<div class="w-3 h-3 rounded-full {info.class} mr-2"></div>
+						<div class="flex items-center p-2 bg-base-200 rounded min-h-[40px]">
+							<div class="w-3 h-3 rounded-full {info.class} mr-2 flex-shrink-0"></div>
 							<span class="text-xs font-medium">{info.name} ({info.range})</span>
 						</div>
 					{/each}

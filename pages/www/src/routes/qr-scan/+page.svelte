@@ -130,9 +130,7 @@ function checkLottoWinning(
 /**
  * QR 코드의 게임들을 최신 당첨 번호와 비교
  */
-async function checkQRWinning(
-	qrData: string,
-): Promise<{
+async function checkQRWinning(qrData: string): Promise<{
 	isWinner: boolean;
 	winningResults: WinningResult[];
 	latestRound: number;
@@ -154,7 +152,11 @@ async function checkQRWinning(
 		}
 
 		// 당첨 번호가 모두 0이면 아직 발표되지 않은 회차
-		if (winningData.drwtNo1 === 0 && winningData.drwtNo2 === 0 && winningData.drwtNo3 === 0) {
+		if (
+			winningData.drwtNo1 === 0 &&
+			winningData.drwtNo2 === 0 &&
+			winningData.drwtNo3 === 0
+		) {
 			return {
 				isWinner: false,
 				winningResults: [],
@@ -304,7 +306,8 @@ $effect(() => {
 				checkQRWinning(qrData)
 					.then((winningCheck) => {
 						if (winningCheck) {
-							const { isWinner, winningResults, latestRound, isUnreleased } = winningCheck;
+							const { isWinner, winningResults, latestRound, isUnreleased } =
+								winningCheck;
 
 							if (isUnreleased) {
 								// 아직 발표되지 않은 회차
@@ -337,7 +340,9 @@ $effect(() => {
 									highestGrade.grade === "2등"
 								) {
 									// 1등, 2등은 특별한 스타일
-									const prizeText = highestGrade.prize ? ` (${highestGrade.prize})` : "";
+									const prizeText = highestGrade.prize
+										? ` (${highestGrade.prize})`
+										: "";
 									toast.success(highestGrade.message, {
 										description: `${latestRound}회차 당첨 확인 - ${highestGrade.grade}${prizeText} | 총 ${form.data?.gamesCount}개 게임 중 ${winners.length}개 당첨`,
 										duration: 15000,
@@ -347,7 +352,9 @@ $effect(() => {
 									});
 								} else {
 									// 3등, 4등, 5등은 일반 당첨 스타일
-									const prizeText = highestGrade.prize ? ` (${highestGrade.prize})` : "";
+									const prizeText = highestGrade.prize
+										? ` (${highestGrade.prize})`
+										: "";
 									toast.success(highestGrade.message, {
 										description: `${latestRound}회차 당첨 확인 - ${highestGrade.grade}${prizeText} | 총 ${form.data?.gamesCount}개 게임 중 ${winners.length}개 당첨`,
 										duration: 10000,
@@ -359,7 +366,9 @@ $effect(() => {
 								winners.forEach((winner, index) => {
 									setTimeout(
 										() => {
-											const prizeText = winner.prize ? ` (${winner.prize})` : "";
+											const prizeText = winner.prize
+												? ` (${winner.prize})`
+												: "";
 											toast.info(`🎯 당첨 게임 ${index + 1}`, {
 												description: `${winner.grade} - ${winner.matchCount}개 번호 일치${winner.bonusMatch ? " + 보너스" : ""}${prizeText}`,
 												duration: 8000,
@@ -398,9 +407,6 @@ $effect(() => {
 					duration: 5000,
 				});
 			}
-
-				`서버 액션 스캔 완료: ${form.data?.gamesCount}개 게임`,
-			);
 		} else if (form.error) {
 			// 에러 메시지에 따라 다른 토스트 표시
 			if (form.error.includes("이미 스캔") || "isDuplicate" in form) {
@@ -685,7 +691,7 @@ async function requestPermission() {
 </form>
 
 <div class="w-full max-w-md mx-auto">
-	<div class="aspect-square mb-4">
+	<div class="aspect-square my-4">
 		{#if permissionDenied}
 			<div class="h-full flex flex-col items-center justify-center text-center p-6 bg-base-200 rounded-lg">
 				<div class="text-red-500 mb-4">
@@ -782,4 +788,3 @@ async function requestPermission() {
     </div>
   </div>
 {/if}
-

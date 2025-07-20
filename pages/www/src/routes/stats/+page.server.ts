@@ -25,13 +25,8 @@ export const load: PageServerLoad = async () => {
 			latestDrawDate = latest.draw_date;
 		}
 
-		// 전체 회차 수
-		const totalRoundsResponse = await client
-			.records("lotto_draw_results")
-			.list({
-				pagination: { limit: 1 },
-			});
-		const totalRounds = totalRoundsResponse.total_count || 0;
+		// 전체 회차 수 - 최신 회차 번호를 사용
+		const totalRounds = latestRound;
 
 		// 번호별 통계 (상위 10개 & 하위 10개)
 		const [topNumberStats, bottomNumberStats] = await Promise.all([

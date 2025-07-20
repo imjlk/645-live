@@ -231,32 +231,32 @@ const breadcrumbItems = [
 	}}
 />
 
-<div class="p-6 space-y-6">
+<div class="p-3 sm:p-6 space-y-4 sm:space-y-6">
 	<!-- Breadcrumbs -->
 	<Breadcrumbs items={breadcrumbItems} />
 
 	<!-- 페이지 헤더 -->
 	<div class="text-center space-y-2">
-		<h1 class="text-3xl font-bold text-primary">로또 6/45 색상 분석 상세 분석</h1>
+		<h1 class="text-xl sm:text-2xl lg:text-3xl font-bold text-primary">로또 6/45 색상 분석 상세 분석</h1>
 		<p class="text-base-content/70">
 			최근 <strong class="text-primary">{data.selectedRounds}회차</strong>의 <strong>색상 구간별 분포</strong>와 패턴을 상세히 분석합니다.<br />
 			노랑 평균 <strong class="text-secondary">{data.colorStats.summary.colorAverages.yellow}개</strong>, 파랑 평균 <strong class="text-accent">{data.colorStats.summary.colorAverages.blue}개</strong>의 색상 분포 분석을 통해 
 			당첨번호 패턴을 파악해보세요.
 		</p>
-		<div class="flex justify-center gap-4 text-sm text-base-content/60 mt-4">
+		<div class="flex flex-col sm:flex-row justify-center gap-2 sm:gap-4 text-xs sm:text-sm text-base-content/60 mt-4">
 			<span>📊 최빈 색상: <strong class="text-primary">{colorInfo[data.colorStats.summary.mostFrequentColor[0] as keyof typeof colorInfo]?.name}</strong></span>
 			<span>📈 분석 회차: <strong class="text-secondary">{data.selectedRounds}회</strong></span>
 			<span>🎯 평균 개수: <strong class="text-accent">{data.colorStats.summary.mostFrequentColor[1]}개</strong></span>
 		</div>
 	</div>
 
-	<!-- 최근 회차 분석 변경 -->
+	<!-- 최근 회차 분석 -->
 	<div class="card bg-base-100 shadow-sm">
-		<div class="card-body p-4">
-			<h2 class="card-title text-lg">최근 회차 분석</h2>
-			<div class="flex items-center gap-4 flex-wrap">
-				<div class="flex items-center gap-2">
-					<label for="rounds-input" class="text-sm font-medium">최근:</label>
+		<div class="card-body p-3 sm:p-4">
+			<h2 class="card-title text-base sm:text-lg">최근 회차 분석</h2>
+			<div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
+				<div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+					<label for="rounds-input" class="text-xs sm:text-sm font-medium">분석 회차 (1-{data.totalRounds}):</label>
 					<input
 						id="rounds-input"
 						type="text"
@@ -264,27 +264,28 @@ const breadcrumbItems = [
 						pattern="[0-9]*"
 						bind:value={inputValue}
 						on:keydown={handleKeydown}
-						class="input input-bordered input-sm w-24 text-center"
+						class="input input-bordered input-sm w-full sm:w-20 text-center"
 						placeholder="100"
 					/>
-					<span class="text-sm opacity-60">회차 (최대 {data.totalRounds})</span>
 				</div>
-				<button
-					type="button"
-					on:click={navigateToAnalysis}
-					class="btn btn-primary btn-sm"
-				>
-					분석하기
-				</button>
-				<LinkButton
-					href="/stats/colors"
-					class="btn btn-outline btn-sm"
-				>
-					전체 회차 보기
-				</LinkButton>
+				<div class="flex flex-col sm:flex-row gap-2 sm:gap-4">
+					<button
+						type="button"
+						on:click={navigateToAnalysis}
+						class="btn btn-primary btn-sm w-full sm:w-auto min-h-[2.5rem] sm:min-h-[2rem]"
+					>
+						분석하기
+					</button>
+					<LinkButton
+						href="/stats/colors"
+						class="btn btn-outline btn-sm w-full sm:w-auto min-h-[2.5rem] sm:min-h-[2rem]"
+					>
+						전체 회차 보기
+					</LinkButton>
+				</div>
 			</div>
-			<p class="text-sm text-base-content/60">
-				현재 최근 <span class="font-semibold text-primary">{data.selectedRounds}회차</span> 데이터를 분석 중입니다. 다른 회차 수를 입력하여 비교 분석해보세요.
+			<p class="text-xs sm:text-sm text-base-content/60">
+				현재 최근 <span class="font-semibold text-primary">{data.selectedRounds}회차</span> 데이터를 분석 중입니다.
 			</p>
 		</div>
 	</div>
@@ -304,25 +305,25 @@ const breadcrumbItems = [
 
 	<!-- 색상 구간별 통계 -->
 	<div class="card bg-base-100 shadow-sm">
-		<div class="card-body">
-			<h2 class="card-title">색상 구간별 출현 빈도</h2>
-			<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+		<div class="card-body p-3 sm:p-6">
+			<h2 class="card-title text-lg sm:text-xl">색상 구간별 출현 빈도</h2>
+			<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
 				{#each Object.entries(colorInfo) as [key, info]}
 					{@const count = data.colorStats.summary.colorCounts[key as keyof typeof data.colorStats.summary.colorCounts]}
 					{@const totalNumbers = data.colorStats.summary.totalDraws * 6}
-					<div class="p-4 rounded-lg border {info.bgClass}">
+					<div class="p-3 sm:p-4 rounded-lg border {info.bgClass}">
 						<div class="flex items-center mb-2">
-							<div class="w-4 h-4 rounded-full {info.class} mr-2"></div>
-							<span class="font-semibold {info.textClass}">{info.name}</span>
+							<div class="w-3 h-3 sm:w-4 sm:h-4 rounded-full {info.class} mr-2"></div>
+							<span class="font-semibold text-sm sm:text-base {info.textClass}">{info.name}</span>
 						</div>
 						<div class="text-xs text-gray-600 mb-2">{info.range}</div>
-						<div class="text-lg font-bold {info.textClass} mb-1">{count}</div>
+						<div class="text-sm sm:text-lg font-bold {info.textClass} mb-1">{count}</div>
 						<div class="text-xs {info.textClass} mb-2">
 							{getPercentage(count, totalNumbers)}%
 						</div>
-						<div class="w-full bg-white/50 rounded-full h-2">
+						<div class="w-full bg-white/50 rounded-full h-1.5 sm:h-2">
 							<div
-								class="{info.class} h-2 rounded-full transition-all duration-300"
+								class="{info.class} h-1.5 sm:h-2 rounded-full transition-all duration-300"
 								style="width: {getPercentage(count, totalNumbers)}%"
 							></div>
 						</div>
@@ -334,30 +335,30 @@ const breadcrumbItems = [
 
 	<!-- 자주 나오는 색상 패턴 -->
 	<div class="card bg-base-100 shadow-sm">
-		<div class="card-body">
-			<h2 class="card-title">자주 나오는 색상 패턴 (상위 10개)</h2>
-			<div class="space-y-3">
+		<div class="card-body p-3 sm:p-6">
+			<h2 class="card-title text-lg sm:text-xl">자주 나오는 색상 패턴 (상위 10개)</h2>
+			<div class="space-y-2 sm:space-y-3">
 				{#each sortedPatterns as [pattern, count]}
 					{@const colors = pattern.split('-')}
-					<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 bg-base-200 rounded-lg">
+					<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between p-2 sm:p-3 bg-base-200 rounded-lg">
 						<div class="flex flex-col sm:flex-row sm:items-center sm:space-x-4 space-y-2 sm:space-y-0">
-							<div class="flex items-center space-x-1">
+							<div class="flex items-center space-x-1 flex-wrap">
 								{#each colors as colorCount, index}
 									{@const colorKey = Object.keys(colorInfo)[index] as keyof typeof colorInfo}
 									{@const info = colorInfo[colorKey]}
 									<div class="flex items-center">
-										<div class="w-3 h-3 rounded-full {info.class}"></div>
-										<span class="text-sm font-medium ml-1">{colorCount}</span>
+										<div class="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full {info.class}"></div>
+										<span class="text-xs sm:text-sm font-medium ml-1">{colorCount}</span>
 									</div>
 								{/each}
 							</div>
-							<div class="text-sm text-base-content/60">
+							<div class="text-xs sm:text-sm text-base-content/60 hidden sm:block">
 								({colors.map((c, i) => `${colorInfo[Object.keys(colorInfo)[i] as keyof typeof colorInfo].name} ${c}개`).join(', ')})
 							</div>
 						</div>
 						<div class="flex items-center space-x-2 mt-2 sm:mt-0">
-							<span class="font-semibold">{count}회</span>
-							<span class="text-sm text-base-content/60">
+							<span class="font-semibold text-sm sm:text-base">{count}회</span>
+							<span class="text-xs sm:text-sm text-base-content/60">
 								({getPercentage(Number(count), data.colorStats.summary.totalDraws)}%)
 							</span>
 						</div>
@@ -369,20 +370,20 @@ const breadcrumbItems = [
 
 	<!-- 추첨 결과 -->
 	<div class="card bg-base-100 shadow-sm">
-		<div class="card-body">
-			<h2 class="card-title">추첨 결과 ({data.selectedRounds}회차)</h2>
+		<div class="card-body p-3 sm:p-6">
+			<h2 class="card-title text-lg sm:text-xl">추첨 결과 ({data.selectedRounds}회차)</h2>
 			
-			<div class="overflow-x-auto">
+			<div class="overflow-x-auto -mx-3 sm:mx-0">
 				<table class="table table-zebra w-full">
 					<thead>
 						<tr>
-							<th>회차</th>
-							<th class="text-yellow-600">노랑</th>
-							<th class="text-blue-600">파랑</th>
-							<th class="text-red-600">빨강</th>
-							<th class="text-gray-600">회색</th>
-							<th class="text-green-600">초록</th>
-							<th>색상 조합</th>
+							<th class="sticky left-0 bg-base-200 z-10 text-xs sm:text-sm min-w-[60px]">회차</th>
+							<th class="text-yellow-600 min-w-[50px] text-center text-xs sm:text-sm">노랑</th>
+							<th class="text-blue-600 min-w-[50px] text-center text-xs sm:text-sm">파랑</th>
+							<th class="text-red-600 min-w-[50px] text-center text-xs sm:text-sm">빨강</th>
+							<th class="text-gray-600 min-w-[50px] text-center text-xs sm:text-sm">회색</th>
+							<th class="text-green-600 min-w-[50px] text-center text-xs sm:text-sm">초록</th>
+							<th class="min-w-[80px] text-center text-xs sm:text-sm">색상 조합</th>
 						</tr>
 					</thead>
 					<tbody>
@@ -397,41 +398,41 @@ const breadcrumbItems = [
 							{@const hasAllColors = colorCounts.every(count => count > 0)}
 							
 							<tr>
-								<td class="font-semibold">{record.round}회</td>
+								<td class="sticky left-0 bg-base-100 z-10 font-semibold text-xs sm:text-sm">{record.round}회</td>
 								<td class="text-center">
-									<span class="badge {record.yellow_count > 0 ? 'badge-warning' : 'badge-ghost'}">
+									<span class="badge badge-sm whitespace-nowrap {record.yellow_count > 0 ? 'badge-warning' : 'badge-ghost'}">
 										{record.yellow_count}
 									</span>
 								</td>
 								<td class="text-center">
-									<span class="badge {record.blue_count > 0 ? 'badge-info' : 'badge-ghost'}">
+									<span class="badge badge-sm whitespace-nowrap {record.blue_count > 0 ? 'badge-info' : 'badge-ghost'}">
 										{record.blue_count}
 									</span>
 								</td>
 								<td class="text-center">
-									<span class="badge {record.red_count > 0 ? 'badge-error' : 'badge-ghost'}">
+									<span class="badge badge-sm whitespace-nowrap {record.red_count > 0 ? 'badge-error' : 'badge-ghost'}">
 										{record.red_count}
 									</span>
 								</td>
 								<td class="text-center">
-									<span class="badge {record.grey_count > 0 ? 'badge-neutral' : 'badge-ghost'}">
+									<span class="badge badge-sm whitespace-nowrap {record.grey_count > 0 ? 'badge-neutral' : 'badge-ghost'}">
 										{record.grey_count}
 									</span>
 								</td>
 								<td class="text-center">
-									<span class="badge {record.green_count > 0 ? 'badge-success' : 'badge-ghost'}">
+									<span class="badge badge-sm whitespace-nowrap {record.green_count > 0 ? 'badge-success' : 'badge-ghost'}">
 										{record.green_count}
 									</span>
 								</td>
-								<td>
+								<td class="text-center">
 									{#if hasAllColors}
-										<span class="badge badge-success">완전 분산</span>
+										<span class="badge badge-sm whitespace-nowrap badge-success">완전 분산</span>
 									{:else if colorCounts.filter(c => c > 0).length >= 4}
-										<span class="badge badge-info">균형</span>
+										<span class="badge badge-sm whitespace-nowrap badge-info">균형</span>
 									{:else if colorCounts.filter(c => c > 0).length >= 3}
-										<span class="badge badge-warning">부분 편중</span>
+										<span class="badge badge-sm whitespace-nowrap badge-warning">부분 편중</span>
 									{:else}
-										<span class="badge badge-error">심한 편중</span>
+										<span class="badge badge-sm whitespace-nowrap badge-error">심한 편중</span>
 									{/if}
 								</td>
 							</tr>
@@ -444,17 +445,17 @@ const breadcrumbItems = [
 
 	<!-- 색상 분석 요약 -->
 	<div class="card bg-base-100 shadow-sm">
-		<div class="card-body">
-			<h2 class="card-title">색상 분석 요약</h2>
-			<div class="space-y-4 text-sm">
+		<div class="card-body p-3 sm:p-6">
+			<h2 class="card-title text-lg sm:text-xl">색상 분석 요약</h2>
+			<div class="space-y-3 sm:space-y-4 text-xs sm:text-sm">
 				<p class="text-base leading-relaxed">
 					최근 <strong class="text-primary">{data.selectedRounds}회차</strong>의 색상 구간별 분포를 분석한 결과입니다. 
 					노랑 평균 <strong class="text-secondary">{data.colorStats.summary.colorAverages.yellow}개</strong>, 
 					파랑 평균 <strong class="text-accent">{data.colorStats.summary.colorAverages.blue}개</strong> 등의 분포를 보이고 있습니다.
 				</p>
 				
-				<div class="bg-info/5 p-4 rounded-lg">
-					<h3 class="font-semibold text-info mb-2">💡 이 분석으로 알 수 있는 것</h3>
+				<div class="bg-info/5 p-3 sm:p-4 rounded-lg">
+					<h3 class="font-semibold text-info mb-2 text-sm sm:text-base">💡 이 분석으로 알 수 있는 것</h3>
 					<ul class="list-disc list-inside space-y-1 text-base-content/70">
 						<li><strong>색상 분포 패턴:</strong> 번호 구간별 색상 조합의 균형성</li>
 						<li><strong>출현 빈도:</strong> 각 색상 구간의 출현 횟수와 비율</li>
