@@ -48,7 +48,7 @@ export function useScanData(options: UseScanDataOptions = {}): UseScanDataReturn
       }
     } catch (err) {
       const trailbaseError: TrailbaseError = err instanceof Error 
-        ? Object.assign(err, { status: (err as any).status || 500 })
+        ? Object.assign(err, { status: (err as { status?: number }).status || 500 })
         : new Error('Failed to fetch scan data');
       
       error = trailbaseError;
@@ -97,7 +97,7 @@ interface UseRealtimeScanUpdatesReturn {
  */
 export function useRealtimeScanUpdates(options: UseRealtimeScanUpdatesOptions = {}): UseRealtimeScanUpdatesReturn {
   let latestUpdate = $state<LottoDrawScanCount | null>(null);
-  let connectionState = $state({
+  const connectionState = $state({
     connected: false,
     connecting: false,
     error: null as TrailbaseError | null,
@@ -160,6 +160,7 @@ export function useRealtimeScanUpdates(options: UseRealtimeScanUpdatesOptions = 
 
 interface UseBallValuesOptions {
   initialRound?: number;
+  targetRound?: number; // Specific round to subscribe to (for filtering)
   onValuesChange?: (values: Record<number, number>, totalScans: number) => void;
   onBallUpdate?: (ballNumber: number, newValue: number, oldValue: number) => void;
 }
@@ -173,6 +174,7 @@ interface UseBallValuesReturn {
   error: TrailbaseError | null;
   loadInitialData: (round?: number) => Promise<void>;
   subscribe: () => () => void;
+  setTargetRound: (round: number | null) => void; // Allow updating target round
 }
 
 /**
@@ -187,6 +189,7 @@ export function useBallValues(options: UseBallValuesOptions = {}): UseBallValues
   let error = $state<TrailbaseError | null>(null);
   
   const { initialRound, onValuesChange, onBallUpdate } = options;
+  let targetRound = $state<number | null>(options.targetRound || null);
   
   // Initialize ball values with zeros
   const initializeBallValues = () => {
@@ -240,7 +243,7 @@ export function useBallValues(options: UseBallValuesOptions = {}): UseBallValues
       }
     } catch (err) {
       const trailbaseError: TrailbaseError = err instanceof Error 
-        ? Object.assign(err, { status: (err as any).status || 500 })
+        ? Object.assign(err, { status: (err as { status?: number }).status || 500 })
         : new Error('Failed to load initial data');
       
       error = trailbaseError;
@@ -257,8 +260,15 @@ export function useBallValues(options: UseBallValuesOptions = {}): UseBallValues
     const subscriberId = `ball-values-${Date.now()}-${Math.random()}`;
     
     return trailbaseClient.subscribe(subscriberId, (scanData) => {
-      // Update current round
-      if (scanData.round !== currentRound) {
+      // **KEY FIX**: Filter by targetRound if specified (for main page latest round only)
+      const filterRound = targetRound || currentRound;
+      if (filterRound && scanData.round !== filterRound) {
+        // Ignore updates for different rounds
+        return;
+      }
+      
+      // Update current round only if no targetRound specified or if it matches
+      if (!targetRound && scanData.round !== currentRound) {
         currentRound = scanData.round;
       }
       
@@ -309,6 +319,11 @@ export function useBallValues(options: UseBallValuesOptions = {}): UseBallValues
     });
   };
   
+  // Function to update target round (useful for dynamic filtering)
+  const setTargetRound = (round: number | null) => {
+    targetRound = round;
+  };
+  
   // Auto-load initial data if round provided
   if (initialRound) {
     loadInitialData();
@@ -322,7 +337,8 @@ export function useBallValues(options: UseBallValuesOptions = {}): UseBallValues
     get loading() { return loading; },
     get error() { return error; },
     loadInitialData,
-    subscribe
+    subscribe,
+    setTargetRound
   };
 }
 

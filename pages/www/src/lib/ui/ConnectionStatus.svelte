@@ -27,7 +27,7 @@ onDestroy(() => {
   }
 });
 
-const statusConfig = $derived(() => {
+const statusConfig = $derived({
   if (connectionStatus.connected) {
     return {
       color: 'bg-green-500',

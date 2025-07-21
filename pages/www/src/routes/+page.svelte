@@ -12,6 +12,7 @@ let { data }: { data: PageData } = $props();
 // Use the new composables for state management
 const ballValuesComposable = useBallValues({
 	initialRound: data.displayRound || data.latestRound,
+	targetRound: data.displayRound || data.latestRound, // MAIN PAGE: Only subscribe to latest round
 	onBallUpdate: (ballNumber, newValue, oldValue) => {
 		// This will be handled by the composable's recentlyUpdated state
 		console.log(`Ball ${ballNumber} updated from ${oldValue} to ${newValue}`);
