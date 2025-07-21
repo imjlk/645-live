@@ -1,23 +1,17 @@
 <script lang="ts">
-import { goto } from "$app/navigation";
 import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
-import LinkButton from "$lib/ui/LinkButton.svelte";
 import { JsonLd, MetaTags } from "svelte-meta-tags";
+import { RecentAnalysisInput, StatsSummary, GuideSection } from "$lib/components/stats";
 import type { PageData } from "./$types";
 
 export let data: PageData;
-
-// 페이지네이션 상태 제거 - 전체 데이터 표시
-
-// 사용자 입력 상태 (기본값은 빈 값)
-let inputValue = "";
 
 // 홀수 개수별 라벨
 const getOddCountLabel = (count: number): string => {
 	const labels = {
 		0: "모두 짝수",
 		1: "홀수 1개",
-		2: "홀수 2개",
+		2: "홀수 2개", 
 		3: "홀수 3개",
 		4: "홀수 4개",
 		5: "홀수 5개",
@@ -254,36 +248,10 @@ const breadcrumbItems = [
 	</div>
 
 	<!-- 최근 회차 분석 -->
-	<div class="card bg-base-100 shadow-sm">
-		<div class="card-body p-3 sm:p-4">
-			<h2 class="card-title text-base sm:text-lg">최근 회차 분석</h2>
-			<div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
-				<div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-					<label for="rounds-input" class="text-xs sm:text-sm font-medium">분석 회차 (1-{data.totalRounds}):</label>
-					<input
-						id="rounds-input"
-						type="text"
-						inputmode="numeric"
-						pattern="[0-9]*"
-						bind:value={inputValue}
-						on:keydown={handleKeydown}
-						class="input input-bordered input-sm w-full sm:w-20 text-center"
-						placeholder="100"
-					/>
-				</div>
-				<button
-					type="button"
-					on:click={navigateToAnalysis}
-					class="btn btn-primary btn-sm w-full sm:w-auto min-h-[2.5rem] sm:min-h-[2rem]"
-				>
-					분석하기
-				</button>
-			</div>
-			<p class="text-xs sm:text-sm text-base-content/60">
-				현재 <span class="font-semibold text-primary">전체 {data.totalRounds}회차</span> 데이터를 분석 중입니다.
-			</p>
-		</div>
-	</div>
+	<RecentAnalysisInput 
+		maxRounds={data.totalRounds}
+		basePath="/stats/odd-even"
+	/>
 
 	<!-- 홀수 개수별 분포 -->
 	<div class="card bg-base-100 shadow-sm">
@@ -295,7 +263,7 @@ const breadcrumbItems = [
 			
 			<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-2 sm:gap-4">
 				{#each Object.entries(data.oddEvenDistribution) as [oddCount, count]}
-					{@const percentage = data.selectedRounds > 0 ? ((count / data.selectedRounds) * 100).toFixed(1) : "0.0"}
+					{@const percentage = data.totalRecords > 0 ? ((count / data.totalRecords) * 100).toFixed(1) : "0.0"}
 					{@const balance = getBalanceAnalysis(Number(oddCount))}
 					
 					<div class="text-center space-y-1 sm:space-y-2 p-2 sm:p-4 bg-base-200 rounded-lg">
