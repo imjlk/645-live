@@ -125,7 +125,7 @@ const getColorClass = (color: string | undefined) => {
 		locale: "ko_KR",
 		images: [
 			{
-				url: `https://www.645.live/og?title=${encodeURIComponent(`로또 번호 ${ballNumber} 완전분석`)}&description=${encodeURIComponent(`${data.numberStats ? `총 ${data.numberStats.frequency}회 출현 - ${data.latestRound && data.numberStats.lastDrawRound ? `${data.latestRound - data.numberStats.lastDrawRound}회차째 미출현` : '최근 당첨'} - 궁합번호와 실시간 스캔현황까지` : '실시간 스캔현황과 상세 통계를 지금 확인하세요'}`)}&layout=centered&theme=dark&format=svg`,
+				url: `https://www.645.live/og?title=${encodeURIComponent(`로또 번호 ${ballNumber} 완전분석`)}&description=${encodeURIComponent(`${data.numberStats ? `총 ${data.numberStats.frequency}회 출현 - ${data.latestRound && data.numberStats.lastDrawRound ? `${data.latestRound - data.numberStats.lastDrawRound}회차째 미출현` : '최근 당첨'} - 궁합번호와 실시간 스캔현황까지` : '실시간 스캔현황과 상세 통계를 지금 확인하세요'}`)}&layout=centered&theme=dark`,
 				width: 1200,
 				height: 630,
 				alt: `로또 번호 ${ballNumber} 스캔 현황`,
@@ -138,7 +138,7 @@ const getColorClass = (color: string | undefined) => {
 		site: "@645live",
 		title: `로또 번호 ${ballNumber} 실시간 스캔 현황`,
 		description: `🎯 로또 번호 ${ballNumber}의 실시간 스캔 현황 공개! 지금 이 순간도 스캔이 진행중입니다.`,
-		image: `https://www.645.live/og?title=${encodeURIComponent(`로또 번호 ${ballNumber} 완전분석`)}&description=${encodeURIComponent(`${data.numberStats ? `총 ${data.numberStats.frequency}회 출현 - ${data.latestRound && data.numberStats.lastDrawRound ? `${data.latestRound - data.numberStats.lastDrawRound}회차째 미출현` : '최근 당첨'} - 궁합번호와 실시간 스캔현황까지` : '실시간 스캔현황과 상세 통계를 지금 확인하세요'}`)}&layout=centered&theme=dark&format=svg`
+		image: `https://www.645.live/og?title=${encodeURIComponent(`로또 번호 ${ballNumber} 완전분석`)}&description=${encodeURIComponent(`${data.numberStats ? `총 ${data.numberStats.frequency}회 출현 - ${data.latestRound && data.numberStats.lastDrawRound ? `${data.latestRound - data.numberStats.lastDrawRound}회차째 미출현` : '최근 당첨'} - 궁합번호와 실시간 스캔현황까지` : '실시간 스캔현황과 상세 통계를 지금 확인하세요'}`)}&layout=centered&theme=dark`
 	}}
 	additionalMetaTags={[
 		{

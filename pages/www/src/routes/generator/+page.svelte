@@ -314,7 +314,7 @@ $effect(() => {
 		description: '🚀 통계 기반으로 당첨 확률을 높이는 나만의 로또 번호를 생성하세요!',
 		images: [
 			{
-				url: `https://www.645.live/og?title=${encodeURIComponent('로또 번호 생성기')}&description=${encodeURIComponent('🚀 통계 기반 스마트 번호 생성 | 다양한 필터로 당신만의 운명 번호 만들기')}&layout=centered&theme=dark&format=svg`,
+				url: `https://www.645.live/og?title=${encodeURIComponent('로또 번호 생성기')}&description=${encodeURIComponent('🚀 통계 기반 스마트 번호 생성 | 다양한 필터로 당신만의 운명 번호 만들기')}&layout=centered&theme=dark`,
 				width: 1200,
 				height: 630,
 				alt: '로또 번호 생성기 OG 이미지'
@@ -327,7 +327,7 @@ $effect(() => {
 		site: '@645live',
 		title: '통계 기반 로또 번호 생성기',
 		description: '🚀 통계 기반으로 당첨 확률을 높이는 나만의 로또 번호를 생성하세요!',
-		image: `https://www.645.live/og?title=${encodeURIComponent('로또 번호 생성기')}&description=${encodeURIComponent('🚀 통계 기반 스마트 번호 생성 | 다양한 필터로 당신만의 운명 번호 만들기')}&layout=centered&theme=dark&format=svg`,
+		image: `https://www.645.live/og?title=${encodeURIComponent('로또 번호 생성기')}&description=${encodeURIComponent('🚀 통계 기반 스마트 번호 생성 | 다양한 필터로 당신만의 운명 번호 만들기')}&layout=centered&theme=dark`,
 		imageAlt: '로또 번호 생성기 트위터 이미지'
 	}}
 />

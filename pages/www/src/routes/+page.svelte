@@ -207,7 +207,7 @@ onDestroy(() => {
 		locale: "ko_KR",
 		images: [
 			{
-				url: `https://www.645.live/og?title=${encodeURIComponent('로또 6/45 실시간 스캔 현황')}&description=${encodeURIComponent(`${currentRound ? currentRound + '회차 ' : ''}번호별 실시간 스캔 현황 - 총 ${totalScans.toLocaleString()}회 스캔`)}&layout=hero&theme=dark&format=svg`,
+				url: `https://www.645.live/og?title=${encodeURIComponent('로또 6/45 실시간 스캔 현황')}&description=${encodeURIComponent(`${currentRound ? currentRound + '회차 ' : ''}번호별 실시간 스캔 현황 - 총 ${totalScans.toLocaleString()}회 스캔`)}&layout=hero&theme=dark`,
 				width: 1200,
 				height: 630,
 				alt: "로또 6/45 실시간 스캔 현황",
@@ -221,7 +221,7 @@ onDestroy(() => {
 		creator: "@645live",
 		title: "로또 6/45 실시간 스캔 현황 및 통계 분석",
 		description: "🔥 로또 6/45 실시간 스캔 현황 공개! 지금 이 순간 어떤 번호가 가장 많이 선택되고 있는지 확인하고, 빅데이터 통계로 다음 당첨번호를 예측해보세요!",
-		image: `https://www.645.live/og?title=${encodeURIComponent('로또 6/45 실시간 스캔 현황')}&description=${encodeURIComponent(`${currentRound ? currentRound + '회차 ' : ''}번호별 실시간 스캔 현황 - 총 ${totalScans.toLocaleString()}회 스캔`)}&layout=hero&theme=dark&format=svg`,
+		image: `https://www.645.live/og?title=${encodeURIComponent('로또 6/45 실시간 스캔 현황')}&description=${encodeURIComponent(`${currentRound ? currentRound + '회차 ' : ''}번호별 실시간 스캔 현황 - 총 ${totalScans.toLocaleString()}회 스캔`)}&layout=hero&theme=dark`,
 		imageAlt: "로또 6/45 실시간 스캔 현황"
 	}}
 	additionalMetaTags={[
