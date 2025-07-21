@@ -160,7 +160,15 @@ onDestroy(() => {
     <div class="px-4 py-2 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-gray-800 dark:to-gray-700 rounded-xl mt-4 mb-3 max-sm:mx-0 mx-4 border border-blue-100 dark:border-gray-600 shadow-lg">
         <div class="flex justify-between items-center">
             <div class="flex items-center gap-3">
-                <div class="w-3 h-3 {connectionStatus.connected ? 'bg-green-500' : connectionStatus.connecting ? 'bg-yellow-500 animate-pulse' : 'bg-red-500'} rounded-full"></div>
+                <div class="flex items-center gap-2">
+                    <div class="w-3 h-3 {connectionStatus.connected ? 'bg-green-500' : connectionStatus.connecting ? 'bg-yellow-500 animate-pulse' : 'bg-red-500'} rounded-full"></div>
+                    <span class="text-xs text-gray-600 dark:text-gray-400">
+                        {connectionStatus.connected ? '연결됨' : connectionStatus.connecting ? '연결 중...' : `연결 끊김 (재시도: ${connectionStatus.retryCount})`}
+                        {#if connectionStatus.error}
+                            - {connectionStatus.error.message}
+                        {/if}
+                    </span>
+                </div>
                 <span class="text-lg font-bold text-gray-800 dark:text-white">
                     {#if ballValuesComposable.currentRound}
                         {ballValuesComposable.currentRound}회차

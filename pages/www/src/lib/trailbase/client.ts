@@ -57,11 +57,13 @@ class TrailBaseClient {
     try {
       const { initClient } = await import('trailbase');
       
-      this.client = initClient(
-        env.PUBLIC_TRAILBASE_URL || 'http://localhost:4000'
-      );
+      const url = env.PUBLIC_TRAILBASE_URL || 'http://localhost:4000';
+      console.log('🔌 Initializing TrailBase client with URL:', url);
       
+      this.client = initClient(url);
       this.api = this.client.records('lotto_draw_scan_counts');
+      
+      console.log('✅ TrailBase client initialized successfully');
       
       this.updateConnectionState({ 
         connected: false, 
@@ -70,7 +72,15 @@ class TrailBaseClient {
         retryCount: 0
       });
       
+      // Start stream if there are waiting subscribers
+      if (this.subscribers.size > 0 && !this.connectionState.connected && !this.connectionState.connecting) {
+        console.log('🔄 Starting stream for waiting subscribers...');
+        this.startStream();
+      }
+      
     } catch (error) {
+      console.error('❌ Failed to initialize TrailBase client:', error);
+      
       const trailbaseError: TrailbaseError = error instanceof Error 
         ? Object.assign(error, { status: 500 })
         : new Error('Failed to initialize TrailBase client');
@@ -108,15 +118,22 @@ class TrailBaseClient {
   
   private async startStream(): Promise<void> {
     if (!this.api || this.connectionState.connecting || this.connectionState.connected) {
+      console.log('🔄 Stream start blocked:', {
+        hasApi: !!this.api,
+        connecting: this.connectionState.connecting,
+        connected: this.connectionState.connected
+      });
       return;
     }
     
+    console.log('🚀 Starting TrailBase stream...');
     this.updateConnectionState({ connecting: true, error: null });
     
     try {
       this.stream = await this.api.subscribe('*');
       
       if (this.stream) {
+        console.log('✅ TrailBase stream connected successfully');
         this.reader = this.stream.getReader();
         this.updateConnectionState({ 
           connected: true, 
@@ -128,6 +145,8 @@ class TrailBaseClient {
         this.readStreamData();
       }
     } catch (error) {
+      console.error('❌ TrailBase stream connection failed:', error);
+      
       const trailbaseError: TrailbaseError = error instanceof Error 
         ? Object.assign(error, { 
             status: (error as { status?: number }).status || 500,
@@ -241,7 +260,18 @@ class TrailBaseClient {
     
     // Start stream if this is the first subscriber
     if (this.subscribers.size === 1 && !this.connectionState.connected && !this.connectionState.connecting) {
-      this.startStream();
+      // Wait for client initialization if needed
+      if (!this.api) {
+        console.log('⏳ Waiting for TrailBase client initialization...');
+        // Retry after initialization
+        setTimeout(() => {
+          if (this.api && !this.connectionState.connected && !this.connectionState.connecting) {
+            this.startStream();
+          }
+        }, 100);
+      } else {
+        this.startStream();
+      }
     }
     
     return () => {
