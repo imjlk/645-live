@@ -87,7 +87,7 @@ const getPairGrade = (pairCount: number) => {
 		description: '🔥 로또 6/45 최강 번호 조합 공개! 가장 많이 함께 나오는 황금 번호 쌍 분석으로 당첨 확률을 높여보세요!',
 		locale: 'ko_KR',
 		images: [{
-			url: `https://www.645.live/og/?${new URLSearchParams({
+			url: `https://www.645.live/og?${new URLSearchParams({
 				title: encodeURIComponent('로또 6/45 번호쌍 분석'),
 				description: encodeURIComponent(`총 ${data.totalPairs}개 번호쌍 | 최대 동반출현 ${data.maxPairCount}회 | 평균 ${data.averagePairCount || '0.0'}회`),
 				layout: 'minimal',
@@ -112,7 +112,7 @@ const getPairGrade = (pairCount: number) => {
 		site: '@645live',
 		title: '로또 6/45 번호쌍 분석 통계',
 		description: '🔥 로또 6/45 최강 번호 조합 공개! 황금 번호 쌍 분석으로 당첨 확률을 높여보세요!',
-		image: `https://www.645.live/og/?${new URLSearchParams({
+		image: `https://www.645.live/og?${new URLSearchParams({
 			title: encodeURIComponent('로또 6/45 번호쌍 분석'),
 			description: encodeURIComponent(`${data.totalPairs}개 번호쌍 동반출현 패턴 분석`),
 			layout: 'minimal',

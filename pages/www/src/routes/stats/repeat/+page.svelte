@@ -146,7 +146,7 @@ const handleKeydown = (event: KeyboardEvent) => {
 		description: '로또 6/45 연속 회차 간 중복 번호 패턴을 분석합니다. 이전 회차와의 번호 중복 빈도와 연속성 트렌드를 제공합니다.',
 		locale: 'ko_KR',
 		images: [{
-			url: `https://www.645.live/og/?${new URLSearchParams({
+			url: `https://www.645.live/og?${new URLSearchParams({
 				title: encodeURIComponent('로또 6/45 연속번호 분석'),
 				description: encodeURIComponent(`평균 중복: ${data.averageRepeatCount}개 | 최대 중복: ${data.maxRepeatCount}개 | 중복없음: ${data.zeroRepeatRate}%`),
 				layout: 'minimal',
@@ -171,7 +171,7 @@ const handleKeydown = (event: KeyboardEvent) => {
 		site: '@645live',
 		title: '로또 6/45 연속번호 분석 통계',
 		description: '회차간 중복 패턴 분석으로 로또 번호 연속성을 파악하세요.',
-		image: `https://www.645.live/og/?${new URLSearchParams({
+		image: `https://www.645.live/og?${new URLSearchParams({
 			title: encodeURIComponent('로또 6/45 연속번호 분석'),
 			description: encodeURIComponent(`평균 중복 ${data.averageRepeatCount}개 | 중복없음 ${data.zeroRepeatRate}%`),
 			layout: 'minimal',

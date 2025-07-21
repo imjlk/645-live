@@ -139,7 +139,7 @@ const breadcrumbItems = [
 		description: `최근 ${data.selectedRounds}회차 AC값 상세 분석 - 평균 ${data.acStats.summary.avgAC.toFixed(2)}, 최대 ${data.acStats.summary.maxAC}, 최소 ${data.acStats.summary.minAC}`,
 		locale: 'ko_KR',
 		images: [{
-			url: `https://www.645.live/og/?${new URLSearchParams({
+			url: `https://www.645.live/og?${new URLSearchParams({
 				title: encodeURIComponent(`AC값 분석 (최근 ${data.selectedRounds}회차)`),
 				description: encodeURIComponent(`평균 ${data.acStats.summary.avgAC.toFixed(2)} | 최대 ${data.acStats.summary.maxAC} | 최소 ${data.acStats.summary.minAC} | 총 ${data.acStats.summary.totalDraws}회 분석`),
 				layout: 'minimal',
@@ -164,7 +164,7 @@ const breadcrumbItems = [
 		site: '@645live',
 		title: `로또 6/45 AC값 ${data.selectedRounds}회차 분석`,
 		description: `평균 AC값 ${data.acStats.summary.avgAC.toFixed(2)} | 최대 ${data.acStats.summary.maxAC} | 최소 ${data.acStats.summary.minAC}`,
-		image: `https://www.645.live/og/?${new URLSearchParams({
+		image: `https://www.645.live/og?${new URLSearchParams({
 			title: encodeURIComponent(`AC값 분석 (${data.selectedRounds}회차)`),
 			description: encodeURIComponent(`평균 ${data.acStats.summary.avgAC.toFixed(2)} | 범위 ${data.acStats.summary.minAC}-${data.acStats.summary.maxAC}`),
 			layout: 'minimal',

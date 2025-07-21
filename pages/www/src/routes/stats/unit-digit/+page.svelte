@@ -136,7 +136,7 @@ const getDigitLightColorClass = (digit: string) => {
 		description: '로또 6/45 당첨번호의 끝수(0-9) 분포 및 출현 패턴을 분석합니다. 각 끝수별 출현 빈도와 통계를 확인하세요.',
 		locale: 'ko_KR',
 		images: [{
-			url: `https://www.645.live/og/?title=${encodeURIComponent('로또 6/45 끝수 분석')}&description=${encodeURIComponent(`0-9 끝자리 완전분석 - 최다: ${data.mostFrequentDigit[0]} (${data.mostFrequentDigit[1]}회) - 최소: ${data.leastFrequentDigit[0]} (${data.leastFrequentDigit[1]}회)`)}&layout=minimal&theme=dark`,
+			url: `https://www.645.live/og?title=${encodeURIComponent('로또 6/45 끝수 분석')}&description=${encodeURIComponent(`0-9 끝자리 완전분석 - 최다: ${data.mostFrequentDigit[0]} (${data.mostFrequentDigit[1]}회) - 최소: ${data.leastFrequentDigit[0]} (${data.leastFrequentDigit[1]}회)`)}&layout=minimal&theme=dark&format=svg`,
 			width: 1200,
 			height: 630,
 			alt: '로또 6/45 끝수 분석 통계',
@@ -155,7 +155,7 @@ const getDigitLightColorClass = (digit: string) => {
 		site: '@645live',
 		title: '로또 6/45 끝수 분석 통계',
 		description: '끝자리 숫자별 출현 패턴으로 로또 번호 분석을 파악하세요.',
-		image: `https://www.645.live/og/?title=${encodeURIComponent('로또 6/45 끝수 분석')}&description=${encodeURIComponent(`0-9 끝자리 완전분석 - 최다: ${data.mostFrequentDigit[0]} (${data.mostFrequentDigit[1]}회) - 최소: ${data.leastFrequentDigit[0]} (${data.leastFrequentDigit[1]}회)`)}&layout=minimal&theme=dark`,
+		image: `https://www.645.live/og?title=${encodeURIComponent('로또 6/45 끝수 분석')}&description=${encodeURIComponent(`0-9 끝자리 완전분석 - 최다: ${data.mostFrequentDigit[0]} (${data.mostFrequentDigit[1]}회) - 최소: ${data.leastFrequentDigit[0]} (${data.leastFrequentDigit[1]}회)`)}&layout=minimal&theme=dark&format=svg`,
 		imageAlt: '로또 6/45 끝수 분석 통계'
 	}}
 />

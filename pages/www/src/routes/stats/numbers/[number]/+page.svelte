@@ -115,7 +115,7 @@ const breadcrumbItems = [
 		description: `로또 6/45 번호 ${data.selectedNumber}번 상세 분석 - 총 ${data.numberStats.draw_count}회 출현, 보너스 ${data.numberStats.bonus_count}회. 최근 당첨 이력과 패턴 분석.`,
 		locale: 'ko_KR',
 		images: [{
-			url: `https://www.645.live/og/?${new URLSearchParams({
+			url: `https://www.645.live/og?${new URLSearchParams({
 				title: encodeURIComponent(`${data.selectedNumber}번 상세 분석`),
 				description: encodeURIComponent(`출현 ${data.numberStats.draw_count}회 (${data.numberStats.averageFrequency}%) | 보너스 ${data.numberStats.bonus_count}회 | ${colorDetail?.name || data.numberStats.color}색 | 편차 ${data.numberStats.deviation}`),
 				layout: 'minimal',
@@ -140,7 +140,7 @@ const breadcrumbItems = [
 		site: '@645live',
 		title: `로또 번호 ${data.selectedNumber}번 분석`,
 		description: `출현 ${data.numberStats.draw_count}회 (${data.numberStats.averageFrequency}%) | 보너스 ${data.numberStats.bonus_count}회`,
-		image: `https://www.645.live/og/?${new URLSearchParams({
+		image: `https://www.645.live/og?${new URLSearchParams({
 			title: encodeURIComponent(`로또 ${data.selectedNumber}번 분석`),
 			description: encodeURIComponent(`출현 ${data.numberStats.draw_count}회 | 출현률 ${data.numberStats.averageFrequency}%`),
 			layout: 'minimal',

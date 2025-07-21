@@ -50,7 +50,7 @@ export let data: PageData;
 		description: `🎯 로또 당첨 패턴 완전분석! 전체 ${data.totalRounds}회차 빅데이터로 승률을 높이는 통계의 비밀을 공개합니다.`,
 		locale: 'ko_KR',
 		images: [{
-			url: `https://www.645.live/og/?${new URLSearchParams({
+			url: `https://www.645.live/og?${new URLSearchParams({
 				title: encodeURIComponent('로또 6/45 통계 분석'),
 				description: encodeURIComponent(`전체 ${data.totalRounds}회차 데이터 기반 종합 통계 분석 | 최다출현: ${data.topNumberStats[0]?.number}번 ${data.topNumberStats[0]?.draw_count}회`),
 				layout: 'blog',
@@ -69,7 +69,7 @@ export let data: PageData;
 		site: '@645live',
 		title: '로또 6/45 통계 분석',
 		description: '🎯 로또 당첨 패턴 완전분석! 빅데이터로 승률을 높이는 통계의 비밀을 공개합니다.',
-		image: `https://www.645.live/og/?${new URLSearchParams({
+		image: `https://www.645.live/og?${new URLSearchParams({
 			title: encodeURIComponent('로또 6/45 통계 분석'),
 			description: encodeURIComponent(`전체 ${data.totalRounds}회차 데이터 기반 종합 통계 분석`),
 			layout: 'blog',
