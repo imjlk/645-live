@@ -558,5 +558,153 @@ export async function getAnalysisWithRecent(analysisType: string, limit?: number
   }
 }
 
+// Recent rounds analysis for dynamic routes
+export async function getRecentAnalysis(
+  analysisType: string,
+  rounds: number
+): Promise<{
+  analysisData: any[];
+  selectedRounds: number;
+  totalRounds: number;
+  validRounds: boolean;
+}> {
+  try {
+    // Validate rounds parameter
+    if (isNaN(rounds) || rounds < 1) {
+      throw new Error("잘못된 회차 파라미터입니다.");
+    }
+
+    // Get latest round info and recent data in parallel
+    const [latestRoundInfo, recentData] = await Promise.all([
+      getLatestRoundInfo(),
+      getStatsForAnalysisType(analysisType, rounds),
+    ]);
+
+    const totalRounds = latestRoundInfo?.round || 0;
+    const validRounds = rounds <= totalRounds;
+
+    if (!validRounds) {
+      throw new Error(`선택한 회차 수(${rounds})가 전체 회차 수(${totalRounds})를 초과합니다.`);
+    }
+
+    return {
+      analysisData: recentData,
+      selectedRounds: rounds,
+      totalRounds,
+      validRounds,
+    };
+  } catch (error) {
+    console.error(`Failed to fetch recent analysis for ${analysisType}:`, error);
+    
+    // Get total rounds for fallback
+    const latestRoundInfo = await getLatestRoundInfo();
+    const totalRounds = latestRoundInfo?.round || 0;
+    
+    return {
+      analysisData: [],
+      selectedRounds: rounds,
+      totalRounds,
+      validRounds: false,
+    };
+  }
+}
+
+// Recent color analysis (specialized version with detailed calculations)
+export async function getRecentColorAnalysis(rounds: number) {
+  try {
+    const baseResult = await getRecentAnalysis("colors", rounds);
+    
+    if (!baseResult.validRounds || baseResult.analysisData.length === 0) {
+      return {
+        ...baseResult,
+        colorAverages: {},
+        colorCountDistribution: {},
+        mostFrequentColor: ["yellow", "0.00"],
+        lowComplexityRate: "0.0",
+        highComplexityRate: "0.0",
+      };
+    }
+
+    // Calculate color-specific analysis similar to getColorAveragesAndDistribution
+    const colorStats = baseResult.analysisData as ColorStat[];
+    const totalRecords = colorStats.length;
+
+    const colorSums = { yellow: 0, blue: 0, red: 0, grey: 0, green: 0 };
+    const distribution: Record<string, Record<string, number>> = {
+      yellow: {}, blue: {}, red: {}, grey: {}, green: {},
+    };
+
+    let lowComplexityCount = 0;
+    let highComplexityCount = 0;
+
+    colorStats.forEach((record) => {
+      colorSums.yellow += record.yellow_count;
+      colorSums.blue += record.blue_count;
+      colorSums.red += record.red_count;
+      colorSums.grey += record.grey_count;
+      colorSums.green += record.green_count;
+
+      // Track distributions
+      Object.entries({
+        yellow: record.yellow_count,
+        blue: record.blue_count,
+        red: record.red_count,
+        grey: record.grey_count,
+        green: record.green_count,
+      }).forEach(([color, count]) => {
+        const countStr = count.toString();
+        if (!distribution[color][countStr]) {
+          distribution[color][countStr] = 0;
+        }
+        distribution[color][countStr]++;
+      });
+
+      // Complexity analysis
+      const maxCount = Math.max(
+        record.yellow_count, record.blue_count, record.red_count,
+        record.grey_count, record.green_count
+      );
+      if (maxCount <= 1) lowComplexityCount++;
+      if (maxCount >= 4) highComplexityCount++;
+    });
+
+    // Calculate averages
+    const colorAverages = Object.fromEntries(
+      Object.entries(colorSums).map(([color, sum]) => [
+        color,
+        (sum / totalRecords).toFixed(2),
+      ])
+    );
+
+    const mostFrequentColor = Object.entries(colorAverages).reduce(
+      (max, [color, avg]) => (parseFloat(avg) > parseFloat(max[1]) ? [color, avg] : max),
+      ["", "0"]
+    );
+
+    return {
+      ...baseResult,
+      colorAverages,
+      colorCountDistribution: distribution,
+      mostFrequentColor: mostFrequentColor as [string, string],
+      lowComplexityRate: ((lowComplexityCount / totalRecords) * 100).toFixed(1),
+      highComplexityRate: ((highComplexityCount / totalRecords) * 100).toFixed(1),
+    };
+  } catch (error) {
+    console.error("Failed to fetch recent color analysis:", error);
+    const latestRoundInfo = await getLatestRoundInfo();
+    return {
+      analysisData: [],
+      selectedRounds: rounds,
+      totalRounds: latestRoundInfo?.round || 0,
+      validRounds: false,
+      colorAverages: {},
+      colorCountDistribution: {},
+      mostFrequentColor: ["yellow", "0.00"] as [string, string],
+      lowComplexityRate: "0.0",
+      highComplexityRate: "0.0",
+    };
+  }
+}
+
 // Export the client for custom queries
 export { client as statsClient };
