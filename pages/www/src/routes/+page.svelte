@@ -2,192 +2,63 @@
 import LottoBall from "$lib/modules/lotto/components/LottoBall.svelte";
 import ValueIncrementEffect from "$lib/modules/lotto/components/ValueIncrementEffect.svelte";
 import type { BallNumber } from "$lib/modules/lotto/types";
-import {
-	type LottoDrawScanCount,
-	getLatestScanData,
-	getScanCountApi,
-	getScanDataSafely,
-	subscribeToScanCountUpdates,
-} from "$lib/stores/streamStore";
-import LinkButton from "$lib/ui/LinkButton.svelte";
+import { useBallValues, useConnectionStatus } from "$lib/trailbase/composables.svelte";
 import { onDestroy, onMount } from "svelte";
 import { JsonLd, MetaTags } from "svelte-meta-tags";
 import type { PageData } from "./$types";
 
 let { data }: { data: PageData } = $props();
 
-// Track which balls have recently changed value to show animation
-let recentlyUpdated = $state<Record<number, boolean>>({});
+// Use the new composables for state management
+const ballValuesComposable = useBallValues({
+	initialRound: data.displayRound || data.latestRound,
+	onBallUpdate: (ballNumber, newValue, oldValue) => {
+		// This will be handled by the composable's recentlyUpdated state
+		console.log(`Ball ${ballNumber} updated from ${oldValue} to ${newValue}`);
+	}
+});
 
-// Client-side initial data and error state
-let error = $state<string | null>(null);
+const connectionStatus = useConnectionStatus();
 
-// Initialize numbers with a default empty array - will be generated for 1-45
-let numbers = $state<BallNumber[]>([]);
-// Create a reactive state for the values from scan counts
-let ballValues = $state<Record<number, number>>({});
-// Store the current round data
-let currentRound = $state<number | null>(null);
-// Store total scan count
-let totalScans = $state(0);
+// Generate numbers array for rendering based on ballValues
+let numbers = $derived<BallNumber[]>(
+	Array.from({ length: 45 }, (_, i) => ({
+		id: i + 1,
+		value: ballValuesComposable.ballValues[i + 1] || 0,
+	}))
+);
 
-// 전역 스트림 구독 해제 함수
-let unsubscribeStream: (() => void) | null = null;
+// Subscription cleanup functions
+let unsubscribeBallValues: (() => void) | null = null;
+let unsubscribeConnection: (() => void) | null = null;
 
-// Function to fetch initial lotto scan counts from Trailbase
-async function loadInitialData() {
-	// Use the display round from server data (this is the round we should show scan data for)
+// Initialize data using the new composable
+async function initializeData() {
 	const targetRound = data.displayRound || data.latestRound;
 	if (targetRound) {
-		currentRound = targetRound;
-	}
-
-	try {
-		// Try to get the specific round's scan data directly
-		if (targetRound) {
-			const scanData = await getScanDataSafely(targetRound);
-
-			if (scanData) {
-				currentRound = targetRound;
-				totalScans = Number(scanData.total_scans) || 0;
-
-				// Convert scan count data to ball values
-				const values: Record<number, number> = {};
-				for (let i = 1; i <= 45; i++) {
-					const scanCountField = `scan_count_${i}` as keyof LottoDrawScanCount;
-					values[i] = Number(scanData[scanCountField]) || 0;
-				}
-				ballValues = values;
-
-				// Generate numbers array for rendering (1-45)
-				numbers = Array.from({ length: 45 }, (_, i) => ({
-					id: i + 1,
-					value: values[i + 1] || 0,
-				}));
-				return; // Successfully loaded target round data
-			}
-
-			// Round not found, initialize with zeros for the target round
-			currentRound = targetRound;
-			totalScans = 0;
-
-			const values: Record<number, number> = {};
-			for (let i = 1; i <= 45; i++) {
-				values[i] = 0;
-			}
-			ballValues = values;
-
-			// Generate numbers array for rendering (1-45)
-			numbers = Array.from({ length: 45 }, (_, i) => ({
-				id: i + 1,
-				value: 0,
-			}));
-			return;
-		}
-
-		// Fallback: get the latest available data if no target round specified
-		const latestRound = await getLatestScanData();
-
-		if (latestRound) {
-			// Use display round if available, otherwise use database round
-			currentRound = targetRound || Number(latestRound.round) || null;
-			totalScans = Number(latestRound.total_scans) || 0;
-
-			// Convert scan count data to ball values
-			const values: Record<number, number> = {};
-			for (let i = 1; i <= 45; i++) {
-				const scanCountField = `scan_count_${i}` as keyof LottoDrawScanCount;
-				values[i] = Number(latestRound[scanCountField]) || 0;
-			}
-			ballValues = values;
-
-			// Generate numbers array for rendering (1-45)
-			numbers = Array.from({ length: 45 }, (_, i) => ({
-				id: i + 1,
-				value: values[i + 1] || 0,
-			}));
-		} else {
-			// No scan data yet, use display round and initialize with zeros
-			currentRound = targetRound || null;
-			totalScans = 0;
-
-			const values: Record<number, number> = {};
-			for (let i = 1; i <= 45; i++) {
-				values[i] = 0;
-			}
-			ballValues = values;
-
-			// Generate numbers array for rendering (1-45)
-			numbers = Array.from({ length: 45 }, (_, i) => ({
-				id: i + 1,
-				value: 0,
-			}));
-		}
-	} catch (err: unknown) {
-		error = (err as Error)?.message || "초기 데이터 로딩에 실패했습니다.";
+		await ballValuesComposable.loadInitialData(targetRound);
 	}
 }
 
 onMount(async () => {
-	// First load initial data
-	await loadInitialData();
-	if (error) return;
-
-	// Set up global stream subscription for real-time updates
-	unsubscribeStream = subscribeToScanCountUpdates("main-page", (scanData) => {
-		// Only update if this is for the current round we're displaying
-		if (scanData.round !== currentRound) {
-			// Update current round if it changed
-			currentRound = scanData.round;
-		}
-
-		// Update the ballValues with new scan counts
-		const newValues = { ...ballValues };
-		let hasChanges = false;
-
-		// Check each scan count field for changes
-		for (let i = 1; i <= 45; i++) {
-			const scanCountField = `scan_count_${i}` as keyof LottoDrawScanCount;
-			const newCount = Number(scanData[scanCountField]) || 0;
-			const currentCount = ballValues[i] || 0;
-
-			if (newCount !== currentCount) {
-				newValues[i] = newCount;
-				hasChanges = true;
-
-				// Trigger animation for this ball
-				recentlyUpdated = {
-					...recentlyUpdated,
-					[i]: true,
-				};
-
-				// Remove the animation after a delay
-				setTimeout(() => {
-					recentlyUpdated = {
-						...recentlyUpdated,
-						[i]: false,
-					};
-				}, 1000);
-			}
-		}
-
-		if (hasChanges) {
-			ballValues = newValues;
-		}
-
-		// Update total scans
-		const newTotalScans = Number(scanData.total_scans) || 0;
-		if (newTotalScans !== totalScans) {
-			totalScans = newTotalScans;
-		}
-	});
+	// Initialize data
+	await initializeData();
+	
+	// Set up subscriptions
+	unsubscribeBallValues = ballValuesComposable.subscribe();
+	unsubscribeConnection = connectionStatus.subscribe();
 });
 
 // Clean up on component unmount
 onDestroy(() => {
-	if (unsubscribeStream) {
-		unsubscribeStream();
-		unsubscribeStream = null;
+	if (unsubscribeBallValues) {
+		unsubscribeBallValues();
+		unsubscribeBallValues = null;
+	}
+	
+	if (unsubscribeConnection) {
+		unsubscribeConnection();
+		unsubscribeConnection = null;
 	}
 });
 </script>
@@ -207,7 +78,7 @@ onDestroy(() => {
 		locale: "ko_KR",
 		images: [
 			{
-				url: `https://www.645.live/og?title=${encodeURIComponent('로또 6/45 실시간 스캔 현황')}&description=${encodeURIComponent(`${currentRound ? currentRound + '회차 ' : ''}번호별 실시간 스캔 현황 - 총 ${totalScans.toLocaleString()}회 스캔`)}&layout=hero&theme=dark`,
+				url: `https://www.645.live/og?title=${encodeURIComponent('로또 6/45 실시간 스캔 현황')}&description=${encodeURIComponent(`${ballValuesComposable.currentRound ? ballValuesComposable.currentRound + '회차 ' : ''}번호별 실시간 스캔 현황 - 총 ${ballValuesComposable.totalScans.toLocaleString()}회 스캔`)}&layout=hero&theme=dark`,
 				width: 1200,
 				height: 630,
 				alt: "로또 6/45 실시간 스캔 현황",
@@ -221,7 +92,7 @@ onDestroy(() => {
 		creator: "@645live",
 		title: "로또 6/45 실시간 스캔 현황 및 통계 분석",
 		description: "🔥 로또 6/45 실시간 스캔 현황 공개! 지금 이 순간 어떤 번호가 가장 많이 선택되고 있는지 확인하고, 빅데이터 통계로 다음 당첨번호를 예측해보세요!",
-		image: `https://www.645.live/og?title=${encodeURIComponent('로또 6/45 실시간 스캔 현황')}&description=${encodeURIComponent(`${currentRound ? currentRound + '회차 ' : ''}번호별 실시간 스캔 현황 - 총 ${totalScans.toLocaleString()}회 스캔`)}&layout=hero&theme=dark`,
+		image: `https://www.645.live/og?title=${encodeURIComponent('로또 6/45 실시간 스캔 현황')}&description=${encodeURIComponent(`${ballValuesComposable.currentRound ? ballValuesComposable.currentRound + '회차 ' : ''}번호별 실시간 스캔 현황 - 총 ${ballValuesComposable.totalScans.toLocaleString()}회 스캔`)}&layout=hero&theme=dark`,
 		imageAlt: "로또 6/45 실시간 스캔 현황"
 	}}
 	additionalMetaTags={[
@@ -276,18 +147,23 @@ onDestroy(() => {
 	}}
 />
 
-{#if error}
-    <p class="text-red-500 p-4">Error loading data: {error}</p>
+{#if ballValuesComposable.error}
+    <div class="text-red-500 p-4 bg-red-50 dark:bg-red-900/20 rounded-lg mx-4 mt-4">
+        <p>데이터 로딩 오류: {ballValuesComposable.error.message}</p>
+        {#if !connectionStatus.connected}
+            <p class="text-sm mt-2">연결 상태: {connectionStatus.connecting ? '연결 중...' : '연결 끊김'}</p>
+        {/if}
+    </div>
 {:else if numbers.length > 0}
     <!-- Header with round and total scans info -->
     <div class="px-4 py-2 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-gray-800 dark:to-gray-700 rounded-xl mt-4 mb-3 max-sm:mx-0 mx-4 border border-blue-100 dark:border-gray-600 shadow-lg">
         <div class="flex justify-between items-center">
             <div class="flex items-center gap-3">
-                <div class="w-3 h-3 bg-blue-500 rounded-full animate-pulse"></div>
+                <div class="w-3 h-3 {connectionStatus.connected ? 'bg-green-500' : connectionStatus.connecting ? 'bg-yellow-500 animate-pulse' : 'bg-red-500'} rounded-full"></div>
                 <span class="text-lg font-bold text-gray-800 dark:text-white">
-                    {#if currentRound}
-                        {currentRound}회차
-                        {#if data.latestRound && currentRound === data.latestRound}
+                    {#if ballValuesComposable.currentRound}
+                        {ballValuesComposable.currentRound}회차
+                        {#if data.latestRound && ballValuesComposable.currentRound === data.latestRound}
                             <span class="ml-2 px-2 py-1 bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100 text-xs font-medium rounded-full">발표됨</span>
                         {/if}
                     {:else if data.displayRound}
@@ -305,7 +181,7 @@ onDestroy(() => {
                     <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
                 </svg>
                 <span class="text-blue-600 dark:text-blue-400 font-bold text-sm">
-                    총 스캔: {totalScans.toLocaleString()}회
+                    총 스캔: {ballValuesComposable.totalScans.toLocaleString()}회
                 </span>
             </div>
         </div>
@@ -313,13 +189,12 @@ onDestroy(() => {
     
     <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 p-0 py-4 sm:p-4 gap-4">
         {#each numbers as ball (ball.id)}
-            {@const value = ballValues[ball.id] || 0}
-            {@const isUpdated = recentlyUpdated[ball.id] || false}
+            {@const isUpdated = ballValuesComposable.recentlyUpdated[ball.id] || false}
             <a href="/n/{ball.id}" class="ball-grid-item">
                 <ValueIncrementEffect show={isUpdated} message="+1" color="text-green-500" />
                 <LottoBall 
                     ballNumber={ball.id} 
-                    initialValue={value}
+                    initialValue={ball.value}
                     size="small"
                     interactive={true}
                 />
