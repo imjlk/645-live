@@ -89,7 +89,7 @@ const getPairGrade = (pairCount: number) => {
 		images: [{
 			url: `https://www.645.live/og/?${new URLSearchParams({
 				title: encodeURIComponent('로또 6/45 번호쌍 분석'),
-				description: encodeURIComponent(`총 ${data.totalPairs}개 번호쌍 | 최대 동반출현 ${data.maxPairCount}회 | 평균 ${data.averagePairCount.toFixed(1)}회`),
+				description: encodeURIComponent(`총 ${data.totalPairs}개 번호쌍 | 최대 동반출현 ${data.maxPairCount}회 | 평균 ${data.averagePairCount || '0.0'}회`),
 				layout: 'minimal',
 				theme: 'dark',
 				format: 'svg'
