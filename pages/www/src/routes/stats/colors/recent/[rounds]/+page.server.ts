@@ -23,7 +23,15 @@ export const load: PageServerLoad = async ({ params }) => {
 		}
 
 		return {
-			colorStats: result.analysisData,
+			colorStats: {
+				...result,
+				summary: {
+					colorAverages: result.colorAverages,
+					colorCounts: result.colorCountDistribution,
+					mostFrequentColor: result.mostFrequentColor,
+					totalDraws: result.analysisData.length,
+				},
+			},
 			selectedRounds: result.selectedRounds,
 			totalRounds: result.totalRounds,
 			colorAverages: result.colorAverages,

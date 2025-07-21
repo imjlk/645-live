@@ -1,4 +1,4 @@
-import { getRecentAnalysis } from "$lib/trailbase/stats";
+import { getRecentSectionsAnalysis } from "$lib/trailbase/stats";
 import { error } from "@sveltejs/kit";
 import type { PageServerLoad } from "./$types";
 
@@ -16,18 +16,18 @@ export const load: PageServerLoad = async ({ params }) => {
 			throw error(400, "잘못된 회차 파라미터입니다.");
 		}
 
-		const result = await getRecentAnalysis("sections", selectedRounds);
+		const result = await getRecentSectionsAnalysis(selectedRounds);
 
 		if (!result.validRounds) {
 			throw error(400, `선택한 회차 수(${selectedRounds})가 전체 회차 수(${result.totalRounds})를 초과합니다.`);
 		}
 
 		return {
-			sectionStats: result.analysisData,
+			sectionStats: result,
 			selectedRounds: result.selectedRounds,
 			totalRounds: result.totalRounds,
-			totalRecords: result.analysisData.length,
-			recentStats: result.analysisData.slice(0, 10),
+			totalRecords: result.records.length,
+			recentStats: result.records.slice(0, 10),
 		};
 	} catch (err) {
 		console.error("최근 sections 통계 데이터 로드 실패:", err);

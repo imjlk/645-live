@@ -706,5 +706,356 @@ export async function getRecentColorAnalysis(rounds: number) {
   }
 }
 
+// AC 분석을 위한 특화 함수
+export async function getRecentACAnalysis(rounds: number) {
+  try {
+    const baseResult = await getRecentAnalysis("ac", rounds);
+    
+    if (!baseResult.validRounds || baseResult.analysisData.length === 0) {
+      return {
+        ...baseResult,
+        summary: {
+          avgAC: 0,
+          maxAC: 0,
+          minAC: 0,
+          totalDraws: 0,
+          distribution: {},
+        },
+        records: [],
+      };
+    }
+
+    const records = baseResult.analysisData;
+    const acValues = records.map(record => record.ac_value);
+    
+    const avgAC = acValues.reduce((sum, val) => sum + val, 0) / acValues.length;
+    const maxAC = Math.max(...acValues);
+    const minAC = Math.min(...acValues);
+    
+    // AC값 분포 계산
+    const distribution: Record<string, number> = {};
+    acValues.forEach(ac => {
+      const range = getACRange(ac);
+      distribution[range] = (distribution[range] || 0) + 1;
+    });
+
+    return {
+      ...baseResult,
+      summary: {
+        avgAC,
+        maxAC,
+        minAC,
+        totalDraws: records.length,
+        distribution,
+      },
+      records,
+    };
+  } catch (error) {
+    console.error("Failed to fetch recent AC analysis:", error);
+    const latestRoundInfo = await getLatestRoundInfo();
+    return {
+      analysisData: [],
+      selectedRounds: rounds,
+      totalRounds: latestRoundInfo?.round || 0,
+      validRounds: false,
+      summary: {
+        avgAC: 0,
+        maxAC: 0,
+        minAC: 0,
+        totalDraws: 0,
+        distribution: {},
+      },
+      records: [],
+    };
+  }
+}
+
+// Unit-digit 분석을 위한 특화 함수
+export async function getRecentUnitDigitAnalysis(rounds: number) {
+  try {
+    const baseResult = await getRecentAnalysis("unit-digit", rounds);
+    
+    if (!baseResult.validRounds || baseResult.analysisData.length === 0) {
+      return {
+        ...baseResult,
+        summary: {
+          digitAverages: { digit0: 0, digit1: 0, digit2: 0, digit3: 0, digit4: 0, digit5: 0, digit6: 0, digit7: 0, digit8: 0, digit9: 0 },
+          digitCounts: { digit0: 0, digit1: 0, digit2: 0, digit3: 0, digit4: 0, digit5: 0, digit6: 0, digit7: 0, digit8: 0, digit9: 0 },
+          mostFrequentDigit: [0, 0],
+          totalDraws: 0,
+        },
+        records: [],
+      };
+    }
+
+    const records = baseResult.analysisData;
+    const digitSums = { digit0: 0, digit1: 0, digit2: 0, digit3: 0, digit4: 0, digit5: 0, digit6: 0, digit7: 0, digit8: 0, digit9: 0 };
+    const digitCounts = { digit0: 0, digit1: 0, digit2: 0, digit3: 0, digit4: 0, digit5: 0, digit6: 0, digit7: 0, digit8: 0, digit9: 0 };
+    
+    records.forEach(record => {
+      Object.keys(digitSums).forEach(key => {
+        const digitKey = key as keyof typeof digitSums;
+        const count = record[digitKey] || 0;
+        digitSums[digitKey] += count;
+        digitCounts[digitKey] += count;
+      });
+    });
+
+    const digitAverages = Object.fromEntries(
+      Object.entries(digitSums).map(([digit, sum]) => [
+        digit,
+        (sum / records.length).toFixed(2),
+      ])
+    );
+
+    // Find most frequent digit
+    const mostFrequentDigitEntry = Object.entries(digitCounts).reduce(
+      (max, [digit, count]) => (count > max[1] ? [digit, count] : max),
+      ["digit0", 0]
+    );
+
+    return {
+      ...baseResult,
+      summary: {
+        digitAverages,
+        digitCounts,
+        mostFrequentDigit: [parseInt(mostFrequentDigitEntry[0].replace('digit', '')), mostFrequentDigitEntry[1]],
+        totalDraws: records.length,
+      },
+      records,
+    };
+  } catch (error) {
+    console.error("Failed to fetch recent unit-digit analysis:", error);
+    const latestRoundInfo = await getLatestRoundInfo();
+    return {
+      analysisData: [],
+      selectedRounds: rounds,
+      totalRounds: latestRoundInfo?.round || 0,
+      validRounds: false,
+      summary: {
+        digitAverages: { digit0: 0, digit1: 0, digit2: 0, digit3: 0, digit4: 0, digit5: 0, digit6: 0, digit7: 0, digit8: 0, digit9: 0 },
+        digitCounts: { digit0: 0, digit1: 0, digit2: 0, digit3: 0, digit4: 0, digit5: 0, digit6: 0, digit7: 0, digit8: 0, digit9: 0 },
+        mostFrequentDigit: [0, 0],
+        totalDraws: 0,
+      },
+      records: [],
+    };
+  }
+}
+
+// High-Low 분석을 위한 특화 함수
+export async function getRecentHighLowAnalysis(rounds: number) {
+  try {
+    const baseResult = await getRecentAnalysis("high-low", rounds);
+    
+    if (!baseResult.validRounds || baseResult.analysisData.length === 0) {
+      return {
+        ...baseResult,
+        summary: {
+          lowAverage: 0,
+          highAverage: 0,
+          lowCount: 0,
+          highCount: 0,
+          totalDraws: 0,
+          distribution: {},
+        },
+        records: [],
+      };
+    }
+
+    const records = baseResult.analysisData;
+    let lowSum = 0, highSum = 0, lowCount = 0, highCount = 0;
+    const distribution: Record<string, number> = {};
+    
+    records.forEach(record => {
+      lowSum += record.low_count || 0;
+      highSum += record.high_count || 0;
+      lowCount += record.low_count || 0;
+      highCount += record.high_count || 0;
+      
+      const pattern = `${record.low_count || 0}-${record.high_count || 0}`;
+      distribution[pattern] = (distribution[pattern] || 0) + 1;
+    });
+
+    return {
+      ...baseResult,
+      summary: {
+        lowAverage: (lowSum / records.length).toFixed(1),
+        highAverage: (highSum / records.length).toFixed(1),
+        lowCount,
+        highCount,
+        totalDraws: records.length,
+        distribution,
+      },
+      records,
+    };
+  } catch (error) {
+    console.error("Failed to fetch recent high-low analysis:", error);
+    const latestRoundInfo = await getLatestRoundInfo();
+    return {
+      analysisData: [],
+      selectedRounds: rounds,
+      totalRounds: latestRoundInfo?.round || 0,
+      validRounds: false,
+      summary: {
+        lowAverage: 0,
+        highAverage: 0,
+        lowCount: 0,
+        highCount: 0,
+        totalDraws: 0,
+        distribution: {},
+      },
+      records: [],
+    };
+  }
+}
+
+// Sections 분석을 위한 특화 함수
+export async function getRecentSectionsAnalysis(rounds: number) {
+  try {
+    const baseResult = await getRecentAnalysis("sections", rounds);
+    
+    if (!baseResult.validRounds || baseResult.analysisData.length === 0) {
+      return {
+        ...baseResult,
+        summary: {
+          sectionAverages: { section1: 0, section2: 0, section3: 0 },
+          sectionCounts: { section1: 0, section2: 0, section3: 0 },
+          mostFrequentSection: [1, 0],
+          totalDraws: 0,
+        },
+        records: [],
+      };
+    }
+
+    const records = baseResult.analysisData;
+    const sectionSums = { section1: 0, section2: 0, section3: 0 };
+    const sectionCounts = { section1: 0, section2: 0, section3: 0 };
+    
+    records.forEach(record => {
+      sectionSums.section1 += record.section1_count || 0;
+      sectionSums.section2 += record.section2_count || 0;
+      sectionSums.section3 += record.section3_count || 0;
+      sectionCounts.section1 += record.section1_count || 0;
+      sectionCounts.section2 += record.section2_count || 0;
+      sectionCounts.section3 += record.section3_count || 0;
+    });
+
+    const sectionAverages = Object.fromEntries(
+      Object.entries(sectionSums).map(([section, sum]) => [
+        section,
+        (sum / records.length).toFixed(2),
+      ])
+    );
+
+    // Find most frequent section
+    const mostFrequentSectionEntry = Object.entries(sectionCounts).reduce(
+      (max, [section, count]) => (count > max[1] ? [section, count] : max),
+      ["section1", 0]
+    );
+
+    return {
+      ...baseResult,
+      summary: {
+        sectionAverages,
+        sectionCounts,
+        mostFrequentSection: [parseInt(mostFrequentSectionEntry[0].replace('section', '')), mostFrequentSectionEntry[1]],
+        totalDraws: records.length,
+      },
+      records,
+    };
+  } catch (error) {
+    console.error("Failed to fetch recent sections analysis:", error);
+    const latestRoundInfo = await getLatestRoundInfo();
+    return {
+      analysisData: [],
+      selectedRounds: rounds,
+      totalRounds: latestRoundInfo?.round || 0,
+      validRounds: false,
+      summary: {
+        sectionAverages: { section1: 0, section2: 0, section3: 0 },
+        sectionCounts: { section1: 0, section2: 0, section3: 0 },
+        mostFrequentSection: [1, 0],
+        totalDraws: 0,
+      },
+      records: [],
+    };
+  }
+}
+
+// Repeat 분석을 위한 특화 함수
+export async function getRecentRepeatAnalysis(rounds: number) {
+  try {
+    const baseResult = await getRecentAnalysis("repeat", rounds);
+    
+    if (!baseResult.validRounds || baseResult.analysisData.length === 0) {
+      return {
+        ...baseResult,
+        summary: {
+          avgRepeatCount: 0,
+          maxRepeatCount: 0,
+          minRepeatCount: 0,
+          totalDraws: 0,
+          distribution: {},
+        },
+        records: [],
+      };
+    }
+
+    const records = baseResult.analysisData;
+    const repeatCounts = records.map(record => record.repeat_count || 0);
+    
+    const avgRepeatCount = repeatCounts.reduce((sum, val) => sum + val, 0) / repeatCounts.length;
+    const maxRepeatCount = Math.max(...repeatCounts);
+    const minRepeatCount = Math.min(...repeatCounts);
+    
+    // 반복 번호 개수 분포 계산
+    const distribution: Record<string, number> = {};
+    repeatCounts.forEach(count => {
+      const countStr = count.toString();
+      distribution[countStr] = (distribution[countStr] || 0) + 1;
+    });
+
+    return {
+      ...baseResult,
+      summary: {
+        avgRepeatCount: parseFloat(avgRepeatCount.toFixed(2)),
+        maxRepeatCount,
+        minRepeatCount,
+        totalDraws: records.length,
+        distribution,
+      },
+      records,
+    };
+  } catch (error) {
+    console.error("Failed to fetch recent repeat analysis:", error);
+    const latestRoundInfo = await getLatestRoundInfo();
+    return {
+      analysisData: [],
+      selectedRounds: rounds,
+      totalRounds: latestRoundInfo?.round || 0,
+      validRounds: false,
+      summary: {
+        avgRepeatCount: 0,
+        maxRepeatCount: 0,
+        minRepeatCount: 0,
+        totalDraws: 0,
+        distribution: {},
+      },
+      records: [],
+    };
+  }
+}
+
+// AC값 범위 계산 헬퍼 함수
+function getACRange(ac: number): string {
+  if (ac <= 5) return "0-5";
+  if (ac <= 10) return "6-10";
+  if (ac <= 15) return "11-15";
+  if (ac <= 20) return "16-20";
+  if (ac <= 25) return "21-25";
+  return "26+";
+}
+
 // Export the client for custom queries
 export { client as statsClient };
