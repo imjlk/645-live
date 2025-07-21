@@ -12,12 +12,12 @@ export let color = "text-green-500";
 
 {#if show}
 <div 
-  class="absolute pointer-events-none flex justify-center items-center w-full h-full top-0 left-0 z-10 overflow-hidden"
+  class="absolute pointer-events-none flex justify-center items-center w-full h-full top-0 left-0 z-20 overflow-hidden"
 >
   <div
-    class="text-lg font-bold {color}"
-    in:fly={{ y: 10, duration: 800, easing: quintOut }} 
-    out:fade={{ duration: 300 }}
+    class="text-xl font-black {color} drop-shadow-lg bg-white/90 dark:bg-gray-900/90 px-2 py-1 rounded-full border-2 border-current"
+    in:fly={{ y: -20, duration: 600, easing: quintOut }} 
+    out:fade={{ duration: 400 }}
   >
     {message}
   </div>

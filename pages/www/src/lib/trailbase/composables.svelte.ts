@@ -292,13 +292,13 @@ export function useBallValues(options: UseBallValuesOptions = {}): UseBallValues
             onBallUpdate(i, newValue, currentValue);
           }
           
-          // Clear animation after delay
+          // Clear animation after delay (match animation duration)
           setTimeout(() => {
             recentlyUpdated = {
               ...untrack(() => recentlyUpdated),
               [i]: false
             };
-          }, 1000);
+          }, 1200); // 600ms animation + 600ms visibility
         }
       }
       

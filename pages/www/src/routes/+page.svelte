@@ -14,8 +14,8 @@ const ballValuesComposable = useBallValues({
 	initialRound: data.displayRound || data.latestRound,
 	targetRound: data.displayRound || data.latestRound, // MAIN PAGE: Only subscribe to latest round
 	onBallUpdate: (ballNumber, newValue, oldValue) => {
-		// This will be handled by the composable's recentlyUpdated state
-		console.log(`Ball ${ballNumber} updated from ${oldValue} to ${newValue}`);
+		// Debug animation trigger
+		console.log(`🎾 Ball ${ballNumber} updated: ${oldValue} → ${newValue}`, ballValuesComposable.recentlyUpdated);
 	}
 });
 
@@ -192,13 +192,23 @@ onDestroy(() => {
         {#each numbers as ball (ball.id)}
             {@const isUpdated = ballValuesComposable.recentlyUpdated[ball.id] || false}
             <a href="/n/{ball.id}" class="ball-grid-item">
-                <ValueIncrementEffect show={isUpdated} message="+1" color="text-green-500" />
+                <ValueIncrementEffect 
+                    show={isUpdated} 
+                    message="+1" 
+                    color="text-green-600 dark:text-green-400" 
+                />
                 <LottoBall 
                     ballNumber={ball.id} 
                     initialValue={ball.value}
                     size="small"
                     interactive={true}
                 />
+                <!-- Debug info -->
+                {#if isUpdated}
+                    <div class="absolute top-0 right-0 bg-red-500 text-white text-xs px-1 rounded z-30">
+                        UPDATE
+                    </div>
+                {/if}
             </a>
         {/each}
     </div>
