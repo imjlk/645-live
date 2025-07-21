@@ -1,54 +1,10 @@
 <script lang="ts">
-import { goto } from "$app/navigation";
-import { page } from "$app/state";
 import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
-import LinkButton from "$lib/ui/LinkButton.svelte";
 import { JsonLd, MetaTags } from "svelte-meta-tags";
+import { RecentAnalysisInput, StatsSummary, ColorBadge, GuideSection } from "$lib/components/stats";
 import type { PageData } from "./$types";
 
 export let data: PageData;
-
-// 페이지네이션 상태 제거 - 전체 데이터 표시
-
-// 사용자 입력 상태 (기본값은 빈 값)
-let inputValue = "";
-
-// 입력값 유효성 검사
-const validateInput = (value: string): boolean => {
-	const str = String(value || "");
-	if (str.trim() === "") return false;
-	const num = Number(str);
-	return !Number.isNaN(num) && num > 0 && num <= data.totalRounds;
-};
-
-// 분석 페이지로 이동
-const navigateToAnalysis = async () => {
-	const inputStr = String(inputValue || "");
-
-	if (inputStr.trim() === "") {
-		alert("분석할 회차 수를 입력해주세요.");
-		return;
-	}
-
-	if (validateInput(inputStr)) {
-		const rounds = Number(inputStr);
-		try {
-			await goto(`/stats/colors/recent/${rounds}`);
-		} catch (error) {
-			console.error("Navigation error:", error);
-			alert("페이지 이동 중 오류가 발생했습니다.");
-		}
-	} else {
-		alert(`1부터 ${data.totalRounds}까지의 숫자를 입력해주세요.`);
-	}
-};
-
-// Enter 키 처리
-const handleKeydown = (event: KeyboardEvent) => {
-	if (event.key === "Enter") {
-		navigateToAnalysis();
-	}
-};
 
 // 색상 정보 매핑
 const colorInfo = {
@@ -257,53 +213,21 @@ const breadcrumbItems = [
 	</div>
 
 	<!-- 최근 회차 분석 -->
-	<div class="card bg-base-100 shadow-sm">
-		<div class="card-body p-4">
-			<h2 class="card-title text-lg">최근 회차 분석</h2>
-			<div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
-				<div class="flex flex-col sm:flex-row sm:items-center gap-2">
-					<label for="rounds-input" class="text-sm font-medium">최근:</label>
-					<div class="flex items-center gap-2">
-						<input
-							id="rounds-input"
-							type="text"
-							inputmode="numeric"
-							pattern="[0-9]*"
-							bind:value={inputValue}
-							on:keydown={handleKeydown}
-							class="input input-bordered input-sm w-20 sm:w-24 text-center"
-							placeholder="100"
-						/>
-						<span class="text-xs sm:text-sm opacity-60">회차 (최대 {data.totalRounds})</span>
-					</div>
-				</div>
-				<button
-					type="button"
-					on:click={navigateToAnalysis}
-					class="btn btn-primary btn-sm w-full sm:w-auto"
-				>
-					상세 분석
-				</button>
-			</div>
-			<p class="text-sm text-base-content/60">
-				현재 전체 <span class="font-semibold text-primary">{data.totalRounds}회차</span> 데이터를 표시 중입니다. 특정 회차 수를 입력하면 해당 최근 회차만 분석할 수 있습니다.
-			</p>
-		</div>
-	</div>
+	<RecentAnalysisInput 
+		maxRounds={data.totalRounds}
+		basePath="/stats/colors"
+	/>
 
 	<!-- 요약 통계 -->
-	<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-		{#each Object.entries(data.colorAverages) as [colorKey, average]}
-			{@const info = colorInfo[colorKey as keyof typeof colorInfo]}
-			{@const frequency = getFrequencyAnalysis(colorKey, average)}
-			
-			<div class="stat bg-primary text-primary-content rounded-lg">
-				<div class="stat-title text-primary-content/70">{info.name}</div>
-				<div class="stat-value text-2xl">{average}</div>
-				<div class="stat-desc text-primary-content/70">평균 개수</div>
-			</div>
-		{/each}
-	</div>
+	<StatsSummary
+		stats={Object.entries(data.colorAverages).map(([colorKey, average]) => ({
+			title: colorInfo[colorKey as keyof typeof colorInfo]?.name || colorKey,
+			value: average,
+			description: "평균 개수",
+			theme: "primary"
+		}))}
+		columns={5}
+	/>
 
 	<!-- 색상별 구간 정보 -->
 	<div class="card bg-base-100 shadow-sm">
@@ -478,54 +402,38 @@ const breadcrumbItems = [
 
 
 	<!-- 색상 분석 가이드 -->
-	<div class="card bg-base-100 shadow-sm">
-		<div class="card-body p-3 sm:p-6">
-			<h2 class="card-title text-lg sm:text-xl">색상 분석 완벽 가이드</h2>
-			<div class="space-y-3 sm:space-y-4 text-xs sm:text-sm">
-				<p class="text-base leading-relaxed">
-					<strong>색상 분석</strong>은 로또 번호를 구간별로 나누어 분석하는 지표로, 
-					번호 선택의 균형성과 패턴을 측정합니다. 이 지표를 통해 당첨번호의 특성을 분석하고 
-					향후 번호 선택 전략을 수립할 수 있습니다.
-				</p>
-				
-				<div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-					<div class="bg-primary/5 p-3 sm:p-4 rounded-lg">
-						<h3 class="font-semibold text-primary mb-2 sm:mb-3 text-sm sm:text-lg">🔸 균형잡힌 조합</h3>
-						<h4 class="font-medium mb-2">특징:</h4>
-						<ul class="list-disc list-inside space-y-1 text-base-content/70 mb-3">
-							<li><strong>고른 분산</strong> - 모든 색상에서 최소 1개씩</li>
-							<li><strong>적절한 집중</strong> - 특정 색상에 3개 이상 집중 안함</li>
-							<li><strong>초록색 고려</strong> - 1-2개가 일반적</li>
-						</ul>
-						<div class="text-xs bg-primary/10 p-2 rounded">
-							전체 {data.totalRounds}회차 중 대부분의 당첨번호가 이 패턴을 따름
-						</div>
-					</div>
-					
-					<div class="bg-secondary/5 p-3 sm:p-4 rounded-lg">
-						<h3 class="font-semibold text-secondary mb-2 sm:mb-3 text-sm sm:text-lg">🔹 편중된 조합</h3>
-						<h4 class="font-medium mb-2">특징:</h4>
-						<ul class="list-disc list-inside space-y-1 text-base-content/70 mb-3">
-							<li><strong>극단 집중</strong> - 특정 색상에 4개 이상</li>
-							<li><strong>제한적 분산</strong> - 2-3개 색상에서만 선택</li>
-							<li><strong>초록색 과다</strong> - 3개 이상 (매우 드문)</li>
-						</ul>
-						<div class="text-xs bg-secondary/10 p-2 rounded">
-							전체 {data.totalRounds}회차 중 소수의 당첨번호가 이 패턴을 따름
-						</div>
-					</div>
-				</div>
-
-				<div class="bg-info/5 p-3 sm:p-4 rounded-lg mt-3 sm:mt-4">
-					<h3 class="font-semibold text-info mb-2 text-sm sm:text-base">💡 색상 분석 활용 전략</h3>
-					<ul class="list-disc list-inside space-y-1 text-base-content/70">
-						<li><strong>균형 조합:</strong> 모든 색상 구간에서 최소 1개씩 선택하는 전략</li>
-						<li><strong>통계적 접근:</strong> 평균 색상별 개수를 참고한 조합 선택</li>
-						<li><strong>패턴 분석:</strong> 최근 당첨번호의 색상 분포 추이를 확인하여 다음 회차 예측</li>
-						<li><strong>최빈값 활용:</strong> 가장 자주 나오는 색상 {colorInfo[data.mostFrequentColor[0] as keyof typeof colorInfo]?.name} 참고</li>
-					</ul>
-				</div>
-			</div>
-		</div>
-	</div>
+	<GuideSection
+		title="색상 분석 완벽 가이드"
+		description="색상 분석은 로또 번호를 구간별로 나누어 분석하는 지표로, 번호 선택의 균형성과 패턴을 측정합니다. 이 지표를 통해 당첨번호의 특성을 분석하고 향후 번호 선택 전략을 수립할 수 있습니다."
+		guides={[
+			{
+				title: "🔸 균형잡힌 조합",
+				items: [
+					"<strong>고른 분산</strong> - 모든 색상에서 최소 1개씩",
+					"<strong>적절한 집중</strong> - 특정 색상에 3개 이상 집중 안함",
+					"<strong>초록색 고려</strong> - 1-2개가 일반적",
+					`전체 ${data.totalRounds}회차 중 대부분의 당첨번호가 이 패턴을 따름`
+				]
+			},
+			{
+				title: "🔹 편중된 조합", 
+				items: [
+					"<strong>극단 집중</strong> - 특정 색상에 4개 이상",
+					"<strong>제한적 분산</strong> - 2-3개 색상에서만 선택",
+					"<strong>초록색 과다</strong> - 3개 이상 (매우 드문)",
+					`전체 ${data.totalRounds}회차 중 소수의 당첨번호가 이 패턴을 따름`
+				]
+			},
+			{
+				title: "💡 색상 분석 활용 전략",
+				items: [
+					"<strong>균형 조합:</strong> 모든 색상 구간에서 최소 1개씩 선택하는 전략",
+					"<strong>통계적 접근:</strong> 평균 색상별 개수를 참고한 조합 선택", 
+					"<strong>패턴 분석:</strong> 최근 당첨번호의 색상 분포 추이를 확인하여 다음 회차 예측",
+					`<strong>최빈값 활용:</strong> 가장 자주 나오는 색상 ${colorInfo[data.mostFrequentColor[0] as keyof typeof colorInfo]?.name} 참고`
+				]
+			}
+		]}
+		theme="info"
+	/>
 </div>
