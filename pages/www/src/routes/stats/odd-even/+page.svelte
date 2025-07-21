@@ -164,12 +164,17 @@ const breadcrumbItems = [
 		description: '로또 6/45 당첨번호의 홀수/짝수 분포와 번호 합계 패턴을 분석합니다. 홀짝 균형도와 트렌드를 통해 번호 선택에 도움을 제공합니다.',
 		locale: 'ko_KR',
 		images: [{
-			url: 'https://www.645.live/images/lotto-odd-even-stats.png',
+			url: `https://www.645.live/og/?${new URLSearchParams({
+				title: encodeURIComponent('로또 6/45 홀짝 분석'),
+				description: encodeURIComponent(`홀수/짝수 분포 패턴 | 완벽균형 ${data.balancedOddEvenRate}% | 극도불균형 ${data.extremeImbalanceRate}%`),
+				layout: 'blog',
+				theme: 'dark',
+				format: 'svg'
+			}).toString()}`,
 			width: 1200,
 			height: 630,
 			alt: '로또 6/45 홀짝 분석 통계',
-			secureUrl: 'https://www.645.live/images/lotto-odd-even-stats.png',
-			type: 'image/png'
+			type: 'image/svg+xml'
 		}],
 		siteName: '645.live',
 		article: {
@@ -184,7 +189,13 @@ const breadcrumbItems = [
 		site: '@645live',
 		title: '로또 6/45 홀짝 분석 통계',
 		description: '홀수/짝수 분포와 번호 합계 패턴 분석으로 로또 번호 선택에 도움을 제공합니다.',
-		image: 'https://www.645.live/images/lotto-odd-even-stats.png',
+		image: `https://www.645.live/og/?${new URLSearchParams({
+			title: encodeURIComponent('로또 6/45 홀짝 분석'),
+			description: encodeURIComponent(`홀수/짝수 분포 패턴 분석`),
+			layout: 'blog',
+			theme: 'dark',
+			format: 'svg'
+		}).toString()}`,
 		imageAlt: '로또 6/45 홀짝 분석 통계'
 	}}
 />

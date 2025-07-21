@@ -151,12 +151,17 @@ const breadcrumbItems = [
 		description: `최근 ${data.selectedRounds}회차 색상 분석 - 노랑 ${data.colorStats.summary.colorAverages.yellow}개, 파랑 ${data.colorStats.summary.colorAverages.blue}개, 빨강 ${data.colorStats.summary.colorAverages.red}개`,
 		locale: 'ko_KR',
 		images: [{
-			url: 'https://645.live/images/lotto-color-analysis.png',
+			url: `https://www.645.live/og/?${new URLSearchParams({
+				title: encodeURIComponent(`색상 분석 (최근 ${data.selectedRounds}회차)`),
+				description: encodeURIComponent(`노랑 ${data.colorStats.summary.colorAverages.yellow}개 | 파랑 ${data.colorStats.summary.colorAverages.blue}개 | 빨강 ${data.colorStats.summary.colorAverages.red}개 | 회색 ${data.colorStats.summary.colorAverages.grey}개 | 초록 ${data.colorStats.summary.colorAverages.green}개`),
+				layout: 'minimal',
+				theme: 'light',
+				format: 'svg'
+			}).toString()}`,
 			width: 1200,
 			height: 630,
 			alt: `로또 6/45 색상 분석 ${data.selectedRounds}회차 분석`,
-			secureUrl: 'https://645.live/images/lotto-color-analysis.png',
-			type: 'image/png'
+			type: 'image/svg+xml'
 		}],
 		siteName: '645.live',
 		article: {
@@ -170,8 +175,14 @@ const breadcrumbItems = [
 		cardType: 'summary_large_image',
 		site: '@645live',
 		title: `로또 6/45 색상 분석 ${data.selectedRounds}회차 분석`,
-		description: `노랑 ${data.colorStats.summary.colorAverages.yellow}개 | 파랑 ${data.colorStats.summary.colorAverages.blue}개 | 빨강 ${data.colorStats.summary.colorAverages.red}개`,
-		image: 'https://645.live/images/lotto-color-analysis.png',
+		description: `최근 ${data.selectedRounds}회차 색상 분석 - 노랑 ${data.colorStats.summary.colorAverages.yellow}개, 파랑 ${data.colorStats.summary.colorAverages.blue}개, 빨강 ${data.colorStats.summary.colorAverages.red}개`,
+		image: `https://www.645.live/og/?${new URLSearchParams({
+			title: encodeURIComponent(`색상 분석 (${data.selectedRounds}회차)`),
+			description: encodeURIComponent(`5색 구간별 평균 분포 분석`),
+			layout: 'minimal',
+			theme: 'light',
+			format: 'svg'
+		}).toString()}`,
 		imageAlt: `로또 6/45 색상 분석 ${data.selectedRounds}회차 분석`
 	}}
 />

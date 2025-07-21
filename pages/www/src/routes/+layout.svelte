@@ -8,7 +8,6 @@ import LinkButton from "$lib/ui/LinkButton.svelte";
 import Clarity from "@microsoft/clarity";
 import { NuqsAdapter } from "nuqs-svelte/adapters/svelte-kit";
 import { onMount } from "svelte";
-import { MetaTags } from "svelte-meta-tags";
 
 let { children } = $props();
 import { preparePageTransition } from "$lib/layout/page-transition";
@@ -18,12 +17,6 @@ preparePageTransition();
 // 실제 데이터가 있는 회차들
 let availableRounds = $state<number[]>([]);
 
-// 현재 선택된 회차 (URL에서 추출) - prerendering 중에는 접근하지 않음
-const currentRound = $derived(
-	typeof window !== "undefined" && page.url.searchParams.get("round")
-		? Number(page.url.searchParams.get("round"))
-		: null,
-);
 
 let currentPath = $state(page.url.pathname);
 
@@ -56,34 +49,10 @@ onMount(async () => {
 });
 </script>
 
-<MetaTags
-	titleTemplate="%s | 645.live - 로또 6/45 통계 및 분석"
-	description="로또 6/45 번호 통계 분석 및 예측 서비스"
-	openGraph={{
-		type: 'website',
-		locale: 'ko_KR',
-		siteName: '645.live',
-		url: 'https://645.live'
-	}}
-	twitter={{
-		cardType: 'summary_large_image',
-		site: '@645live'
-	}}
-	additionalMetaTags={[
-		{
-			name: 'viewport',
-			content: 'width=device-width, initial-scale=1'
-		},
-		{
-			name: 'robots',
-			content: 'index,follow'
-		},
-		{
-			name: 'theme-color',
-			content: '#3b82f6'
-		}
-	]}
-/>
+<svelte:head>
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<meta name="theme-color" content="#3b82f6" />
+</svelte:head>
 
 <NuqsAdapter>
 	<div class="min-h-dvh flex flex-col max-w-7xl mx-auto">

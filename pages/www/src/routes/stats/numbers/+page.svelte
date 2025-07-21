@@ -1,6 +1,7 @@
 <script lang="ts">
 import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
 import { onMount } from "svelte";
+import { MetaTags, JsonLd } from "svelte-meta-tags";
 import type { PageData } from "./$types";
 
 export let data: PageData;
@@ -61,14 +62,48 @@ const getDeviationClass = (deviation: string) => {
 };
 </script>
 
-<svelte:head>
-	<title>로또 6/45 번호별 출현 통계 | 645.live</title>
-	<meta name="description" content="로또 6/45 각 번호의 출현 빈도, 색깔별 분포, 구간별 분석 데이터를 제공합니다. 1번부터 45번까지 모든 번호의 상세 통계를 확인하세요." />
-	<meta name="keywords" content="로또번호통계, 로또번호분석, 로또출현빈도, 로또색깔분석" />
-	<meta property="og:title" content="로또 6/45 번호별 출현 통계" />
-	<meta property="og:description" content="로또 6/45 각 번호의 출현 빈도와 상세 분석" />
-	<link rel="canonical" href="https://www.645.live/stats/numbers" />
-</svelte:head>
+<MetaTags
+	title="로또 6/45 번호별 출현 통계"
+	titleTemplate="%s | 645.live"
+	description="📊 로또 6/45 전 번호 완전분석! 1번부터 45번까지 출현 빈도, 색깔별 분포, 구간별 분석으로 당첨 패턴을 찾아보세요!"
+	canonical="https://www.645.live/stats/numbers"
+	keywords={["로또번호통계", "로또번호분석", "로또출현빈도", "로또색깔분석", "번호별통계", "로또패턴분석"]}
+	openGraph={{
+		type: "article",
+		url: "https://www.645.live/stats/numbers",
+		title: "로또 6/45 번호별 출현 통계",
+		description: `📊 전 번호 완전분석! 총 ${data.totalRounds}회차 데이터로 당첨 패턴 발견하기`,
+		siteName: "645.live",
+		locale: "ko_KR",
+		images: [{
+			url: `https://www.645.live/og/?title=${encodeURIComponent('로또 6/45 번호별 출현 통계')}&description=${encodeURIComponent(`총 ${data.totalRounds}회차 데이터 분석 - 최다 ${Math.max(...data.numberStats.map(s => s.draw_count))}회 - 최소 ${Math.min(...data.numberStats.map(s => s.draw_count))}회`)}&layout=blog&theme=light&format=svg`,
+			width: 1200,
+			height: 630,
+			alt: "로또 6/45 번호별 출현 통계",
+			type: "image/svg+xml"
+		}]
+	}}
+	twitter={{
+		cardType: "summary_large_image",
+		site: "@645live",
+		title: "로또 6/45 번호별 출현 통계",
+		description: `📊 전 번호 완전분석! 총 ${data.totalRounds}회차 데이터로 당첨 패턴 발견하기`,
+		image: `https://www.645.live/og/?title=${encodeURIComponent('로또 6/45 번호별 출현 통계')}&description=${encodeURIComponent(`총 ${data.totalRounds}회차 데이터 분석 - 최다 ${Math.max(...data.numberStats.map(s => s.draw_count))}회 - 최소 ${Math.min(...data.numberStats.map(s => s.draw_count))}회`)}&layout=blog&theme=light&format=svg`,
+		imageAlt: "로또 6/45 번호별 출현 통계"
+	}}
+	additionalMetaTags={[
+		{
+			name: "robots",
+			content: "index,follow"
+		},
+		{
+			name: "author", 
+			content: "645.live"
+		}
+	]}
+/>
+
+<JsonLd schema={generateJsonLd()} />
 
 <div class="p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-6">
 	<!-- Breadcrumbs -->

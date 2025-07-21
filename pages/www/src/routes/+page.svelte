@@ -193,20 +193,21 @@ onDestroy(() => {
 </script>
 
 <MetaTags
-	title="로또 6/45 실시간 스캔 현황 및 통계 분석 - 645.live"
-	description="로또 6/45 번호별 실시간 스캔 현황을 확인하고, 당첨번호 통계 분석을 통해 다음 회차를 예측해보세요. 번호별 출현 빈도, 통계 기반 번호 생성기 제공."
+	title="645.live - 로또 6/45 실시간 스캔 현황 및 통계 분석"
+	description="🔥 로또 6/45 실시간 스캔 현황 공개! 지금 이 순간 어떤 번호가 가장 많이 선택되고 있는지 확인하고, 빅데이터 통계로 다음 당첨번호를 예측해보세요!"
 	canonical="https://645.live"
 	keywords={["로또", "로또645", "로또당첨번호", "로또스캔", "로또통계", "로또분석", "로또번호생성기", "로또예측", "실시간로또", "로또현황", "동행복권", "한국로또", "로또번호추천", "로또패턴분석"]}
+	robots="index,follow"
 	openGraph={{
 		type: "website",
 		url: "https://645.live",
 		title: "로또 6/45 실시간 스캔 현황 및 통계 분석",
-		description: "로또 6/45 번호별 실시간 스캔 현황을 확인하고, 당첨번호 통계 분석을 통해 다음 회차를 예측해보세요.",
+		description: "🔥 로또 6/45 실시간 스캔 현황 공개! 지금 이 순간 어떤 번호가 가장 많이 선택되고 있는지 확인하고, 빅데이터 통계로 다음 당첨번호를 예측해보세요!",
 		siteName: "645.live",
 		locale: "ko_KR",
 		images: [
 			{
-				url: "https://645.live/og-image.png",
+				url: `https://www.645.live/og/?title=${encodeURIComponent('로또 6/45 실시간 스캔 현황')}&description=${encodeURIComponent(`${currentRound ? currentRound + '회차 ' : ''}번호별 실시간 스캔 현황 - 총 ${totalScans.toLocaleString()}회 스캔`)}&layout=hero&theme=dark&format=svg`,
 				width: 1200,
 				height: 630,
 				alt: "로또 6/45 실시간 스캔 현황"
@@ -218,8 +219,8 @@ onDestroy(() => {
 		site: "@645live",
 		creator: "@645live",
 		title: "로또 6/45 실시간 스캔 현황 및 통계 분석",
-		description: "로또 6/45 번호별 실시간 스캔 현황을 확인하고, 당첨번호 통계 분석을 통해 다음 회차를 예측해보세요.",
-		image: "https://645.live/og-image.png",
+		description: "🔥 로또 6/45 실시간 스캔 현황 공개! 지금 이 순간 어떤 번호가 가장 많이 선택되고 있는지 확인하고, 빅데이터 통계로 다음 당첨번호를 예측해보세요!",
+		image: `https://www.645.live/og/?title=${encodeURIComponent('로또 6/45 실시간 스캔 현황')}&description=${encodeURIComponent(`${currentRound ? currentRound + '회차 ' : ''}번호별 실시간 스캔 현황 - 총 ${totalScans.toLocaleString()}회 스캔`)}&layout=hero&theme=dark&format=svg`,
 		imageAlt: "로또 6/45 실시간 스캔 현황"
 	}}
 	additionalMetaTags={[
