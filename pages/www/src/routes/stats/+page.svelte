@@ -1,8 +1,67 @@
 <script lang="ts">
 import { JsonLd, MetaTags } from "svelte-meta-tags";
+import { StatsCard, LottoBall, ColorBadge } from "$lib/components/stats";
 import type { PageData } from "./$types";
 
 export let data: PageData;
+
+// 통계 카테고리 정의
+const statsCategories = [
+	{
+		href: "/stats/numbers",
+		icon: "🔢",
+		title: "번호별 통계", 
+		description: "출현 빈도"
+	},
+	{
+		href: "/stats/odd-even",
+		icon: "⚖️",
+		title: "홀짝 분석",
+		description: "홀수/짝수 분포"
+	},
+	{
+		href: "/stats/colors",
+		icon: "🎨",
+		title: "색깔별 통계",
+		description: "공 색상 분포"
+	},
+	{
+		href: "/stats/sections",
+		icon: "📊",
+		title: "구간별 분석",
+		description: "번호 구간 분포"
+	},
+	{
+		href: "/stats/high-low",
+		icon: "📈",
+		title: "고저번대",
+		description: "고번대/저번대"
+	},
+	{
+		href: "/stats/pairs",
+		icon: "👥",
+		title: "번호 쌍",
+		description: "동반 출현"
+	},
+	{
+		href: "/stats/repeat",
+		icon: "🔄",
+		title: "연속 중복",
+		description: "회차간 중복"
+	},
+	{
+		href: "/stats/unit-digit",
+		icon: "🔟",
+		title: "끝수 분석",
+		description: "끝자리 분포"
+	},
+	{
+		href: "/stats/ac",
+		icon: "📊",
+		title: "AC값",
+		description: "산술 복잡도"
+	}
+];
 </script>
 
 <MetaTags
@@ -129,51 +188,14 @@ export let data: PageData;
 	<!-- 통계 카테고리 네비게이션 -->
 	<nav class="mb-8">
 		<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-			<a href="/stats/numbers" class="stats-nav-card">
-				<div class="text-2xl mb-2">🔢</div>
-				<h3 class="font-semibold text-sm">번호별 통계</h3>
-				<p class="text-xs text-base-content/60">출현 빈도</p>
-			</a>
-			<a href="/stats/odd-even" class="stats-nav-card">
-				<div class="text-2xl mb-2">⚖️</div>
-				<h3 class="font-semibold text-sm">홀짝 분석</h3>
-				<p class="text-xs text-base-content/60">홀수/짝수 분포</p>
-			</a>
-			<a href="/stats/colors" class="stats-nav-card">
-				<div class="text-2xl mb-2">🎨</div>
-				<h3 class="font-semibold text-sm">색깔별 통계</h3>
-				<p class="text-xs text-base-content/60">공 색상 분포</p>
-			</a>
-			<a href="/stats/sections" class="stats-nav-card">
-				<div class="text-2xl mb-2">📊</div>
-				<h3 class="font-semibold text-sm">구간별 분석</h3>
-				<p class="text-xs text-base-content/60">번호 구간 분포</p>
-			</a>
-			<a href="/stats/high-low" class="stats-nav-card">
-				<div class="text-2xl mb-2">📈</div>
-				<h3 class="font-semibold text-sm">고저번대</h3>
-				<p class="text-xs text-base-content/60">고번대/저번대</p>
-			</a>
-			<a href="/stats/pairs" class="stats-nav-card">
-				<div class="text-2xl mb-2">👥</div>
-				<h3 class="font-semibold text-sm">번호 쌍</h3>
-				<p class="text-xs text-base-content/60">동반 출현</p>
-			</a>
-			<a href="/stats/repeat" class="stats-nav-card">
-				<div class="text-2xl mb-2">🔄</div>
-				<h3 class="font-semibold text-sm">연속 중복</h3>
-				<p class="text-xs text-base-content/60">회차간 중복</p>
-			</a>
-			<a href="/stats/unit-digit" class="stats-nav-card">
-				<div class="text-2xl mb-2">🔟</div>
-				<h3 class="font-semibold text-sm">끝수 분석</h3>
-				<p class="text-xs text-base-content/60">끝자리 분포</p>
-			</a>
-			<a href="/stats/ac" class="stats-nav-card">
-				<div class="text-2xl mb-2">📊</div>
-				<h3 class="font-semibold text-sm">AC값</h3>
-				<p class="text-xs text-base-content/60">산술 복잡도</p>
-			</a>
+			{#each statsCategories as category}
+				<StatsCard 
+					href={category.href}
+					icon={category.icon}
+					title={category.title}
+					description={category.description}
+				/>
+			{/each}
 		</div>
 	</nav>
 
@@ -191,7 +213,11 @@ export let data: PageData;
 					<div class="space-y-2">
 						{#each data.topNumberStats.slice(0, 5) as stat}
 							<div class="flex justify-between items-center">
-								<a href="/stats/numbers/{stat.number}" class="lotto-ball hover:scale-110 transition-transform">{stat.number}</a>
+								<LottoBall 
+									number={stat.number} 
+									href="/stats/numbers/{stat.number}"
+									interactive={true}
+								/>
 								<span class="text-sm text-base-content/70">{stat.draw_count}회</span>
 							</div>
 						{/each}
@@ -202,7 +228,11 @@ export let data: PageData;
 					<div class="space-y-2">
 						{#each data.bottomNumberStats.slice(0, 5) as stat}
 							<div class="flex justify-between items-center">
-								<a href="/stats/numbers/{stat.number}" class="lotto-ball hover:scale-110 transition-transform">{stat.number}</a>
+								<LottoBall 
+									number={stat.number} 
+									href="/stats/numbers/{stat.number}"
+									interactive={true}
+								/>
 								<span class="text-sm text-base-content/70">{stat.draw_count}회</span>
 							</div>
 						{/each}
@@ -255,11 +285,11 @@ export let data: PageData;
 					<div class="flex items-center justify-between">
 						<span class="text-sm text-base-content/70">{stat.round}회차</span>
 						<div class="flex items-center space-x-1">
-							<span class="color-badge yellow">{stat.yellow_count}</span>
-							<span class="color-badge blue">{stat.blue_count}</span>
-							<span class="color-badge red">{stat.red_count}</span>
-							<span class="color-badge grey">{stat.grey_count}</span>
-							<span class="color-badge green">{stat.green_count}</span>
+							<ColorBadge color="yellow" count={stat.yellow_count} />
+							<ColorBadge color="blue" count={stat.blue_count} />
+							<ColorBadge color="red" count={stat.red_count} />
+							<ColorBadge color="grey" count={stat.grey_count} />
+							<ColorBadge color="green" count={stat.green_count} />
 						</div>
 					</div>
 				{/each}
@@ -281,9 +311,19 @@ export let data: PageData;
 				{#each data.topPairStats.slice(0, 5) as stat}
 					<div class="flex items-center justify-between">
 						<div class="flex items-center space-x-2">
-							<a href="/stats/numbers/{stat.number_a}" class="lotto-ball small hover:scale-110 transition-transform">{stat.number_a}</a>
+							<LottoBall 
+								number={stat.number_a}
+								href="/stats/numbers/{stat.number_a}"
+								size="small" 
+								interactive={true}
+							/>
 							<span class="text-base-content/40">+</span>
-							<a href="/stats/numbers/{stat.number_b}" class="lotto-ball small hover:scale-110 transition-transform">{stat.number_b}</a>
+							<LottoBall 
+								number={stat.number_b}
+								href="/stats/numbers/{stat.number_b}"
+								size="small" 
+								interactive={true}
+							/>
 						</div>
 						<span class="text-sm text-base-content/70">{stat.pair_count}회</span>
 					</div>
@@ -324,68 +364,5 @@ export let data: PageData;
 </div>
 
 <style>
-	.stats-nav-card {
-		background: oklch(var(--b1));
-		border-radius: 0.5rem;
-		box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-		padding: 1rem;
-		text-align: center;
-		border: 1px solid oklch(var(--b3));
-		transition: box-shadow 0.2s;
-	}
-	
-	.stats-nav-card:hover {
-		box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-	}
-
-	.lotto-ball {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		width: 2rem;
-		height: 2rem;
-		border-radius: 50%;
-		color: white;
-		font-weight: bold;
-		font-size: 0.875rem;
-		background: linear-gradient(45deg, #6366f1, #8b5cf6);
-	}
-
-	.lotto-ball.small {
-		width: 1.5rem;
-		height: 1.5rem;
-		font-size: 0.75rem;
-	}
-
-	.color-badge {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		width: 1.5rem;
-		height: 1.5rem;
-		border-radius: 50%;
-		color: white;
-		font-weight: bold;
-		font-size: 0.75rem;
-	}
-
-	.color-badge.yellow {
-		background-color: #eab308;
-	}
-
-	.color-badge.blue {
-		background-color: #3b82f6;
-	}
-
-	.color-badge.red {
-		background-color: #ef4444;
-	}
-
-	.color-badge.grey {
-		background-color: #6b7280;
-	}
-
-	.color-badge.green {
-		background-color: #22c55e;
-	}
+	/* Removed unused styles - using components instead */
 </style>
