@@ -30,10 +30,7 @@ export function subscribeToScanCountUpdates(
 }
 
 // API 접근 헬퍼 함수 - 더 이상 필요하지 않음 (deprecated)
-export function getScanCountApi() {
-	console.warn('getScanCountApi is deprecated. Use trailbaseClient directly.');
-	return null;
-}
+// Removed to eliminate deprecation warnings
 
 // 안전한 스캔 데이터 조회 헬퍼 함수 - 새로운 클라이언트로 위임
 export function getScanDataSafely(round: number) {

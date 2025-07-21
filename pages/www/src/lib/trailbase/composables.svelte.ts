@@ -217,31 +217,43 @@ export function useBallValues(options: UseBallValuesOptions = {}): UseBallValues
     error = null;
     
     try {
-      const targetRound = round || initialRound;
+      const roundToLoad = round || initialRound;
       
       let scanData: LottoDrawScanCount | null = null;
       
-      if (targetRound) {
-        scanData = await trailbaseClient.getScanDataSafely(targetRound);
+      // First, try to get the latest available data if specific round fails
+      if (roundToLoad) {
+        scanData = await trailbaseClient.getScanDataSafely(roundToLoad);
+        
+        // If specific round data not found, try latest
+        if (!scanData) {
+          scanData = await trailbaseClient.getLatestScanData();
+        }
       } else {
         scanData = await trailbaseClient.getLatestScanData();
       }
       
       if (scanData) {
+        
         currentRound = scanData.round;
         totalScans = Number(scanData.total_scans) || 0;
-        ballValues = extractBallValues(scanData);
+        const newBallValues = extractBallValues(scanData);
+        
+        // Force update of ballValues to ensure reactivity
+        ballValues = { ...newBallValues };
+        
+        if (onValuesChange) {
+          onValuesChange(ballValues, totalScans);
+        }
       } else {
         // Initialize with zeros if no data found
-        currentRound = targetRound || null;
+        currentRound = roundToLoad || null;
         totalScans = 0;
         ballValues = initializeBallValues();
       }
-      
-      if (onValuesChange) {
-        onValuesChange(ballValues, totalScans);
-      }
     } catch (err) {
+      console.warn('Failed to load initial data:', err);
+      
       const trailbaseError: TrailbaseError = err instanceof Error 
         ? Object.assign(err, { status: (err as { status?: number }).status || 500 })
         : new Error('Failed to load initial data');
@@ -323,6 +335,9 @@ export function useBallValues(options: UseBallValuesOptions = {}): UseBallValues
   const setTargetRound = (round: number | null) => {
     targetRound = round;
   };
+  
+  // Initialize with empty values immediately to prevent undefined state
+  ballValues = initializeBallValues();
   
   // Auto-load initial data if round provided
   if (initialRound) {

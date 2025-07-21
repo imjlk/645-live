@@ -3,7 +3,7 @@ import { page } from "$app/state";
 import Header from "$lib/layout/Header.svelte";
 import "../app.css";
 import Footer from "$lib/layout/Footer.svelte";
-import { getScanCountApi } from "$lib/stores/streamStore";
+import { trailbaseClient } from "$lib/trailbase/client";
 import LinkButton from "$lib/ui/LinkButton.svelte";
 import Clarity from "@microsoft/clarity";
 import { NuqsAdapter } from "nuqs-svelte/adapters/svelte-kit";
@@ -31,20 +31,21 @@ onMount(async () => {
 	}
 
 	// 실제 데이터가 있는 회차들을 가져오기
-	const api = getScanCountApi();
-	if (api) {
-		try {
-			const response = await api.list({
-				order: ["-round"], // 최신 회차부터
-				pagination: { limit: 10 }, // 최근 10개 회차
-			});
+	try {
+		const { initClient } = await import('trailbase');
+		const client = initClient('http://localhost:4000');
+		const api = client.records('lotto_draw_scan_counts');
+		
+		const response = await api.list({
+			order: ["-round"], // 최신 회차부터
+			pagination: { limit: 10 }, // 최근 10개 회차
+		});
 
-			availableRounds = response.records
-				.map((record) => Number((record as { round: number }).round))
-				.filter(Boolean);
-		} catch (err) {
-			console.error("Error fetching available rounds:", err);
-		}
+		availableRounds = response.records
+			.map((record) => Number((record as { round: number }).round))
+			.filter(Boolean);
+	} catch (err) {
+		console.error("Error fetching available rounds:", err);
 	}
 });
 </script>

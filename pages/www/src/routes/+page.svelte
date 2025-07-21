@@ -42,10 +42,13 @@ async function initializeData() {
 }
 
 onMount(async () => {
-	// Initialize data
+	// Initialize data first to ensure values are loaded
 	await initializeData();
 	
-	// Set up ball values subscription
+	// Small delay to ensure initialization is complete
+	await new Promise(resolve => setTimeout(resolve, 50));
+	
+	// Set up ball values subscription after initialization
 	unsubscribeBallValues = ballValuesComposable.subscribe();
 });
 
@@ -208,12 +211,6 @@ onDestroy(() => {
                     size="small"
                     interactive={true}
                 />
-                <!-- Debug info -->
-                {#if isUpdated}
-                    <div class="absolute top-0 right-0 bg-red-500 text-white text-xs px-1 rounded z-30">
-                        UPDATE
-                    </div>
-                {/if}
             </a>
         {/each}
     </div>
