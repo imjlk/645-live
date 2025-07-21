@@ -13,8 +13,8 @@ import {
 	BarqodeStream,
 	type DetectedBarcode,
 } from "barqode";
-import { Toaster, toast } from "svelte-sonner";
 import { MetaTags } from "svelte-meta-tags";
+import { Toaster, toast } from "svelte-sonner";
 import { initClient } from "trailbase";
 import type { ActionData, PageData } from "./$types";
 
@@ -674,7 +674,7 @@ async function requestPermission() {
 		locale: "ko_KR",
 		images: [
 			{
-				url: `https://www.645.live/og/?title=${encodeURIComponent('로또 QR 스캔')}&description=${encodeURIComponent('카메라로 QR 코드를 스캔하여 즉시 당첨 확인 및 번호 기록')}&layout=minimal&theme=dark&format=svg`,
+				url: `https://www.645.live/og/?title=${encodeURIComponent('로또 QR 스캔')}&description=${encodeURIComponent('카메라로 QR 코드를 스캔하여 즉시 당첨 확인 및 번호 기록')}&layout=minimal&theme=dark`,
 				width: 1200,
 				height: 630,
 				alt: "로또 QR 코드 스캔"
@@ -687,7 +687,7 @@ async function requestPermission() {
 		creator: "@645live",
 		title: "로또 QR 코드 스캔 - 당첨 확인",
 		description: "📱 로또 QR 스캔으로 즉시 당첨 확인! 카메라만 갖다대면 당첨여부가 바로 나와요.",
-		image: `https://www.645.live/og/?title=${encodeURIComponent('로또 QR 스캔')}&description=${encodeURIComponent('카메라로 QR 코드를 스캔하여 즉시 당첨 확인 및 번호 기록')}&layout=minimal&theme=dark&format=svg`,
+		image: `https://www.645.live/og/?title=${encodeURIComponent('로또 QR 스캔')}&description=${encodeURIComponent('카메라로 QR 코드를 스캔하여 즉시 당첨 확인 및 번호 기록')}&layout=minimal&theme=dark`,
 		imageAlt: "로또 QR 코드 스캔"
 	}}
 	additionalMetaTags={[

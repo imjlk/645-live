@@ -186,7 +186,7 @@ const sortedPatterns = $derived(
 		description: `로또 6/45 끝자리수 분포를 분석합니다 (최근 ${data.selectedRounds}회차). 0부터 9까지 각 끝자리 숫자의 출현 빈도와 균형성을 제공합니다.`,
 		locale: 'ko_KR',
 		images: [{
-			url: `https://www.645.live/og/?title=${encodeURIComponent(`끝자리수 분석 (최근 ${data.selectedRounds}회차)`)}&description=${encodeURIComponent(`0-9 끝자리 분포 분석 - 가장 많은 끝자리: ${data.unitDigitStats.summary.mostFrequentDigit[0]} (${data.unitDigitStats.summary.mostFrequentDigit[1]}개)`)}&layout=minimal&theme=dark&format=svg`,
+			url: `https://www.645.live/og/?title=${encodeURIComponent(`끝자리수 분석 (최근 ${data.selectedRounds}회차)`)}&description=${encodeURIComponent(`0-9 끝자리 분포 분석 - 가장 많은 끝자리: ${data.unitDigitStats.summary.mostFrequentDigit[0]} (${data.unitDigitStats.summary.mostFrequentDigit[1]}개)`)}&layout=minimal&theme=dark`,
 			width: 1200,
 			height: 630,
 			alt: `로또 6/45 끝자리수 ${data.selectedRounds}회차 분석`,
@@ -205,7 +205,7 @@ const sortedPatterns = $derived(
 		site: '@645live',
 		title: `로또 6/45 끝자리수 분석 통계 (최근 ${data.selectedRounds}회차)`,
 		description: '끝자리 숫자 분포 분석으로 로또 번호 패턴을 파악하세요.',
-		image: `https://www.645.live/og/?title=${encodeURIComponent(`끝자리수 분석 (최근 ${data.selectedRounds}회차)`)}&description=${encodeURIComponent(`0-9 끝자리 분포 분석 - 가장 많은 끝자리: ${data.unitDigitStats.summary.mostFrequentDigit[0]} (${data.unitDigitStats.summary.mostFrequentDigit[1]}개)`)}&layout=minimal&theme=dark&format=svg`,
+		image: `https://www.645.live/og/?title=${encodeURIComponent(`끝자리수 분석 (최근 ${data.selectedRounds}회차)`)}&description=${encodeURIComponent(`0-9 끝자리 분포 분석 - 가장 많은 끝자리: ${data.unitDigitStats.summary.mostFrequentDigit[0]} (${data.unitDigitStats.summary.mostFrequentDigit[1]}개)`)}&layout=minimal&theme=dark`,
 		imageAlt: '로또 6/45 끝자리수 분석 통계'
 	}}
 />

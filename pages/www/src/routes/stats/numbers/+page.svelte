@@ -1,7 +1,7 @@
 <script lang="ts">
 import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
 import { onMount } from "svelte";
-import { MetaTags, JsonLd } from "svelte-meta-tags";
+import { JsonLd, MetaTags } from "svelte-meta-tags";
 import type { PageData } from "./$types";
 
 export let data: PageData;
@@ -76,7 +76,7 @@ const getDeviationClass = (deviation: string) => {
 		siteName: "645.live",
 		locale: "ko_KR",
 		images: [{
-			url: `https://www.645.live/og/?title=${encodeURIComponent('로또 6/45 번호별 출현 통계')}&description=${encodeURIComponent(`총 ${data.totalRounds}회차 데이터 분석 - 최다 ${Math.max(...data.numberStats.map(s => s.draw_count))}회 - 최소 ${Math.min(...data.numberStats.map(s => s.draw_count))}회`)}&layout=blog&theme=light&format=svg`,
+			url: `https://www.645.live/og/?title=${encodeURIComponent('로또 6/45 번호별 출현 통계')}&description=${encodeURIComponent(`총 ${data.totalRounds}회차 데이터 분석 - 최다 ${Math.max(...data.numberStats.map(s => s.draw_count))}회 - 최소 ${Math.min(...data.numberStats.map(s => s.draw_count))}회`)}&layout=blog&theme=light`,
 			width: 1200,
 			height: 630,
 			alt: "로또 6/45 번호별 출현 통계",
@@ -88,7 +88,7 @@ const getDeviationClass = (deviation: string) => {
 		site: "@645live",
 		title: "로또 6/45 번호별 출현 통계",
 		description: `📊 전 번호 완전분석! 총 ${data.totalRounds}회차 데이터로 당첨 패턴 발견하기`,
-		image: `https://www.645.live/og/?title=${encodeURIComponent('로또 6/45 번호별 출현 통계')}&description=${encodeURIComponent(`총 ${data.totalRounds}회차 데이터 분석 - 최다 ${Math.max(...data.numberStats.map(s => s.draw_count))}회 - 최소 ${Math.min(...data.numberStats.map(s => s.draw_count))}회`)}&layout=blog&theme=light&format=svg`,
+		image: `https://www.645.live/og/?title=${encodeURIComponent('로또 6/45 번호별 출현 통계')}&description=${encodeURIComponent(`총 ${data.totalRounds}회차 데이터 분석 - 최다 ${Math.max(...data.numberStats.map(s => s.draw_count))}회 - 최소 ${Math.min(...data.numberStats.map(s => s.draw_count))}회`)}&layout=blog&theme=light`,
 		imageAlt: "로또 6/45 번호별 출현 통계"
 	}}
 	additionalMetaTags={[
