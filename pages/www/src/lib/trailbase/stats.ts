@@ -57,7 +57,7 @@ export async function getLatestRoundInfo(): Promise<LatestRoundInfo | null> {
       });
 
     if (response.records.length > 0) {
-      const latest = response.records[0] as LatestRoundInfo;
+      const latest = response.records[0] as unknown as LatestRoundInfo;
       return {
         round: latest.round,
         draw_date: latest.draw_date,
@@ -78,7 +78,7 @@ export async function getNumberStats(order: "asc" | "desc" = "desc", limit?: num
       order: sortOrder,
       pagination: limit ? { limit } : undefined,
     });
-    return response.records as NumberStat[];
+    return response.records as unknown as NumberStat[];
   } catch (error) {
     console.error("Failed to fetch number stats:", error);
     return [];
@@ -94,7 +94,7 @@ export async function getRecentOddEvenStats(limit: number = 10): Promise<OddEven
         order: ["-round"],
         pagination: { limit },
       });
-    return response.records as OddEvenStat[];
+    return response.records as unknown as OddEvenStat[];
   } catch (error) {
     console.error("Failed to fetch odd/even stats:", error);
     return [];
@@ -110,7 +110,7 @@ export async function getRecentColorStats(limit: number = 10): Promise<ColorStat
         order: ["-round"],
         pagination: { limit },
       });
-    return response.records as ColorStat[];
+    return response.records as unknown as ColorStat[];
   } catch (error) {
     console.error("Failed to fetch color stats:", error);
     return [];
@@ -124,7 +124,7 @@ export async function getPairStats(limit: number = 10): Promise<PairStat[]> {
       order: ["-pair_count"],
       pagination: { limit },
     });
-    return response.records as PairStat[];
+    return response.records as unknown as PairStat[];
   } catch (error) {
     console.error("Failed to fetch pair stats:", error);
     return [];
@@ -146,7 +146,7 @@ export async function getColorAveragesAndDistribution(): Promise<{
       pagination: { limit: 10000 }, // Get all records
     });
 
-    const records = colorStats.records as ColorStat[];
+    const records = colorStats.records as unknown as ColorStat[];
     const totalRecords = records.length;
 
     if (totalRecords === 0) {

@@ -1,6 +1,7 @@
 <script lang="ts">
 import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
 import { JsonLd, MetaTags } from "svelte-meta-tags";
+import { RecentAnalysisInput, StatsSummary, GuideSection } from "$lib/components/stats";
 import type { PageData } from "./$types";
 
 export let data: PageData;
@@ -174,6 +175,12 @@ const getPairGrade = (pairCount: number) => {
 			로또 6/45 당첨번호의 동반 출현 패턴 및 번호 쌍 분석 함께 출현하는 번호들의 패턴을 확인하세요.
 		</p>
 	</div>
+
+	<!-- 최근 회차 분석 -->
+	<RecentAnalysisInput 
+		maxRounds={data.totalRounds}
+		basePath="/stats/pairs"
+	/>
 
 	<!-- 통계 요약 -->
 	<div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">

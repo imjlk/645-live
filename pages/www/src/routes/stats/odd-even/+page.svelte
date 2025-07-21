@@ -1,7 +1,7 @@
 <script lang="ts">
+import { RecentAnalysisInput } from "$lib/components/stats";
 import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
 import { JsonLd, MetaTags } from "svelte-meta-tags";
-import { RecentAnalysisInput, StatsSummary, GuideSection } from "$lib/components/stats";
 import type { PageData } from "./$types";
 
 export let data: PageData;
@@ -11,7 +11,7 @@ const getOddCountLabel = (count: number): string => {
 	const labels = {
 		0: "모두 짝수",
 		1: "홀수 1개",
-		2: "홀수 2개", 
+		2: "홀수 2개",
 		3: "홀수 3개",
 		4: "홀수 4개",
 		5: "홀수 5개",
@@ -52,42 +52,6 @@ const getBalanceAnalysis = (
 	};
 };
 
-// 입력값 유효성 검사
-const validateInput = (value: string): boolean => {
-	const str = String(value || "");
-	if (str.trim() === "") return false;
-	const num = Number(str);
-	return !Number.isNaN(num) && num > 0 && num <= data.totalRounds;
-};
-
-// 분석 페이지로 이동
-const navigateToAnalysis = async () => {
-	const inputStr = String(inputValue || "");
-
-	if (inputStr.trim() === "") {
-		alert("분석할 회차 수를 입력해주세요.");
-		return;
-	}
-
-	if (validateInput(inputStr)) {
-		const rounds = Number(inputStr);
-		try {
-			await goto(`/stats/odd-even/recent/${rounds}`);
-		} catch (error) {
-			console.error("Navigation error:", error);
-			alert("페이지 이동 중 오류가 발생했습니다.");
-		}
-	} else {
-		alert(`1부터 ${data.totalRounds}까지의 숫자를 입력해주세요.`);
-	}
-};
-
-// Enter 키 처리
-const handleKeydown = (event: KeyboardEvent) => {
-	if (event.key === "Enter") {
-		navigateToAnalysis();
-	}
-};
 
 // 합계 구간 분석
 const getSumRangeAnalysis = (range: string): string => {
@@ -263,7 +227,7 @@ const breadcrumbItems = [
 			
 			<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-2 sm:gap-4">
 				{#each Object.entries(data.oddEvenDistribution) as [oddCount, count]}
-					{@const percentage = data.totalRecords > 0 ? ((count / data.totalRecords) * 100).toFixed(1) : "0.0"}
+					{@const percentage = data.totalRecords > 0 ? ((Number(count) / data.totalRecords) * 100).toFixed(1) : "0.0"}
 					{@const balance = getBalanceAnalysis(Number(oddCount))}
 					
 					<div class="text-center space-y-1 sm:space-y-2 p-2 sm:p-4 bg-base-200 rounded-lg">
@@ -283,7 +247,7 @@ const breadcrumbItems = [
 				<h3 class="text-sm sm:text-base font-semibold mb-2 sm:mb-3">홀짝 균형도 분석</h3>
 				<div class="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-4 text-xs sm:text-sm">
 					{#each Object.entries(data.oddEvenDistribution) as [oddCount, count]}
-						{@const percentage = data.selectedRounds > 0 ? ((count / data.selectedRounds) * 100).toFixed(1) : "0.0"}
+						{@const percentage = data.selectedRounds > 0 ? ((Number(count) / data.selectedRounds) * 100).toFixed(1) : "0.0"}
 						{@const balance = getBalanceAnalysis(Number(oddCount))}
 						
 						<div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1 sm:gap-0">
@@ -320,7 +284,7 @@ const breadcrumbItems = [
 						</thead>
 						<tbody>
 							{#each Object.entries(data.sumDistribution) as [range, count]}
-								{@const percentage = data.selectedRounds > 0 ? ((count / data.selectedRounds) * 100).toFixed(1) : "0.0"}
+								{@const percentage = data.selectedRounds > 0 ? ((Number(count) / data.selectedRounds) * 100).toFixed(1) : "0.0"}
 								<tr>
 									<td class="sticky left-0 bg-base-100 z-10 font-semibold text-sm sm:text-lg">{range}</td>
 									<td class="text-center">{count}회</td>

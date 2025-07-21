@@ -18,7 +18,7 @@ export const load: PageServerLoad = async ({ params }) => {
 
 		const result = await getRecentAnalysis("high-low", selectedRounds);
 
-		if (\!result.validRounds) {
+		if (!result.validRounds) {
 			throw error(400, `선택한 회차 수(${selectedRounds})가 전체 회차 수(${result.totalRounds})를 초과합니다.`);
 		}
 
