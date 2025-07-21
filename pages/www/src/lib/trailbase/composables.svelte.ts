@@ -344,6 +344,7 @@ export function useBallValues(options: UseBallValuesOptions = {}): UseBallValues
 
 /**
  * Simple composable for connection status display
+ * Automatically subscribes on creation
  */
 export function useConnectionStatus() {
   let connected = $state(false);
@@ -351,16 +352,20 @@ export function useConnectionStatus() {
   let error = $state<TrailbaseError | null>(null);
   let retryCount = $state(0);
   
+  // Auto-subscribe on creation
+  const unsubscribe = trailbaseClient.subscribeToConnectionState(
+    `connection-status-${Date.now()}`,
+    (state) => {
+      connected = state.connected;
+      connecting = state.connecting;
+      error = state.error;
+      retryCount = state.retryCount;
+    }
+  );
+  
   const subscribe = (): (() => void) => {
-    return trailbaseClient.subscribeToConnectionState(
-      `connection-status-${Date.now()}`,
-      (state) => {
-        connected = state.connected;
-        connecting = state.connecting;
-        error = state.error;
-        retryCount = state.retryCount;
-      }
-    );
+    // Return the existing unsubscribe function
+    return unsubscribe;
   };
   
   return {
@@ -368,6 +373,7 @@ export function useConnectionStatus() {
     get connecting() { return connecting; },
     get error() { return error; },
     get retryCount() { return retryCount; },
-    subscribe
+    subscribe,
+    unsubscribe // Also provide direct access
   };
 }

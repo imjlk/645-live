@@ -9,10 +9,10 @@ import type { PageData } from "./$types";
 
 let { data }: { data: PageData } = $props();
 
-// Use the new composables for state management
+// Use the new composables for state management  
 const ballValuesComposable = useBallValues({
 	initialRound: data.displayRound || data.latestRound,
-	targetRound: data.displayRound || data.latestRound, // MAIN PAGE: Only subscribe to latest round
+	targetRound: data.displayRound || data.latestRound, // Filter to latest round only
 	onBallUpdate: (ballNumber, newValue, oldValue) => {
 		// Debug animation trigger
 		console.log(`🎾 Ball ${ballNumber} updated: ${oldValue} → ${newValue}`, ballValuesComposable.recentlyUpdated);
@@ -29,15 +29,15 @@ let numbers = $derived<BallNumber[]>(
 	}))
 );
 
-// Subscription cleanup functions
+// Subscription cleanup function
 let unsubscribeBallValues: (() => void) | null = null;
-let unsubscribeConnection: (() => void) | null = null;
 
 // Initialize data using the new composable
 async function initializeData() {
 	const targetRound = data.displayRound || data.latestRound;
 	if (targetRound) {
 		await ballValuesComposable.loadInitialData(targetRound);
+		console.log(`🎯 Initialized with target round: ${targetRound}`);
 	}
 }
 
@@ -45,9 +45,8 @@ onMount(async () => {
 	// Initialize data
 	await initializeData();
 	
-	// Set up subscriptions
+	// Set up ball values subscription
 	unsubscribeBallValues = ballValuesComposable.subscribe();
-	unsubscribeConnection = connectionStatus.subscribe();
 });
 
 // Clean up on component unmount
@@ -57,10 +56,8 @@ onDestroy(() => {
 		unsubscribeBallValues = null;
 	}
 	
-	if (unsubscribeConnection) {
-		unsubscribeConnection();
-		unsubscribeConnection = null;
-	}
+	// connectionStatus auto-unsubscribes when component is destroyed
+	connectionStatus.unsubscribe();
 });
 </script>
 
