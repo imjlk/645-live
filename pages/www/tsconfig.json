@@ -10,7 +10,27 @@
 		"sourceMap": true,
 		"strict": true,
 		"module": "es2022",
-		"moduleResolution": "bundler"
+		"moduleResolution": "bundler",
+		
+		// Enhanced type safety options
+		"noImplicitAny": true,
+		"noImplicitReturns": true,
+		"noImplicitThis": true,
+		"noUnusedLocals": true,
+		"noUnusedParameters": true,
+		"exactOptionalPropertyTypes": true,
+		"noUncheckedIndexedAccess": true,
+		"noImplicitOverride": true,
+		"noPropertyAccessFromIndexSignature": true,
+		
+		// Additional safety checks
+		"allowUnreachableCode": false,
+		"allowUnusedLabels": false,
+		"noFallthroughCasesInSwitch": true,
+		
+		// Better error reporting
+		"pretty": true,
+		"noErrorTruncation": true
 	}
 	// Path aliases are handled by https://svelte.dev/docs/kit/configuration#alias
 	// except $lib which is handled by https://svelte.dev/docs/kit/configuration#files
