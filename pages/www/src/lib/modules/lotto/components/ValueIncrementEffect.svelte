@@ -2,12 +2,20 @@
 import { quintOut } from "svelte/easing";
 import { fade, fly } from "svelte/transition";
 
-// Boolean to track if animation should show
-export let show = false;
-// Message to display (usually "+1")
-export let message = "+1";
-// Color of the animation text
-export let color = "text-green-500";
+interface Props {
+	// Boolean to track if animation should show
+	show?: boolean;
+	// Message to display (usually "+1")
+	message?: string;
+	// Color of the animation text
+	color?: string;
+}
+
+let {
+	show = false,
+	message = "+1",
+	color = "text-green-500",
+}: Props = $props();
 </script>
 
 {#if show}

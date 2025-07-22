@@ -3,7 +3,6 @@ import { goto } from "$app/navigation";
 import { page } from "$app/state";
 import { PUBLIC_TRAILBASE_URL } from "$env/static/public";
 import { calculateExpectedLatestRound } from "$lib/utils/lotto-common";
-import { onMount } from "svelte";
 import { initClient } from "trailbase";
 
 interface Props {
@@ -31,7 +30,7 @@ let { data }: Props = $props();
 const client = initClient(PUBLIC_TRAILBASE_URL || "http://localhost:4000");
 
 // URL에서 파라미터를 derived rune로 추출
-let urlRound = $derived(() => {
+let urlRound = $derived.by(() => {
 	const roundParam = page.url.searchParams.get("round");
 	if (roundParam) {
 		const parsed = Number.parseInt(roundParam, 10);
@@ -110,9 +109,8 @@ function handleRoundChange(event: Event) {
 
 // URL 변경시 자동으로 데이터 업데이트 (Svelte 5 $effect 사용)
 $effect(() => {
-	const newRound = urlRound;
-	if (newRound !== round) {
-		round = newRound;
+	if (urlRound !== round) {
+		round = urlRound;
 		fetchWinningStores();
 	}
 });

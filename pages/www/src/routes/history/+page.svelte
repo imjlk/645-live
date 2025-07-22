@@ -1,53 +1,78 @@
 <script lang="ts">
 import { goto } from "$app/navigation";
-import { page } from "$app/stores";
+import { page } from "$app/state";
 import SimpleBall from "$lib/components/SimpleBall.svelte";
 import type { BallNumber } from "$lib/modules/lotto/types";
 import LinkButton from "$lib/ui/LinkButton.svelte";
 import type { PageData } from "./$types";
 
-export let data: PageData;
+interface Props {
+	data: PageData;
+}
 
-let numbers: BallNumber[] = [];
-let totalScans = 0;
-let winningNumbers: number[] = [];
+let { data }: Props = $props();
 
-// Initialize data from server
-$: if (data) {
-	if (data.error) {
+// State variables using Svelte 5 runes
+let numbers = $state<BallNumber[]>([]);
+let totalScans = $state(0);
+let winningNumbers = $state<number[]>([]);
+
+// Initialize data from server using $derived
+let initializedData = $derived.by(() => {
+	if (data?.error) {
 		console.error("Error loading history data:", data.error);
-	} else {
-		// Initialize ball numbers with scan counts
-		numbers = Array.from({ length: 45 }, (_, i) => {
-			const ballNumber = i + 1;
-			const scanCountField = `scan_count_${ballNumber}`;
-			const value = data.scanData?.[scanCountField] || 0;
-			return {
-				id: ballNumber,
-				value: Number(value),
-			};
-		});
+		return { error: data.error };
+	}
 
-		// Get total scans
-		totalScans = Number(data.scanData?.total_scans || 0);
+	if (!data) {
+		return { error: null };
+	}
 
-		// Get winning numbers for this round if available
-		if (data.lottoNumbers) {
-			winningNumbers = [
+	// Initialize ball numbers with scan counts
+	const newNumbers = Array.from({ length: 45 }, (_, i) => {
+		const ballNumber = i + 1;
+		const scanCountField = `scan_count_${ballNumber}`;
+		const value = data.scanData?.[scanCountField] || 0;
+		return {
+			id: ballNumber,
+			value: Number(value),
+		};
+	});
+
+	// Get total scans
+	const newTotalScans = Number(data.scanData?.total_scans || 0);
+
+	// Get winning numbers for this round if available
+	const newWinningNumbers = data.lottoNumbers
+		? [
 				data.lottoNumbers.drwtNo1,
 				data.lottoNumbers.drwtNo2,
 				data.lottoNumbers.drwtNo3,
 				data.lottoNumbers.drwtNo4,
 				data.lottoNumbers.drwtNo5,
 				data.lottoNumbers.drwtNo6,
-			];
-		}
+			]
+		: [];
+
+	return {
+		numbers: newNumbers,
+		totalScans: newTotalScans,
+		winningNumbers: newWinningNumbers,
+	};
+});
+
+// Update state when derived data changes using $effect
+$effect(() => {
+	if (initializedData && !initializedData.error) {
+		numbers = initializedData.numbers || [];
+		totalScans = initializedData.totalScans || 0;
+		winningNumbers = initializedData.winningNumbers || [];
 	}
-}
+});
 
 // Handle round selection
 async function selectRound(round: number) {
-	const url = new URL($page.url);
+	const url = new URL(page.url);
 	url.searchParams.set("round", round.toString());
 	await goto(url.toString());
 }
@@ -106,7 +131,7 @@ function isWinningNumber(num: number): boolean {
 					<select 
 						class="border border-gray-300 rounded-lg px-3 py-2 text-sm md:text-base focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-full"
 						value={data.targetRound}
-						on:change={(e) => {
+						onchange={(e) => {
 							const target = e.target as HTMLSelectElement;
 							if (target) selectRound(Number(target.value));
 						}}

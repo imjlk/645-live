@@ -5,10 +5,14 @@ import LinkButton from "$lib/ui/LinkButton.svelte";
 import { JsonLd, MetaTags } from "svelte-meta-tags";
 import type { PageData } from "./$types";
 
-export let data: PageData;
+interface Props {
+	data: PageData;
+}
 
-// 사용자 입력 상태
-let inputValue = "";
+let { data }: Props = $props();
+
+// 사용자 입력 상태 (Svelte 5 runes)
+let inputValue = $state("");
 
 // Breadcrumbs 데이터
 const breadcrumbItems = [
@@ -95,8 +99,8 @@ const getDigitLightColorClass = (digit: string) => {
 	);
 };
 
-// 데이터 검증 및 안전한 접근
-$: safeDigitTotals =
+// 데이터 검증 및 안전한 접근 (Svelte 5 $derived 사용)
+let safeDigitTotals = $derived(
 	data.digitTotals && typeof data.digitTotals === "object"
 		? data.digitTotals
 		: {
@@ -110,9 +114,10 @@ $: safeDigitTotals =
 				"7": 0,
 				"8": 0,
 				"9": 0,
-			};
+			},
+);
 
-$: safeDigitAverages =
+let safeDigitAverages = $derived(
 	data.digitAverages && typeof data.digitAverages === "object"
 		? data.digitAverages
 		: {
@@ -126,22 +131,26 @@ $: safeDigitAverages =
 				"7": "0.00",
 				"8": "0.00",
 				"9": "0.00",
-			};
+			},
+);
 
-$: safeDigitCountDistribution =
+let safeDigitCountDistribution = $derived(
 	data.digitCountDistribution && typeof data.digitCountDistribution === "object"
 		? data.digitCountDistribution
-		: {};
+		: {},
+);
 
-$: safeRecentStats = Array.isArray(data.recentStats) ? data.recentStats : [];
+let safeRecentStats = $derived(
+	Array.isArray(data.recentStats) ? data.recentStats : [],
+);
 
-$: safeMostFrequentDigit = Array.isArray(data.mostFrequentDigit)
-	? data.mostFrequentDigit
-	: [0, "0"];
+let safeMostFrequentDigit = $derived(
+	Array.isArray(data.mostFrequentDigit) ? data.mostFrequentDigit : [0, "0"],
+);
 
-$: safeLeastFrequentDigit = Array.isArray(data.leastFrequentDigit)
-	? data.leastFrequentDigit
-	: [0, "0"];
+let safeLeastFrequentDigit = $derived(
+	Array.isArray(data.leastFrequentDigit) ? data.leastFrequentDigit : [0, "0"],
+);
 </script>
 
 <MetaTags
