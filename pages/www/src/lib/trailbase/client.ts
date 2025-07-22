@@ -27,6 +27,11 @@ class TrailBaseClient {
   private stream: ReadableStream<TrailbaseEvent> | null = null;
   private reader: ReadableStreamDefaultReader<TrailbaseEvent> | null = null;
   
+  // Initialization tracking
+  private isInitializing = false;
+  private isInitialized = false;
+  private initializationPromise: Promise<void> | null = null;
+  
   // Use plain object instead of $state
   private connectionState: ConnectionState = {
     connected: false,
@@ -43,7 +48,8 @@ class TrailBaseClient {
   private constructor() {
     if (!browser) return;
     
-    this.initializeClient();
+    // Start initialization but don't await it in constructor
+    this.initializationPromise = this.initializeClient();
   }
   
   static getInstance(): TrailBaseClient {
@@ -54,6 +60,12 @@ class TrailBaseClient {
   }
   
   private async initializeClient(): Promise<void> {
+    if (this.isInitializing || this.isInitialized) {
+      return;
+    }
+    
+    this.isInitializing = true;
+    
     try {
       const { initClient } = await import('trailbase');
       
@@ -63,6 +75,7 @@ class TrailBaseClient {
       this.client = initClient(url);
       this.api = this.client.records('lotto_draw_scan_counts');
       
+      this.isInitialized = true;
       console.log('✅ TrailBase client initialized successfully');
       
       this.updateConnectionState({ 
@@ -91,6 +104,8 @@ class TrailBaseClient {
         error: trailbaseError,
         retryCount: 0
       });
+    } finally {
+      this.isInitializing = false;
     }
   }
   
@@ -253,6 +268,22 @@ class TrailBaseClient {
     this.stream = null;
   }
   
+  // Ensure client is initialized before proceeding
+  private async ensureInitialized(): Promise<void> {
+    if (this.isInitialized) {
+      return;
+    }
+    
+    if (this.initializationPromise) {
+      await this.initializationPromise;
+      return;
+    }
+    
+    // If no initialization promise exists, start initialization
+    this.initializationPromise = this.initializeClient();
+    await this.initializationPromise;
+  }
+
   // Public API
   
   subscribe(id: string, callback: SubscriberCallback): () => void {
@@ -298,39 +329,70 @@ class TrailBaseClient {
   }
   
   async getScanDataSafely(round: number): Promise<LottoDrawScanCount | null> {
-    if (!this.api) return null;
-    
     try {
+      // Wait for initialization before proceeding
+      await this.ensureInitialized();
+      
+      if (!this.api) {
+        console.warn('🚨 TrailBase API still not available after initialization');
+        return null;
+      }
+      
+      console.log(`🔍 Fetching scan data for round ${round}`);
       const scanData = await this.api.read(round.toString()) as unknown as LottoDrawScanCount;
+      
+      if (scanData) {
+        console.log(`✅ Successfully fetched scan data for round ${round}:`, {
+          round: scanData.round,
+          totalScans: scanData.total_scans,
+          hasScanData: scanData.scan_count_1 !== undefined
+        });
+      }
+      
       return scanData;
     } catch (error) {
       const err = error as TrailbaseError;
       
       if (err.status === 404 || err.message?.includes('404') || err.message?.includes('Not Found')) {
+        console.log(`ℹ️ Scan data for round ${round} not found (404)`);
         return null;
       }
       
-      console.warn('Scan data fetch error:', err);
+      console.warn(`❌ Scan data fetch error for round ${round}:`, err);
       return null;
     }
   }
   
   async getLatestScanData(): Promise<LottoDrawScanCount | null> {
-    if (!this.api) return null;
-    
     try {
+      // Wait for initialization before proceeding
+      await this.ensureInitialized();
+      
+      if (!this.api) {
+        console.warn('🚨 TrailBase API still not available after initialization');
+        return null;
+      }
+      
+      console.log('🔍 Fetching latest scan data');
       const response = await this.api.list({
         order: ['-round'],
         pagination: { limit: 1 }
       });
       
       if (response.records.length > 0) {
-        return response.records[0] as unknown as LottoDrawScanCount;
+        const scanData = response.records[0] as unknown as LottoDrawScanCount;
+        console.log('✅ Successfully fetched latest scan data:', {
+          round: scanData.round,
+          totalScans: scanData.total_scans,
+          hasScanData: scanData.scan_count_1 !== undefined
+        });
+        return scanData;
       }
       
+      console.warn('❌ No scan data records found in database');
       return null;
     } catch (error) {
-      console.warn('Latest scan data fetch error:', error);
+      console.error('❌ Latest scan data fetch error:', error);
       return null;
     }
   }
@@ -363,6 +425,14 @@ class TrailBaseClient {
   
   get retryCount(): number {
     return this.connectionState.retryCount;
+  }
+  
+  get initialized(): boolean {
+    return this.isInitialized;
+  }
+  
+  get initializing(): boolean {
+    return this.isInitializing;
   }
   
   // Get current connection state (useful for non-reactive access)
