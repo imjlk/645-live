@@ -1,21 +1,21 @@
 <script lang="ts">
 interface ColorBadgeProps {
-  color: "yellow" | "blue" | "red" | "grey" | "green";
-  count: number | string;
-  size?: "small" | "normal" | "large";
+	color: "yellow" | "blue" | "red" | "grey" | "green";
+	count: number | string;
+	size?: "small" | "normal" | "large";
 }
 
 let { color, count, size = "normal" }: ColorBadgeProps = $props();
 
 const getColorClass = (colorName: string): string => {
-  const colorMap: Record<string, string> = {
-    yellow: "bg-yellow-500",
-    blue: "bg-blue-500",
-    red: "bg-red-500", 
-    grey: "bg-gray-500",
-    green: "bg-green-500",
-  };
-  return colorMap[colorName] || "bg-gray-400";
+	const colorMap: Record<string, string> = {
+		yellow: "bg-yellow-500",
+		blue: "bg-blue-500",
+		red: "bg-red-500",
+		grey: "bg-gray-500",
+		green: "bg-green-500",
+	};
+	return colorMap[colorName] || "bg-gray-400";
 };
 </script>
 

@@ -1,9 +1,9 @@
 import {
 	getLatestRoundInfo,
 	getNumberStats,
-	getRecentOddEvenStats,
-	getRecentColorStats,
 	getPairStats,
+	getRecentColorStats,
+	getRecentOddEvenStats,
 	getStatsForAnalysisType,
 } from "$lib/trailbase/stats";
 import type { PageServerLoad } from "./$types";

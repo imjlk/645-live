@@ -17,7 +17,6 @@ preparePageTransition();
 // 실제 데이터가 있는 회차들
 let availableRounds = $state<number[]>([]);
 
-
 let currentPath = $state(page.url.pathname);
 
 $effect(() => {
@@ -32,10 +31,10 @@ onMount(async () => {
 
 	// 실제 데이터가 있는 회차들을 가져오기
 	try {
-		const { initClient } = await import('trailbase');
-		const client = initClient('http://localhost:4000');
-		const api = client.records('lotto_draw_scan_counts');
-		
+		const { initClient } = await import("trailbase");
+		const client = initClient("http://localhost:4000");
+		const api = client.records("lotto_draw_scan_counts");
+
 		const response = await api.list({
 			order: ["-round"], // 최신 회차부터
 			pagination: { limit: 10 }, // 최근 10개 회차

@@ -1,6 +1,6 @@
 <script lang="ts">
+import { ColorBadge, LottoBall, StatsCard } from "$lib/components/stats";
 import { JsonLd, MetaTags } from "svelte-meta-tags";
-import { StatsCard, LottoBall, ColorBadge } from "$lib/components/stats";
 import type { PageData } from "./$types";
 
 export let data: PageData;
@@ -10,57 +10,57 @@ const statsCategories = [
 	{
 		href: "/stats/numbers",
 		icon: "🔢",
-		title: "번호별 통계", 
-		description: "출현 빈도"
+		title: "번호별 통계",
+		description: "출현 빈도",
 	},
 	{
 		href: "/stats/odd-even",
 		icon: "⚖️",
 		title: "홀짝 분석",
-		description: "홀수/짝수 분포"
+		description: "홀수/짝수 분포",
 	},
 	{
 		href: "/stats/colors",
 		icon: "🎨",
 		title: "색깔별 통계",
-		description: "공 색상 분포"
+		description: "공 색상 분포",
 	},
 	{
 		href: "/stats/sections",
 		icon: "📊",
 		title: "구간별 분석",
-		description: "번호 구간 분포"
+		description: "번호 구간 분포",
 	},
 	{
 		href: "/stats/high-low",
 		icon: "📈",
 		title: "고저번대",
-		description: "고번대/저번대"
+		description: "고번대/저번대",
 	},
 	{
 		href: "/stats/pairs",
 		icon: "👥",
 		title: "번호 쌍",
-		description: "동반 출현"
+		description: "동반 출현",
 	},
 	{
 		href: "/stats/repeat",
 		icon: "🔄",
 		title: "연속 중복",
-		description: "회차간 중복"
+		description: "회차간 중복",
 	},
 	{
 		href: "/stats/unit-digit",
 		icon: "🔟",
 		title: "끝수 분석",
-		description: "끝자리 분포"
+		description: "끝자리 분포",
 	},
 	{
 		href: "/stats/ac",
 		icon: "📊",
 		title: "AC값",
-		description: "산술 복잡도"
-	}
+		description: "산술 복잡도",
+	},
 ];
 </script>
 

@@ -11,11 +11,12 @@ export const prerender = true;
 export const load: PageServerLoad = async () => {
 	try {
 		// 최신 회차 정보와 홀짝 분석 데이터를 병렬로 가져오기
-		const [latestRoundInfo, oddEvenAnalysisData, recentStats] = await Promise.all([
-			getLatestRoundInfo(),
-			getOddEvenAnalysis(),
-			getRecentOddEvenStats(10),
-		]);
+		const [latestRoundInfo, oddEvenAnalysisData, recentStats] =
+			await Promise.all([
+				getLatestRoundInfo(),
+				getOddEvenAnalysis(),
+				getRecentOddEvenStats(10),
+			]);
 
 		const totalRounds = latestRoundInfo?.round || 0;
 

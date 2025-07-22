@@ -1,10 +1,10 @@
 <script lang="ts">
-import type { Snippet } from 'svelte';
+import type { Snippet } from "svelte";
 
 interface Props {
-  fallback?: Snippet<[Error]>;
-  onError?: (error: Error, errorInfo: { componentStack: string }) => void;
-  children: Snippet;
+	fallback?: Snippet<[Error]>;
+	onError?: (error: Error, errorInfo: { componentStack: string }) => void;
+	children: Snippet;
 }
 
 let { fallback, onError, children }: Props = $props();
@@ -13,25 +13,27 @@ let error = $state<Error | null>(null);
 let hasError = $derived(error !== null);
 
 // Global error handler for unhandled promise rejections
-if (typeof window !== 'undefined') {
-  window.addEventListener('unhandledrejection', (event) => {
-    const err = new Error(event.reason?.message || 'Unhandled promise rejection');
-    handleError(err);
-  });
+if (typeof window !== "undefined") {
+	window.addEventListener("unhandledrejection", (event) => {
+		const err = new Error(
+			event.reason?.message || "Unhandled promise rejection",
+		);
+		handleError(err);
+	});
 }
 
 function handleError(err: Error) {
-  error = err;
-  
-  if (onError) {
-    onError(err, { componentStack: 'Component stack not available in Svelte' });
-  } else {
-    console.error('ErrorBoundary caught an error:', err);
-  }
+	error = err;
+
+	if (onError) {
+		onError(err, { componentStack: "Component stack not available in Svelte" });
+	} else {
+		console.error("ErrorBoundary caught an error:", err);
+	}
 }
 
 function retry() {
-  error = null;
+	error = null;
 }
 
 // Export the handleError function for manual error reporting

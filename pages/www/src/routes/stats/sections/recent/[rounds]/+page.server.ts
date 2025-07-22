@@ -19,19 +19,24 @@ export const load: PageServerLoad = async ({ params }) => {
 		const result = await getRecentSectionsAnalysis(selectedRounds);
 
 		// 결과 데이터 검증
-		if (!result || typeof result !== 'object') {
+		if (!result || typeof result !== "object") {
 			throw error(500, "구간 분석 데이터 형식이 올바르지 않습니다.");
 		}
 
-		if (typeof result.validRounds !== 'boolean' || 
-			typeof result.selectedRounds !== 'number' ||
-			typeof result.totalRounds !== 'number' ||
-			!Array.isArray(result.records)) {
+		if (
+			typeof result.validRounds !== "boolean" ||
+			typeof result.selectedRounds !== "number" ||
+			typeof result.totalRounds !== "number" ||
+			!Array.isArray(result.records)
+		) {
 			throw error(500, "구간 분석 데이터의 필수 속성이 누락되었습니다.");
 		}
 
 		if (!result.validRounds) {
-			throw error(400, `선택한 회차 수(${selectedRounds})가 전체 회차 수(${result.totalRounds})를 초과합니다.`);
+			throw error(
+				400,
+				`선택한 회차 수(${selectedRounds})가 전체 회차 수(${result.totalRounds})를 초과합니다.`,
+			);
 		}
 
 		return {

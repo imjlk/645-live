@@ -7,7 +7,7 @@ export const prerender = true;
 export const load: PageServerLoad = async () => {
 	try {
 		const result = await getRepeatAnalysis();
-		
+
 		return result;
 	} catch (error) {
 		console.error("연속 중복 통계 데이터 로드 실패:", error);

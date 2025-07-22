@@ -46,7 +46,9 @@ const navigateToAnalysis = async () => {
 			alert("페이지 이동 중 오류가 발생했습니다.");
 		}
 	} else {
-		alert(`1부터 ${typeof data.totalRounds === "number" ? data.totalRounds : 0}까지의 숫자를 입력해주세요.`);
+		alert(
+			`1부터 ${typeof data.totalRounds === "number" ? data.totalRounds : 0}까지의 숫자를 입력해주세요.`,
+		);
 	}
 };
 
@@ -94,29 +96,52 @@ const getDigitLightColorClass = (digit: string) => {
 };
 
 // 데이터 검증 및 안전한 접근
-$: safeDigitTotals = data.digitTotals && typeof data.digitTotals === 'object' 
-	? data.digitTotals 
-	: {
-		"0": 0, "1": 0, "2": 0, "3": 0, "4": 0,
-		"5": 0, "6": 0, "7": 0, "8": 0, "9": 0,
-	};
+$: safeDigitTotals =
+	data.digitTotals && typeof data.digitTotals === "object"
+		? data.digitTotals
+		: {
+				"0": 0,
+				"1": 0,
+				"2": 0,
+				"3": 0,
+				"4": 0,
+				"5": 0,
+				"6": 0,
+				"7": 0,
+				"8": 0,
+				"9": 0,
+			};
 
-$: safeDigitAverages = data.digitAverages && typeof data.digitAverages === 'object'
-	? data.digitAverages
-	: {
-		"0": "0.00", "1": "0.00", "2": "0.00", "3": "0.00", "4": "0.00",
-		"5": "0.00", "6": "0.00", "7": "0.00", "8": "0.00", "9": "0.00",
-	};
+$: safeDigitAverages =
+	data.digitAverages && typeof data.digitAverages === "object"
+		? data.digitAverages
+		: {
+				"0": "0.00",
+				"1": "0.00",
+				"2": "0.00",
+				"3": "0.00",
+				"4": "0.00",
+				"5": "0.00",
+				"6": "0.00",
+				"7": "0.00",
+				"8": "0.00",
+				"9": "0.00",
+			};
 
-$: safeDigitCountDistribution = data.digitCountDistribution && typeof data.digitCountDistribution === 'object'
-	? data.digitCountDistribution
-	: {};
+$: safeDigitCountDistribution =
+	data.digitCountDistribution && typeof data.digitCountDistribution === "object"
+		? data.digitCountDistribution
+		: {};
 
 $: safeRecentStats = Array.isArray(data.recentStats) ? data.recentStats : [];
 
-$: safeMostFrequentDigit = Array.isArray(data.mostFrequentDigit) ? data.mostFrequentDigit : [0, "0"];
+$: safeMostFrequentDigit = Array.isArray(data.mostFrequentDigit)
+	? data.mostFrequentDigit
+	: [0, "0"];
 
-$: safeLeastFrequentDigit = Array.isArray(data.leastFrequentDigit) ? data.leastFrequentDigit : [0, "0"];
+$: safeLeastFrequentDigit = Array.isArray(data.leastFrequentDigit)
+	? data.leastFrequentDigit
+	: [0, "0"];
 </script>
 
 <MetaTags

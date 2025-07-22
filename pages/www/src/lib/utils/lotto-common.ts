@@ -58,16 +58,16 @@ export function calculateExpectedLatestRound(): number {
 export async function getLatestLottoRoundFromAPI(): Promise<LatestLottoInfo | null> {
 	try {
 		// Import the lotto-api functions dynamically to avoid circular imports
-		const { getLatestLottoRound } = await import('./lotto-api.js');
+		const { getLatestLottoRound } = await import("./lotto-api.js");
 		return await getLatestLottoRound();
 	} catch (error) {
-		console.error('Error getting latest lotto round from Trailbase:', error);
-		
+		console.error("Error getting latest lotto round from Trailbase:", error);
+
 		// Fallback to calculated expected round
 		const expectedRound = calculateExpectedLatestRound();
 		return {
 			drwNo: expectedRound,
-			drwNoDate: new Date().toISOString().split('T')[0]
+			drwNoDate: new Date().toISOString().split("T")[0],
 		};
 	}
 }
@@ -80,7 +80,7 @@ export async function getLottoNumbersFromAPI(
 ): Promise<LottoDrawResult | null> {
 	try {
 		// Import the lotto-api functions dynamically to avoid circular imports
-		const { getLottoNumbers } = await import('./lotto-api.js');
+		const { getLottoNumbers } = await import("./lotto-api.js");
 		return await getLottoNumbers(drwNo);
 	} catch (error) {
 		console.error(`Error fetching lotto numbers for round ${drwNo}:`, error);

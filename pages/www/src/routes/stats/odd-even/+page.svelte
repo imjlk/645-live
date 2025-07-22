@@ -52,7 +52,6 @@ const getBalanceAnalysis = (
 	};
 };
 
-
 // 합계 구간 분석
 const getSumRangeAnalysis = (range: string): string => {
 	const analyses = {

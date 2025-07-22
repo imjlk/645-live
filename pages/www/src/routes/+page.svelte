@@ -187,7 +187,7 @@ onDestroy(() => {
                 <div class="flex items-center gap-2">
                     <div class="w-3 h-3 {connectionStatus.connected ? 'bg-green-500' : connectionStatus.connecting ? 'bg-yellow-500 animate-pulse' : 'bg-red-500'} rounded-full"></div>
                     <span class="text-xs text-gray-600 dark:text-gray-400">
-                        {connectionStatus.connected ? '연결됨' : connectionStatus.connecting ? '연결 중...' : `연결 끊김 (재시도: ${connectionStatus.retryCount})`}
+                        {connectionStatus.connected ? '연결됨' : connectionStatus.connecting ? '연결 중...' : `(재시도: ${connectionStatus.retryCount})`}
                         {#if connectionStatus.error}
                             - {connectionStatus.error.message}
                         {/if}

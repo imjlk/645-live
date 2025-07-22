@@ -3,11 +3,11 @@
  * 새로운 TrailBase client로 마이그레이션됨
  */
 
-import { 
-	trailbaseClient,
-	subscribeToScanCountUpdates as newSubscribeToScanCountUpdates,
+import {
+	getLatestScanData as newGetLatestScanData,
 	getScanDataSafely as newGetScanDataSafely,
-	getLatestScanData as newGetLatestScanData
+	subscribeToScanCountUpdates as newSubscribeToScanCountUpdates,
+	trailbaseClient,
 } from "$lib/trailbase/client";
 import type { LottoDrawScanCount } from "$lib/trailbase/types";
 import { writable } from "svelte/store";

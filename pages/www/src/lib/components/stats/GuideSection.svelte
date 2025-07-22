@@ -1,49 +1,56 @@
 <script lang="ts">
 interface GuideItem {
-  title: string;
-  items: string[];
+	title: string;
+	items: string[];
 }
 
 interface GuideSectionProps {
-  title: string;
-  icon?: string;
-  description?: string;
-  guides: GuideItem[];
-  theme?: "info" | "primary" | "secondary" | "accent" | "success" | "warning" | "error";
+	title: string;
+	icon?: string;
+	description?: string;
+	guides: GuideItem[];
+	theme?:
+		| "info"
+		| "primary"
+		| "secondary"
+		| "accent"
+		| "success"
+		| "warning"
+		| "error";
 }
 
-let { 
-  title, 
-  icon = "📊", 
-  description, 
-  guides, 
-  theme = "info" 
+let {
+	title,
+	icon = "📊",
+	description,
+	guides,
+	theme = "info",
 }: GuideSectionProps = $props();
 
 const getThemeClass = (themeName: string): string => {
-  const themeMap: Record<string, string> = {
-    info: "bg-blue-50 dark:bg-blue-900/20",
-    primary: "bg-primary/5",
-    secondary: "bg-secondary/5", 
-    accent: "bg-accent/5",
-    success: "bg-green-50 dark:bg-green-900/20",
-    warning: "bg-yellow-50 dark:bg-yellow-900/20",
-    error: "bg-red-50 dark:bg-red-900/20",
-  };
-  return themeMap[themeName] || themeMap.info;
+	const themeMap: Record<string, string> = {
+		info: "bg-blue-50 dark:bg-blue-900/20",
+		primary: "bg-primary/5",
+		secondary: "bg-secondary/5",
+		accent: "bg-accent/5",
+		success: "bg-green-50 dark:bg-green-900/20",
+		warning: "bg-yellow-50 dark:bg-yellow-900/20",
+		error: "bg-red-50 dark:bg-red-900/20",
+	};
+	return themeMap[themeName] || themeMap.info;
 };
 
 const getTitleClass = (themeName: string): string => {
-  const titleMap: Record<string, string> = {
-    info: "text-blue-600 dark:text-blue-400",
-    primary: "text-primary",
-    secondary: "text-secondary",
-    accent: "text-accent", 
-    success: "text-green-600 dark:text-green-400",
-    warning: "text-yellow-600 dark:text-yellow-400",
-    error: "text-red-600 dark:text-red-400",
-  };
-  return titleMap[themeName] || titleMap.info;
+	const titleMap: Record<string, string> = {
+		info: "text-blue-600 dark:text-blue-400",
+		primary: "text-primary",
+		secondary: "text-secondary",
+		accent: "text-accent",
+		success: "text-green-600 dark:text-green-400",
+		warning: "text-yellow-600 dark:text-yellow-400",
+		error: "text-red-600 dark:text-red-400",
+	};
+	return titleMap[themeName] || titleMap.info;
 };
 </script>
 

@@ -1,7 +1,11 @@
 <script lang="ts">
+import {
+	GuideSection,
+	RecentAnalysisInput,
+	StatsSummary,
+} from "$lib/components/stats";
 import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
 import { JsonLd, MetaTags } from "svelte-meta-tags";
-import { RecentAnalysisInput, StatsSummary, GuideSection } from "$lib/components/stats";
 import type { PageData } from "./$types";
 
 export let data: PageData;

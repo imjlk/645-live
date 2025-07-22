@@ -1111,7 +1111,7 @@ export async function getRecentUnitDigitAnalysis(rounds: number) {
 				digitSums[digitKey] += count;
 
 				// Map to digitCounts with digit0, digit1 format
-				const stringKey = key.replace('digit_', '').replace('_count', '');
+				const stringKey = key.replace("digit_", "").replace("_count", "");
 				const countKey = `digit${stringKey}` as keyof typeof digitCounts;
 				digitCounts[countKey] += count;
 			});
@@ -1123,7 +1123,7 @@ export async function getRecentUnitDigitAnalysis(rounds: number) {
 
 		const digitAverages = Object.fromEntries(
 			Object.entries(digitSums).map(([digit, sum]) => [
-				`digit${digit.replace('digit_', '').replace('_count', '')}`,
+				`digit${digit.replace("digit_", "").replace("_count", "")}`,
 				(sum / records.length).toFixed(2),
 			]),
 		);
@@ -1551,11 +1551,11 @@ export async function getRecentOddEvenAnalysis(rounds: number) {
 
 // Helper function to determine section for a number
 function getNumberSection(num: number): number {
-	if (num >= 1 && num <= 10) return 1;   // section_1_10
-	if (num >= 11 && num <= 20) return 2;  // section_11_20  
-	if (num >= 21 && num <= 30) return 3;  // section_21_30
-	if (num >= 31 && num <= 40) return 4;  // section_31_40
-	if (num >= 41 && num <= 45) return 5;  // section_41_45
+	if (num >= 1 && num <= 10) return 1; // section_1_10
+	if (num >= 11 && num <= 20) return 2; // section_11_20
+	if (num >= 21 && num <= 30) return 3; // section_21_30
+	if (num >= 31 && num <= 40) return 4; // section_31_40
+	if (num >= 41 && num <= 45) return 5; // section_41_45
 	return 0; // Invalid number
 }
 
@@ -1567,10 +1567,10 @@ async function getSectionsAnalysisFromTable(): Promise<{
 	recentStats: SectionStat[];
 	totalRounds: number;
 }> {
-	const [latestRoundInfo, sectionStats] = await Promise.all([
+	const [latestRoundInfo, sectionStats] = (await Promise.all([
 		getLatestRoundInfo(),
 		getStatsForAnalysisType("sections"),
-	]) as [LatestRoundInfo | null, SectionStat[]];
+	])) as [LatestRoundInfo | null, SectionStat[]];
 
 	const totalRecords = sectionStats.length;
 
@@ -1617,7 +1617,6 @@ async function getSectionsAnalysisFromTable(): Promise<{
 		]),
 	);
 
-
 	return {
 		sectionStats,
 		totalRecords,
@@ -1640,11 +1639,13 @@ export async function getSectionsAnalysis(): Promise<{
 
 		// 먼저 기존 구간 통계 테이블을 확인해보자
 		try {
-			const sectionStatsResponse = await client.records("lotto_draw_section_stats").list({
-				order: ["-round"],
-				pagination: { limit: 10 },
-			});
-			
+			const sectionStatsResponse = await client
+				.records("lotto_draw_section_stats")
+				.list({
+					order: ["-round"],
+					pagination: { limit: 10 },
+				});
+
 			if (sectionStatsResponse.records.length > 0) {
 				return await getSectionsAnalysisFromTable();
 			}
@@ -1901,10 +1902,12 @@ export async function getUnitDigitAnalysis(): Promise<{
 		let batchOffset = 0;
 
 		while (true) {
-			const response = await client.records("lotto_draw_unit_digit_stats").list({
-				order: ["-round"],
-				pagination: { limit: batchSize, offset: batchOffset },
-			});
+			const response = await client
+				.records("lotto_draw_unit_digit_stats")
+				.list({
+					order: ["-round"],
+					pagination: { limit: batchSize, offset: batchOffset },
+				});
 
 			const batchRecords = response.records as UnitDigitStat[];
 
@@ -1977,9 +1980,9 @@ export async function getUnitDigitAnalysis(): Promise<{
 				const digitKey = key as keyof typeof digitSums;
 				const count = record[digitKey] || 0;
 				digitSums[digitKey] += count;
-				
+
 				// Map to string key for digitTotals and digitCountDistribution
-				const stringKey = key.replace('digit_', '').replace('_count', '');
+				const stringKey = key.replace("digit_", "").replace("_count", "");
 				digitTotals[stringKey] += count;
 
 				// Count distribution
@@ -1993,7 +1996,7 @@ export async function getUnitDigitAnalysis(): Promise<{
 
 		const digitAverages = Object.fromEntries(
 			Object.entries(digitSums).map(([digit, sum]) => [
-				digit.replace('digit_', '').replace('_count', ''),
+				digit.replace("digit_", "").replace("_count", ""),
 				(sum / totalRecords).toFixed(2),
 			]),
 		);
@@ -2001,10 +2004,7 @@ export async function getUnitDigitAnalysis(): Promise<{
 		// Find most/least frequent digits
 		const digitTotalEntries = Object.entries(digitTotals).map(
 			([digit, total]) =>
-				[Number.parseInt(digit), total.toString()] as [
-					number,
-					string,
-				],
+				[Number.parseInt(digit), total.toString()] as [number, string],
 		);
 
 		const mostFrequentDigit = digitTotalEntries.reduce(

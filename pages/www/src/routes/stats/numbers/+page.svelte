@@ -1,7 +1,12 @@
 <script lang="ts">
+import {
+	GuideSection,
+	LottoBall,
+	StatsSummary,
+	StatsTable,
+} from "$lib/components/stats";
 import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
 import { JsonLd, MetaTags } from "svelte-meta-tags";
-import { StatsSummary, StatsTable, LottoBall, GuideSection } from "$lib/components/stats";
 import type { PageData } from "./$types";
 
 export let data: PageData;

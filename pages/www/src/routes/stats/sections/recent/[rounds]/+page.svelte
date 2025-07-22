@@ -24,8 +24,10 @@ const validateInput = (value: string): boolean => {
 	const str = String(value || "");
 	if (str.trim() === "") return false;
 	const num = Number(str);
-	const maxRounds = typeof data.totalRounds === 'number' ? data.totalRounds : 0;
-	return !Number.isNaN(num) && Number.isInteger(num) && num > 0 && num <= maxRounds;
+	const maxRounds = typeof data.totalRounds === "number" ? data.totalRounds : 0;
+	return (
+		!Number.isNaN(num) && Number.isInteger(num) && num > 0 && num <= maxRounds
+	);
 };
 
 // 분석 페이지로 이동
@@ -102,13 +104,17 @@ const getPercentage = (count: number, total: number): string => {
 };
 
 // 구간 패턴 정렬 (출현 빈도순) - 데이터 검증 포함
-$: sortedPatterns = (data.sectionStats?.summary?.distribution && 
-	typeof data.sectionStats.summary.distribution === 'object') 
-	? Object.entries(data.sectionStats.summary.distribution)
-		.filter(([pattern, count]) => typeof pattern === 'string' && typeof count !== 'undefined')
-		.sort(([, a], [, b]) => Number(b) - Number(a))
-		.slice(0, 10)
-	: [];
+$: sortedPatterns =
+	data.sectionStats?.summary?.distribution &&
+	typeof data.sectionStats.summary.distribution === "object"
+		? Object.entries(data.sectionStats.summary.distribution)
+				.filter(
+					([pattern, count]) =>
+						typeof pattern === "string" && typeof count !== "undefined",
+				)
+				.sort(([, a], [, b]) => Number(b) - Number(a))
+				.slice(0, 10)
+		: [];
 </script>
 
 <MetaTags

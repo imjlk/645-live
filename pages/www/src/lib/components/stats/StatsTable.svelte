@@ -1,18 +1,18 @@
 <script lang="ts">
 interface TableColumn {
-  key: string;
-  title: string;
-  class?: string;
-  sticky?: boolean;
-  minWidth?: string;
-  render?: (value: any, row: any) => any;
+	key: string;
+	title: string;
+	class?: string;
+	sticky?: boolean;
+	minWidth?: string;
+	render?: (value: any, row: any) => any;
 }
 
 interface StatsTableProps {
-  columns: TableColumn[];
-  data: any[];
-  zebra?: boolean;
-  title?: string;
+	columns: TableColumn[];
+	data: any[];
+	zebra?: boolean;
+	title?: string;
 }
 
 let { columns, data, zebra = true, title }: StatsTableProps = $props();

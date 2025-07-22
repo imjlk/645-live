@@ -72,7 +72,9 @@ const navigateToAnalysis = async () => {
 			alert("페이지 이동 중 오류가 발생했습니다.");
 		}
 	} else {
-		alert(`1부터 ${typeof data.totalRounds === "number" ? data.totalRounds : 0}까지의 숫자를 입력해주세요.`);
+		alert(
+			`1부터 ${typeof data.totalRounds === "number" ? data.totalRounds : 0}까지의 숫자를 입력해주세요.`,
+		);
 	}
 };
 
@@ -91,21 +93,23 @@ const breadcrumbItems = [
 ];
 
 // 데이터 검증 및 안전한 접근
-$: safeHighLowDistribution = data.highLowDistribution && typeof data.highLowDistribution === 'object' 
-	? data.highLowDistribution 
-	: {
-		"0": 0,
-		"1": 0,
-		"2": 0,
-		"3": 0,
-		"4": 0,
-		"5": 0,
-		"6": 0,
-	};
+$: safeHighLowDistribution =
+	data.highLowDistribution && typeof data.highLowDistribution === "object"
+		? data.highLowDistribution
+		: {
+				"0": 0,
+				"1": 0,
+				"2": 0,
+				"3": 0,
+				"4": 0,
+				"5": 0,
+				"6": 0,
+			};
 
-$: safePatternStats = data.patternStats && typeof data.patternStats === 'object'
-	? data.patternStats
-	: { balanced: 0, extreme: 0 };
+$: safePatternStats =
+	data.patternStats && typeof data.patternStats === "object"
+		? data.patternStats
+		: { balanced: 0, extreme: 0 };
 
 $: safeRecentStats = Array.isArray(data.recentStats) ? data.recentStats : [];
 </script>

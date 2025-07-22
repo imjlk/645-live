@@ -1,13 +1,19 @@
 <script lang="ts">
 interface StatsCardProps {
-  href: string;
-  icon: string;
-  title: string;
-  description: string;
-  active?: boolean;
+	href: string;
+	icon: string;
+	title: string;
+	description: string;
+	active?: boolean;
 }
 
-let { href, icon, title, description, active = false }: StatsCardProps = $props();
+let {
+	href,
+	icon,
+	title,
+	description,
+	active = false,
+}: StatsCardProps = $props();
 </script>
 
 <a {href} class="stats-nav-card {active ? 'active' : ''}">

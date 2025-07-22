@@ -1,28 +1,28 @@
 <script lang="ts">
 interface Props {
-  size?: 'small' | 'medium' | 'large';
-  message?: string;
-  fullPage?: boolean;
-  color?: 'primary' | 'secondary' | 'accent';
+	size?: "small" | "medium" | "large";
+	message?: string;
+	fullPage?: boolean;
+	color?: "primary" | "secondary" | "accent";
 }
 
-let { 
-  size = 'medium', 
-  message, 
-  fullPage = false,
-  color = 'primary'
+let {
+	size = "medium",
+	message,
+	fullPage = false,
+	color = "primary",
 }: Props = $props();
 
 const sizeClasses = {
-  small: 'w-4 h-4',
-  medium: 'w-8 h-8',
-  large: 'w-12 h-12'
+	small: "w-4 h-4",
+	medium: "w-8 h-8",
+	large: "w-12 h-12",
 };
 
 const colorClasses = {
-  primary: 'text-blue-500',
-  secondary: 'text-gray-500',
-  accent: 'text-purple-500'
+	primary: "text-blue-500",
+	secondary: "text-gray-500",
+	accent: "text-purple-500",
 };
 </script>
 

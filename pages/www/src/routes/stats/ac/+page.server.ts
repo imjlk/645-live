@@ -7,7 +7,7 @@ export const prerender = true;
 export const load: PageServerLoad = async () => {
 	try {
 		const result = await getACAnalysis();
-		
+
 		return result;
 	} catch (error) {
 		console.error("AC값 통계 데이터 로드 실패:", error);
