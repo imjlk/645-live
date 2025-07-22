@@ -58,10 +58,10 @@ function isActive(item: NavigationItem, pathname: string): boolean {
 		: pathname === item.href;
 }
 
-// 현재 활성화된 탭의 인덱스 (Svelte 5 runes 문법)
-let activeIndex = $derived(
-	navigationItems.findIndex((item) => isActive(item, page.url.pathname))
-);
+// activeIndex는 현재 사용되지 않으므로 제거
+// let activeIndex = $derived(
+// 	navigationItems.findIndex((item) => isActive(item, page.url.pathname))
+// );
 
 function handleKeydown(event: KeyboardEvent, href: string) {
 	if (event.key === "Enter" || event.key === " ") {
@@ -74,6 +74,7 @@ function handleKeydown(event: KeyboardEvent, href: string) {
 <!-- 모바일 전용 하단 네비게이션 (sm 이하에서만 표시) -->
 <nav 
 	class="btm-nav sm:hidden border-t border-base-300 bg-base-100/80 backdrop-blur supports-[backdrop-filter]:bg-base-100/60"
+	role="navigation"
 	aria-label="모바일 주요 페이지 네비게이션"
 >
 	{#each navigationItems as item (item.href)}
@@ -81,8 +82,7 @@ function handleKeydown(event: KeyboardEvent, href: string) {
 			href={item.href}
 			class="relative {isActive(item, page.url.pathname) ? 'active text-primary' : 'text-base-content/70'}"
 			aria-label={item.ariaLabel}
-			role="tab"
-			aria-selected={isActive(item, page.url.pathname)}
+			aria-current={isActive(item, page.url.pathname) ? 'page' : undefined}
 			tabindex="0"
 			onkeydown={(e) => handleKeydown(e, item.href)}
 		>
