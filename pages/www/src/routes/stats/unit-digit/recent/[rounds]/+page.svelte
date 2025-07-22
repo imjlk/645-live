@@ -135,7 +135,7 @@ const getPercentage = (count: number, total: number): string => {
 
 // 끝자리수 패턴 정렬 (출현 빈도순)
 const sortedPatterns = $derived(
-	Object.entries(data.unitDigitStats.summary.distribution)
+	Object.entries(data.unitDigitStats.summary.distribution || {})
 		.sort(([, a], [, b]) => Number(b) - Number(a))
 		.slice(0, 10), // 상위 10개만 표시
 );
@@ -268,7 +268,7 @@ const sortedPatterns = $derived(
 			당첨번호 패턴을 파악해보세요.
 		</p>
 		<div class="flex justify-center gap-4 text-sm text-base-content/60 mt-4">
-			<span>📊 최빈 끝자리: <strong class="text-primary">{digitInfo[data.unitDigitStats.summary.mostFrequentDigit[0] as keyof typeof digitInfo]?.name}</strong></span>
+			<span>📊 최빈 끝자리: <strong class="text-primary">{digitInfo[data.unitDigitStats.summary.mostFrequentDigit[0] as unknown as keyof typeof digitInfo]?.name}</strong></span>
 			<span>📈 분석 회차: <strong class="text-secondary">{data.selectedRounds}회</strong></span>
 			<span>🎯 평균 개수: <strong class="text-accent">{data.unitDigitStats.summary.mostFrequentDigit[1]}개</strong></span>
 		</div>

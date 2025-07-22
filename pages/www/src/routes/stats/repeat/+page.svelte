@@ -248,14 +248,14 @@ const handleKeydown = (event: KeyboardEvent) => {
 						inputmode="numeric"
 						pattern="[0-9]*"
 						bind:value={inputValue}
-						on:keydown={handleKeydown}
+						onkeydown={handleKeydown}
 						class="input input-bordered input-sm w-24 sm:w-20 text-center"
 						placeholder="100"
 					/>
 				</div>
 				<button
 					type="button"
-					on:click={navigateToAnalysis}
+					onclick={navigateToAnalysis}
 					class="btn btn-primary btn-sm w-full sm:w-auto"
 				>
 					분석하기

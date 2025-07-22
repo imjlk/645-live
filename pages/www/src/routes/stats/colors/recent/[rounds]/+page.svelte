@@ -274,7 +274,7 @@ const breadcrumbItems = [
 						inputmode="numeric"
 						pattern="[0-9]*"
 						bind:value={inputValue}
-						on:keydown={handleKeydown}
+						onkeydown={handleKeydown}
 						class="input input-bordered input-sm w-full sm:w-20 text-center"
 						placeholder="100"
 					/>
@@ -282,7 +282,7 @@ const breadcrumbItems = [
 				<div class="flex flex-col sm:flex-row gap-2 sm:gap-4">
 					<button
 						type="button"
-						on:click={navigateToAnalysis}
+						onclick={navigateToAnalysis}
 						class="btn btn-primary btn-sm w-full sm:w-auto min-h-[2.5rem] sm:min-h-[2rem]"
 					>
 						분석하기
@@ -320,7 +320,7 @@ const breadcrumbItems = [
 			<h2 class="card-title text-lg sm:text-xl">색상 구간별 출현 빈도</h2>
 			<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
 				{#each Object.entries(colorInfo) as [key, info]}
-					{@const count = data.colorStats.summary.colorCounts[key as keyof typeof data.colorStats.summary.colorCounts]}
+					{@const count = Number(data.colorStats.summary.colorCounts[key as keyof typeof data.colorStats.summary.colorCounts]) || 0}
 					{@const totalNumbers = data.colorStats.summary.totalDraws * 6}
 					<div class="p-3 sm:p-4 rounded-lg border {info.bgClass}">
 						<div class="flex items-center mb-2">

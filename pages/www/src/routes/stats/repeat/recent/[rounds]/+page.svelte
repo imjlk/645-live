@@ -109,7 +109,7 @@ const getPercentage = (count: number, total: number): string => {
 
 // 중복 개수별 정렬 (출현 빈도순)
 $: sortedRepeatCounts = Object.entries(
-	data.repeatStats.summary.repeatCounts,
+	data.repeatStats.summary.repeatCounts || {},
 ).sort(([, a], [, b]) => Number(b) - Number(a));
 </script>
 
@@ -202,7 +202,7 @@ $: sortedRepeatCounts = Object.entries(
 			{
 				'@type': 'PropertyValue',
 				name: '평균 중복 개수',
-				value: data.repeatStats.summary.averageRepeatCount
+				value: data.repeatStats.summary.avgRepeatCount
 			},
 			{
 				'@type': 'PropertyValue',
@@ -249,7 +249,7 @@ $: sortedRepeatCounts = Object.entries(
 						inputmode="numeric"
 						pattern="[0-9]*"
 						bind:value={inputValue}
-						on:keydown={handleKeydown}
+						onkeydown={handleKeydown}
 						class="input input-bordered input-sm w-full sm:w-20 text-center"
 						placeholder="100"
 					/>
@@ -257,7 +257,7 @@ $: sortedRepeatCounts = Object.entries(
 				<div class="flex flex-col sm:flex-row gap-2 sm:gap-4">
 					<button
 						type="button"
-						on:click={navigateToAnalysis}
+						onclick={navigateToAnalysis}
 						class="btn btn-primary btn-sm w-full sm:w-auto min-h-[2.5rem] sm:min-h-[2rem]"
 					>
 						분석하기
@@ -313,7 +313,7 @@ $: sortedRepeatCounts = Object.entries(
 			
 			<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-2 sm:gap-4">
 				{#each sortedRepeatCounts as [repeatCount, count]}
-					{@const percentage = data.repeatStats.summary.totalDraws > 0 ? ((count / data.repeatStats.summary.totalDraws) * 100).toFixed(1) : "0.0"}
+					{@const percentage = data.repeatStats.summary.totalDraws > 0 ? ((Number(count) / data.repeatStats.summary.totalDraws) * 100).toFixed(1) : "0.0"}
 					{@const analysis = getRepeatAnalysis(Number(repeatCount))}
 					
 					<div class="text-center space-y-1 sm:space-y-2 p-2 sm:p-4 bg-base-200 rounded-lg">
@@ -333,7 +333,7 @@ $: sortedRepeatCounts = Object.entries(
 				<h3 class="font-semibold mb-2 sm:mb-3 text-sm sm:text-base">중복 패턴 분석</h3>
 				<div class="grid grid-cols-1 gap-3 sm:gap-4 text-xs sm:text-sm">
 					{#each sortedRepeatCounts as [repeatCount, count]}
-						{@const percentage = data.repeatStats.summary.totalDraws > 0 ? ((count / data.repeatStats.summary.totalDraws) * 100).toFixed(1) : "0.0"}
+						{@const percentage = data.repeatStats.summary.totalDraws > 0 ? ((Number(count) / data.repeatStats.summary.totalDraws) * 100).toFixed(1) : "0.0"}
 						{@const analysis = getRepeatAnalysis(Number(repeatCount))}
 						
 						<div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1 sm:gap-0">

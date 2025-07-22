@@ -178,7 +178,7 @@ const getPairGrade = (pairCount: number) => {
 
 	<!-- 최근 회차 분석 -->
 	<RecentAnalysisInput 
-		maxRounds={data.totalRounds}
+		maxRounds={data.totalRounds || 0}
 		basePath="/stats/pairs"
 	/>
 

@@ -228,7 +228,7 @@ const breadcrumbItems = [
 							inputmode="numeric"
 							pattern="[0-9]*"
 							bind:value={inputValue}
-							on:keydown={handleKeydown}
+							onkeydown={handleKeydown}
 							class="input input-bordered input-sm w-24 text-center"
 							placeholder="100"
 						/>
@@ -237,7 +237,7 @@ const breadcrumbItems = [
 				</div>
 				<button
 					type="button"
-					on:click={navigateToAnalysis}
+					onclick={navigateToAnalysis}
 					class="btn btn-primary btn-sm w-full sm:w-auto"
 				>
 					상세 분석

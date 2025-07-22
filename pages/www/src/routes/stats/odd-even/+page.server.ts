@@ -21,6 +21,7 @@ export const load: PageServerLoad = async () => {
 
 		return {
 			totalRounds,
+			selectedRounds: totalRounds, // 전체 회차를 선택된 회차로 설정
 			recentStats,
 			...oddEvenAnalysisData,
 		};
@@ -29,6 +30,7 @@ export const load: PageServerLoad = async () => {
 		return {
 			oddEvenStats: [],
 			totalRounds: 0,
+			selectedRounds: 0,
 			totalRecords: 0,
 			oddEvenDistribution: {},
 			sumDistribution: {},

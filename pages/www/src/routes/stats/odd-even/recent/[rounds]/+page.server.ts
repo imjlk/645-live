@@ -1,4 +1,4 @@
-import { getRecentAnalysis } from "$lib/trailbase/stats";
+import { getRecentOddEvenAnalysis } from "$lib/trailbase/stats";
 import { error } from "@sveltejs/kit";
 import type { PageServerLoad } from "./$types";
 
@@ -16,7 +16,7 @@ export const load: PageServerLoad = async ({ params }) => {
 			throw error(400, "잘못된 회차 파라미터입니다.");
 		}
 
-		const result = await getRecentAnalysis("odd-even", selectedRounds);
+		const result = await getRecentOddEvenAnalysis(selectedRounds);
 
 		if (!result.validRounds) {
 			throw error(400, `선택한 회차 수(${selectedRounds})가 전체 회차 수(${result.totalRounds})를 초과합니다.`);
@@ -24,9 +24,14 @@ export const load: PageServerLoad = async ({ params }) => {
 
 		return {
 			oddEvenStats: result.analysisData,
+			oddEvenDistribution: result.oddEvenDistribution,
+			sumDistribution: result.sumDistribution,
 			selectedRounds: result.selectedRounds,
 			totalRounds: result.totalRounds,
 			totalRecords: result.analysisData.length,
+			averageOddCount: result.averageOddCount,
+			balancedRate: result.balancedRate,
+			extremeRate: result.extremeRate,
 			recentStats: result.analysisData.slice(0, 10),
 		};
 	} catch (err) {

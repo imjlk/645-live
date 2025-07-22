@@ -107,7 +107,7 @@ onMount(async () => {
 				{/key}
 			</aside>
 			<main class="container mx-auto px-3 sm:px-0 flex-1 items-center sm:flex-4 rounded-2xl bg-base-200">
-				{@render children()}
+				{@render children?.()}
 			</main>
 		</div>
 

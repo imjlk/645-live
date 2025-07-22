@@ -2,53 +2,53 @@
 import { goto } from "$app/navigation";
 
 interface RecentAnalysisInputProps {
-  maxRounds: number;
-  basePath: string;
-  placeholder?: string;
-  buttonText?: string;
+	maxRounds: number;
+	basePath: string;
+	placeholder?: string;
+	buttonText?: string;
 }
 
-let { 
-  maxRounds, 
-  basePath, 
-  placeholder = "100", 
-  buttonText = "상세 분석" 
+let {
+	maxRounds,
+	basePath,
+	placeholder = "100",
+	buttonText = "상세 분석",
 }: RecentAnalysisInputProps = $props();
 
 let inputValue = $state("");
 
 const validateInput = (value: string): boolean => {
-  const str = String(value || "");
-  if (str.trim() === "") return false;
-  const num = Number(str);
-  return !Number.isNaN(num) && num > 0 && num <= maxRounds;
+	const str = String(value || "");
+	if (str.trim() === "") return false;
+	const num = Number(str);
+	return !Number.isNaN(num) && num > 0 && num <= maxRounds;
 };
 
 const navigateToAnalysis = async () => {
-  const inputStr = String(inputValue || "");
+	const inputStr = String(inputValue || "");
 
-  if (inputStr.trim() === "") {
-    alert("분석할 회차 수를 입력해주세요.");
-    return;
-  }
+	if (inputStr.trim() === "") {
+		alert("분석할 회차 수를 입력해주세요.");
+		return;
+	}
 
-  if (validateInput(inputStr)) {
-    const rounds = Number(inputStr);
-    try {
-      await goto(`${basePath}/recent/${rounds}`);
-    } catch (error) {
-      console.error("Navigation error:", error);
-      alert("페이지 이동 중 오류가 발생했습니다.");
-    }
-  } else {
-    alert(`1부터 ${maxRounds}까지의 숫자를 입력해주세요.`);
-  }
+	if (validateInput(inputStr)) {
+		const rounds = Number(inputStr);
+		try {
+			await goto(`${basePath}/recent/${rounds}`);
+		} catch (error) {
+			console.error("Navigation error:", error);
+			alert("페이지 이동 중 오류가 발생했습니다.");
+		}
+	} else {
+		alert(`1부터 ${maxRounds}까지의 숫자를 입력해주세요.`);
+	}
 };
 
 const handleKeydown = (event: KeyboardEvent) => {
-  if (event.key === "Enter") {
-    navigateToAnalysis();
-  }
+	if (event.key === "Enter") {
+		navigateToAnalysis();
+	}
 };
 </script>
 
@@ -65,7 +65,7 @@ const handleKeydown = (event: KeyboardEvent) => {
             inputmode="numeric"
             pattern="[0-9]*"
             bind:value={inputValue}
-            on:keydown={handleKeydown}
+            onkeydown={handleKeydown}
             class="input input-bordered input-sm w-20 sm:w-24 text-center"
             {placeholder}
           />
@@ -74,7 +74,7 @@ const handleKeydown = (event: KeyboardEvent) => {
       </div>
       <button
         type="button"
-        on:click={navigateToAnalysis}
+        onclick={navigateToAnalysis}
         class="btn btn-primary btn-sm w-full sm:w-auto"
       >
         {buttonText}

@@ -331,7 +331,7 @@ const breadcrumbItems = [
 						</thead>
 						<tbody>
 							{#each data.oddEvenStats as stat}
-								{@const statRecord = stat as { round: number; odd_count: number; numbers_sum: number }}
+								{@const statRecord = stat as unknown as { round: number; odd_count: number; numbers_sum: number }}
 								{@const balance = getBalanceAnalysis(statRecord.odd_count)}
 								<tr>
 									<td class="sticky left-0 bg-base-100 z-10 font-semibold">{statRecord.round}회</td>

@@ -43,12 +43,15 @@ const getHighLowBalance = (
 	};
 };
 
-// 입력값 유효성 검사
+// 입력값 유효성 검사 (데이터 검증 강화)
 const validateInput = (value: string): boolean => {
 	const str = String(value || "");
 	if (str.trim() === "") return false;
 	const num = Number(str);
-	return !Number.isNaN(num) && num > 0 && num <= data.totalRounds;
+	const maxRounds = typeof data.totalRounds === "number" ? data.totalRounds : 0;
+	return (
+		!Number.isNaN(num) && Number.isInteger(num) && num > 0 && num <= maxRounds
+	);
 };
 
 // 분석 페이지로 이동
@@ -69,7 +72,7 @@ const navigateToAnalysis = async () => {
 			alert("페이지 이동 중 오류가 발생했습니다.");
 		}
 	} else {
-		alert(`1부터 ${data.totalRounds}까지의 숫자를 입력해주세요.`);
+		alert(`1부터 ${typeof data.totalRounds === "number" ? data.totalRounds : 0}까지의 숫자를 입력해주세요.`);
 	}
 };
 
@@ -86,6 +89,25 @@ const breadcrumbItems = [
 	{ label: "통계", href: "/stats" },
 	{ label: "고저분석", href: "/stats/high-low", current: true },
 ];
+
+// 데이터 검증 및 안전한 접근
+$: safeHighLowDistribution = data.highLowDistribution && typeof data.highLowDistribution === 'object' 
+	? data.highLowDistribution 
+	: {
+		"0": 0,
+		"1": 0,
+		"2": 0,
+		"3": 0,
+		"4": 0,
+		"5": 0,
+		"6": 0,
+	};
+
+$: safePatternStats = data.patternStats && typeof data.patternStats === 'object'
+	? data.patternStats
+	: { balanced: 0, extreme: 0 };
+
+$: safeRecentStats = Array.isArray(data.recentStats) ? data.recentStats : [];
 </script>
 
 <MetaTags
@@ -235,7 +257,7 @@ const breadcrumbItems = [
 						inputmode="numeric"
 						pattern="[0-9]*"
 						bind:value={inputValue}
-						on:keydown={handleKeydown}
+						onkeydown={handleKeydown}
 						class="input input-bordered input-sm w-20 sm:w-24 text-center flex-shrink-0"
 						placeholder="100"
 					/>
@@ -243,7 +265,7 @@ const breadcrumbItems = [
 				</div>
 				<button
 					type="button"
-					on:click={navigateToAnalysis}
+					onclick={navigateToAnalysis}
 					class="btn btn-primary btn-sm w-full sm:w-auto"
 				>
 					상세 분석
@@ -296,13 +318,13 @@ const breadcrumbItems = [
 		
 		<div class="stat bg-accent text-accent-content rounded-lg p-3 sm:p-4">
 			<div class="stat-title text-accent-content/70 text-xs sm:text-sm">균형 비율</div>
-			<div class="stat-value text-xl sm:text-2xl">{data.patternStats ? ((data.patternStats.balanced / data.totalRounds) * 100).toFixed(1) : "0.0"}%</div>
+			<div class="stat-value text-xl sm:text-2xl">{safePatternStats.balanced && data.totalRounds > 0 ? ((safePatternStats.balanced / data.totalRounds) * 100).toFixed(1) : "0.0"}%</div>
 			<div class="stat-desc text-accent-content/70 text-xs">3:3 균형</div>
 		</div>
 		
 		<div class="stat bg-info text-info-content rounded-lg p-3 sm:p-4">
 			<div class="stat-title text-info-content/70 text-xs sm:text-sm">극단 비율</div>
-			<div class="stat-value text-xl sm:text-2xl">{data.patternStats ? ((data.patternStats.extreme / data.totalRounds) * 100).toFixed(1) : "0.0"}%</div>
+			<div class="stat-value text-xl sm:text-2xl">{safePatternStats.extreme && data.totalRounds > 0 ? ((safePatternStats.extreme / data.totalRounds) * 100).toFixed(1) : "0.0"}%</div>
 			<div class="stat-desc text-info-content/70 text-xs">0:6 또는 6:0</div>
 		</div>
 	</div>
@@ -316,7 +338,7 @@ const breadcrumbItems = [
 			</p>
 			
 			<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-2 sm:gap-3 md:gap-4">
-				{#each Object.entries(data.highLowDistribution || {}) as [highCount, count]}
+				{#each Object.entries(safeHighLowDistribution) as [highCount, count]}
 					{@const percentage = data.totalRounds > 0 ? (((count as number) / data.totalRounds) * 100).toFixed(1) : "0.0"}
 					{@const balance = getHighLowBalance(Number(highCount))}
 					
@@ -338,7 +360,7 @@ const breadcrumbItems = [
 			<div class="mt-4 sm:mt-6 p-3 sm:p-4 bg-base-200 rounded-lg">
 				<h3 class="font-semibold mb-2 sm:mb-3 text-sm sm:text-base">고저 균형도 분석</h3>
 				<div class="grid grid-cols-1 gap-2 sm:gap-3 md:gap-4 text-xs sm:text-sm">
-					{#each Object.entries(data.highLowDistribution || {}) as [highCount, count]}
+					{#each Object.entries(safeHighLowDistribution) as [highCount, count]}
 						{@const percentage = data.totalRounds > 0 ? (((count as number) / data.totalRounds) * 100).toFixed(1) : "0.0"}
 						{@const balance = getHighLowBalance(Number(highCount))}
 						{@const lowCount = 6 - Number(highCount)}
@@ -357,7 +379,7 @@ const breadcrumbItems = [
 	</div>
 
 	<!-- 최근 10회차 고저 분포 추이 -->
-	{#if data.recentStats && data.recentStats.length > 0}
+	{#if safeRecentStats.length > 0}
 	<div class="card bg-base-100 shadow-sm">
 		<div class="card-body p-3 sm:p-4 md:p-6">
 			<h2 class="card-title text-base sm:text-lg">최근 10회차 고저 분포 추이</h2>
@@ -374,22 +396,22 @@ const breadcrumbItems = [
 						</tr>
 					</thead>
 					<tbody>
-						{#each data.recentStats as stat}
-							{@const balance = getHighLowBalance(stat.highCount)}
+						{#each safeRecentStats as stat}
+							{@const balance = getHighLowBalance(stat.high_count)}
 							<tr>
 								<td class="sticky left-0 bg-base-100 z-10 font-semibold text-xs sm:text-sm">{stat.round}회</td>
 								<td class="text-center">
 									<span class="badge badge-error text-white text-xs">
-										{stat.highCount}개
+										{stat.high_count}개
 									</span>
 								</td>
 								<td class="text-center">
 									<span class="badge badge-info text-white text-xs">
-										{stat.lowCount}개
+										{stat.low_count}개
 									</span>
 								</td>
 								<td class="font-medium text-center text-xs sm:text-sm">
-									{stat.highCount}:{stat.lowCount}
+									{stat.high_count}:{stat.low_count}
 								</td>
 								<td class="text-center">
 									<div class="badge whitespace-nowrap {balance.color.replace('text-', 'badge-')} text-xs">

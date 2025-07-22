@@ -181,9 +181,9 @@ const getDeviationClass = (deviation: string) => {
 				key: "draw_count",
 				title: "출현 횟수",
 				minWidth: "80px",
-				render: (value, row, index) => `
+				render: (value: any, row: any) => `
 					<div class="text-xs sm:text-sm font-medium">${row.draw_count}</div>
-					<div class="text-xs opacity-60">순위 ${index + 1}</div>
+					<div class="text-xs opacity-60">순위</div>
 				`
 			},
 			{

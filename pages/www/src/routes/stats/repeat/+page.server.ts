@@ -1,4 +1,4 @@
-import { getAnalysisWithRecent } from "$lib/trailbase/stats";
+import { getRepeatAnalysis } from "$lib/trailbase/stats";
 import type { PageServerLoad } from "./$types";
 
 // 정적 페이지이므로 prerender 사용
@@ -6,17 +6,20 @@ export const prerender = true;
 
 export const load: PageServerLoad = async () => {
 	try {
-		const result = await getAnalysisWithRecent("repeat");
+		const result = await getRepeatAnalysis();
 		
-		return {
-			repeatStats: result.analysisData,
-			recentStats: result.recentStats,
-			totalRounds: result.totalRounds,
-		};
+		return result;
 	} catch (error) {
 		console.error("연속 중복 통계 데이터 로드 실패:", error);
 		return {
 			repeatStats: [],
+			totalRecords: 0,
+			averageRepeatCount: 0,
+			maxRepeatCount: 0,
+			repeatCountDistribution: {},
+			zeroRepeatRate: "0.0",
+			zeroRepeatCount: 0,
+			highRepeatRate: "0.0",
 			recentStats: [],
 			totalRounds: 0,
 		};

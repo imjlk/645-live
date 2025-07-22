@@ -17,6 +17,7 @@ export const load: PageServerLoad = async () => {
 			averagePairCount: "0.00",
 			topNumbersByPairCount: [],
 			pairCountDistribution: {},
+			totalRounds: 0,
 		};
 	}
 };

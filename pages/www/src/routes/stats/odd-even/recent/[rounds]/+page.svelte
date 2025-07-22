@@ -254,7 +254,7 @@ const getSumRangeAnalysis = (range: string): string => {
 						inputmode="numeric"
 						pattern="[0-9]*"
 						bind:value={inputValue}
-						on:keydown={handleKeydown}
+						onkeydown={handleKeydown}
 						class="input input-bordered input-sm w-full sm:w-20 text-center"
 						placeholder="100"
 					/>
@@ -262,7 +262,7 @@ const getSumRangeAnalysis = (range: string): string => {
 				<div class="flex flex-col sm:flex-row gap-2 sm:gap-4">
 					<button
 						type="button"
-						on:click={navigateToAnalysis}
+						onclick={navigateToAnalysis}
 						class="btn btn-primary btn-sm w-full sm:w-auto min-h-[2.5rem] sm:min-h-[2rem]"
 					>
 						분석하기
@@ -291,7 +291,7 @@ const getSumRangeAnalysis = (range: string): string => {
 			
 			<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-2 sm:gap-4">
 				{#each Object.entries(data.oddEvenDistribution) as [oddCount, count]}
-					{@const percentage = data.selectedRounds > 0 ? ((count / data.selectedRounds) * 100).toFixed(1) : "0.0"}
+					{@const percentage = data.selectedRounds > 0 ? ((Number(count) / data.selectedRounds) * 100).toFixed(1) : "0.0"}
 					{@const balance = getBalanceAnalysis(Number(oddCount))}
 					
 					<div class="text-center space-y-1 sm:space-y-2 p-2 sm:p-4 bg-base-200 rounded-lg">
@@ -311,7 +311,7 @@ const getSumRangeAnalysis = (range: string): string => {
 				<h3 class="text-sm sm:text-base font-semibold mb-2 sm:mb-3">홀짝 균형도 분석</h3>
 				<div class="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-4 text-xs sm:text-sm">
 					{#each Object.entries(data.oddEvenDistribution) as [oddCount, count]}
-						{@const percentage = data.selectedRounds > 0 ? ((count / data.selectedRounds) * 100).toFixed(1) : "0.0"}
+						{@const percentage = data.selectedRounds > 0 ? ((Number(count) / data.selectedRounds) * 100).toFixed(1) : "0.0"}
 						{@const balance = getBalanceAnalysis(Number(oddCount))}
 						
 						<div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1 sm:gap-0">
@@ -348,7 +348,7 @@ const getSumRangeAnalysis = (range: string): string => {
 						</thead>
 						<tbody>
 							{#each Object.entries(data.sumDistribution) as [range, count]}
-								{@const percentage = data.selectedRounds > 0 ? ((count / data.selectedRounds) * 100).toFixed(1) : "0.0"}
+								{@const percentage = data.selectedRounds > 0 ? ((Number(count) / data.selectedRounds) * 100).toFixed(1) : "0.0"}
 								<tr>
 									<td class="sticky left-0 bg-base-100 z-10 font-semibold text-sm sm:text-lg">{range}</td>
 									<td class="text-center">{count}회</td>

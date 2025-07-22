@@ -21,35 +21,35 @@ const breadcrumbItems = [
 const sectionInfo = {
 	section1: {
 		name: "1구간",
-		range: "1-9",
+		range: "1-10",
 		class: "bg-red-500",
 		bgClass: "bg-red-500/20 dark:bg-red-400/20",
 		textClass: "text-red-600 dark:text-red-400",
 	},
 	section2: {
 		name: "2구간",
-		range: "10-18",
+		range: "11-20",
 		class: "bg-orange-500",
 		bgClass: "bg-orange-500/20 dark:bg-orange-400/20",
 		textClass: "text-orange-600 dark:text-orange-400",
 	},
 	section3: {
 		name: "3구간",
-		range: "19-27",
+		range: "21-30",
 		class: "bg-yellow-500",
 		bgClass: "bg-yellow-500/20 dark:bg-yellow-400/20",
 		textClass: "text-yellow-600 dark:text-yellow-400",
 	},
 	section4: {
 		name: "4구간",
-		range: "28-36",
+		range: "31-40",
 		class: "bg-blue-500",
 		bgClass: "bg-blue-500/20 dark:bg-blue-400/20",
 		textClass: "text-blue-600 dark:text-blue-400",
 	},
 	section5: {
 		name: "5구간",
-		range: "37-45",
+		range: "41-45",
 		class: "bg-green-500",
 		bgClass: "bg-green-500/20 dark:bg-green-400/20",
 		textClass: "text-green-600 dark:text-green-400",
@@ -61,21 +61,49 @@ const getPercentage = (count: number, total: number): string => {
 	return total > 0 ? ((count / total) * 100).toFixed(1) : "0.0";
 };
 
-// 구간별 데이터 매핑
+// 구간별 데이터 매핑 (데이터 검증 포함)
 $: sectionMappedData = {
-	section1: data.sectionDistribution?.section_1_10 || { average: 0, total: 0 },
-	section2: data.sectionDistribution?.section_11_20 || { average: 0, total: 0 },
-	section3: data.sectionDistribution?.section_21_30 || { average: 0, total: 0 },
-	section4: data.sectionDistribution?.section_31_40 || { average: 0, total: 0 },
-	section5: data.sectionDistribution?.section_41_45 || { average: 0, total: 0 },
+	section1:
+		data.sectionDistribution?.section_1_10 &&
+		typeof data.sectionDistribution.section_1_10.average === "number" &&
+		typeof data.sectionDistribution.section_1_10.total === "number"
+			? data.sectionDistribution.section_1_10
+			: { average: 0, total: 0 },
+	section2:
+		data.sectionDistribution?.section_11_20 &&
+		typeof data.sectionDistribution.section_11_20.average === "number" &&
+		typeof data.sectionDistribution.section_11_20.total === "number"
+			? data.sectionDistribution.section_11_20
+			: { average: 0, total: 0 },
+	section3:
+		data.sectionDistribution?.section_21_30 &&
+		typeof data.sectionDistribution.section_21_30.average === "number" &&
+		typeof data.sectionDistribution.section_21_30.total === "number"
+			? data.sectionDistribution.section_21_30
+			: { average: 0, total: 0 },
+	section4:
+		data.sectionDistribution?.section_31_40 &&
+		typeof data.sectionDistribution.section_31_40.average === "number" &&
+		typeof data.sectionDistribution.section_31_40.total === "number"
+			? data.sectionDistribution.section_31_40
+			: { average: 0, total: 0 },
+	section5:
+		data.sectionDistribution?.section_41_45 &&
+		typeof data.sectionDistribution.section_41_45.average === "number" &&
+		typeof data.sectionDistribution.section_41_45.total === "number"
+			? data.sectionDistribution.section_41_45
+			: { average: 0, total: 0 },
 };
 
-// 입력값 유효성 검사
+// 입력값 유효성 검사 (데이터 검증 강화)
 const validateInput = (value: string): boolean => {
 	const str = String(value || "");
 	if (str.trim() === "") return false;
 	const num = Number(str);
-	return !Number.isNaN(num) && num > 0 && num <= data.totalRounds;
+	const maxRounds = typeof data.totalRounds === "number" ? data.totalRounds : 0;
+	return (
+		!Number.isNaN(num) && Number.isInteger(num) && num > 0 && num <= maxRounds
+	);
 };
 
 // 분석 페이지로 이동
@@ -262,14 +290,14 @@ const getSectionBalance = (s1: number, s2: number, s3: number): string => {
 						inputmode="numeric"
 						pattern="[0-9]*"
 						bind:value={inputValue}
-						on:keydown={handleKeydown}
+						onkeydown={handleKeydown}
 						class="input input-bordered input-sm w-full sm:w-24 text-center min-h-[44px]"
 						placeholder="100"
 					/>
 				</div>
 				<button
 					type="button"
-					on:click={navigateToAnalysis}
+					onclick={navigateToAnalysis}
 					class="btn btn-primary btn-sm w-full sm:w-auto min-h-[44px]"
 				>
 					분석하기
@@ -328,11 +356,11 @@ const getSectionBalance = (s1: number, s2: number, s3: number): string => {
 					<thead>
 						<tr>
 							<th class="sticky left-0 bg-base-200 z-10 min-w-[60px] text-xs sm:text-sm">회차</th>
-							<th class="text-red-600 min-w-[60px] text-xs sm:text-sm whitespace-nowrap">1구간 <span class="text-xs opacity-60">(1-9)</span></th>
-							<th class="text-orange-600 min-w-[60px] text-xs sm:text-sm whitespace-nowrap">2구간 <span class="text-xs opacity-60">(10-18)</span></th>
-							<th class="text-yellow-600 min-w-[60px] text-xs sm:text-sm whitespace-nowrap">3구간 <span class="text-xs opacity-60">(19-27)</span></th>
-							<th class="text-blue-600 min-w-[60px] text-xs sm:text-sm whitespace-nowrap">4구간 <span class="text-xs opacity-60">(28-36)</span></th>
-							<th class="text-green-600 min-w-[60px] text-xs sm:text-sm whitespace-nowrap">5구간 <span class="text-xs opacity-60">(37-45)</span></th>
+							<th class="text-red-600 min-w-[60px] text-xs sm:text-sm whitespace-nowrap">1구간 <span class="text-xs opacity-60">(1-10)</span></th>
+							<th class="text-orange-600 min-w-[60px] text-xs sm:text-sm whitespace-nowrap">2구간 <span class="text-xs opacity-60">(11-20)</span></th>
+							<th class="text-yellow-600 min-w-[60px] text-xs sm:text-sm whitespace-nowrap">3구간 <span class="text-xs opacity-60">(21-30)</span></th>
+							<th class="text-blue-600 min-w-[60px] text-xs sm:text-sm whitespace-nowrap">4구간 <span class="text-xs opacity-60">(31-40)</span></th>
+							<th class="text-green-600 min-w-[60px] text-xs sm:text-sm whitespace-nowrap">5구간 <span class="text-xs opacity-60">(41-45)</span></th>
 							<th class="min-w-[90px] text-xs sm:text-sm">구간 조합</th>
 						</tr>
 					</thead>

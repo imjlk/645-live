@@ -234,7 +234,7 @@ $: highPercentage = getPercentage(
 						inputmode="numeric"
 						pattern="[0-9]*"
 						bind:value={inputValue}
-						on:keydown={handleKeydown}
+						onkeydown={handleKeydown}
 						class="input input-bordered input-sm w-full sm:w-20 text-center"
 						placeholder="100"
 					/>
@@ -242,7 +242,7 @@ $: highPercentage = getPercentage(
 				<div class="flex flex-col sm:flex-row gap-2 sm:gap-4">
 					<button
 						type="button"
-						on:click={navigateToAnalysis}
+						onclick={navigateToAnalysis}
 						class="btn btn-primary btn-sm w-full sm:w-auto min-h-[2.5rem] sm:min-h-[2rem]"
 					>
 						분석하기
@@ -320,7 +320,7 @@ $: highPercentage = getPercentage(
 			<h2 class="card-title text-base sm:text-lg">고저 패턴 분포</h2>
 			<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
 				{#each sortedPatterns as [pattern, count]}
-					{@const [low, high] = pattern.split(':').map(Number)}
+					{@const [low, high] = pattern.split(':').map(num => Number(num) || 0)}
 					<div class="p-3 sm:p-4 rounded-lg border bg-base-200">
 						<div class="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-2 gap-1 sm:gap-0">
 							<span class="font-semibold text-sm sm:text-base">저 {low}개 : 고 {high}개</span>
@@ -331,11 +331,11 @@ $: highPercentage = getPercentage(
 						</div>
 						<div class="flex space-x-1 justify-start">
 							<!-- 저 구간 표시 -->
-							{#each Array(low) as _}
+							{#each Array(Math.min(Math.max(low || 0, 0), 6)) as _}
 								<div class="w-3 h-3 sm:w-4 sm:h-4 bg-blue-500 rounded"></div>
 							{/each}
 							<!-- 고 구간 표시 -->
-							{#each Array(high) as _}
+							{#each Array(Math.min(Math.max(high || 0, 0), 6)) as _}
 								<div class="w-3 h-3 sm:w-4 sm:h-4 bg-red-500 rounded"></div>
 							{/each}
 						</div>

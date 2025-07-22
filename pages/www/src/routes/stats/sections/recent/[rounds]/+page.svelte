@@ -19,12 +19,13 @@ const breadcrumbItems = [
 	{ label: "최근 회차 분석", current: true },
 ];
 
-// 입력값 유효성 검사
+// 입력값 유효성 검사 (데이터 검증 강화)
 const validateInput = (value: string): boolean => {
 	const str = String(value || "");
 	if (str.trim() === "") return false;
 	const num = Number(str);
-	return !Number.isNaN(num) && num > 0 && num <= data.totalRounds;
+	const maxRounds = typeof data.totalRounds === 'number' ? data.totalRounds : 0;
+	return !Number.isNaN(num) && Number.isInteger(num) && num > 0 && num <= maxRounds;
 };
 
 // 분석 페이지로 이동
@@ -60,35 +61,35 @@ const handleKeydown = (event: KeyboardEvent) => {
 const sectionInfo = {
 	section1: {
 		name: "1구간",
-		range: "1-9",
+		range: "1-10",
 		class: "bg-red-500",
 		bgClass: "bg-red-500/20 dark:bg-red-400/20",
 		textClass: "text-red-600 dark:text-red-400",
 	},
 	section2: {
 		name: "2구간",
-		range: "10-18",
+		range: "11-20",
 		class: "bg-orange-500",
 		bgClass: "bg-orange-500/20 dark:bg-orange-400/20",
 		textClass: "text-orange-600 dark:text-orange-400",
 	},
 	section3: {
 		name: "3구간",
-		range: "19-27",
+		range: "21-30",
 		class: "bg-yellow-500",
 		bgClass: "bg-yellow-500/20 dark:bg-yellow-400/20",
 		textClass: "text-yellow-600 dark:text-yellow-400",
 	},
 	section4: {
 		name: "4구간",
-		range: "28-36",
+		range: "31-40",
 		class: "bg-blue-500",
 		bgClass: "bg-blue-500/20 dark:bg-blue-400/20",
 		textClass: "text-blue-600 dark:text-blue-400",
 	},
 	section5: {
 		name: "5구간",
-		range: "37-45",
+		range: "41-45",
 		class: "bg-green-500",
 		bgClass: "bg-green-500/20 dark:bg-green-400/20",
 		textClass: "text-green-600 dark:text-green-400",
@@ -100,16 +101,20 @@ const getPercentage = (count: number, total: number): string => {
 	return total > 0 ? ((count / total) * 100).toFixed(1) : "0.0";
 };
 
-// 구간 패턴 정렬 (출현 빈도순)
-$: sortedPatterns = Object.entries(data.sectionStats.summary.distribution)
-	.sort(([, a], [, b]) => Number(b) - Number(a))
-	.slice(0, 10); // 상위 10개만 표시
+// 구간 패턴 정렬 (출현 빈도순) - 데이터 검증 포함
+$: sortedPatterns = (data.sectionStats?.summary?.distribution && 
+	typeof data.sectionStats.summary.distribution === 'object') 
+	? Object.entries(data.sectionStats.summary.distribution)
+		.filter(([pattern, count]) => typeof pattern === 'string' && typeof count !== 'undefined')
+		.sort(([, a], [, b]) => Number(b) - Number(a))
+		.slice(0, 10)
+	: [];
 </script>
 
 <MetaTags
 	title="로또 6/45 구간별 분석 통계 | 구간별 번호 분포 분석"
 	titleTemplate="%s | 645.live"
-	description={`로또 6/45 구간별 번호 분포를 분석합니다 (최근 ${data.selectedRounds}회차). 1구간(1-9), 2구간(10-18), 3구간(19-27), 4구간(28-36), 5구간(37-45)의 분포 패턴과 균형성을 제공합니다.`}
+	description={`로또 6/45 구간별 번호 분포를 분석합니다 (최근 ${data.selectedRounds}회차). 1구간(1-10), 2구간(11-20), 3구간(21-30), 4구간(31-40), 5구간(41-45)의 분포 패턴과 균형성을 제공합니다.`}
 	canonical={`https://www.645.live/stats/sections/recent/${data.selectedRounds}`}
 	keywords={["로또", "구간별분석", "번호분포", "로또통계", "구간패턴", "번호균형", "로또예측", "6/45통계", "구간별통계", "번호구간분석"]}
 	robots="index,follow"
@@ -233,7 +238,7 @@ $: sortedPatterns = Object.entries(data.sectionStats.summary.distribution)
 			<span class="block sm:inline mt-2 sm:mt-0">1구간 평균 <strong class="text-secondary">{data.sectionStats.summary.sectionAverages.section1}개</strong>, 2구간 평균 <strong class="text-accent">{data.sectionStats.summary.sectionAverages.section2}개</strong>의 구간별 분포 분석을 통해 당첨번호 패턴을 파악해보세요.</span>
 		</p>
 		<div class="flex flex-col sm:flex-row justify-center gap-2 sm:gap-4 text-xs sm:text-sm text-base-content/60 mt-3 sm:mt-4">
-			<span>📊 최빈 구간: <strong class="text-primary">{sectionInfo[data.sectionStats.summary.mostFrequentSection[0] as keyof typeof sectionInfo]?.name}</strong></span>
+			<span>📊 최빈 구간: <strong class="text-primary">{sectionInfo[data.sectionStats.summary.mostFrequentSection[0] as unknown as keyof typeof sectionInfo]?.name}</strong></span>
 			<span>📈 분석 회차: <strong class="text-secondary">{data.selectedRounds}회</strong></span>
 			<span>🎯 평균 개수: <strong class="text-accent">{data.sectionStats.summary.mostFrequentSection[1]}개</strong></span>
 		</div>
@@ -252,7 +257,7 @@ $: sortedPatterns = Object.entries(data.sectionStats.summary.distribution)
 						inputmode="numeric"
 						pattern="[0-9]*"
 						bind:value={inputValue}
-						on:keydown={handleKeydown}
+						onkeydown={handleKeydown}
 						class="input input-bordered input-sm w-full sm:w-20 text-center"
 						placeholder="100"
 					/>
@@ -260,7 +265,7 @@ $: sortedPatterns = Object.entries(data.sectionStats.summary.distribution)
 				<div class="flex flex-col sm:flex-row gap-2 sm:gap-4">
 					<button
 						type="button"
-						on:click={navigateToAnalysis}
+						onclick={navigateToAnalysis}
 						class="btn btn-primary btn-sm w-full sm:w-auto min-h-[2.5rem] sm:min-h-[2rem]"
 					>
 						분석하기
@@ -367,50 +372,50 @@ $: sortedPatterns = Object.entries(data.sectionStats.summary.distribution)
 					<thead>
 						<tr>
 							<th class="sticky left-0 bg-base-200 z-10 text-xs sm:text-sm min-w-[60px]">회차</th>
-							<th class="text-red-600 min-w-[60px] text-center text-xs sm:text-sm whitespace-nowrap">1구간 <span class="text-xs opacity-60">(1-9)</span></th>
-							<th class="text-orange-600 min-w-[60px] text-center text-xs sm:text-sm whitespace-nowrap">2구간 <span class="text-xs opacity-60">(10-18)</span></th>
-							<th class="text-yellow-600 min-w-[60px] text-center text-xs sm:text-sm whitespace-nowrap">3구간 <span class="text-xs opacity-60">(19-27)</span></th>
-							<th class="text-blue-600 min-w-[60px] text-center text-xs sm:text-sm whitespace-nowrap">4구간 <span class="text-xs opacity-60">(28-36)</span></th>
-							<th class="text-green-600 min-w-[60px] text-center text-xs sm:text-sm whitespace-nowrap">5구간 <span class="text-xs opacity-60">(37-45)</span></th>
+							<th class="text-red-600 min-w-[60px] text-center text-xs sm:text-sm whitespace-nowrap">1구간 <span class="text-xs opacity-60">(1-10)</span></th>
+							<th class="text-orange-600 min-w-[60px] text-center text-xs sm:text-sm whitespace-nowrap">2구간 <span class="text-xs opacity-60">(11-20)</span></th>
+							<th class="text-yellow-600 min-w-[60px] text-center text-xs sm:text-sm whitespace-nowrap">3구간 <span class="text-xs opacity-60">(21-30)</span></th>
+							<th class="text-blue-600 min-w-[60px] text-center text-xs sm:text-sm whitespace-nowrap">4구간 <span class="text-xs opacity-60">(31-40)</span></th>
+							<th class="text-green-600 min-w-[60px] text-center text-xs sm:text-sm whitespace-nowrap">5구간 <span class="text-xs opacity-60">(41-45)</span></th>
 							<th class="min-w-[90px] text-center text-xs sm:text-sm">구간 조합</th>
 						</tr>
 					</thead>
 					<tbody>
 						{#each data.sectionStats.records as record}
 							{@const sectionCounts = [
-								record.section1_count,
-								record.section2_count,
-								record.section3_count,
-								record.section4_count,
-								record.section5_count
+								record.section_1_10,
+								record.section_11_20,
+								record.section_21_30,
+								record.section_31_40,
+								record.section_41_45
 							]}
 							{@const hasAllSections = sectionCounts.every(count => count > 0)}
 							
 							<tr>
 								<td class="sticky left-0 bg-base-100 z-10 font-semibold text-xs sm:text-sm">{record.round}회</td>
 								<td class="text-center">
-									<span class="badge badge-sm whitespace-nowrap {record.section1_count > 0 ? 'badge-error' : 'badge-ghost'}">
-										{record.section1_count}
+									<span class="badge badge-sm whitespace-nowrap {record.section_1_10 > 0 ? 'badge-error' : 'badge-ghost'}">
+										{record.section_1_10}
 									</span>
 								</td>
 								<td class="text-center">
-									<span class="badge badge-sm whitespace-nowrap {record.section2_count > 0 ? 'badge-warning' : 'badge-ghost'}">
-										{record.section2_count}
+									<span class="badge badge-sm whitespace-nowrap {record.section_11_20 > 0 ? 'badge-warning' : 'badge-ghost'}">
+										{record.section_11_20}
 									</span>
 								</td>
 								<td class="text-center">
-									<span class="badge badge-sm whitespace-nowrap {record.section3_count > 0 ? 'badge-accent' : 'badge-ghost'}">
-										{record.section3_count}
+									<span class="badge badge-sm whitespace-nowrap {record.section_21_30 > 0 ? 'badge-accent' : 'badge-ghost'}">
+										{record.section_21_30}
 									</span>
 								</td>
 								<td class="text-center">
-									<span class="badge badge-sm whitespace-nowrap {record.section4_count > 0 ? 'badge-info' : 'badge-ghost'}">
-										{record.section4_count}
+									<span class="badge badge-sm whitespace-nowrap {record.section_31_40 > 0 ? 'badge-info' : 'badge-ghost'}">
+										{record.section_31_40}
 									</span>
 								</td>
 								<td class="text-center">
-									<span class="badge badge-sm whitespace-nowrap {record.section5_count > 0 ? 'badge-success' : 'badge-ghost'}">
-										{record.section5_count}
+									<span class="badge badge-sm whitespace-nowrap {record.section_41_45 > 0 ? 'badge-success' : 'badge-ghost'}">
+										{record.section_41_45}
 									</span>
 								</td>
 								<td class="text-center">

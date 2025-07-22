@@ -17,12 +17,15 @@ const breadcrumbItems = [
 	{ label: "끝수분석", href: "/stats/unit-digit", current: true },
 ];
 
-// 입력값 유효성 검사
+// 입력값 유효성 검사 (데이터 검증 강화)
 const validateInput = (value: string): boolean => {
 	const str = String(value || "");
 	if (str.trim() === "") return false;
 	const num = Number(str);
-	return !Number.isNaN(num) && num > 0 && num <= data.totalRounds;
+	const maxRounds = typeof data.totalRounds === "number" ? data.totalRounds : 0;
+	return (
+		!Number.isNaN(num) && Number.isInteger(num) && num > 0 && num <= maxRounds
+	);
 };
 
 // 분석 페이지로 이동
@@ -43,7 +46,7 @@ const navigateToAnalysis = async () => {
 			alert("페이지 이동 중 오류가 발생했습니다.");
 		}
 	} else {
-		alert(`1부터 ${data.totalRounds}까지의 숫자를 입력해주세요.`);
+		alert(`1부터 ${typeof data.totalRounds === "number" ? data.totalRounds : 0}까지의 숫자를 입력해주세요.`);
 	}
 };
 
@@ -89,6 +92,31 @@ const getDigitLightColorClass = (digit: string) => {
 		colors[Number(digit)] || "bg-gray-500/20 text-gray-600 dark:text-gray-400"
 	);
 };
+
+// 데이터 검증 및 안전한 접근
+$: safeDigitTotals = data.digitTotals && typeof data.digitTotals === 'object' 
+	? data.digitTotals 
+	: {
+		"0": 0, "1": 0, "2": 0, "3": 0, "4": 0,
+		"5": 0, "6": 0, "7": 0, "8": 0, "9": 0,
+	};
+
+$: safeDigitAverages = data.digitAverages && typeof data.digitAverages === 'object'
+	? data.digitAverages
+	: {
+		"0": "0.00", "1": "0.00", "2": "0.00", "3": "0.00", "4": "0.00",
+		"5": "0.00", "6": "0.00", "7": "0.00", "8": "0.00", "9": "0.00",
+	};
+
+$: safeDigitCountDistribution = data.digitCountDistribution && typeof data.digitCountDistribution === 'object'
+	? data.digitCountDistribution
+	: {};
+
+$: safeRecentStats = Array.isArray(data.recentStats) ? data.recentStats : [];
+
+$: safeMostFrequentDigit = Array.isArray(data.mostFrequentDigit) ? data.mostFrequentDigit : [0, "0"];
+
+$: safeLeastFrequentDigit = Array.isArray(data.leastFrequentDigit) ? data.leastFrequentDigit : [0, "0"];
 </script>
 
 <MetaTags
@@ -136,7 +164,7 @@ const getDigitLightColorClass = (digit: string) => {
 		description: '로또 6/45 당첨번호의 끝수(0-9) 분포 및 출현 패턴을 분석합니다. 각 끝수별 출현 빈도와 통계를 확인하세요.',
 		locale: 'ko_KR',
 		images: [{
-			url: `https://www.645.live/og?title=${encodeURIComponent('로또 6/45 끝수 분석')}&description=${encodeURIComponent(`0-9 끝자리 완전분석 - 최다: ${data.mostFrequentDigit[0]} (${data.mostFrequentDigit[1]}회) - 최소: ${data.leastFrequentDigit[0]} (${data.leastFrequentDigit[1]}회)`)}&layout=minimal&theme=dark`,
+			url: `https://www.645.live/og?title=${encodeURIComponent('로또 6/45 끝수 분석')}&description=${encodeURIComponent(`0-9 끝자리 완전분석 - 최다: ${safeMostFrequentDigit[0]} (${safeMostFrequentDigit[1]}회) - 최소: ${safeLeastFrequentDigit[0]} (${safeLeastFrequentDigit[1]}회)`)}&layout=minimal&theme=dark`,
 			width: 1200,
 			height: 630,
 			alt: '로또 6/45 끝수 분석 통계',
@@ -155,7 +183,7 @@ const getDigitLightColorClass = (digit: string) => {
 		site: '@645live',
 		title: '로또 6/45 끝수 분석 통계',
 		description: '끝자리 숫자별 출현 패턴으로 로또 번호 분석을 파악하세요.',
-		image: `https://www.645.live/og?title=${encodeURIComponent('로또 6/45 끝수 분석')}&description=${encodeURIComponent(`0-9 끝자리 완전분석 - 최다: ${data.mostFrequentDigit[0]} (${data.mostFrequentDigit[1]}회) - 최소: ${data.leastFrequentDigit[0]} (${data.leastFrequentDigit[1]}회)`)}&layout=minimal&theme=dark`,
+		image: `https://www.645.live/og?title=${encodeURIComponent('로또 6/45 끝수 분석')}&description=${encodeURIComponent(`0-9 끝자리 완전분석 - 최다: ${safeMostFrequentDigit[0]} (${safeMostFrequentDigit[1]}회) - 최소: ${safeLeastFrequentDigit[0]} (${safeLeastFrequentDigit[1]}회)`)}&layout=minimal&theme=dark`,
 		imageAlt: '로또 6/45 끝수 분석 통계'
 	}}
 />
@@ -179,12 +207,12 @@ const getDigitLightColorClass = (digit: string) => {
 			{
 				'@type': 'PropertyValue',
 				name: '최다 출현 끝수',
-				value: `끝수 ${data.mostFrequentDigit[0]} (${data.mostFrequentDigit[1]}회)`
+				value: `끝수 ${safeMostFrequentDigit[0]} (${safeMostFrequentDigit[1]}회)`
 			},
 			{
 				'@type': 'PropertyValue',
 				name: '최소 출현 끝수',
-				value: `끝수 ${data.leastFrequentDigit[0]} (${data.leastFrequentDigit[1]}회)`
+				value: `끝수 ${safeLeastFrequentDigit[0]} (${safeLeastFrequentDigit[1]}회)`
 			},
 			{
 				'@type': 'PropertyValue',
@@ -226,14 +254,14 @@ const getDigitLightColorClass = (digit: string) => {
 						inputmode="numeric"
 						pattern="[0-9]*"
 						bind:value={inputValue}
-						on:keydown={handleKeydown}
+						onkeydown={handleKeydown}
 						class="input input-bordered input-sm w-24 text-center"
 						placeholder="100"
 					/>
 				</div>
 				<button
 					type="button"
-					on:click={navigateToAnalysis}
+					onclick={navigateToAnalysis}
 					class="btn btn-primary btn-sm w-full sm:w-auto"
 				>
 					분석하기
@@ -255,14 +283,14 @@ const getDigitLightColorClass = (digit: string) => {
 		
 		<div class="stat bg-secondary text-secondary-content rounded-lg">
 			<div class="stat-title text-secondary-content/70">최다 출현 끝수</div>
-			<div class="stat-value text-2xl">{data.mostFrequentDigit[0]}</div>
-			<div class="stat-desc text-secondary-content/70">{data.mostFrequentDigit[1]}회 출현</div>
+			<div class="stat-value text-2xl">{safeMostFrequentDigit[0]}</div>
+			<div class="stat-desc text-secondary-content/70">{safeMostFrequentDigit[1]}회 출현</div>
 		</div>
 		
 		<div class="stat bg-accent text-accent-content rounded-lg">
 			<div class="stat-title text-accent-content/70">최소 출현 끝수</div>
-			<div class="stat-value text-2xl">{data.leastFrequentDigit[0]}</div>
-			<div class="stat-desc text-accent-content/70">{data.leastFrequentDigit[1]}회 출현</div>
+			<div class="stat-value text-2xl">{safeLeastFrequentDigit[0]}</div>
+			<div class="stat-desc text-accent-content/70">{safeLeastFrequentDigit[1]}회 출현</div>
 		</div>
 		
 		<div class="stat bg-info text-info-content rounded-lg">
@@ -281,19 +309,19 @@ const getDigitLightColorClass = (digit: string) => {
 			</p>
 			
 			<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
-				{#each Object.entries(data.digitTotals) as [digit, total]}
+				{#each Object.entries(safeDigitTotals) as [digit, total]}
 					<div class="text-center space-y-2 p-4 bg-base-200 rounded-lg">
 						<div class="inline-flex items-center justify-center w-12 h-12 rounded-full {getDigitColorClass(digit)} text-white text-xl font-bold">
 							{digit}
 						</div>
 						<div class="text-lg font-semibold text-primary">
-							평균 {(data.digitAverages as Record<string, string>)[digit]}개
+							평균 {safeDigitAverages[digit]}개
 						</div>
 						<div class="text-sm text-base-content/60">
 							총 {total}회 출현
 						</div>
 						<div class="text-xs text-base-content/50">
-							{data.totalRounds > 0 ? ((total / (data.totalRounds * 6)) * 100).toFixed(1) : '0.0'}% 비율
+							{data.totalRounds > 0 ? ((Number(total) / (data.totalRounds * 6)) * 100).toFixed(1) : '0.0'}% 비율
 						</div>
 					</div>
 				{/each}
@@ -307,8 +335,8 @@ const getDigitLightColorClass = (digit: string) => {
 			<div class="card-body p-3 sm:p-6">
 				<h3 class="card-title text-lg sm:text-xl">끝수별 총 출현 횟수</h3>
 				<div class="space-y-3">
-					{#each Object.entries(data.digitTotals) as [digit, total]}
-						{@const maxTotal = Math.max(...Object.values(data.digitTotals))}
+					{#each Object.entries(safeDigitTotals) as [digit, total]}
+						{@const maxTotal = Math.max(...Object.values(safeDigitTotals).map(v => Number(v)))}
 						<div class="flex items-center justify-between">
 							<div class="flex items-center">
 								<div class="w-6 h-6 rounded-full {getDigitColorClass(digit)} mr-3 text-white text-sm font-bold flex items-center justify-center">
@@ -321,7 +349,7 @@ const getDigitLightColorClass = (digit: string) => {
 								<div class="w-32 bg-base-300 rounded-full h-2">
 									<div 
 										class="{getDigitColorClass(digit)} h-2 rounded-full" 
-										style="width: {maxTotal > 0 ? (total / maxTotal) * 100 : 0}%"
+										style="width: {maxTotal > 0 ? (Number(total) / maxTotal) * 100 : 0}%"
 									></div>
 								</div>
 							</div>
@@ -335,14 +363,14 @@ const getDigitLightColorClass = (digit: string) => {
 			<div class="card-body p-3 sm:p-6">
 				<h3 class="card-title text-lg sm:text-xl">끝수별 개수 분포</h3>
 				<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 text-xs">
-					{#each Object.entries(data.digitTotals) as [digit, total]}
+					{#each Object.entries(safeDigitTotals) as [digit, total]}
 						<div class="text-center">
 							<div class="w-6 h-6 rounded-full {getDigitColorClass(digit)} mx-auto mb-1 text-white text-xs font-bold flex items-center justify-center">
 								{digit}
 							</div>
 							<div class="font-medium text-xs mb-2">끝수 {digit}</div>
 							<div class="space-y-1">
-								{#each Object.entries((data.digitCountDistribution as Record<string, Record<string, number>>)[digit] || {}) as [count, freq]}
+								{#each Object.entries(safeDigitCountDistribution[digit] || {}) as [count, freq]}
 									<div class="flex justify-between text-xs">
 										<span>{count}개</span>
 										<span class="text-base-content/70">{freq}</span>
@@ -378,7 +406,7 @@ const getDigitLightColorClass = (digit: string) => {
 						</tr>
 					</thead>
 					<tbody>
-						{#each data.recentStats as stat}
+						{#each safeRecentStats as stat}
 							{@const statRecord = stat as Record<string, any>}
 							<tr>
 								<td class="font-semibold sticky left-0 bg-base-100 z-10 text-xs sm:text-sm">{statRecord.round}회</td>
