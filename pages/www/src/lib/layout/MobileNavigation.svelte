@@ -20,47 +20,51 @@ const navigationItems: NavigationItem[] = [
 		label: "홈",
 		icon: "🏠",
 		ariaLabel: "홈 페이지로 이동",
-		activePattern: (pathname) => pathname === '/'
+		activePattern: (pathname) => pathname === "/",
 	},
 	{
 		href: "/qr-scan",
 		label: "QR스캔",
 		icon: "📱",
 		ariaLabel: "QR 스캔 페이지로 이동",
-		activePattern: (pathname) => pathname === '/qr-scan'
+		activePattern: (pathname) => pathname === "/qr-scan",
 	},
 	{
 		href: "/generator",
 		label: "생성기",
 		icon: "🎲",
 		ariaLabel: "로또 번호 생성기 페이지로 이동",
-		activePattern: (pathname) => pathname.startsWith('/generator')
+		activePattern: (pathname) => pathname.startsWith("/generator"),
 	},
 	{
 		href: "/stats",
 		label: "통계",
 		icon: "📊",
 		ariaLabel: "통계 분석 페이지로 이동",
-		activePattern: (pathname) => pathname.startsWith('/stats')
+		activePattern: (pathname) => pathname.startsWith("/stats"),
 	},
 	{
 		href: "/history",
 		label: "히스토리",
 		icon: "📚",
 		ariaLabel: "지난 회차 히스토리 페이지로 이동",
-		activePattern: (pathname) => pathname === '/history'
-	}
+		activePattern: (pathname) => pathname === "/history",
+	},
 ];
 
 function isActive(item: NavigationItem, pathname: string): boolean {
-	return item.activePattern ? item.activePattern(pathname) : pathname === item.href;
+	return item.activePattern
+		? item.activePattern(pathname)
+		: pathname === item.href;
 }
 
-// 현재 활성화된 탭의 인덱스
-$: activeIndex = navigationItems.findIndex(item => isActive(item, page.url.pathname));
+// 현재 활성화된 탭의 인덱스 (Svelte 5 runes 문법)
+let activeIndex = $derived(
+	navigationItems.findIndex((item) => isActive(item, page.url.pathname))
+);
 
 function handleKeydown(event: KeyboardEvent, href: string) {
-	if (event.key === 'Enter' || event.key === ' ') {
+	if (event.key === "Enter" || event.key === " ") {
 		event.preventDefault();
 		window.location.href = href;
 	}
@@ -70,10 +74,9 @@ function handleKeydown(event: KeyboardEvent, href: string) {
 <!-- 모바일 전용 하단 네비게이션 (sm 이하에서만 표시) -->
 <nav 
 	class="btm-nav sm:hidden border-t border-base-300 bg-base-100/80 backdrop-blur supports-[backdrop-filter]:bg-base-100/60"
-	role="navigation" 
 	aria-label="모바일 주요 페이지 네비게이션"
 >
-	{#each navigationItems as item, index (item.href)}
+	{#each navigationItems as item (item.href)}
 		<a 
 			href={item.href}
 			class="relative {isActive(item, page.url.pathname) ? 'active text-primary' : 'text-base-content/70'}"

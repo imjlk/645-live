@@ -121,6 +121,18 @@ bun run www tail
 
 ### Code Conventions
 
+#### ⚠️ **CRITICAL: Svelte 5 Syntax Requirements**
+
+**HIGHEST PRIORITY - Always use Svelte 5 runes syntax:**
+
+- ❌ `let variable = value;` → ✅ `let variable = $state(value);`
+- ❌ `export let prop;` → ✅ `let { prop } = $props();`
+- ❌ `$: derived = expression;` → ✅ `let derived = $derived(expression);`
+- ❌ `$: { /* effect */ }` → ✅ `$effect(() => { /* effect */ });`
+- ❌ Legacy reactive statements → ✅ Runes-based reactivity
+- Always use `$state`, `$derived`, `$effect`, `$props` instead of legacy syntax
+- Never mix legacy Svelte syntax with runes in the same component
+
 #### Biome Configuration
 
 - Uses tabs for indentation (not spaces)
