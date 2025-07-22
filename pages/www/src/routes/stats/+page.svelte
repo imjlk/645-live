@@ -3,7 +3,7 @@ import { ColorBadge, LottoBall, StatsCard } from "$lib/components/stats";
 import { JsonLd, MetaTags } from "svelte-meta-tags";
 import type { PageData } from "./$types";
 
-export let data: PageData;
+let { data }: { data: PageData } = $props();
 
 // 통계 카테고리 정의
 const statsCategories = [

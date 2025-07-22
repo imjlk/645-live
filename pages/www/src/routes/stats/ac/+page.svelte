@@ -6,12 +6,12 @@ import LinkButton from "$lib/ui/LinkButton.svelte";
 import { JsonLd, MetaTags } from "svelte-meta-tags";
 import type { PageData } from "./$types";
 
-export let data: PageData;
+let { data }: { data: PageData } = $props();
 
 // 페이지네이션 상태 제거 - 전체 데이터 표시
 
 // 사용자 입력 상태 (기본값은 빈 값)
-let inputValue = "";
+let inputValue = $state("");
 
 // 입력값 유효성 검사
 const validateInput = (value: string): boolean => {

@@ -6,10 +6,10 @@ import LinkButton from "$lib/ui/LinkButton.svelte";
 import { JsonLd, MetaTags } from "svelte-meta-tags";
 import type { PageData } from "./$types";
 
-export let data: PageData;
+let { data }: { data: PageData } = $props();
 
 // 사용자 입력 상태
-let inputValue = String(data.selectedRounds);
+let inputValue = $state(String(data.selectedRounds));
 
 // Breadcrumbs 데이터
 const breadcrumbItems = [
@@ -65,19 +65,19 @@ const getPercentage = (count: number, total: number): string => {
 };
 
 // 고저 패턴 정렬 (출현 빈도순)
-$: sortedPatterns = Object.entries(data.highLowStats.summary.distribution).sort(
-	([, a], [, b]) => Number(b) - Number(a),
+const sortedPatterns = $derived(
+	Object.entries(data.highLowStats.summary.distribution).sort(
+		([, a], [, b]) => Number(b) - Number(a),
+	),
 );
 
 // 고저 균형 계산
-$: totalNumbers = data.highLowStats.summary.totalDraws * 6;
-$: lowPercentage = getPercentage(
-	data.highLowStats.summary.lowCount,
-	totalNumbers,
+const totalNumbers = $derived(data.highLowStats.summary.totalDraws * 6);
+const lowPercentage = $derived(
+	getPercentage(data.highLowStats.summary.lowCount, totalNumbers),
 );
-$: highPercentage = getPercentage(
-	data.highLowStats.summary.highCount,
-	totalNumbers,
+const highPercentage = $derived(
+	getPercentage(data.highLowStats.summary.highCount, totalNumbers),
 );
 </script>
 

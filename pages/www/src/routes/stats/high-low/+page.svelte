@@ -4,12 +4,12 @@ import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
 import { JsonLd, MetaTags } from "svelte-meta-tags";
 import type { PageData } from "./$types";
 
-export let data: PageData;
+let { data }: { data: PageData } = $props();
 
 // 페이지네이션 상태 제거 - 전체 데이터 표시
 
 // 사용자 입력 상태 (기본값은 빈 값)
-let inputValue = "";
+let inputValue = $state("");
 
 // 고저 균형 분석
 const getHighLowBalance = (
@@ -93,7 +93,7 @@ const breadcrumbItems = [
 ];
 
 // 데이터 검증 및 안전한 접근
-$: safeHighLowDistribution =
+const safeHighLowDistribution = $derived(
 	data.highLowDistribution && typeof data.highLowDistribution === "object"
 		? data.highLowDistribution
 		: {
@@ -104,14 +104,18 @@ $: safeHighLowDistribution =
 				"4": 0,
 				"5": 0,
 				"6": 0,
-			};
+			},
+);
 
-$: safePatternStats =
+const safePatternStats = $derived(
 	data.patternStats && typeof data.patternStats === "object"
 		? data.patternStats
-		: { balanced: 0, extreme: 0 };
+		: { balanced: 0, extreme: 0 },
+);
 
-$: safeRecentStats = Array.isArray(data.recentStats) ? data.recentStats : [];
+const safeRecentStats = $derived(
+	Array.isArray(data.recentStats) ? data.recentStats : [],
+);
 </script>
 
 <MetaTags

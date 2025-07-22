@@ -4,7 +4,7 @@ import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
 import { JsonLd, MetaTags } from "svelte-meta-tags";
 import type { PageData } from "./$types";
 
-export let data: PageData;
+let { data }: { data: PageData } = $props();
 
 // 홀수 개수별 라벨
 const getOddCountLabel = (count: number): string => {

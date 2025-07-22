@@ -5,10 +5,14 @@ import LinkButton from "$lib/ui/LinkButton.svelte";
 import { JsonLd, MetaTags } from "svelte-meta-tags";
 import type { PageData } from "./$types";
 
-export let data: PageData;
+interface Props {
+	data: PageData;
+}
 
-// 사용자 입력 상태
-let inputValue = String(data.selectedNumber);
+let { data }: Props = $props();
+
+// 사용자 입력 상태 - Svelte 5 runes
+let inputValue = $state(String(data.selectedNumber));
 
 // 입력값 유효성 검사
 const validateInput = (value: string): boolean => {
@@ -57,9 +61,10 @@ const getFrequencyAnalysis = (frequency: string): string => {
 	return "보통";
 };
 
-// 색상 정보
-$: colorDetail =
-	data.colorInfo[data.numberStats.color as keyof typeof data.colorInfo];
+// 색상 정보 - Svelte 5 $derived
+let colorDetail = $derived(
+	data.colorInfo[data.numberStats.color as keyof typeof data.colorInfo],
+);
 
 // Breadcrumbs 데이터
 const breadcrumbItems = [

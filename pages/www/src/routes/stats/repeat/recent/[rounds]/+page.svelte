@@ -6,10 +6,10 @@ import LinkButton from "$lib/ui/LinkButton.svelte";
 import { JsonLd, MetaTags } from "svelte-meta-tags";
 import type { PageData } from "./$types";
 
-export let data: PageData;
+let { data }: { data: PageData } = $props();
 
 // 사용자 입력 상태
-let inputValue = String(data.selectedRounds);
+let inputValue = $state(String(data.selectedRounds));
 
 // Breadcrumbs 데이터
 const breadcrumbItems = [
@@ -108,9 +108,11 @@ const getPercentage = (count: number, total: number): string => {
 };
 
 // 중복 개수별 정렬 (출현 빈도순)
-$: sortedRepeatCounts = Object.entries(
-	data.repeatStats.summary.repeatCounts || {},
-).sort(([, a], [, b]) => Number(b) - Number(a));
+const sortedRepeatCounts = $derived(
+	Object.entries(data.repeatStats.summary.repeatCounts || {}).sort(
+		([, a], [, b]) => Number(b) - Number(a),
+	),
+);
 </script>
 
 <MetaTags

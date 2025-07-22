@@ -6,10 +6,10 @@ import LinkButton from "$lib/ui/LinkButton.svelte";
 import { JsonLd, MetaTags } from "svelte-meta-tags";
 import type { PageData } from "./$types";
 
-export let data: PageData;
+let { data }: { data: PageData } = $props();
 
 // 사용자 입력 상태
-let inputValue = String(data.selectedRounds);
+let inputValue = $state(String(data.selectedRounds));
 
 // 입력값 유효성 검사
 const validateInput = (value: string): boolean => {

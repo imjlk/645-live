@@ -5,10 +5,10 @@ import LinkButton from "$lib/ui/LinkButton.svelte";
 import { JsonLd, MetaTags } from "svelte-meta-tags";
 import type { PageData } from "./$types";
 
-export let data: PageData;
+let { data }: { data: PageData } = $props();
 
 // 사용자 입력 상태
-let inputValue = "";
+let inputValue = $state("");
 
 // Breadcrumbs 데이터
 const breadcrumbItems = [
@@ -62,7 +62,7 @@ const getPercentage = (count: number, total: number): string => {
 };
 
 // 구간별 데이터 매핑 (데이터 검증 포함)
-$: sectionMappedData = {
+const sectionMappedData = $derived({
 	section1:
 		data.sectionDistribution?.section_1_10 &&
 		typeof data.sectionDistribution.section_1_10.average === "number" &&
@@ -93,7 +93,7 @@ $: sectionMappedData = {
 		typeof data.sectionDistribution.section_41_45.total === "number"
 			? data.sectionDistribution.section_41_45
 			: { average: 0, total: 0 },
-};
+});
 
 // 입력값 유효성 검사 (데이터 검증 강화)
 const validateInput = (value: string): boolean => {
