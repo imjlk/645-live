@@ -74,7 +74,6 @@ function handleKeydown(event: KeyboardEvent, href: string) {
 <!-- 모바일 전용 하단 네비게이션 (sm 이하에서만 표시) -->
 <nav 
 	class="btm-nav sm:hidden border-t border-base-300 bg-base-100/80 backdrop-blur supports-[backdrop-filter]:bg-base-100/60"
-	role="navigation"
 	aria-label="모바일 주요 페이지 네비게이션"
 >
 	{#each navigationItems as item (item.href)}

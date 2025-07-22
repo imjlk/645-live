@@ -1,35 +1,38 @@
 <script lang="ts">
 import { goto } from "$app/navigation";
-import { page } from "$app/stores";
+import { page } from "$app/state";
 import { PUBLIC_TRAILBASE_URL } from "$env/static/public";
 import { calculateExpectedLatestRound } from "$lib/utils/lotto-common";
 import { onMount } from "svelte";
-import { derived } from "svelte/store";
 import { initClient } from "trailbase";
 
-export let data: {
-	initialRound: number;
-	initialStores: Array<{
-		id: number;
-		round: number;
-		store_name: string;
-		address: string;
-		win_type: "1등" | "2등";
-		selection_type?: "자동" | "수동";
-	}>;
-	initialStatistics: {
-		total: number;
-		firstPlace: number;
-		secondPlace: number;
+interface Props {
+	data: {
+		initialRound: number;
+		initialStores: Array<{
+			id: number;
+			round: number;
+			store_name: string;
+			address: string;
+			win_type: "1등" | "2등";
+			selection_type?: "자동" | "수동";
+		}>;
+		initialStatistics: {
+			total: number;
+			firstPlace: number;
+			secondPlace: number;
+		};
 	};
-};
+}
+
+let { data }: Props = $props();
 
 // Trailbase client 초기화
 const client = initClient(PUBLIC_TRAILBASE_URL || "http://localhost:4000");
 
-// URL에서 파라미터를 derived store로 추출
-const urlRound = derived(page, ($page) => {
-	const roundParam = $page.url.searchParams.get("round");
+// URL에서 파라미터를 derived rune로 추출
+let urlRound = $derived(() => {
+	const roundParam = page.url.searchParams.get("round");
 	if (roundParam) {
 		const parsed = Number.parseInt(roundParam, 10);
 		return !Number.isNaN(parsed) && parsed > 0 ? parsed : data.initialRound;
@@ -37,12 +40,12 @@ const urlRound = derived(page, ($page) => {
 	return data.initialRound;
 });
 
-// 현재 상태 변수들 - 초기값을 data에서 설정
-let round = data.initialRound;
-let stores = data.initialStores;
-let statistics = data.initialStatistics;
-let loading = false;
-let error = "";
+// 현재 상태 변수들 - Svelte 5 runes 사용
+let round = $state(data.initialRound);
+let stores = $state(data.initialStores);
+let statistics = $state(data.initialStatistics);
+let loading = $state(false);
+let error = $state("");
 
 // Trailbase client를 사용한 데이터 조회
 async function fetchWinningStores() {
@@ -91,7 +94,7 @@ async function fetchWinningStores() {
 }
 
 function updateUrl(newRound: number) {
-	const url = new URL($page.url);
+	const url = new URL(page.url);
 	url.searchParams.set("round", newRound.toString());
 	goto(url.pathname + url.search, { replaceState: true, noScroll: true });
 }
@@ -105,19 +108,13 @@ function handleRoundChange(event: Event) {
 	}
 }
 
-onMount(() => {
-	// derived store를 구독하여 URL 변경시 자동으로 데이터 업데이트
-	const unsubscribeRound = urlRound.subscribe((newRound) => {
-		if (newRound !== round) {
-			round = newRound;
-			fetchWinningStores();
-		}
-	});
-
-	// cleanup
-	return () => {
-		unsubscribeRound();
-	};
+// URL 변경시 자동으로 데이터 업데이트 (Svelte 5 $effect 사용)
+$effect(() => {
+	const newRound = urlRound;
+	if (newRound !== round) {
+		round = newRound;
+		fetchWinningStores();
+	}
 });
 </script>
 
@@ -145,7 +142,7 @@ onMount(() => {
 					min="1"
 					max={calculateExpectedLatestRound()}
 					value={round}
-					on:input={handleRoundChange}
+					oninput={handleRoundChange}
 					class="input input-bordered w-full"
 					placeholder="회차를 입력하세요"
 					disabled={loading}

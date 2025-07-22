@@ -6,6 +6,9 @@ const config = {
 	preprocess: [vitePreprocess(), mdsvex()],
 	kit: { adapter: adapter() },
 	extensions: [".svelte", ".svx"],
+	compilerOptions: {
+		runes: true,
+	},
 };
 
 export default config;
