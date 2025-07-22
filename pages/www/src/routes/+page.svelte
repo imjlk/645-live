@@ -2,20 +2,26 @@
 import LottoBall from "$lib/modules/lotto/components/LottoBall.svelte";
 import ValueIncrementEffect from "$lib/modules/lotto/components/ValueIncrementEffect.svelte";
 import type { BallNumber } from "$lib/modules/lotto/types";
-import { useBallValues, useConnectionStatus } from "$lib/trailbase/composables.svelte";
+import {
+	useBallValues,
+	useConnectionStatus,
+} from "$lib/trailbase/composables.svelte";
 import { onDestroy, onMount } from "svelte";
 import { JsonLd, MetaTags } from "svelte-meta-tags";
 import type { PageData } from "./$types";
 
 let { data }: { data: PageData } = $props();
 
-// Use the new composables for state management  
+// Use the new composables for state management
 const ballValuesComposable = useBallValues({
 	initialRound: data.displayRound || data.latestRound,
 	onBallUpdate: (ballNumber, newValue, oldValue) => {
 		// Debug animation trigger
-		console.log(`🎾 Ball ${ballNumber} updated: ${oldValue} → ${newValue}`, ballValuesComposable.recentlyUpdated);
-	}
+		console.log(
+			`🎾 Ball ${ballNumber} updated: ${oldValue} → ${newValue}`,
+			ballValuesComposable.recentlyUpdated,
+		);
+	},
 });
 
 const connectionStatus = useConnectionStatus();
@@ -25,7 +31,7 @@ let numbers = $derived<BallNumber[]>(
 	Array.from({ length: 45 }, (_, i) => ({
 		id: i + 1,
 		value: ballValuesComposable.ballValues[i + 1] || 0,
-	}))
+	})),
 );
 
 // Subscription cleanup function
@@ -43,10 +49,10 @@ async function initializeData() {
 onMount(async () => {
 	// Initialize data first to ensure values are loaded
 	await initializeData();
-	
+
 	// Small delay to ensure initialization is complete
-	await new Promise(resolve => setTimeout(resolve, 50));
-	
+	await new Promise((resolve) => setTimeout(resolve, 50));
+
 	// Set up ball values subscription after initialization
 	unsubscribeBallValues = ballValuesComposable.subscribe();
 });
@@ -57,7 +63,7 @@ onDestroy(() => {
 		unsubscribeBallValues();
 		unsubscribeBallValues = null;
 	}
-	
+
 	// connectionStatus auto-unsubscribes when component is destroyed
 	connectionStatus.unsubscribe();
 });
@@ -169,21 +175,9 @@ onDestroy(() => {
                     {:else}
                         최신 회차의 스캔 데이터를 준비 중입니다.
                     {/if}
-                    {#if ballValuesComposable.retryCount > 0}
-                        <span class="text-warning">재시도 중... ({ballValuesComposable.retryCount}/3)</span>
-                    {:else}
-                        곧 실시간 데이터가 표시됩니다.
-                    {/if}
+                    곧 실시간 데이터가 표시됩니다.
                 </div>
             </div>
-            {#if ballValuesComposable.retryCount < 3 && !ballValuesComposable.loading}
-                <button 
-                    class="btn btn-sm btn-outline" 
-                    onclick={ballValuesComposable.retryConnection}
-                >
-                    다시 시도
-                </button>
-            {/if}
         </div>
     {/if}
     <!-- Header with round and total scans info -->
@@ -228,7 +222,7 @@ onDestroy(() => {
                         <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
                     </svg>
                     <span class="text-amber-600 dark:text-amber-400 font-bold text-sm">
-                        데이터 수집 대기 중
+                        대기 중
                     </span>
                 {/if}
             </div>
