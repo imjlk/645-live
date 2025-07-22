@@ -6,9 +6,12 @@ import {
 	useBallValues,
 	useConnectionStatus,
 } from "$lib/trailbase/composables.svelte";
+import { handleGridNavigation, focusElement, announceToScreenReader } from "$lib/utils/keyboard-navigation";
 import { onDestroy, onMount } from "svelte";
 import { JsonLd, MetaTags } from "svelte-meta-tags";
 import type { PageData } from "./$types";
+import { goto } from "$app/navigation";
+import ScreenReaderStatus from "$lib/components/ui/ScreenReaderStatus.svelte";
 
 let { data }: { data: PageData } = $props();
 
@@ -36,6 +39,74 @@ let numbers = $derived<BallNumber[]>(
 
 // Subscription cleanup function
 let unsubscribeBallValues: (() => void) | null = null;
+
+// 키보드 네비게이션을 위한 현재 포커스 인덱스
+let focusedBallIndex = $state<number | null>(null);
+
+// 스크린 리더용 실시간 업데이트 메시지
+let screenReaderMessage = $state('');
+
+// 실시간 업데이트를 스크린 리더에 알림
+$effect(() => {
+	if (ballValuesComposable.recentlyUpdated && Object.keys(ballValuesComposable.recentlyUpdated).length > 0) {
+		const updatedBalls = Object.keys(ballValuesComposable.recentlyUpdated)
+			.filter(key => ballValuesComposable.recentlyUpdated[Number.parseInt(key)])
+			.map(key => `${key}번`)
+			.join(', ');
+		
+		if (updatedBalls) {
+			screenReaderMessage = `로또 번호 ${updatedBalls}이 업데이트되었습니다.`;
+			
+			// 메시지를 일정 시간 후 초기화
+			setTimeout(() => {
+				screenReaderMessage = '';
+			}, 2000);
+		}
+	}
+});
+
+// 연결 상태 변경을 스크린 리더에 알림
+let previousConnectionStatus = $state<boolean | null>(null);
+$effect(() => {
+	if (previousConnectionStatus !== null && previousConnectionStatus !== connectionStatus.connected) {
+		screenReaderMessage = connectionStatus.connected ? 
+			'서버와 연결되었습니다. 실시간 업데이트가 시작됩니다.' : 
+			'서버 연결이 끊어졌습니다. 재연결을 시도하고 있습니다.';
+	}
+	previousConnectionStatus = connectionStatus.connected;
+});
+
+// 그리드 키보드 네비게이션 핸들러
+function handleBallGridKeydown(event: KeyboardEvent, ballIndex: number) {
+	const nextIndex = handleGridNavigation(event, ballIndex - 1, {
+		gridColumns: window.innerWidth < 640 ? 2 : window.innerWidth < 768 ? 3 : window.innerWidth < 1024 ? 4 : 5,
+		maxItems: 45,
+		onActivate: (index) => {
+			const ballNumber = index + 1;
+			goto(`/n/${ballNumber}`);
+		},
+		onEscape: () => {
+			focusedBallIndex = null;
+			// 포커스를 메인 영역으로 이동
+			const mainElement = document.querySelector('main');
+			if (mainElement) {
+				(mainElement as HTMLElement).focus();
+			}
+		}
+	});
+	
+	if (nextIndex !== null) {
+		const nextBallNumber = nextIndex + 1;
+		focusedBallIndex = nextBallNumber;
+		
+		// 다음 프레임에서 포커스 이동
+		requestAnimationFrame(() => {
+			const nextElement = document.querySelector(`[data-ball-number="${nextBallNumber}"]`);
+			focusElement(nextElement as HTMLElement);
+			announceToScreenReader(`${nextBallNumber}번으로 이동`);
+		});
+	}
+}
 
 // Initialize data using the new composable
 async function initializeData() {
@@ -71,15 +142,15 @@ onDestroy(() => {
 
 <MetaTags
 	title="645.live - 로또 6/45 실시간 스캔 현황 및 통계 분석"
-	description="🔥 로또 6/45 실시간 스캔 현황 공개! 지금 이 순간 어떤 번호가 가장 많이 선택되고 있는지 확인하고, 빅데이터 통계로 다음 당첨번호를 예측해보세요!"
+	description="로또 6/45 실시간 스캔 현황을 확인하세요. 번호별 선택 빈도와 통계 분석으로 다음 당첨번호를 예측해보세요. 총 {ballValuesComposable.totalScans.toLocaleString()}회 스캔 데이터 기반."
 	canonical="https://645.live"
-	keywords={["로또", "로또645", "로또당첨번호", "로또스캔", "로또통계", "로또분석", "로또번호생성기", "로또예측", "실시간로또", "로또현황", "동행복권", "한국로또", "로또번호추천", "로또패턴분석"]}
+	keywords={["로또 6/45", "로또 실시간", "로또 통계", "로또 분석", "로또 스캔", "로또 번호", "로또 당첨", "로또 생성기", "동행복권", "로또 확률", "로또 패턴", "로또 예측"]}
 	robots="index,follow"
 	openGraph={{
 		type: "website",
 		url: "https://645.live",
 		title: "로또 6/45 실시간 스캔 현황 및 통계 분석",
-		description: "🔥 로또 6/45 실시간 스캔 현황 공개! 지금 이 순간 어떤 번호가 가장 많이 선택되고 있는지 확인하고, 빅데이터 통계로 다음 당첨번호를 예측해보세요!",
+		description: "로또 6/45 실시간 스캔 현황을 확인하세요. 번호별 선택 빈도와 통계 분석으로 다음 당첨번호를 예측해보세요.",
 		siteName: "645.live",
 		locale: "ko_KR",
 		images: [
@@ -97,7 +168,7 @@ onDestroy(() => {
 		site: "@645live",
 		creator: "@645live",
 		title: "로또 6/45 실시간 스캔 현황 및 통계 분석",
-		description: "🔥 로또 6/45 실시간 스캔 현황 공개! 지금 이 순간 어떤 번호가 가장 많이 선택되고 있는지 확인하고, 빅데이터 통계로 다음 당첨번호를 예측해보세요!",
+		description: "로또 6/45 실시간 스캔 현황을 확인하세요. 번호별 선택 빈도와 통계 분석으로 다음 당첨번호를 예측해보세요.",
 		image: `https://www.645.live/og?title=${encodeURIComponent('로또 6/45 실시간 스캔 현황')}&description=${encodeURIComponent(`${ballValuesComposable.currentRound ? ballValuesComposable.currentRound + '회차 ' : ''}번호별 실시간 스캔 현황 - 총 ${ballValuesComposable.totalScans.toLocaleString()}회 스캔`)}&layout=hero&theme=dark`,
 		imageAlt: "로또 6/45 실시간 스캔 현황"
 	}}
@@ -229,11 +300,24 @@ onDestroy(() => {
         </div>
     </div>
     
-    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 p-0 py-4 sm:p-4 gap-4">
+    <div 
+        class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 p-0 py-4 sm:p-4 gap-4"
+        role="grid"
+        aria-label="로또 번호별 스캔 현황"
+    >
         {#each numbers as ball (ball.id)}
             {@const isUpdated = ballValuesComposable.recentlyUpdated[ball.id] || false}
             {@const hasData = ballValuesComposable.totalScans > 0}
-            <a href="/n/{ball.id}" class="ball-grid-item {hasData ? '' : 'opacity-75'}">
+            <a 
+                href="/n/{ball.id}" 
+                class="ball-grid-item {hasData ? '' : 'opacity-75'}"
+                aria-label="로또 번호 {ball.id}번 상세 정보 보기. 현재 {ball.value}회 스캔됨"
+                tabindex="0"
+                role="gridcell"
+                data-ball-number={ball.id}
+                onkeydown={(e) => handleBallGridKeydown(e, ball.id)}
+                onfocus={() => focusedBallIndex = ball.id}
+            >
                 <ValueIncrementEffect 
                     show={isUpdated} 
                     message="+1" 
@@ -276,6 +360,12 @@ onDestroy(() => {
     </div>
 {/if}
 
+<!-- 스크린 리더용 실시간 상태 알림 -->
+<ScreenReaderStatus 
+	message={screenReaderMessage} 
+	liveMode="polite" 
+/>
+
 <style>
 .ball-grid-item {
     aspect-ratio: 1;
@@ -293,7 +383,8 @@ onDestroy(() => {
 }
 
 .ball-grid-item:focus {
-    outline: none;
+    outline: 2px solid oklch(var(--p));
+    outline-offset: 2px;
     box-shadow: 0 0 0 2px oklch(var(--p));
     transform: scale(1.05);
 }

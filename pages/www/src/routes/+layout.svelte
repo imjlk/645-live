@@ -1,10 +1,10 @@
 <script lang="ts">
 import { page } from "$app/state";
 import Header from "$lib/layout/Header.svelte";
+import NavigationMenu from "$lib/layout/NavigationMenu.svelte";
+import MobileNavigation from "$lib/layout/MobileNavigation.svelte";
 import "../app.css";
 import Footer from "$lib/layout/Footer.svelte";
-import { trailbaseClient } from "$lib/trailbase/client";
-import LinkButton from "$lib/ui/LinkButton.svelte";
 import Clarity from "@microsoft/clarity";
 import { NuqsAdapter } from "nuqs-svelte/adapters/svelte-kit";
 import { onMount } from "svelte";
@@ -55,61 +55,19 @@ onMount(async () => {
 </svelte:head>
 
 <NuqsAdapter>
-	<div class="min-h-dvh flex flex-col max-w-7xl mx-auto">
+	<div class="min-h-dvh flex flex-col max-w-7xl mx-auto pb-20 sm:pb-0">
 		<Header />
 
 		<div class="flex flex-1 items-center gap-4 px-0 flex-col sm:flex-row sm:items-stretch my-4 mx-3 xl:mx-0">
-			<aside class="w-full sm:w-32 min-w-48 sm:flex-1 rounded-2xl bg-base-200">
-				{#key page.url.pathname}
-				<ul class="flex flex-row sm:flex-col gap-4 overflow-scroll py-2 sm:py-4 px-3">
-					<li class="flex-shrink-0">
-						<LinkButton 
-							class="btn-secondary btn-ghost rounded-full w-full whitespace-nowrap {page.url.pathname === '/qr-scan' ? 'btn-active' : ''}" 
-							href="/qr-scan"
-						>
-							QR 스캔
-						</LinkButton>
-					</li>
-					<li class="flex-shrink-0">
-						<LinkButton 
-							class="btn-secondary btn-ghost rounded-full w-full whitespace-nowrap {page.url.pathname === '/history' ? 'btn-active' : ''}" 
-							href="/history"
-						>
-							지난 회차
-						</LinkButton>
-					</li>
-					<li class="flex-shrink-0">
-						<LinkButton 
-							class="btn-secondary btn-ghost rounded-full w-full whitespace-nowrap {page.url.pathname.startsWith('/generator') ? 'btn-active' : ''}" 
-							href="/generator"
-						>
-							번호 생성기
-						</LinkButton>
-					</li>
-					<li class="flex-shrink-0">
-						<LinkButton 
-							class="btn-secondary btn-ghost rounded-full w-full whitespace-nowrap {page.url.pathname.startsWith('/stats') ? 'btn-active' : ''}" 
-							href="/stats"
-						>
-							통계
-						</LinkButton>
-					</li>
-					<li class="flex-shrink-0">
-						<LinkButton 
-							class="btn-secondary btn-ghost rounded-full w-full whitespace-nowrap {page.url.pathname.startsWith('/winning-stores') ? 'btn-active' : ''}" 
-							href="/winning-stores"
-						>
-							당첨점
-						</LinkButton>
-					</li>
-				</ul>
-				{/key}
-			</aside>
-			<main class="container mx-auto px-3 sm:px-0 flex-1 items-center sm:flex-4 rounded-2xl bg-base-200">
+			<NavigationMenu />
+			<main class="container mx-auto px-3 sm:px-0 flex-1 items-center sm:flex-4 rounded-2xl bg-base-200" aria-label="메인 콘텐츠">
 				{@render children?.()}
 			</main>
 		</div>
 
 		<Footer />
+		
+		<!-- 모바일 전용 하단 네비게이션 -->
+		<MobileNavigation />
 	</div>
 </NuqsAdapter>
