@@ -11,43 +11,51 @@ interface NavigationItem {
 
 const navigationItems: NavigationItem[] = [
 	{
+		href: "/guide",
+		label: "가이드",
+		ariaLabel: "로또 가이드 페이지로 이동",
+		activePattern: (pathname) => pathname === "/guide",
+	},
+	{
 		href: "/qr-scan",
 		label: "QR 스캔",
 		ariaLabel: "QR 스캔 페이지로 이동",
-		activePattern: (pathname) => pathname === '/qr-scan'
+		activePattern: (pathname) => pathname === "/qr-scan",
 	},
 	{
 		href: "/history",
 		label: "지난 회차",
 		ariaLabel: "지난 회차 히스토리 페이지로 이동",
-		activePattern: (pathname) => pathname === '/history'
+		activePattern: (pathname) => pathname === "/history",
 	},
 	{
 		href: "/generator",
 		label: "번호 생성기",
 		ariaLabel: "로또 번호 생성기 페이지로 이동",
-		activePattern: (pathname) => pathname.startsWith('/generator')
+		activePattern: (pathname) => pathname.startsWith("/generator"),
 	},
 	{
 		href: "/stats",
 		label: "통계",
 		ariaLabel: "통계 분석 페이지로 이동",
-		activePattern: (pathname) => pathname.startsWith('/stats')
+		activePattern: (pathname) => pathname.startsWith("/stats"),
 	},
 	{
 		href: "/winning-stores",
 		label: "당첨점",
 		ariaLabel: "당첨점 정보 페이지로 이동",
-		activePattern: (pathname) => pathname.startsWith('/winning-stores')
-	}
+		activePattern: (pathname) => pathname.startsWith("/winning-stores"),
+	},
 ];
 
 function isActive(item: NavigationItem, pathname: string): boolean {
-	return item.activePattern ? item.activePattern(pathname) : pathname === item.href;
+	return item.activePattern
+		? item.activePattern(pathname)
+		: pathname === item.href;
 }
 
 function handleKeydown(event: KeyboardEvent, href: string) {
-	if (event.key === 'Enter' || event.key === ' ') {
+	if (event.key === "Enter" || event.key === " ") {
 		event.preventDefault();
 		window.location.href = href;
 	}
@@ -64,7 +72,7 @@ function handleKeydown(event: KeyboardEvent, href: string) {
 						class="btn-secondary btn-ghost rounded-full w-full whitespace-nowrap {isActive(item, page.url.pathname) ? 'btn-active' : ''}" 
 						href={item.href}
 						aria-label={item.ariaLabel}
-						tabindex="0"
+						tabindex={0}
 						onkeydown={(e) => handleKeydown(e, item.href)}
 					>
 						{item.label}

@@ -621,9 +621,9 @@ $effect(() => {
 		</div>
 
 		
-		<!-- Mobile Fixed Generate Button - hidden when near bottom -->
+		<!-- Mobile Fixed Generate Button - positioned above mobile navigation -->
 		{#if !isNearBottom}
-			<div class="lg:hidden fixed bottom-4 left-4 right-4 z-50">
+			<div class="lg:hidden fixed bottom-16 sm:bottom-4 left-4 right-4 z-40">
 				<button 
 					class="btn btn-primary btn-block btn-lg shadow-lg" 
 					onclick={() => generateNumbersAndScroll()}
