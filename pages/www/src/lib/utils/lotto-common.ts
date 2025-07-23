@@ -66,7 +66,7 @@ export async function getLatestLottoRoundFromAPI(): Promise<LatestLottoInfo | nu
 		// Fallback to calculated expected round
 		const expectedRound = calculateExpectedLatestRound();
 		return {
-			drwNo: expectedRound,
+			drwNo: expectedRound as number,
 			drwNoDate: new Date().toISOString().split("T")[0],
 		};
 	}

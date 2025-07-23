@@ -84,7 +84,7 @@ export async function getLatestLottoRound(): Promise<LatestLottoInfo | null> {
 	const expectedRound = calculateExpectedLatestRound();
 
 	return {
-		drwNo: expectedRound,
+		drwNo: expectedRound as number,
 		drwNoDate: new Date().toISOString().split("T")[0], // 현재 날짜를 YYYY-MM-DD 형식으로
 	};
 }
