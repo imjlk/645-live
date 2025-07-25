@@ -64,8 +64,7 @@ async function cacheFirst(
 	const cached = await cache.match(request);
 
 	if (cached && !isExpired(cached, config.maxAge)) {
-		console.log("🎯 Cache hit:", request.url);
-		return cached;
+			return cached;
 	}
 
 	try {
@@ -77,12 +76,10 @@ async function cacheFirst(
 		if (response.ok) {
 			const responseClone = response.clone();
 			await cache.put(request, responseClone);
-			console.log("💾 Cached:", request.url);
 		}
 
 		return response;
 	} catch (error) {
-		console.warn("🔗 Network failed, serving stale cache:", request.url);
 		return cached || createOfflineResponse(request);
 	}
 }
@@ -101,12 +98,10 @@ async function networkFirst(
 			const cache = await caches.open(config.cacheName);
 			const responseClone = response.clone();
 			await cache.put(request, responseClone);
-			console.log("🔄 Network success, cached:", request.url);
 		}
 
 		return response;
 	} catch (error) {
-		console.warn("🔗 Network failed, trying cache:", request.url);
 		const cache = await caches.open(config.cacheName);
 		const cached = await cache.match(request);
 
@@ -127,18 +122,15 @@ async function staleWhileRevalidate(
 			if (response.ok) {
 				const responseClone = response.clone();
 				cache.put(request, responseClone);
-				console.log("🔄 Background update cached:", request.url);
 			}
 			return response;
 		})
 		.catch((error) => {
-			console.warn("🔗 Background update failed:", request.url, error);
 			return cached;
 		});
 
 	if (cached && !isExpired(cached, config.maxAge)) {
-		console.log("📊 Serving stale, revalidating:", request.url);
-		return cached;
+			return cached;
 	}
 
 	// If no cache or expired, wait for network
@@ -371,8 +363,7 @@ async function limitCacheSize(
 	if (requests.length > maxEntries) {
 		const entriesToDelete = requests.slice(0, requests.length - maxEntries);
 		await Promise.all(entriesToDelete.map((request) => cache.delete(request)));
-		console.log(`📦 Cache ${cacheName} size limited to ${maxEntries} entries`);
-	}
+		}
 }
 
 // ============= Event Listeners =============
@@ -393,7 +384,6 @@ self.addEventListener("install", (event: ExtendableEvent) => {
 });
 
 self.addEventListener("activate", (event: ExtendableEvent) => {
-	console.log("✅ Service Worker activating");
 
 	event.waitUntil(Promise.all([cleanupOldCaches(), self.clients.claim()]));
 });
@@ -410,7 +400,6 @@ self.addEventListener("fetch", (event: FetchEvent) => {
 
 // Background sync for offline actions
 self.addEventListener("sync", (event) => {
-	console.log("🔄 Background sync triggered:", event.tag);
 
 	if (event.tag === "background-sync-lotto-data") {
 		event.waitUntil(syncLottoData());
@@ -424,8 +413,7 @@ self.addEventListener("sync", (event) => {
 // 로또 데이터 백그라운드 동기화
 async function syncLottoData(): Promise<void> {
 	try {
-		console.log("🎯 Syncing lotto data in background");
-		
+			
 		// 최신 추첨 결과 가져오기
 		const response = await fetch("/api/latest-draw");
 		if (response.ok) {
@@ -444,7 +432,6 @@ async function syncLottoData(): Promise<void> {
 				});
 			});
 			
-			console.log("✅ Lotto data synced successfully");
 		}
 	} catch (error) {
 		console.error("❌ Background sync failed for lotto data:", error);
@@ -455,7 +442,6 @@ async function syncLottoData(): Promise<void> {
 // 통계 데이터 백그라운드 동기화
 async function syncStatistics(): Promise<void> {
 	try {
-		console.log("📊 Syncing statistics in background");
 		
 		const endpoints = ["/api/stats/frequency", "/api/stats/patterns", "/api/stats/trends"];
 		const cache = await caches.open(CACHE_NAMES.api);
@@ -471,7 +457,6 @@ async function syncStatistics(): Promise<void> {
 			}
 		}
 		
-		console.log("✅ Statistics synced successfully");
 	} catch (error) {
 		console.error("❌ Background sync failed for statistics:", error);
 		throw error;
@@ -504,7 +489,6 @@ async function syncUserPreferences(): Promise<void> {
 			}
 		}
 		
-		console.log("✅ User preferences synced successfully");
 	} catch (error) {
 		console.error("❌ Background sync failed for user preferences:", error);
 		throw error;
@@ -581,7 +565,6 @@ self.addEventListener("message", (event) => {
 
 // Push notification 처리
 self.addEventListener("push", (event) => {
-	console.log("📱 Push notification received");
 	
 	let notificationData = {
 		title: "645.live",
@@ -629,7 +612,6 @@ self.addEventListener("push", (event) => {
 
 // Notification click 처리
 self.addEventListener("notificationclick", (event) => {
-	console.log("🔔 Notification clicked:", event.action);
 	
 	event.notification.close();
 

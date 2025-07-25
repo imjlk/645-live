@@ -62,11 +62,6 @@ let {
 const ballValuesComposable = useBallValues({
 	initialRound,
 	onBallUpdate: (ballNumber, newValue, oldValue) => {
-		// Debug animation trigger
-		console.log(
-			`🎾 Ball ${ballNumber} updated: ${oldValue} → ${newValue}`,
-			ballValuesComposable.recentlyUpdated,
-		);
 	},
 });
 
@@ -191,7 +186,6 @@ function handleBallGridKeydown(event: KeyboardEvent, ballIndex: number) {
 async function initializeData() {
 	if (initialRound) {
 		await ballValuesComposable.loadInitialData(initialRound);
-		console.log(`🎯 ScanStatusGrid initialized with round: ${initialRound}`);
 	}
 }
 

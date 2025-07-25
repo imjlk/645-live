@@ -232,7 +232,6 @@ class PWAPerformanceMonitor {
 
 		// 개발 환경에서는 콘솔에 출력
 		if (!import.meta.env.PROD) {
-			console.log(`🔍 PWA Event: ${eventName}`, eventData);
 		}
 
 		// 프로덕션에서는 분석 서비스로 전송 (예: Google Analytics, Microsoft Clarity)

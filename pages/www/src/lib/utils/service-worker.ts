@@ -72,7 +72,6 @@ class ServiceWorkerManager extends EventTarget {
 		if (!this.state.isSupported) return;
 
 		try {
-			console.log("🔧 Registering Service Worker");
 
 			const registration = await navigator.serviceWorker.register(
 				this.SW_PATH,
@@ -85,7 +84,6 @@ class ServiceWorkerManager extends EventTarget {
 			this.state.registration = registration;
 			this.state.isRegistered = true;
 
-			console.log("✅ Service Worker registered:", registration.scope);
 
 			// Setup event listeners
 			this.setupRegistrationListeners(registration);
@@ -122,12 +120,10 @@ class ServiceWorkerManager extends EventTarget {
 		}
 
 		if (registration.active) {
-			console.log("🚀 Service Worker active");
 		}
 
 		// Listen for updates
 		registration.addEventListener("updatefound", () => {
-			console.log("🔄 Service Worker update found");
 			const newWorker = registration.installing;
 
 			if (newWorker) {
@@ -143,10 +139,8 @@ class ServiceWorkerManager extends EventTarget {
 		worker: ServiceWorker,
 		initialState: string,
 	): void {
-		console.log(`📡 Tracking Service Worker state: ${initialState}`);
 
 		worker.addEventListener("statechange", () => {
-			console.log(`📡 Service Worker state changed: ${worker.state}`);
 
 			if (worker.state === "installed") {
 				if (navigator.serviceWorker.controller) {
@@ -158,19 +152,16 @@ class ServiceWorkerManager extends EventTarget {
 					);
 				} else {
 					// First install
-					console.log("✅ Service Worker installed for the first time");
 				}
 			}
 
 			if (worker.state === "activated") {
-				console.log("🎯 Service Worker activated");
 			}
 		});
 	}
 
 	private handleOnline(): void {
 		this.state.isOnline = true;
-		console.log("🌐 Back online");
 		this.dispatchEvent(new CustomEvent("sw-online"));
 
 		// Trigger cache cleanup when coming back online
@@ -179,7 +170,6 @@ class ServiceWorkerManager extends EventTarget {
 
 	private handleOffline(): void {
 		this.state.isOnline = false;
-		console.log("📡 Gone offline");
 		this.dispatchEvent(new CustomEvent("sw-offline"));
 	}
 
@@ -211,7 +201,6 @@ class ServiceWorkerManager extends EventTarget {
 		if (!this.state.registration) return;
 
 		try {
-			console.log("🔍 Checking for Service Worker updates");
 			await this.state.registration.update();
 		} catch (error) {
 			console.warn("⚠️ Update check failed:", error);
@@ -225,7 +214,6 @@ class ServiceWorkerManager extends EventTarget {
 		}
 
 		try {
-			console.log("🔄 Activating Service Worker update");
 
 			// Tell the waiting service worker to skip waiting
 			this.state.registration.waiting.postMessage({ type: "SKIP_WAITING" });
@@ -235,7 +223,6 @@ class ServiceWorkerManager extends EventTarget {
 				navigator.serviceWorker.addEventListener(
 					"controllerchange",
 					() => {
-						console.log("✅ New Service Worker took control");
 						this.state.updateAvailable = false;
 						resolve();
 					},
@@ -255,15 +242,13 @@ class ServiceWorkerManager extends EventTarget {
 		if (!this.state.registration) return false;
 
 		try {
-			console.log("🗑️ Unregistering Service Worker");
 			const success = await this.state.registration.unregister();
 
 			if (success) {
 				this.state.isRegistered = false;
 				this.state.registration = null;
 				this.stopUpdateChecking();
-				console.log("✅ Service Worker unregistered");
-			}
+				}
 
 			return success;
 		} catch (error) {

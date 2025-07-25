@@ -332,7 +332,6 @@ export const getMemoizedColorComplexity = useMemo(
 export const createStatsBatchProcessor = () => {
 	return useBatchProcessor(
 		async (rounds: RoundNumber[]) => {
-			console.log("📦 Processing batch of", rounds.length, "rounds");
 
 			// Fetch stats for each round in parallel
 			const results = await Promise.all(
@@ -388,8 +387,7 @@ export const getOptimizedStats = useAsyncMemo(
 			rounds?: number;
 		} = {},
 	) => {
-		console.log("📈 Fetching optimized comprehensive stats");
-
+	
 		const {
 			includeNumbers = true,
 			includePatterns = true,
@@ -491,7 +489,6 @@ export function clearStatsCache(): void {
 	getMemoizedColorComplexity.cache.clear();
 	getOptimizedStats.cache.clear();
 
-	console.log("✅ All caches cleared");
 }
 
 /** Get cache performance metrics */
@@ -520,7 +517,6 @@ export function getCacheMetrics() {
 
 /** Preload commonly requested statistics */
 export const preloadCommonStats = withErrorHandling(async () => {
-	console.log("🚀 Preloading common statistics");
 
 	const commonQueries = [
 		{ includeNumbers: true, includePatterns: true, rounds: 50 },
@@ -534,7 +530,6 @@ export const preloadCommonStats = withErrorHandling(async () => {
 
 	await Promise.allSettled(preloadPromises);
 
-	console.log("✅ Common statistics preloaded");
 }, "preloadCommonStats");
 
 export { useBatchProcessor, createStatsBatchProcessor };

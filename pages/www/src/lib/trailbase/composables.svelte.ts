@@ -254,14 +254,8 @@ export function useBallValues(
 		if (cached) {
 			const age = Date.now() - cached.timestamp.getTime();
 			if (age < CACHE_DURATION) {
-				console.log(
-					`📦 Using cached data for round ${round} (age: ${Math.round(age / 1000)}s)`,
-				);
 				return cached.data;
 			}
-			console.log(
-				`⏰ Cache expired for round ${round} (age: ${Math.round(age / 1000)}s)`,
-			);
 			dataCache.delete(round);
 		}
 		return null;
@@ -270,7 +264,6 @@ export function useBallValues(
 	// Cache data after successful fetch
 	const setCachedData = (round: number, data: LottoDrawScanCount) => {
 		dataCache.set(round, { data, timestamp: new Date() });
-		console.log(`💾 Cached data for round ${round}`);
 	};
 
 	const loadInitialData = async (round?: number, forceRefresh = false) => {
@@ -286,9 +279,6 @@ export function useBallValues(
 				ballValues &&
 				Object.keys(ballValues).length > 0
 			) {
-				console.log(
-					`⚡ Using recent data (loaded ${Math.round(timeSinceLastLoad / 1000)}s ago)`,
-				);
 				return;
 			}
 		}
@@ -314,57 +304,34 @@ export function useBallValues(
 		error = null;
 
 		try {
-			console.log(
-				`🔄 Loading initial data for round: ${roundToLoad} (attempt ${retryCount + 1})`,
-			);
 
 			let scanData: LottoDrawScanCount | null = null;
 
 			// Strategy 1: Try to get specific round data
 			if (roundToLoad) {
-				console.log(`🎯 Attempting to load scan data for round ${roundToLoad}`);
 				scanData = await trailbaseClient.getScanDataSafely(roundToLoad);
 
 				if (scanData) {
-					console.log(`✅ Found scan data for round ${roundToLoad}:`, {
-						round: scanData.round,
-						totalScans: scanData.total_scans,
-						sampleValues: {
-							scan_count_1: scanData.scan_count_1,
-							scan_count_2: scanData.scan_count_2,
-							scan_count_3: scanData.scan_count_3,
-						},
-					});
 
 					// Cache the successful result
 					setCachedData(roundToLoad, scanData);
 				} else {
 					console.warn(
-						`❌ No scan data found for round ${roundToLoad}, trying latest...`,
+						`No scan data found for round ${roundToLoad}, trying latest...`,
 					);
 				}
 			}
 
 			// Strategy 2: If specific round fails, try latest available data
 			if (!scanData) {
-				console.log(`🔄 Attempting to load latest scan data`);
 				scanData = await trailbaseClient.getLatestScanData();
 
 				if (scanData) {
-					console.log(`✅ Found latest scan data:`, {
-						round: scanData.round,
-						totalScans: scanData.total_scans,
-						sampleValues: {
-							scan_count_1: scanData.scan_count_1,
-							scan_count_2: scanData.scan_count_2,
-							scan_count_3: scanData.scan_count_3,
-						},
-					});
 
 					// Cache the latest data
 					setCachedData(scanData.round, scanData);
 				} else {
-					console.warn(`❌ No latest scan data found`);
+					console.warn(`No latest scan data found`);
 				}
 			}
 
@@ -373,17 +340,6 @@ export function useBallValues(
 				totalScans = Number(scanData.total_scans) || 0;
 				const newBallValues = extractBallValues(scanData);
 
-				console.log(`📊 Extracted ball values:`, {
-					round: currentRound,
-					totalScans,
-					sampleBallValues: {
-						1: newBallValues[1],
-						2: newBallValues[2],
-						3: newBallValues[3],
-						44: newBallValues[44],
-						45: newBallValues[45],
-					},
-				});
 
 				// Force update of ballValues to ensure reactivity
 				ballValues = { ...newBallValues };
@@ -395,7 +351,7 @@ export function useBallValues(
 				}
 			} else {
 				// Initialize with zeros if no data found
-				console.warn(`📊 No scan data available, initializing with zeros`);
+				console.warn(`No scan data available, initializing with zeros`);
 				currentRound = roundToLoad || null;
 				totalScans = 0;
 				ballValues = initializeBallValues();
@@ -409,7 +365,7 @@ export function useBallValues(
 				}
 			}
 		} catch (err) {
-			console.error("❌ Failed to load initial data:", err);
+			console.error("Failed to load initial data:", err);
 
 			const trailbaseError: TrailbaseError =
 				err instanceof Error
@@ -432,13 +388,6 @@ export function useBallValues(
 			}
 		} finally {
 			loading = false;
-			console.log(`🏁 Initial data loading completed:`, {
-				round: currentRound,
-				totalScans,
-				hasError: !!error,
-				retryCount,
-				ballValuesCount: Object.keys(ballValues).length,
-			});
 		}
 	};
 
@@ -509,12 +458,11 @@ export function useBallValues(
 	const retryConnection = async () => {
 		if (retryCount >= 3) {
 			console.warn(
-				`🛑 Max retry attempts (${retryCount}) reached, not retrying`,
+				`Max retry attempts (${retryCount}) reached, not retrying`,
 			);
 			return;
 		}
 
-		console.log(`🔄 Retrying connection (attempt ${retryCount + 1}/3)`);
 
 		// Try to reconnect TrailBase client first
 		try {

@@ -54,7 +54,6 @@
 				showInstallPrompt = false;
 				localStorage.removeItem("pwa-install-declined");
 				localStorage.removeItem("pwa-prompt-count");
-				console.log("✅ PWA가 성공적으로 설치되었습니다!");
 			});
 		};
 
@@ -63,7 +62,6 @@
 		// Service Worker 등록 상태 확인
 		if ("serviceWorker" in navigator) {
 			navigator.serviceWorker.ready.then(() => {
-				console.log("✅ Service Worker 준비 완료");
 			});
 		}
 
@@ -83,9 +81,7 @@
 			const { outcome } = await deferredPrompt.userChoice;
 			
 			if (outcome === "accepted") {
-				console.log("✅ 사용자가 PWA 설치를 수락했습니다");
 			} else {
-				console.log("❌ 사용자가 PWA 설치를 거부했습니다");
 				localStorage.setItem("pwa-install-declined", "true");
 			}
 			

@@ -123,7 +123,6 @@ function createBatchProcessFunction<TInput, TOutput>(
 			};
 
 			if (options.enableLogging) {
-				console.log("✅ Batch processing completed:", statistics);
 			}
 
 			return {

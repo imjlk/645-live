@@ -73,13 +73,11 @@ class TrailBaseClient {
 			const { initClient } = await import("trailbase");
 
 			const url = env.PUBLIC_TRAILBASE_URL || "http://localhost:4000";
-			console.log("🔌 Initializing TrailBase client with URL:", url);
 
 			this.client = initClient(url);
 			this.api = this.client.records("lotto_draw_scan_counts");
 
 			this.isInitialized = true;
-			console.log("✅ TrailBase client initialized successfully");
 
 			this.updateConnectionState({
 				connected: false,
@@ -94,7 +92,6 @@ class TrailBaseClient {
 				!this.connectionState.connected &&
 				!this.connectionState.connecting
 			) {
-				console.log("🔄 Starting stream for waiting subscribers...");
 				this.startStream();
 			}
 		} catch (error) {
@@ -141,22 +138,15 @@ class TrailBaseClient {
 			this.connectionState.connecting ||
 			this.connectionState.connected
 		) {
-			console.log("🔄 Stream start blocked:", {
-				hasApi: !!this.api,
-				connecting: this.connectionState.connecting,
-				connected: this.connectionState.connected,
-			});
 			return;
 		}
 
-		console.log("🚀 Starting TrailBase stream...");
 		this.updateConnectionState({ connecting: true, error: null });
 
 		try {
 			this.stream = await this.api.subscribe("*");
 
 			if (this.stream) {
-				console.log("✅ TrailBase stream connected successfully");
 				this.reader = this.stream.getReader();
 				this.updateConnectionState({
 					connected: true,
@@ -361,17 +351,11 @@ class TrailBaseClient {
 				return null;
 			}
 
-			console.log(`🔍 Fetching scan data for round ${round}`);
 			const scanData = (await this.api.read(
 				round.toString(),
 			)) as unknown as LottoDrawScanCount;
 
 			if (scanData) {
-				console.log(`✅ Successfully fetched scan data for round ${round}:`, {
-					round: scanData.round,
-					totalScans: scanData.total_scans,
-					hasScanData: scanData.scan_count_1 !== undefined,
-				});
 			}
 
 			return scanData;
@@ -387,7 +371,7 @@ class TrailBaseClient {
 				return null;
 			}
 
-			console.warn(`❌ Scan data fetch error for round ${round}:`, err);
+			console.warn(`Scan data fetch error for round ${round}:`, err);
 			return null;
 		}
 	}
@@ -404,7 +388,6 @@ class TrailBaseClient {
 				return null;
 			}
 
-			console.log("🔍 Fetching latest scan data");
 			const response = await this.api.list({
 				order: ["-round"],
 				pagination: { limit: 1 },
@@ -412,18 +395,13 @@ class TrailBaseClient {
 
 			if (response.records.length > 0) {
 				const scanData = response.records[0] as unknown as LottoDrawScanCount;
-				console.log("✅ Successfully fetched latest scan data:", {
-					round: scanData.round,
-					totalScans: scanData.total_scans,
-					hasScanData: scanData.scan_count_1 !== undefined,
-				});
 				return scanData;
 			}
 
-			console.warn("❌ No scan data records found in database");
+			console.warn("No scan data records found in database");
 			return null;
 		} catch (error) {
-			console.error("❌ Latest scan data fetch error:", error);
+			console.error("Latest scan data fetch error:", error);
 			return null;
 		}
 	}
