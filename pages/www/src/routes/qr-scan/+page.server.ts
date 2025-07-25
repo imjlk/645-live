@@ -1,5 +1,6 @@
 import { TRAILBASE_URL } from "$env/static/private";
 import type { BallNumber } from "$lib/modules/lotto/types";
+import { getLatestLottoRoundFromAPI } from "$lib/utils/lotto-common.js";
 import { parseLottoQR } from "$lib/utils/lotto-parser.js";
 import { fail } from "@sveltejs/kit";
 import { initClient } from "trailbase";
@@ -11,6 +12,10 @@ const api = client.records("numbers");
 
 export const load: PageServerLoad = async () => {
 	try {
+		// Get latest round information
+		const latestRoundInfo = await getLatestLottoRoundFromAPI();
+		const latestRound = latestRoundInfo?.drwNo || null;
+
 		const promises = Array.from({ length: 45 }, (_, index) => {
 			const ballNumber = index + 1;
 			return api.read(ballNumber).catch(
@@ -23,10 +28,16 @@ export const load: PageServerLoad = async () => {
 		});
 
 		const numbers = await Promise.all(promises);
-		return { numbers };
+		return {
+			numbers,
+			latestRound,
+		};
 	} catch (error) {
 		console.error("Failed to load initial lotto data:", error);
-		return { numbers: [] as BallNumber[] };
+		return {
+			numbers: [] as BallNumber[],
+			latestRound: null,
+		};
 	}
 };
 

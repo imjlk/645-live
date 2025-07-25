@@ -1,12 +1,12 @@
 <script lang="ts">
 import { enhance } from "$app/forms";
 import { env } from "$env/dynamic/public";
+import ScanStatusGrid from "$lib/modules/lotto/components/ScanStatusGrid.svelte";
 import {
-	type LottoDrawResult,
 	getLatestLottoRoundFromAPI,
 	getLottoNumbersFromAPI,
 } from "$lib/utils/lotto-common.js";
-import { type LottoGameData, parseLottoQR } from "$lib/utils/lotto-parser.js";
+import { parseLottoQR } from "$lib/utils/lotto-parser.js";
 import {
 	type BarcodeFormat,
 	BarqodeDropzone,
@@ -61,6 +61,10 @@ const client = initClient(env.PUBLIC_TRAILBASE_URL || "http://localhost:4000");
 // Form element reference for programmatic submission
 let scanForm: HTMLFormElement;
 let qrDataInput: HTMLInputElement;
+
+// Scan status grid reference for round updates
+let scanStatusGrid: ScanStatusGrid;
+let currentRound = $state((data as any).latestRound || 0);
 
 // ===== LOTTO WINNING CHECK UTILITIES =====
 interface WinningResult {
@@ -299,8 +303,23 @@ $effect(() => {
 				processedNumbers = form.data.uniqueNumbers;
 			}
 
-			// 실제 당첨 번호와 비교하여 당첨 여부 확인
+			// Check if QR code contains games from different round
 			const qrData = form.data?.qrData;
+			if (qrData) {
+				const games = parseLottoQR(qrData);
+				if (games && games.length > 0) {
+					const qrRound = games[0].round;
+					if (qrRound && qrRound !== currentRound) {
+						// Update current round and grid
+						currentRound = qrRound;
+						if (scanStatusGrid) {
+							scanStatusGrid.updateRound(qrRound);
+						}
+					}
+				}
+			}
+
+			// 실제 당첨 번호와 비교하여 당첨 여부 확인
 
 			if (qrData) {
 				// 비동기적으로 당첨 확인 수행
@@ -734,7 +753,12 @@ async function requestPermission() {
 	<input bind:this={qrDataInput} type="hidden" name="qrData" />
 </form>
 
-<div class="w-full max-w-md mx-auto">
+<!-- Desktop: Two column layout, Mobile: Single column with QR scanner on top -->
+<div class="w-full max-w-7xl mx-auto px-4">
+	<div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+		<!-- QR Scanner Column (Left on desktop, Top on mobile) -->
+		<div class="order-1 lg:order-2">
+			<div class="w-full max-w-md mx-auto lg:max-w-none">
 	<div class="aspect-square my-4">
 		{#if permissionDenied}
 			<div class="h-full flex flex-col items-center justify-center text-center p-6 bg-base-200 rounded-lg">
@@ -816,6 +840,39 @@ async function requestPermission() {
 				<p class="text-sm">이미지 파일을 드래그하거나 클릭하여 업로드</p>
 			</div>
 		</BarqodeDropzone>
+	</div>
+			</div>
+		</div>
+
+		<!-- Scan Status Grid Column (Right on desktop, Bottom on mobile) -->
+		<div class="order-2 lg:order-1">
+			<div class="mb-6">
+				<h2 class="text-xl font-bold text-gray-800 dark:text-white mb-4">
+					회차별 스캔 현황
+				</h2>
+				<ScanStatusGrid 
+					bind:this={scanStatusGrid}
+					initialRound={currentRound}
+					latestRound={(data as any).latestRound}
+					enableNavigation={false}
+					showHeader={true}
+					{...{
+						gridColumns: {
+							mobile: 5,
+							tablet: 5,
+							desktop: 5,
+							large: 5
+						},
+						gridGap: "gap-3",
+						incrementEffectConfig: {
+							show: true,
+							message: "+1",
+							color: "text-green-600 dark:text-green-400"
+						}
+					}}
+				/>
+			</div>
+		</div>
 	</div>
 </div>
 
