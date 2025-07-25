@@ -4,29 +4,29 @@
  * Follows design system patterns and accessibility best practices
  */
 
-import type { ButtonProps } from '$lib/types/components';
-import { createEventDispatcher } from 'svelte';
+import type { ButtonProps } from "$lib/types/components";
+import { createEventDispatcher } from "svelte";
 
 const dispatch = createEventDispatcher<{
-  click: MouseEvent;
-  focus: FocusEvent;
-  blur: FocusEvent;
+	click: MouseEvent;
+	focus: FocusEvent;
+	blur: FocusEvent;
 }>();
 
 // Props with comprehensive typing
 let {
-  variant = 'primary',
-  size = 'md',
-  loading = false,
-  disabled = false,
-  leftIcon,
-  rightIcon,
-  children,
-  class: customClass = '',
-  'data-testid': testId,
-  'aria-label': ariaLabel,
-  type = 'button',
-  ...restProps
+	variant = "primary",
+	size = "md",
+	loading = false,
+	disabled = false,
+	leftIcon,
+	rightIcon,
+	children,
+	class: customClass = "",
+	"data-testid": testId,
+	"aria-label": ariaLabel,
+	type = "button",
+	...restProps
 }: ButtonProps = $props();
 
 // Component state
@@ -34,91 +34,92 @@ let buttonElement: HTMLButtonElement | undefined = $state();
 let isPressed = $state(false);
 
 // Computed classes with design system integration
-const baseClasses = 'btn transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2';
+const baseClasses =
+	"btn transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2";
 
-const variantClasses: Record<Required<ButtonProps>['variant'], string> = {
-  primary: 'btn-primary focus:ring-primary/50',
-  secondary: 'btn-secondary focus:ring-secondary/50',
-  accent: 'btn-accent focus:ring-accent/50',
-  ghost: 'btn-ghost focus:ring-base-content/20',
-  link: 'btn-link focus:ring-primary/50',
-  outline: 'btn-outline focus:ring-primary/50',
-  error: 'btn-error focus:ring-error/50',
-  warning: 'btn-warning focus:ring-warning/50',
-  success: 'btn-success focus:ring-success/50',
-  info: 'btn-info focus:ring-info/50',
+const variantClasses: Record<Required<ButtonProps>["variant"], string> = {
+	primary: "btn-primary focus:ring-primary/50",
+	secondary: "btn-secondary focus:ring-secondary/50",
+	accent: "btn-accent focus:ring-accent/50",
+	ghost: "btn-ghost focus:ring-base-content/20",
+	link: "btn-link focus:ring-primary/50",
+	outline: "btn-outline focus:ring-primary/50",
+	error: "btn-error focus:ring-error/50",
+	warning: "btn-warning focus:ring-warning/50",
+	success: "btn-success focus:ring-success/50",
+	info: "btn-info focus:ring-info/50",
 };
 
-const sizeClasses: Record<Required<ButtonProps>['size'], string> = {
-  xs: 'btn-xs text-xs',
-  sm: 'btn-sm text-sm',
-  md: 'btn-md text-base',
-  lg: 'btn-lg text-lg',
+const sizeClasses: Record<Required<ButtonProps>["size"], string> = {
+	xs: "btn-xs text-xs",
+	sm: "btn-sm text-sm",
+	md: "btn-md text-base",
+	lg: "btn-lg text-lg",
 };
 
 const computedClasses = $derived(
-  [
-    baseClasses,
-    variantClasses[variant],
-    sizeClasses[size],
-    loading && 'loading',
-    disabled && 'btn-disabled',
-    isPressed && 'scale-95',
-    customClass,
-  ]
-    .filter(Boolean)
-    .join(' ')
+	[
+		baseClasses,
+		variantClasses[variant],
+		sizeClasses[size],
+		loading && "loading",
+		disabled && "btn-disabled",
+		isPressed && "scale-95",
+		customClass,
+	]
+		.filter(Boolean)
+		.join(" "),
 );
 
 // Event handlers with proper typing
 const handleClick = (event: MouseEvent) => {
-  if (disabled || loading) {
-    event.preventDefault();
-    return;
-  }
-  dispatch('click', event);
+	if (disabled || loading) {
+		event.preventDefault();
+		return;
+	}
+	dispatch("click", event);
 };
 
 const handleKeyDown = (event: KeyboardEvent) => {
-  if (event.key === 'Enter' || event.key === ' ') {
-    isPressed = true;
-  }
+	if (event.key === "Enter" || event.key === " ") {
+		isPressed = true;
+	}
 };
 
 const handleKeyUp = (event: KeyboardEvent) => {
-  if (event.key === 'Enter' || event.key === ' ') {
-    isPressed = false;
-  }
+	if (event.key === "Enter" || event.key === " ") {
+		isPressed = false;
+	}
 };
 
 const handleMouseDown = () => {
-  isPressed = true;
+	isPressed = true;
 };
 
 const handleMouseUp = () => {
-  isPressed = false;
+	isPressed = false;
 };
 
 const handleMouseLeave = () => {
-  isPressed = false;
+	isPressed = false;
 };
 
 const handleFocus = (event: FocusEvent) => {
-  dispatch('focus', event);
+	dispatch("focus", event);
 };
 
 const handleBlur = (event: FocusEvent) => {
-  isPressed = false;
-  dispatch('blur', event);
+	isPressed = false;
+	dispatch("blur", event);
 };
 
 // Public API for parent components
 export const focus = () => {
-  buttonElement?.focus();
+	buttonElement?.focus();
 };
 
 export const blur = () => {
-  buttonElement?.blur();
+	buttonElement?.blur();
 };
 
 export const getElement = () => buttonElement;

@@ -4,99 +4,108 @@
  * Supports sorting, loading states, and custom cell rendering
  */
 
-import type { TableProps, TableColumn } from '$lib/types/components';
-import LoadingSpinner from './LoadingSpinner.svelte';
-import { createEventDispatcher } from 'svelte';
+import type { TableColumn, TableProps } from "$lib/types/components";
+import { createEventDispatcher } from "svelte";
+import LoadingSpinner from "./LoadingSpinner.svelte";
 
 type T = $$Generic;
 
 const dispatch = createEventDispatcher<{
-  'row-click': { row: T; index: number; event: MouseEvent };
-  'sort-change': { column: string; direction: 'asc' | 'desc' };
+	"row-click": { row: T; index: number; event: MouseEvent };
+	"sort-change": { column: string; direction: "asc" | "desc" };
 }>();
 
 let {
-  data,
-  columns,
-  loading,
-  emptyMessage = '데이터가 없습니다.',
-  striped = false,
-  hoverable = false,
-  compact = false,
-  onRowClick,
-  class: customClass = '',
-  'data-testid': testId,
-  ...restProps
+	data,
+	columns,
+	loading,
+	emptyMessage = "데이터가 없습니다.",
+	striped = false,
+	hoverable = false,
+	compact = false,
+	onRowClick,
+	class: customClass = "",
+	"data-testid": testId,
+	...restProps
 }: TableProps<T> = $props();
 
 // Component state
 let sortColumn: string | null = $state(null);
-let sortDirection: 'asc' | 'desc' = $state('asc');
+let sortDirection: "asc" | "desc" = $state("asc");
 
 // Computed classes
-const tableClasses = $derived([
-  'table w-full',
-  striped && 'table-zebra',
-  compact && 'table-compact',
-  hoverable && 'table-hover',
-  customClass,
-].filter(Boolean).join(' '));
+const tableClasses = $derived(
+	[
+		"table w-full",
+		striped && "table-zebra",
+		compact && "table-compact",
+		hoverable && "table-hover",
+		customClass,
+	]
+		.filter(Boolean)
+		.join(" "),
+);
 
 // Handle column sorting
 const handleSort = (column: TableColumn<T>) => {
-  if (!column.sortable) return;
-  
-  const columnKey = String(column.key);
-  
-  if (sortColumn === columnKey) {
-    sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
-  } else {
-    sortColumn = columnKey;
-    sortDirection = 'asc';
-  }
-  
-  dispatch('sort-change', { column: columnKey, direction: sortDirection });
+	if (!column.sortable) return;
+
+	const columnKey = String(column.key);
+
+	if (sortColumn === columnKey) {
+		sortDirection = sortDirection === "asc" ? "desc" : "asc";
+	} else {
+		sortColumn = columnKey;
+		sortDirection = "asc";
+	}
+
+	dispatch("sort-change", { column: columnKey, direction: sortDirection });
 };
 
 // Handle row click
 const handleRowClick = (row: T, index: number, event: MouseEvent) => {
-  if (onRowClick) {
-    onRowClick(row, index);
-  }
-  dispatch('row-click', { row, index, event });
+	if (onRowClick) {
+		onRowClick(row, index);
+	}
+	dispatch("row-click", { row, index, event });
 };
 
 // Handle keyboard navigation for sortable headers
 const handleHeaderKeyDown = (event: KeyboardEvent, column: TableColumn<T>) => {
-  if (column.sortable && (event.key === 'Enter' || event.key === ' ')) {
-    event.preventDefault();
-    handleSort(column);
-  }
+	if (column.sortable && (event.key === "Enter" || event.key === " ")) {
+		event.preventDefault();
+		handleSort(column);
+	}
 };
 
 // Get cell value with proper type handling
 const getCellValue = (row: T, column: TableColumn<T>): unknown => {
-  if (typeof column.key === 'string') {
-    return (row as Record<string, unknown>)[column.key];
-  }
-  return (row as Record<string | number | symbol, unknown>)[column.key];
+	if (typeof column.key === "string") {
+		return (row as Record<string, unknown>)[column.key];
+	}
+	return (row as Record<string | number | symbol, unknown>)[column.key];
 };
 
 // Render cell content
-const renderCell = (value: unknown, row: T, index: number, column: TableColumn<T>) => {
-  if (column.render) {
-    const rendered = column.render(value, row, index);
-    return typeof rendered === 'string' ? rendered : null;
-  }
-  return String(value ?? '');
+const renderCell = (
+	value: unknown,
+	row: T,
+	index: number,
+	column: TableColumn<T>,
+) => {
+	if (column.render) {
+		const rendered = column.render(value, row, index);
+		return typeof rendered === "string" ? rendered : null;
+	}
+	return String(value ?? "");
 };
 
 // Sort indicator for headers
 const getSortIcon = (column: TableColumn<T>): string => {
-  if (!column.sortable) return '';
-  const columnKey = String(column.key);
-  if (sortColumn !== columnKey) return '↕️';
-  return sortDirection === 'asc' ? '↑' : '↓';
+	if (!column.sortable) return "";
+	const columnKey = String(column.key);
+	if (sortColumn !== columnKey) return "↕️";
+	return sortDirection === "asc" ? "↑" : "↓";
 };
 </script>
 

@@ -1,8 +1,8 @@
 <script lang="ts">
 import { page } from "$app/state";
 import Header from "$lib/layout/Header.svelte";
-import NavigationMenu from "$lib/layout/NavigationMenu.svelte";
 import MobileNavigation from "$lib/layout/MobileNavigation.svelte";
+import NavigationMenu from "$lib/layout/NavigationMenu.svelte";
 import "../app.css";
 import Footer from "$lib/layout/Footer.svelte";
 import Clarity from "@microsoft/clarity";

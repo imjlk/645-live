@@ -4,35 +4,35 @@
  * Supports various input types, validation states, and helper text
  */
 
-import type { InputProps } from '$lib/types/components';
-import { createEventDispatcher } from 'svelte';
+import type { InputProps } from "$lib/types/components";
+import { createEventDispatcher } from "svelte";
 
 // Event dispatcher for input events
 const dispatch = createEventDispatcher<{
-  input: Event;
-  change: Event;
-  focus: FocusEvent;
-  blur: FocusEvent;
-  'validation-change': { isValid: boolean; errors: string[] };
+	input: Event;
+	change: Event;
+	focus: FocusEvent;
+	blur: FocusEvent;
+	"validation-change": { isValid: boolean; errors: string[] };
 }>();
 
 let {
-  variant = 'default',
-  size = 'md',
-  label,
-  placeholder,
-  helperText,
-  errorText,
-  validation,
-  leftIcon,
-  rightIcon,
-  class: customClass = '',
-  'data-testid': testId,
-  value = '',
-  disabled = false,
-  required = false,
-  type = 'text',
-  ...restProps
+	variant = "default",
+	size = "md",
+	label,
+	placeholder,
+	helperText,
+	errorText,
+	validation,
+	leftIcon,
+	rightIcon,
+	class: customClass = "",
+	"data-testid": testId,
+	value = "",
+	disabled = false,
+	required = false,
+	type = "text",
+	...restProps
 }: InputProps = $props();
 
 // Component state
@@ -44,75 +44,79 @@ let hasError = $derived(!!errorText || (validation && !validation.isValid));
 const inputId = `input-${Math.random().toString(36).substr(2, 9)}`;
 
 // Base classes
-const baseClasses = 'input w-full transition-all duration-200';
+const baseClasses = "input w-full transition-all duration-200";
 
-const variantClasses: Record<Required<InputProps>['variant'], string> = {
-  default: 'input-bordered',
-  bordered: 'input-bordered border-2',
-  ghost: 'input-ghost',
-  primary: 'input-primary input-bordered',
-  secondary: 'input-secondary input-bordered',
-  accent: 'input-accent input-bordered',
-  error: 'input-error input-bordered',
-  warning: 'input-warning input-bordered',
-  success: 'input-success input-bordered',
+const variantClasses: Record<Required<InputProps>["variant"], string> = {
+	default: "input-bordered",
+	bordered: "input-bordered border-2",
+	ghost: "input-ghost",
+	primary: "input-primary input-bordered",
+	secondary: "input-secondary input-bordered",
+	accent: "input-accent input-bordered",
+	error: "input-error input-bordered",
+	warning: "input-warning input-bordered",
+	success: "input-success input-bordered",
 };
 
-const sizeClasses: Record<Required<InputProps>['size'], string> = {
-  xs: 'input-xs text-xs',
-  sm: 'input-sm text-sm',
-  md: 'input-md text-base',
-  lg: 'input-lg text-lg',
+const sizeClasses: Record<Required<InputProps>["size"], string> = {
+	xs: "input-xs text-xs",
+	sm: "input-sm text-sm",
+	md: "input-md text-base",
+	lg: "input-lg text-lg",
 };
 
-const inputClasses = $derived([
-  baseClasses,
-  hasError ? variantClasses.error : variantClasses[variant],
-  sizeClasses[size],
-  disabled && 'input-disabled opacity-60 cursor-not-allowed',
-  isFocused && 'ring-2 ring-primary ring-opacity-50',
-  (leftIcon || rightIcon) && 'pl-10',
-  rightIcon && 'pr-10',
-  customClass,
-].filter(Boolean).join(' '));
+const inputClasses = $derived(
+	[
+		baseClasses,
+		hasError ? variantClasses.error : variantClasses[variant],
+		sizeClasses[size],
+		disabled && "input-disabled opacity-60 cursor-not-allowed",
+		isFocused && "ring-2 ring-primary ring-opacity-50",
+		(leftIcon || rightIcon) && "pl-10",
+		rightIcon && "pr-10",
+		customClass,
+	]
+		.filter(Boolean)
+		.join(" "),
+);
 
 // Event handlers
 const handleInput = (event: Event) => {
-  const target = event.target as HTMLInputElement;
-  value = target.value;
-  dispatch('input', event);
-  
-  // Trigger validation if available
-  if (validation) {
-    dispatch('validation-change', validation);
-  }
+	const target = event.target as HTMLInputElement;
+	value = target.value;
+	dispatch("input", event);
+
+	// Trigger validation if available
+	if (validation) {
+		dispatch("validation-change", validation);
+	}
 };
 
 const handleChange = (event: Event) => {
-  dispatch('change', event);
+	dispatch("change", event);
 };
 
 const handleFocus = (event: FocusEvent) => {
-  isFocused = true;
-  dispatch('focus', event);
+	isFocused = true;
+	dispatch("focus", event);
 };
 
 const handleBlur = (event: FocusEvent) => {
-  isFocused = false;
-  dispatch('blur', event);
+	isFocused = false;
+	dispatch("blur", event);
 };
 
 // Public API
 export const focus = () => {
-  inputElement?.focus();
+	inputElement?.focus();
 };
 
 export const blur = () => {
-  inputElement?.blur();
+	inputElement?.blur();
 };
 
 export const select = () => {
-  inputElement?.select();
+	inputElement?.select();
 };
 
 export const getElement = () => inputElement;

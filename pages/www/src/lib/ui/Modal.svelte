@@ -4,22 +4,22 @@
  * Follows WCAG guidelines and supports various sizes and configurations
  */
 
-import type { ModalProps } from '$lib/types/components';
-import { onMount } from 'svelte';
+import type { ModalProps } from "$lib/types/components";
+import { onMount } from "svelte";
 
 let {
-  open = false,
-  onClose,
-  size = 'md',
-  title,
-  closable = true,
-  backdrop = true,
-  header,
-  footer,
-  children,
-  class: customClass = '',
-  'data-testid': testId,
-  ...restProps
+	open = false,
+	onClose,
+	size = "md",
+	title,
+	closable = true,
+	backdrop = true,
+	header,
+	footer,
+	children,
+	class: customClass = "",
+	"data-testid": testId,
+	...restProps
 }: ModalProps = $props();
 
 // Element references
@@ -27,115 +27,112 @@ let modalElement: HTMLDialogElement | undefined = $state();
 let previousActiveElement: Element | null = null;
 
 // Size classes
-const sizeClasses: Record<Required<ModalProps>['size'], string> = {
-  sm: 'modal-box max-w-sm',
-  md: 'modal-box max-w-md',
-  lg: 'modal-box max-w-lg',
-  xl: 'modal-box max-w-xl',
-  full: 'modal-box max-w-full h-full',
+const sizeClasses: Record<Required<ModalProps>["size"], string> = {
+	sm: "modal-box max-w-sm",
+	md: "modal-box max-w-md",
+	lg: "modal-box max-w-lg",
+	xl: "modal-box max-w-xl",
+	full: "modal-box max-w-full h-full",
 };
 
-const modalClasses = $derived([
-  'modal',
-  open && 'modal-open',
-  customClass,
-].filter(Boolean).join(' '));
+const modalClasses = $derived(
+	["modal", open && "modal-open", customClass].filter(Boolean).join(" "),
+);
 
-const boxClasses = $derived([
-  sizeClasses[size],
-  'relative'
-].join(' '));
+const boxClasses = $derived([sizeClasses[size], "relative"].join(" "));
 
 // Focus management
 const trapFocus = (element: HTMLElement) => {
-  const focusableElements = element.querySelectorAll(
-    'a[href], button, textarea, input[type="text"], input[type="radio"], input[type="checkbox"], select, [tabindex]:not([tabindex="-1"])'
-  );
-  
-  if (focusableElements.length === 0) return;
-  
-  const firstFocusable = focusableElements[0] as HTMLElement;
-  const lastFocusable = focusableElements[focusableElements.length - 1] as HTMLElement;
-  
-  const handleTabKey = (event: KeyboardEvent) => {
-    if (event.key !== 'Tab') return;
-    
-    if (event.shiftKey) {
-      if (document.activeElement === firstFocusable) {
-        event.preventDefault();
-        lastFocusable.focus();
-      }
-    } else {
-      if (document.activeElement === lastFocusable) {
-        event.preventDefault();
-        firstFocusable.focus();
-      }
-    }
-  };
-  
-  element.addEventListener('keydown', handleTabKey);
-  firstFocusable.focus();
-  
-  return () => {
-    element.removeEventListener('keydown', handleTabKey);
-  };
+	const focusableElements = element.querySelectorAll(
+		'a[href], button, textarea, input[type="text"], input[type="radio"], input[type="checkbox"], select, [tabindex]:not([tabindex="-1"])',
+	);
+
+	if (focusableElements.length === 0) return;
+
+	const firstFocusable = focusableElements[0] as HTMLElement;
+	const lastFocusable = focusableElements[
+		focusableElements.length - 1
+	] as HTMLElement;
+
+	const handleTabKey = (event: KeyboardEvent) => {
+		if (event.key !== "Tab") return;
+
+		if (event.shiftKey) {
+			if (document.activeElement === firstFocusable) {
+				event.preventDefault();
+				lastFocusable.focus();
+			}
+		} else {
+			if (document.activeElement === lastFocusable) {
+				event.preventDefault();
+				firstFocusable.focus();
+			}
+		}
+	};
+
+	element.addEventListener("keydown", handleTabKey);
+	firstFocusable.focus();
+
+	return () => {
+		element.removeEventListener("keydown", handleTabKey);
+	};
 };
 
 // Handle escape key and backdrop clicks
 const handleKeydown = (event: KeyboardEvent) => {
-  if (event.key === 'Escape' && closable) {
-    handleClose();
-  }
+	if (event.key === "Escape" && closable) {
+		handleClose();
+	}
 };
 
 const handleBackdropClick = (event: MouseEvent) => {
-  if (backdrop && closable && event.target === event.currentTarget) {
-    handleClose();
-  }
+	if (backdrop && closable && event.target === event.currentTarget) {
+		handleClose();
+	}
 };
 
 const handleClose = () => {
-  if (onClose) {
-    onClose();
-  }
-  
-  // Restore focus to previously active element
-  if (previousActiveElement instanceof HTMLElement) {
-    previousActiveElement.focus();
-  }
+	if (onClose) {
+		onClose();
+	}
+
+	// Restore focus to previously active element
+	if (previousActiveElement instanceof HTMLElement) {
+		previousActiveElement.focus();
+	}
 };
 
 // Lifecycle management
 $effect(() => {
-  if (!modalElement) return;
-  
-  if (open) {
-    // Store the currently focused element
-    previousActiveElement = document.activeElement;
-    
-    // Prevent body scroll
-    document.body.style.overflow = 'hidden';
-    
-    // Setup focus trap
-    const cleanupFocusTrap = trapFocus(modalElement);
-    
-    return () => {
-      document.body.style.overflow = '';
-      cleanupFocusTrap?.();
-    };
-  } else {
-    document.body.style.overflow = '';
-  }
+	if (!modalElement) return;
+
+	if (open) {
+		// Store the currently focused element
+		previousActiveElement = document.activeElement;
+
+		// Prevent body scroll
+		document.body.style.overflow = "hidden";
+
+		// Setup focus trap
+		const cleanupFocusTrap = trapFocus(modalElement);
+
+		return () => {
+			document.body.style.overflow = "";
+			cleanupFocusTrap?.();
+		};
+	} else {
+		document.body.style.overflow = "";
+	}
 });
 
 onMount(() => {
-  // Cleanup on component unmount
-  return () => {
-    document.body.style.overflow = '';
-    if (previousActiveElement instanceof HTMLElement) {
-      previousActiveElement.focus();
-    }
-  };
+	// Cleanup on component unmount
+	return () => {
+		document.body.style.overflow = "";
+		if (previousActiveElement instanceof HTMLElement) {
+			previousActiveElement.focus();
+		}
+	};
 });
 </script>
 

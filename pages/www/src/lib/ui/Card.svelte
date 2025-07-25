@@ -4,64 +4,66 @@
  * Supports various layouts, states, and interaction patterns
  */
 
-import type { CardProps } from '$lib/types/components';
+import type { CardProps } from "$lib/types/components";
 
 let {
-  variant = 'default',
-  shadow = true,
-  hoverable = false,
-  title,
-  image,
-  imageAlt = '',
-  actions,
-  children,
-  class: customClass = '',
-  'data-testid': testId,
-  ...restProps
+	variant = "default",
+	shadow = true,
+	hoverable = false,
+	title,
+	image,
+	imageAlt = "",
+	actions,
+	children,
+	class: customClass = "",
+	"data-testid": testId,
+	...restProps
 }: CardProps = $props();
 
 // Computed classes based on variant and options
-const baseClasses = 'card w-full transition-all duration-200';
+const baseClasses = "card w-full transition-all duration-200";
 
-const variantClasses: Record<Required<CardProps>['variant'], string> = {
-  default: 'bg-base-100',
-  bordered: 'card-bordered bg-base-100',
-  compact: 'card-compact bg-base-100',
-  side: 'card-side bg-base-100',
-  'image-full': 'image-full text-primary-content',
+const variantClasses: Record<Required<CardProps>["variant"], string> = {
+	default: "bg-base-100",
+	bordered: "card-bordered bg-base-100",
+	compact: "card-compact bg-base-100",
+	side: "card-side bg-base-100",
+	"image-full": "image-full text-primary-content",
 };
 
 const conditionalClasses = [
-  shadow && 'shadow-lg',
-  hoverable && 'hover:shadow-xl hover:-translate-y-0.5 cursor-pointer',
+	shadow && "shadow-lg",
+	hoverable && "hover:shadow-xl hover:-translate-y-0.5 cursor-pointer",
 ].filter(Boolean);
 
-const cardClasses = $derived([
-  baseClasses,
-  variantClasses[variant],
-  ...conditionalClasses,
-  customClass,
-].join(' '));
+const cardClasses = $derived(
+	[
+		baseClasses,
+		variantClasses[variant],
+		...conditionalClasses,
+		customClass,
+	].join(" "),
+);
 
 // Event handlers
 const handleCardClick = (event: MouseEvent) => {
-  if (hoverable) {
-    // Dispatch custom event for card interaction
-    const cardClickEvent = new CustomEvent('card-click', {
-      detail: { originalEvent: event }
-    });
-    event.currentTarget?.dispatchEvent(cardClickEvent);
-  }
+	if (hoverable) {
+		// Dispatch custom event for card interaction
+		const cardClickEvent = new CustomEvent("card-click", {
+			detail: { originalEvent: event },
+		});
+		event.currentTarget?.dispatchEvent(cardClickEvent);
+	}
 };
 
 const handleKeyDown = (event: KeyboardEvent) => {
-  if (hoverable && (event.key === 'Enter' || event.key === ' ')) {
-    event.preventDefault();
-    const cardClickEvent = new CustomEvent('card-click', {
-      detail: { originalEvent: event }
-    });
-    event.currentTarget?.dispatchEvent(cardClickEvent);
-  }
+	if (hoverable && (event.key === "Enter" || event.key === " ")) {
+		event.preventDefault();
+		const cardClickEvent = new CustomEvent("card-click", {
+			detail: { originalEvent: event },
+		});
+		event.currentTarget?.dispatchEvent(cardClickEvent);
+	}
 };
 </script>
 

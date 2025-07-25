@@ -11,7 +11,7 @@
 		"strict": true,
 		"module": "es2022",
 		"moduleResolution": "bundler",
-		
+
 		// Enhanced type safety options
 		"noImplicitAny": true,
 		"noImplicitReturns": true,
@@ -22,12 +22,12 @@
 		"noUncheckedIndexedAccess": true,
 		"noImplicitOverride": true,
 		"noPropertyAccessFromIndexSignature": true,
-		
+
 		// Additional safety checks
 		"allowUnreachableCode": false,
 		"allowUnusedLabels": false,
 		"noFallthroughCasesInSwitch": true,
-		
+
 		// Better error reporting
 		"pretty": true,
 		"noErrorTruncation": true

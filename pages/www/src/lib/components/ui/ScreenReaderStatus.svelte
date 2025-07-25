@@ -6,7 +6,7 @@
 
 interface Props {
 	/** aria-live 속성 값 */
-	liveMode?: 'off' | 'polite' | 'assertive';
+	liveMode?: "off" | "polite" | "assertive";
 	/** 메시지가 변경될 때 전체를 다시 읽을지 여부 */
 	atomic?: boolean;
 	/** 전달할 메시지 */
@@ -15,11 +15,11 @@ interface Props {
 	class?: string;
 }
 
-let { 
-	liveMode = 'polite', 
-	atomic = true, 
-	message = '',
-	class: className = ''
+let {
+	liveMode = "polite",
+	atomic = true,
+	message = "",
+	class: className = "",
 }: Props = $props();
 
 // 메시지가 변경될 때마다 고유한 키 생성하여 강제 업데이트

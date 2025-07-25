@@ -18,64 +18,64 @@ export interface NavigationOptions {
  * @returns 다음 포커스해야 할 인덱스 또는 null
  */
 export function handleGridNavigation(
-	event: KeyboardEvent, 
-	currentIndex: number, 
-	options: NavigationOptions
+	event: KeyboardEvent,
+	currentIndex: number,
+	options: NavigationOptions,
 ): number | null {
 	const { gridColumns = 5, maxItems = 45, onActivate, onEscape } = options;
-	
+
 	switch (event.key) {
-		case 'ArrowRight': {
+		case "ArrowRight": {
 			event.preventDefault();
 			const nextIndex = currentIndex + 1;
 			return nextIndex < maxItems ? nextIndex : currentIndex;
 		}
-		
-		case 'ArrowLeft': {
+
+		case "ArrowLeft": {
 			event.preventDefault();
 			const prevIndex = currentIndex - 1;
 			return prevIndex >= 0 ? prevIndex : currentIndex;
 		}
-		
-		case 'ArrowDown': {
+
+		case "ArrowDown": {
 			event.preventDefault();
 			const nextRowIndex = currentIndex + gridColumns;
 			return nextRowIndex < maxItems ? nextRowIndex : currentIndex;
 		}
-		
-		case 'ArrowUp': {
+
+		case "ArrowUp": {
 			event.preventDefault();
 			const prevRowIndex = currentIndex - gridColumns;
 			return prevRowIndex >= 0 ? prevRowIndex : currentIndex;
 		}
-		
-		case 'Home': {
+
+		case "Home": {
 			event.preventDefault();
 			return 0;
 		}
-		
-		case 'End': {
+
+		case "End": {
 			event.preventDefault();
 			return maxItems - 1;
 		}
-		
-		case 'Enter':
-		case ' ': {
+
+		case "Enter":
+		case " ": {
 			event.preventDefault();
 			if (onActivate) {
 				onActivate(currentIndex);
 			}
 			return null;
 		}
-		
-		case 'Escape': {
+
+		case "Escape": {
 			event.preventDefault();
 			if (onEscape) {
 				onEscape();
 			}
 			return null;
 		}
-		
+
 		default:
 			return null;
 	}
@@ -86,13 +86,16 @@ export function handleGridNavigation(
  * @param element - 포커스할 요소
  * @param behavior - 스크롤 동작 ('auto' | 'smooth')
  */
-export function focusElement(element: HTMLElement | null, behavior: ScrollBehavior = 'smooth'): void {
+export function focusElement(
+	element: HTMLElement | null,
+	behavior: ScrollBehavior = "smooth",
+): void {
 	if (element) {
 		element.focus();
-		element.scrollIntoView({ 
-			behavior, 
-			block: 'nearest', 
-			inline: 'nearest' 
+		element.scrollIntoView({
+			behavior,
+			block: "nearest",
+			inline: "nearest",
 		});
 	}
 }
@@ -103,19 +106,22 @@ export function focusElement(element: HTMLElement | null, behavior: ScrollBehavi
  * @param maxNumber - 최대 번호 (기본값: 45)
  * @returns 이동할 번호 또는 null
  */
-export function handleDirectNumberNavigation(event: KeyboardEvent, maxNumber: number = 45): number | null {
+export function handleDirectNumberNavigation(
+	event: KeyboardEvent,
+	maxNumber = 45,
+): number | null {
 	// 숫자 키 1-9, 0 처리
-	if (event.key >= '0' && event.key <= '9') {
-		const digit = parseInt(event.key);
-		
+	if (event.key >= "0" && event.key <= "9") {
+		const digit = Number.parseInt(event.key);
+
 		// 1-9는 해당 번호로, 0은 10번으로
 		const targetNumber = digit === 0 ? 10 : digit;
-		
+
 		if (targetNumber <= maxNumber) {
 			return targetNumber;
 		}
 	}
-	
+
 	return null;
 }
 
@@ -124,15 +130,18 @@ export function handleDirectNumberNavigation(event: KeyboardEvent, maxNumber: nu
  * @param message - 전달할 메시지
  * @param priority - 메시지 우선순위 ('polite' | 'assertive')
  */
-export function announceToScreenReader(message: string, priority: 'polite' | 'assertive' = 'polite'): void {
-	const announcer = document.createElement('div');
-	announcer.setAttribute('aria-live', priority);
-	announcer.setAttribute('aria-atomic', 'true');
-	announcer.className = 'sr-only';
+export function announceToScreenReader(
+	message: string,
+	priority: "polite" | "assertive" = "polite",
+): void {
+	const announcer = document.createElement("div");
+	announcer.setAttribute("aria-live", priority);
+	announcer.setAttribute("aria-atomic", "true");
+	announcer.className = "sr-only";
 	announcer.textContent = message;
-	
+
 	document.body.appendChild(announcer);
-	
+
 	// 메시지 전달 후 요소 제거
 	setTimeout(() => {
 		document.body.removeChild(announcer);

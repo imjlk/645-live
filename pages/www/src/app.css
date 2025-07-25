@@ -25,33 +25,33 @@ body {
 }
 
 ::view-transition {
-  position: fixed;
-  inset: 0;
-  z-index: 10;
+	position: fixed;
+	inset: 0;
+	z-index: 10;
 }
 
 ::view-transition-group(*) {
-  animation-duration: 0.25s;
+	animation-duration: 0.25s;
 }
 
 ::view-transition-old(*) {
-  z-index: 1;
+	z-index: 1;
 }
 
 ::view-transition-new(*) {
-  z-index: 2;
+	z-index: 2;
 }
 
 /* 모바일 네비게이션이 모든 요소보다 위에 오도록 강제 */
 nav[aria-label*="모바일"],
 .btm-nav,
 nav.fixed.bottom-0 {
-  z-index: 2147483647 !important; /* CSS 최대 z-index */
-  position: fixed !important;
+	z-index: 2147483647 !important; /* CSS 최대 z-index */
+	position: fixed !important;
 }
 
 /* View Transition 중에도 모바일 네비게이션이 최상위 유지 */
 ::view-transition nav[aria-label*="모바일"],
 ::view-transition .btm-nav {
-  z-index: 2147483647 !important;
+	z-index: 2147483647 !important;
 }
