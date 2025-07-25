@@ -410,13 +410,152 @@ self.addEventListener("fetch", (event: FetchEvent) => {
 
 // Background sync for offline actions
 self.addEventListener("sync", (event) => {
-	if (event.tag === "background-sync") {
-		event.waitUntil(
-			// Handle background sync logic here
-			Promise.resolve(),
-		);
+	console.log("🔄 Background sync triggered:", event.tag);
+
+	if (event.tag === "background-sync-lotto-data") {
+		event.waitUntil(syncLottoData());
+	} else if (event.tag === "background-sync-statistics") {
+		event.waitUntil(syncStatistics());
+	} else if (event.tag === "background-sync-user-preferences") {
+		event.waitUntil(syncUserPreferences());
 	}
 });
+
+// 로또 데이터 백그라운드 동기화
+async function syncLottoData(): Promise<void> {
+	try {
+		console.log("🎯 Syncing lotto data in background");
+		
+		// 최신 추첨 결과 가져오기
+		const response = await fetch("/api/latest-draw");
+		if (response.ok) {
+			const latestData = await response.json();
+			
+			// 캐시 업데이트
+			const cache = await caches.open(CACHE_NAMES.api);
+			await cache.put("/api/latest-draw", response.clone());
+			
+			// 클라이언트에게 업데이트 알림
+			const clients = await self.clients.matchAll();
+			clients.forEach(client => {
+				client.postMessage({
+					type: "LOTTO_DATA_UPDATED",
+					data: latestData
+				});
+			});
+			
+			console.log("✅ Lotto data synced successfully");
+		}
+	} catch (error) {
+		console.error("❌ Background sync failed for lotto data:", error);
+		throw error; // 재시도를 위해 에러 다시 던지기
+	}
+}
+
+// 통계 데이터 백그라운드 동기화
+async function syncStatistics(): Promise<void> {
+	try {
+		console.log("📊 Syncing statistics in background");
+		
+		const endpoints = ["/api/stats/frequency", "/api/stats/patterns", "/api/stats/trends"];
+		const cache = await caches.open(CACHE_NAMES.api);
+		
+		for (const endpoint of endpoints) {
+			try {
+				const response = await fetch(endpoint);
+				if (response.ok) {
+					await cache.put(endpoint, response.clone());
+				}
+			} catch (error) {
+				console.warn(`Failed to sync ${endpoint}:`, error);
+			}
+		}
+		
+		console.log("✅ Statistics synced successfully");
+	} catch (error) {
+		console.error("❌ Background sync failed for statistics:", error);
+		throw error;
+	}
+}
+
+// 사용자 설정 백그라운드 동기화
+async function syncUserPreferences(): Promise<void> {
+	try {
+		console.log("⚙️ Syncing user preferences in background");
+		
+		// IndexedDB에서 오프라인 중 변경된 설정 가져오기
+		const pendingPreferences = await getPendingPreferences();
+		
+		if (pendingPreferences.length > 0) {
+			for (const pref of pendingPreferences) {
+				try {
+					const response = await fetch("/api/user/preferences", {
+						method: "POST",
+						headers: { "Content-Type": "application/json" },
+						body: JSON.stringify(pref)
+					});
+					
+					if (response.ok) {
+						await removePendingPreference(pref.id);
+					}
+				} catch (error) {
+					console.warn("Failed to sync preference:", pref, error);
+				}
+			}
+		}
+		
+		console.log("✅ User preferences synced successfully");
+	} catch (error) {
+		console.error("❌ Background sync failed for user preferences:", error);
+		throw error;
+	}
+}
+
+// IndexedDB 헬퍼 함수들
+async function getPendingPreferences(): Promise<any[]> {
+	return new Promise((resolve, reject) => {
+		const request = indexedDB.open("645-live-offline", 1);
+		
+		request.onerror = () => reject(request.error);
+		request.onsuccess = () => {
+			const db = request.result;
+			if (!db.objectStoreNames.contains("pendingPreferences")) {
+				resolve([]);
+				return;
+			}
+			
+			const transaction = db.transaction("pendingPreferences", "readonly");
+			const store = transaction.objectStore("pendingPreferences");
+			const getAllRequest = store.getAll();
+			
+			getAllRequest.onsuccess = () => resolve(getAllRequest.result);
+			getAllRequest.onerror = () => reject(getAllRequest.error);
+		};
+		
+		request.onupgradeneeded = (event) => {
+			const db = (event.target as IDBOpenDBRequest).result;
+			if (!db.objectStoreNames.contains("pendingPreferences")) {
+				db.createObjectStore("pendingPreferences", { keyPath: "id" });
+			}
+		};
+	});
+}
+
+async function removePendingPreference(id: string): Promise<void> {
+	return new Promise((resolve, reject) => {
+		const request = indexedDB.open("645-live-offline", 1);
+		
+		request.onsuccess = () => {
+			const db = request.result;
+			const transaction = db.transaction("pendingPreferences", "readwrite");
+			const store = transaction.objectStore("pendingPreferences");
+			const deleteRequest = store.delete(id);
+			
+			deleteRequest.onsuccess = () => resolve();
+			deleteRequest.onerror = () => reject(deleteRequest.error);
+		};
+	});
+}
 
 // Handle cache size limits periodically
 self.addEventListener("message", (event) => {
@@ -428,6 +567,102 @@ self.addEventListener("message", (event) => {
 				limitCacheSize(CACHE_NAMES.images, 200),
 			]),
 		);
+	} else if (event.data?.type === "REGISTER_BACKGROUND_SYNC") {
+		// 백그라운드 동기화 등록
+		const { tag } = event.data;
+		if ("serviceWorker" in navigator && "sync" in window.ServiceWorkerRegistration.prototype) {
+			self.registration.sync.register(tag).catch(console.error);
+		}
+	} else if (event.data?.type === "SKIP_WAITING") {
+		// 업데이트 시 대기 상태 건너뛰기
+		self.skipWaiting();
+	}
+});
+
+// Push notification 처리
+self.addEventListener("push", (event) => {
+	console.log("📱 Push notification received");
+	
+	let notificationData = {
+		title: "645.live",
+		body: "새로운 소식이 있습니다!",
+		icon: "/favicon.ico",
+		badge: "/favicon.ico",
+		data: { url: "/" }
+	};
+
+	if (event.data) {
+		try {
+			const data = event.data.json();
+			notificationData = { ...notificationData, ...data };
+		} catch (error) {
+			console.warn("Push 데이터 파싱 실패:", error);
+		}
+	}
+
+	const options = {
+		body: notificationData.body,
+		icon: notificationData.icon,
+		badge: notificationData.badge,
+		data: notificationData.data,
+		actions: [
+			{
+				action: "open",
+				title: "열기",
+				icon: "/favicon.ico"
+			},
+			{
+				action: "close",
+				title: "닫기"
+			}
+		],
+		requireInteraction: false,
+		silent: false,
+		vibrate: [200, 100, 200],
+		tag: "lotto-notification"
+	};
+
+	event.waitUntil(
+		self.registration.showNotification(notificationData.title, options)
+	);
+});
+
+// Notification click 처리
+self.addEventListener("notificationclick", (event) => {
+	console.log("🔔 Notification clicked:", event.action);
+	
+	event.notification.close();
+
+	if (event.action === "close") {
+		return;
+	}
+
+	const urlToOpen = event.notification.data?.url || "/";
+
+	event.waitUntil(
+		self.clients.matchAll({ type: "window", includeUncontrolled: true })
+			.then((clientList) => {
+				// 이미 열린 창이 있는지 확인
+				for (const client of clientList) {
+					if (client.url === urlToOpen && "focus" in client) {
+						return client.focus();
+					}
+				}
+				
+				// 새 창 열기
+				if (self.clients.openWindow) {
+					return self.clients.openWindow(urlToOpen);
+				}
+			})
+	);
+});
+
+// 주기적 백그라운드 동기화 (지원되는 브라우저에서)
+self.addEventListener("periodicsync", (event) => {
+	console.log("⏰ Periodic background sync triggered:", event.tag);
+	
+	if (event.tag === "lotto-data-sync") {
+		event.waitUntil(syncLottoData());
 	}
 });
 

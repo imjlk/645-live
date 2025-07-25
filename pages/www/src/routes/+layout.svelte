@@ -8,9 +8,13 @@ import Footer from "$lib/layout/Footer.svelte";
 import Clarity from "@microsoft/clarity";
 import { NuqsAdapter } from "nuqs-svelte/adapters/svelte-kit";
 import { onMount } from "svelte";
+import InstallPrompt from "$lib/components/ui/InstallPrompt.svelte";
+import UpdatePrompt from "$lib/components/ui/UpdatePrompt.svelte";
 
 let { children } = $props();
+import { PUBLIC_TRAILBASE_URL } from "$env/static/public";
 import { preparePageTransition } from "$lib/layout/page-transition";
+import { initPWAPerformanceMonitor } from "$lib/utils/pwa-performance";
 
 preparePageTransition();
 
@@ -29,10 +33,17 @@ onMount(async () => {
 		Clarity.init("qeumg5ffol");
 	}
 
+	// PWA 성능 모니터링 초기화
+	try {
+		initPWAPerformanceMonitor();
+	} catch (error) {
+		console.warn("PWA 성능 모니터링 초기화 실패:", error);
+	}
+
 	// 실제 데이터가 있는 회차들을 가져오기
 	try {
 		const { initClient } = await import("trailbase");
-		const client = initClient("http://localhost:4000");
+		const client = initClient(PUBLIC_TRAILBASE_URL || "http://localhost:4000");
 		const api = client.records("lotto_draw_scan_counts");
 
 		const response = await api.list({
@@ -69,5 +80,11 @@ onMount(async () => {
 		
 		<!-- 모바일 전용 하단 네비게이션 -->
 		<MobileNavigation />
+		
+		<!-- PWA 설치 프롬프트 -->
+		<InstallPrompt />
+		
+		<!-- PWA 업데이트 프롬프트 -->
+		<UpdatePrompt />
 	</div>
 </NuqsAdapter>
