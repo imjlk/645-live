@@ -174,7 +174,7 @@ const statsCategories = [
 	}}
 />
 
-<div class="container mx-auto px-4 py-8">
+<div class="container mx-auto px-4 py-8 max-sm:px-0">
 	<header class="mb-8">
 		<h1 class="text-3xl font-bold text-base-content mb-2">로또 6/45 통계 분석</h1>
 		<p class="text-base-content/70">

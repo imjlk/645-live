@@ -345,7 +345,7 @@ $effect(() => {
 	}}
 />
 
-<div class="container mx-auto max-sm:px-0 p-8">
+<div class="container mx-auto max-sm:px-0 px-4 p-8">
 	<h1 class="text-3xl font-bold mb-4">로또 번호 생성기</h1>
 	<p class="mb-8 text-gray-600">
 		통계 데이터를 기반으로 다양한 조건을 적용하여 나만의 로또 번호를 생성해보세요.

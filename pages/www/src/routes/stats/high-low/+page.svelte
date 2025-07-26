@@ -233,7 +233,7 @@ const safeRecentStats = $derived(
 	}}
 />
 
-<div class="p-3 sm:p-4 md:p-6 space-y-4 sm:space-y-6">
+<div class="p-3 sm:p-4 md:p-6 space-y-4 sm:space-y-6 max-sm:px-0">
 	<!-- Breadcrumbs -->
 	<Breadcrumbs items={breadcrumbItems} />
 

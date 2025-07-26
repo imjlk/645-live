@@ -102,7 +102,7 @@ function isWinningNumber(num: number): boolean {
 	<meta name="description" content="로또 번호 스캔 통계의 회차별 히스토리를 확인하세요." />
 </svelte:head>
 
-<div class="container mx-auto px-4 py-4 md:py-8 max-w-6xl">
+<div class="container mx-auto max-sm:px-0 px-4 py-4 md:py-8 max-w-6xl">
 	{#if data.error}
 		<div class="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg mb-6">
 			<h2 class="font-semibold mb-2">오류 발생</h2>

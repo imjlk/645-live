@@ -121,7 +121,7 @@ $effect(() => {
 	<meta name="description" content="로또 당첨점 정보를 회차별로 조회할 수 있습니다." />
 </svelte:head>
 
-<div class="container mx-auto px-4 py-8">
+<div class="container mx-auto px-4 py-8 max-sm:px-0">
 	<div class="mb-8">
 		<h1 class="text-3xl font-bold text-base-content mb-2">로또 당첨점 조회</h1>
 		<p class="text-base-content/70">회차별로 1등, 2등 당첨점 정보를 확인할 수 있습니다.</p>
