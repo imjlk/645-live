@@ -148,7 +148,7 @@ const getSectionBalance = (s1: number, s2: number, s3: number): string => {
 	title="로또 6/45 구간 분석 통계 | 번호 구간별 분포 패턴"
 	titleTemplate="%s | 645.live"
 	description="로또 6/45 당첨번호의 구간별(1-10, 11-20, 21-30, 31-40, 41-45) 분포를 분석합니다. 구간별 균형도와 패턴을 통해 번호 선택에 도움을 제공합니다."
-	canonical="https://645.live/stats/sections"
+	canonical="https://www.645.live/stats/sections"
 	keywords={["로또", "구간분석", "번호구간", "로또통계", "구간패턴", "로또예측", "6/45통계", "구간균형", "번호분포", "로또구간분석"]}
 	robots="index,follow"
 	additionalRobotsProps={{
@@ -179,21 +179,21 @@ const getSectionBalance = (s1: number, s2: number, s3: number): string => {
 		},
 		{
 			property: 'article:publisher',
-			content: 'https://645.live'
+			content: 'https://www.645.live'
 		}
 	]}
 	openGraph={{
 		type: 'article',
-		url: 'https://645.live/stats/sections',
+		url: 'https://www.645.live/stats/sections',
 		title: '로또 6/45 구간 분석 통계 | 번호 구간별 분포 패턴',
 		description: '로또 6/45 당첨번호의 구간별(1-10, 11-20, 21-30, 31-40, 41-45) 분포를 분석합니다. 구간별 균형도와 패턴을 통해 번호 선택에 도움을 제공합니다.',
 		locale: 'ko_KR',
 		images: [{
-			url: 'https://645.live/images/lotto-sections-stats.png',
+			url: 'https://www.645.live/images/lotto-sections-stats.png',
 			width: 1200,
 			height: 630,
 			alt: '로또 6/45 구간 분석 통계',
-			secureUrl: 'https://645.live/images/lotto-sections-stats.png',
+			secureUrl: 'https://www.645.live/images/lotto-sections-stats.png',
 			type: 'image/png'
 		}],
 		siteName: '645.live',
@@ -209,7 +209,7 @@ const getSectionBalance = (s1: number, s2: number, s3: number): string => {
 		site: '@645live',
 		title: '로또 6/45 구간 분석 통계',
 		description: '번호 구간별 분포 패턴으로 로또 번호 균형을 파악하세요.',
-		image: 'https://645.live/images/lotto-sections-stats.png',
+		image: 'https://www.645.live/images/lotto-sections-stats.png',
 		imageAlt: '로또 6/45 구간 분석 통계'
 	}}
 />
@@ -219,7 +219,7 @@ const getSectionBalance = (s1: number, s2: number, s3: number): string => {
 		'@type': 'Dataset',
 		name: '로또 6/45 구간 분석 통계',
 		description: '로또 6/45 당첨번호의 구간별(1-10, 11-20, 21-30, 31-40, 41-45) 분포를 분석한 통계 데이터입니다.',
-		url: 'https://645.live/stats/sections',
+		url: 'https://www.645.live/stats/sections',
 		creator: {
 			'@type': 'Organization',
 			name: '645.live'

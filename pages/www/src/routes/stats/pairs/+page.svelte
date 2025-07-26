@@ -51,7 +51,7 @@ const getPairGrade = (pairCount: number) => {
 	title="로또 6/45 번호쌍 분석 통계 | 동반 출현 패턴 분석"
 	titleTemplate="%s | 645.live"
 	description="🔥 로또 6/45 최강 번호 조합 공개! 가장 많이 함께 나오는 황금 번호 쌍 분석으로 당첨 확률을 높여보세요!"
-	canonical="https://645.live/stats/pairs"
+	canonical="https://www.645.live/stats/pairs"
 	keywords={["로또번호쌍", "로또동반출현", "로또번호조합", "로또쌍분석", "6/45통계", "번호조합분석", "로또번호추천", "로또쌍통계", "동반출현분석", "번호조합패턴"]}
 	robots="index,follow"
 	additionalRobotsProps={{
@@ -82,12 +82,12 @@ const getPairGrade = (pairCount: number) => {
 		},
 		{
 			property: 'article:publisher',
-			content: 'https://645.live'
+			content: 'https://www.645.live'
 		}
 	]}
 	openGraph={{
 		type: 'article',
-		url: 'https://645.live/stats/pairs',
+		url: 'https://www.645.live/stats/pairs',
 		title: '로또 6/45 번호쌍 분석 통계 | 동반 출현 패턴',
 		description: '🔥 로또 6/45 최강 번호 조합 공개! 가장 많이 함께 나오는 황금 번호 쌍 분석으로 당첨 확률을 높여보세요!',
 		locale: 'ko_KR',
@@ -133,7 +133,7 @@ const getPairGrade = (pairCount: number) => {
 		'@type': 'Dataset',
 		name: '로또 6/45 번호쌍 분석 통계',
 		description: '로또 6/45 당첨번호의 동반 출현 패턴 및 번호 쌍 분석 데이터입니다.',
-		url: 'https://645.live/stats/pairs',
+		url: 'https://www.645.live/stats/pairs',
 		creator: {
 			'@type': 'Organization',
 			name: '645.live'

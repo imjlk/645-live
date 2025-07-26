@@ -122,7 +122,7 @@ const safeRecentStats = $derived(
 	title="로또 6/45 고저 분석 통계 | 고숫자/저숫자 분포 패턴 분석"
 	titleTemplate="%s | 645.live"
 	description="로또 6/45 전체 {data.totalRounds}회차 고저 분포와 패턴을 분석합니다. 고숫자(23-45)와 저숫자(1-22) 균형도 분석을 통해 번호 선택에 도움을 제공합니다."
-	canonical="https://645.live/stats/high-low"
+	canonical="https://www.645.live/stats/high-low"
 	keywords={["로또고저분석", "고숫자저숫자", "로또통계분석", "고저균형분석", "로또예측", "고저패턴분석", "로또데이터분석", "6/45통계"]}
 	robots="index,follow"
 	additionalRobotsProps={{
@@ -153,21 +153,21 @@ const safeRecentStats = $derived(
 		},
 		{
 			property: 'article:publisher',
-			content: 'https://645.live'
+			content: 'https://www.645.live'
 		}
 	]}
 	openGraph={{
 		type: 'article',
-		url: 'https://645.live/stats/high-low',
+		url: 'https://www.645.live/stats/high-low',
 		title: `로또 6/45 고저 분석 통계 | 전체 ${data.totalRounds}회차 데이터`,
 		description: `로또 6/45 당첨번호의 고저 분포와 패턴을 분석합니다. 평균 고숫자 ${data.averageHighCount}개, 평균 저숫자 ${data.averageLowCount}개 등 상세한 통계 정보를 확인하세요.`,
 		locale: 'ko_KR',
 		images: [{
-			url: 'https://645.live/images/lotto-high-low-stats.png',
+			url: 'https://www.645.live/images/lotto-high-low-stats.png',
 			width: 1200,
 			height: 630,
 			alt: '로또 6/45 고저 분석 통계',
-			secureUrl: 'https://645.live/images/lotto-high-low-stats.png',
+			secureUrl: 'https://www.645.live/images/lotto-high-low-stats.png',
 			type: 'image/png'
 		}],
 		siteName: '645.live',
@@ -183,7 +183,7 @@ const safeRecentStats = $derived(
 		site: '@645live',
 		title: '로또 6/45 고저 분석 통계',
 		description: `전체 ${data.totalRounds}회차 고저 패턴 분석 - 평균 고숫자 ${data.averageHighCount}개, 평균 저숫자 ${data.averageLowCount}개`,
-		image: 'https://645.live/images/lotto-high-low-stats.png',
+		image: 'https://www.645.live/images/lotto-high-low-stats.png',
 		imageAlt: '로또 6/45 고저 분석 통계'
 	}}
 />
@@ -193,7 +193,7 @@ const safeRecentStats = $derived(
 		'@type': 'Dataset',
 		name: '로또 6/45 고저 분석 통계 데이터',
 		description: `로또 6/45 당첨번호의 고저 분포와 패턴 분석 데이터. 전체 ${data.totalRounds}회차의 고저 분포와 균형도를 분석합니다.`,
-		url: 'https://645.live/stats/high-low',
+		url: 'https://www.645.live/stats/high-low',
 		creator: {
 			'@type': 'Organization',
 			name: '645.live'
@@ -205,7 +205,7 @@ const safeRecentStats = $derived(
 		},
 		distribution: {
 			'@type': 'DataDownload',
-			contentUrl: 'https://645.live/stats/high-low',
+			contentUrl: 'https://www.645.live/stats/high-low',
 			encodingFormat: 'text/html'
 		},
 		variableMeasured: [

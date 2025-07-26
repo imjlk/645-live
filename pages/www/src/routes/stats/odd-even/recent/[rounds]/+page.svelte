@@ -122,7 +122,7 @@ const getSumRangeAnalysis = (range: string): string => {
 	title={`로또 6/45 홀짝 분석 통계 | 최근 ${data.selectedRounds}회차 기준`}
 	titleTemplate="%s | 645.live"
 	description={`로또 6/45 최근 ${data.selectedRounds}회차 당첨번호의 홀수/짝수 분포와 번호 합계 패턴을 분석합니다. 홀짝 균형도와 트렌드를 통해 번호 선택에 도움을 제공합니다.`}
-	canonical={`https://645.live/stats/odd-even/recent/${data.selectedRounds}`}
+	canonical={`https://www.645.live/stats/odd-even/recent/${data.selectedRounds}`}
 	keywords={["로또", "홀짝분석", "홀수짝수", "로또통계", "번호합계", "로또패턴", "로또예측", "6/45통계", "홀짝균형", "번호분석", `최근${data.selectedRounds}회차`]}
 	robots="index,follow"
 	additionalRobotsProps={{
@@ -153,21 +153,21 @@ const getSumRangeAnalysis = (range: string): string => {
 		},
 		{
 			property: 'article:publisher',
-			content: 'https://645.live'
+			content: 'https://www.645.live'
 		}
 	]}
 	openGraph={{
 		type: 'article',
-		url: `https://645.live/stats/odd-even/recent/${data.selectedRounds}`,
+		url: `https://www.645.live/stats/odd-even/recent/${data.selectedRounds}`,
 		title: `로또 6/45 홀짝 분석 통계 | 최근 ${data.selectedRounds}회차 기준`,
 		description: `로또 6/45 최근 ${data.selectedRounds}회차 당첨번호의 홀수/짝수 분포와 번호 합계 패턴을 분석합니다. 홀짝 균형도와 트렌드를 통해 번호 선택에 도움을 제공합니다.`,
 		locale: 'ko_KR',
 		images: [{
-			url: 'https://645.live/images/lotto-odd-even-stats.png',
+			url: 'https://www.645.live/images/lotto-odd-even-stats.png',
 			width: 1200,
 			height: 630,
 			alt: `로또 6/45 홀짝 분석 통계 - 최근 ${data.selectedRounds}회차`,
-			secureUrl: 'https://645.live/images/lotto-odd-even-stats.png',
+			secureUrl: 'https://www.645.live/images/lotto-odd-even-stats.png',
 			type: 'image/png'
 		}],
 		siteName: '645.live',
@@ -183,7 +183,7 @@ const getSumRangeAnalysis = (range: string): string => {
 		site: '@645live',
 		title: `로또 6/45 홀짝 분석 통계 - 최근 ${data.selectedRounds}회차`,
 		description: `홀수/짝수 분포와 번호 합계 패턴 분석으로 로또 번호 선택에 도움을 제공합니다.`,
-		image: 'https://645.live/images/lotto-odd-even-stats.png',
+		image: 'https://www.645.live/images/lotto-odd-even-stats.png',
 		imageAlt: `로또 6/45 홀짝 분석 통계 - 최근 ${data.selectedRounds}회차`
 	}}
 />
@@ -193,7 +193,7 @@ const getSumRangeAnalysis = (range: string): string => {
 		'@type': 'Dataset',
 		name: `로또 6/45 홀짝 분석 통계 - 최근 ${data.selectedRounds}회차`,
 		description: `로또 6/45 최근 ${data.selectedRounds}회차 당첨번호의 홀수/짝수 분포와 번호 합계 패턴을 분석한 통계 데이터입니다.`,
-		url: `https://645.live/stats/odd-even/recent/${data.selectedRounds}`,
+		url: `https://www.645.live/stats/odd-even/recent/${data.selectedRounds}`,
 		creator: {
 			'@type': 'Organization',
 			name: '645.live'

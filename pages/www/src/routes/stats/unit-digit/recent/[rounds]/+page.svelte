@@ -145,7 +145,7 @@ const sortedPatterns = $derived(
 	title="로또 6/45 끝자리수 분석 통계 | 끝자리 숫자 분포 분석"
 	titleTemplate="%s | 645.live"
 	description={`로또 6/45 끝자리수 분포를 분석합니다 (최근 ${data.selectedRounds}회차). 0부터 9까지 각 끝자리 숫자의 출현 빈도와 패턴을 제공합니다.`}
-	canonical={`https://645.live/stats/unit-digit/recent/${data.selectedRounds}`}
+	canonical={`https://www.645.live/stats/unit-digit/recent/${data.selectedRounds}`}
 	keywords={["로또", "끝자리수", "끝자리분석", "로또통계", "숫자패턴", "끝자리패턴", "로또예측", "6/45통계", "끝자리수분석", "숫자분포분석"]}
 	robots="index,follow"
 	additionalRobotsProps={{
@@ -176,12 +176,12 @@ const sortedPatterns = $derived(
 		},
 		{
 			property: 'article:publisher',
-			content: 'https://645.live'
+			content: 'https://www.645.live'
 		}
 	]}
 	openGraph={{
 		type: 'article',
-		url: `https://645.live/stats/unit-digit/recent/${data.selectedRounds}`,
+		url: `https://www.645.live/stats/unit-digit/recent/${data.selectedRounds}`,
 		title: `로또 6/45 끝자리수 분석 통계 | 끝자리 숫자 분포 패턴 (최근 ${data.selectedRounds}회차)`,
 		description: `로또 6/45 끝자리수 분포를 분석합니다 (최근 ${data.selectedRounds}회차). 0부터 9까지 각 끝자리 숫자의 출현 빈도와 균형성을 제공합니다.`,
 		locale: 'ko_KR',
@@ -215,7 +215,7 @@ const sortedPatterns = $derived(
 		'@type': 'Dataset',
 		name: `로또 6/45 끝자리수 분석 통계 (최근 ${data.selectedRounds}회차)`,
 		description: `로또 6/45 끝자리수 분포를 분석한 통계 데이터입니다 (최근 ${data.selectedRounds}회차).`,
-		url: `https://645.live/stats/unit-digit/recent/${data.selectedRounds}`,
+		url: `https://www.645.live/stats/unit-digit/recent/${data.selectedRounds}`,
 		creator: {
 			'@type': 'Organization',
 			name: '645.live'

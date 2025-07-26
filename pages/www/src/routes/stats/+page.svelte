@@ -68,7 +68,7 @@ const statsCategories = [
 	title="로또 6/45 통계 분석 | 번호별 출현 빈도와 패턴 분석"
 	titleTemplate="%s | 645.live"
 	description={`🎯 로또 당첨 패턴 완전분석! 전체 ${data.totalRounds}회차 빅데이터로 어떤 번호가 가장 자주 나올까요? 승률을 높이는 통계의 비밀을 공개합니다.`}
-	canonical="https://645.live/stats"
+	canonical="https://www.645.live/stats"
 	keywords={["로또통계", "로또분석", "로또당첨번호", "번호별통계", "로또예측", "번호분석", "홀짝분석", "로또패턴", "6/45통계", "로또번호분석"]}
 	robots="index,follow"
 	additionalRobotsProps={{
@@ -99,12 +99,12 @@ const statsCategories = [
 		},
 		{
 			property: 'article:publisher',
-			content: 'https://645.live'
+			content: 'https://www.645.live'
 		}
 	]}
 	openGraph={{
 		type: 'website',
-		url: 'https://645.live/stats',
+		url: 'https://www.645.live/stats',
 		title: '로또 6/45 통계 분석 | 번호별 출현 빈도와 패턴 분석',
 		description: `🎯 로또 당첨 패턴 완전분석! 전체 ${data.totalRounds}회차 빅데이터로 승률을 높이는 통계의 비밀을 공개합니다.`,
 		locale: 'ko_KR',
@@ -144,7 +144,7 @@ const statsCategories = [
 		'@type': 'Dataset',
 		name: '로또 6/45 통계 분석 데이터',
 		description: `로또 6/45 당첨번호 통계 및 분석 데이터입니다. 전체 ${data.totalRounds}회차 데이터를 기반으로 번호별 출현 빈도, 홀짝 분포, 색깔별 통계, 구간별 분석 등을 제공합니다.`,
-		url: 'https://645.live/stats',
+		url: 'https://www.645.live/stats',
 		creator: {
 			'@type': 'Organization',
 			name: '645.live'
