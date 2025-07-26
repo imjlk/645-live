@@ -60,6 +60,15 @@ onMount(async () => {
 	<meta name="viewport" content="width=device-width, initial-scale=1" />
 	<meta name="theme-color" content="#3b82f6" />
 	<meta name="google-adsense-account" content="ca-pub-4441205887996163">
+	<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-KEBJGHESGM"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-KEBJGHESGM');
+</script>
 </svelte:head>
 
 <NuqsAdapter>
