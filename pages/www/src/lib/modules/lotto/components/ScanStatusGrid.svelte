@@ -76,7 +76,6 @@ let focusedBallIndex = $state<number | null>(null);
 // 스크린 리더용 실시간 업데이트 메시지
 let screenReaderMessage = $state("");
 
-
 // 실시간 업데이트를 스크린 리더에 알림 - untrack으로 무한 루프 방지
 let ballUpdateTimeoutId: ReturnType<typeof setTimeout> | null = null;
 $effect(() => {
@@ -86,7 +85,7 @@ $effect(() => {
 		if (ballUpdateTimeoutId) {
 			clearTimeout(ballUpdateTimeoutId);
 		}
-		
+
 		const updatedBalls = Object.keys(recentlyUpdated)
 			.filter((key) => recentlyUpdated[Number.parseInt(key)])
 			.map((key) => `${key}번`)
@@ -98,7 +97,7 @@ $effect(() => {
 			untrack(() => {
 				screenReaderMessage = message;
 			});
-			
+
 			// 메시지 초기화 타임아웃 설정
 			ballUpdateTimeoutId = setTimeout(() => {
 				untrack(() => {
@@ -123,11 +122,11 @@ $effect(() => {
 		if (connectionTimeoutId) {
 			clearTimeout(connectionTimeoutId);
 		}
-		
+
 		const message = currentStatus
 			? "서버와 연결되었습니다. 실시간 업데이트가 시작됩니다."
 			: "서버 연결이 끊어졌습니다. 재연결을 시도하고 있습니다.";
-		
+
 		// untrack을 사용하여 리액티비티 체인 차단
 		connectionTimeoutId = setTimeout(() => {
 			untrack(() => {
@@ -222,7 +221,7 @@ onDestroy(() => {
 		clearTimeout(ballUpdateTimeoutId);
 		ballUpdateTimeoutId = null;
 	}
-	
+
 	if (connectionTimeoutId) {
 		clearTimeout(connectionTimeoutId);
 		connectionTimeoutId = null;

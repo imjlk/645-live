@@ -753,12 +753,22 @@ async function requestPermission() {
 	<input bind:this={qrDataInput} type="hidden" name="qrData" />
 </form>
 
+<!-- Page Header -->
+<div class="w-full max-w-7xl mx-auto mt-4 min-sm:px-4 mb-8">
+	<h1 class="text-2xl lg:text-3xl font-bold text-base-content mb-2">
+		로또 QR 코드 스캔
+	</h1>
+	<p class="text-base-content/70 text-xs">
+		카메라로 QR 코드를 스캔하여 즉시 당첨 확인 및 번호 기록
+	</p>
+</div>
+
 <!-- Desktop: Two column layout, Mobile: Single column with QR scanner on top -->
-<div class="w-full max-w-7xl mx-auto px-4">
+<div class="w-full max-w-7xl mx-auto">
 	<div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
 		<!-- QR Scanner Column (Left on desktop, Top on mobile) -->
-		<div class="order-1 lg:order-2">
-			<div class="w-full max-w-md mx-auto lg:max-w-none">
+		<div class="order-1 lg:order-1">
+			<div class="w-full max-w-md mx-auto lg:max-w-none min-sm:px-4">
 	<div class="aspect-square my-4">
 		{#if permissionDenied}
 			<div class="h-full flex flex-col items-center justify-center text-center p-6 bg-base-200 rounded-lg">
@@ -845,9 +855,9 @@ async function requestPermission() {
 		</div>
 
 		<!-- Scan Status Grid Column (Right on desktop, Bottom on mobile) -->
-		<div class="order-2 lg:order-1">
+		<div class="order-2 lg:order-2">
 			<div class="mb-6">
-				<h2 class="text-xl font-bold text-gray-800 dark:text-white mb-4">
+				<h2 class="text-xl font-bold text-base-content mb-4 min-sm:px-4">
 					회차별 스캔 현황
 				</h2>
 				<ScanStatusGrid 
