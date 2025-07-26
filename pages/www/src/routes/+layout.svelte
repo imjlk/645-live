@@ -4,12 +4,12 @@ import Header from "$lib/layout/Header.svelte";
 import MobileNavigation from "$lib/layout/MobileNavigation.svelte";
 import NavigationMenu from "$lib/layout/NavigationMenu.svelte";
 import "../app.css";
+import InstallPrompt from "$lib/components/ui/InstallPrompt.svelte";
+import UpdatePrompt from "$lib/components/ui/UpdatePrompt.svelte";
 import Footer from "$lib/layout/Footer.svelte";
 import Clarity from "@microsoft/clarity";
 import { NuqsAdapter } from "nuqs-svelte/adapters/svelte-kit";
 import { onMount } from "svelte";
-import InstallPrompt from "$lib/components/ui/InstallPrompt.svelte";
-import UpdatePrompt from "$lib/components/ui/UpdatePrompt.svelte";
 
 let { children } = $props();
 import { PUBLIC_TRAILBASE_URL } from "$env/static/public";
@@ -59,6 +59,7 @@ onMount(async () => {
 <svelte:head>
 	<meta name="viewport" content="width=device-width, initial-scale=1" />
 	<meta name="theme-color" content="#3b82f6" />
+	<meta name="google-adsense-account" content="ca-pub-4441205887996163">
 </svelte:head>
 
 <NuqsAdapter>
