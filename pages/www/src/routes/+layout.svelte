@@ -21,11 +21,7 @@ preparePageTransition();
 // 실제 데이터가 있는 회차들
 let availableRounds = $state<number[]>([]);
 
-let currentPath = $state(page.url.pathname);
-
-$effect(() => {
-	currentPath = page.url.pathname;
-});
+let currentPath = $derived(page.url.pathname);
 
 onMount(async () => {
 	// Microsoft Clarity 초기화 (프로덕션에서만)

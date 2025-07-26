@@ -13,7 +13,7 @@ import {
 	focusElement,
 	handleGridNavigation,
 } from "$lib/utils/keyboard-navigation";
-import { onDestroy, onMount } from "svelte";
+import { onDestroy, onMount, untrack } from "svelte";
 
 interface Props {
 	// Initial round to display
@@ -22,8 +22,6 @@ interface Props {
 	latestRound?: number;
 	// Whether to show navigation to individual number pages
 	enableNavigation?: boolean;
-	// Custom classes for the grid container
-	gridClass?: string;
 	// Whether to show the header with round info
 	showHeader?: boolean;
 	// Grid columns configuration for different screen sizes
@@ -33,8 +31,6 @@ interface Props {
 		desktop?: number; // default: 4
 		large?: number; // default: 5
 	};
-	// Grid gap size
-	gridGap?: string; // default: "gap-4"
 	// Custom increment effect configuration
 	incrementEffectConfig?: {
 		show: boolean;
@@ -47,10 +43,8 @@ let {
 	initialRound,
 	latestRound,
 	enableNavigation = true,
-	gridClass = "",
 	showHeader = true,
 	gridColumns = { mobile: 5, tablet: 3, desktop: 4, large: 5 },
-	gridGap = "gap-4",
 	incrementEffectConfig = {
 		show: true,
 		message: "+1",
@@ -61,8 +55,6 @@ let {
 // Use the new composables for state management
 const ballValuesComposable = useBallValues({
 	initialRound,
-	onBallUpdate: (ballNumber, newValue, oldValue) => {
-	},
 });
 
 const connectionStatus = useConnectionStatus();
@@ -84,57 +76,70 @@ let focusedBallIndex = $state<number | null>(null);
 // 스크린 리더용 실시간 업데이트 메시지
 let screenReaderMessage = $state("");
 
-// 간단하게 고정된 5열 그리드 사용
-let dynamicGridClass = $derived(() => {
-	const baseClasses = [
-		'grid',
-		'grid-cols-5',
-		'sm:grid-cols-5',
-		'md:grid-cols-5',
-		'lg:grid-cols-5',
-		'p-0 py-4 sm:p-4',
-		gridGap,
-		gridClass
-	];
-	return baseClasses.filter(Boolean).join(' ');
-});
 
-// 실시간 업데이트를 스크린 리더에 알림
+// 실시간 업데이트를 스크린 리더에 알림 - untrack으로 무한 루프 방지
+let ballUpdateTimeoutId: ReturnType<typeof setTimeout> | null = null;
 $effect(() => {
-	if (
-		ballValuesComposable.recentlyUpdated &&
-		Object.keys(ballValuesComposable.recentlyUpdated).length > 0
-	) {
-		const updatedBalls = Object.keys(ballValuesComposable.recentlyUpdated)
-			.filter(
-				(key) => ballValuesComposable.recentlyUpdated[Number.parseInt(key)],
-			)
+	const recentlyUpdated = ballValuesComposable.recentlyUpdated;
+	if (recentlyUpdated && Object.keys(recentlyUpdated).length > 0) {
+		// 이전 타임아웃 취소
+		if (ballUpdateTimeoutId) {
+			clearTimeout(ballUpdateTimeoutId);
+		}
+		
+		const updatedBalls = Object.keys(recentlyUpdated)
+			.filter((key) => recentlyUpdated[Number.parseInt(key)])
 			.map((key) => `${key}번`)
 			.join(", ");
 
 		if (updatedBalls) {
-			screenReaderMessage = `로또 번호 ${updatedBalls}이 업데이트되었습니다.`;
-
-			// 메시지를 일정 시간 후 초기화
-			setTimeout(() => {
-				screenReaderMessage = "";
+			const message = `로또 번호 ${updatedBalls}이 업데이트되었습니다.`;
+			// untrack을 사용하여 리액티비티 체인 차단
+			untrack(() => {
+				screenReaderMessage = message;
+			});
+			
+			// 메시지 초기화 타임아웃 설정
+			ballUpdateTimeoutId = setTimeout(() => {
+				untrack(() => {
+					screenReaderMessage = "";
+				});
+				ballUpdateTimeoutId = null;
 			}, 2000);
 		}
 	}
 });
 
-// 연결 상태 변경을 스크린 리더에 알림
+// 연결 상태 변경을 스크린 리더에 알림 - 무한 루프 방지
 let previousConnectionStatus = $state<boolean | null>(null);
+let connectionTimeoutId: ReturnType<typeof setTimeout> | null = null;
 $effect(() => {
+	const currentStatus = connectionStatus.connected;
 	if (
 		previousConnectionStatus !== null &&
-		previousConnectionStatus !== connectionStatus.connected
+		previousConnectionStatus !== currentStatus
 	) {
-		screenReaderMessage = connectionStatus.connected
+		// 이전 타임아웃 취소
+		if (connectionTimeoutId) {
+			clearTimeout(connectionTimeoutId);
+		}
+		
+		const message = currentStatus
 			? "서버와 연결되었습니다. 실시간 업데이트가 시작됩니다."
 			: "서버 연결이 끊어졌습니다. 재연결을 시도하고 있습니다.";
+		
+		// untrack을 사용하여 리액티비티 체인 차단
+		connectionTimeoutId = setTimeout(() => {
+			untrack(() => {
+				screenReaderMessage = message;
+			});
+			connectionTimeoutId = null;
+		}, 100); // 짧은 딘레이로 우선순위 조정
 	}
-	previousConnectionStatus = connectionStatus.connected;
+	// untrack을 사용하여 previousConnectionStatus 업데이트 시 리액티비티 방지
+	untrack(() => {
+		previousConnectionStatus = currentStatus;
+	});
 });
 
 // 그리드 키보드 네비게이션 핸들러
@@ -210,6 +215,17 @@ onDestroy(() => {
 	if (unsubscribeBallValues) {
 		unsubscribeBallValues();
 		unsubscribeBallValues = null;
+	}
+
+	// Clear any pending timeouts
+	if (ballUpdateTimeoutId) {
+		clearTimeout(ballUpdateTimeoutId);
+		ballUpdateTimeoutId = null;
+	}
+	
+	if (connectionTimeoutId) {
+		clearTimeout(connectionTimeoutId);
+		connectionTimeoutId = null;
 	}
 
 	// connectionStatus auto-unsubscribes when component is destroyed

@@ -51,6 +51,14 @@ class TrailBaseClient {
 	private constructor() {
 		if (!browser) return;
 
+		// Set initial connecting state
+		this.updateConnectionState({
+			connected: false,
+			connecting: true,
+			error: null,
+			retryCount: 0,
+		});
+
 		// Start initialization but don't await it in constructor
 		this.initializationPromise = this.initializeClient();
 	}
@@ -80,10 +88,11 @@ class TrailBaseClient {
 			this.isInitialized = true;
 
 			this.updateConnectionState({
-				connected: false,
+				connected: true,
 				connecting: false,
 				error: null,
 				retryCount: 0,
+				lastConnected: new Date(),
 			});
 
 			// Start stream if there are waiting subscribers

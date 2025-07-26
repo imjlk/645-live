@@ -3,8 +3,15 @@
  * Provides comprehensive caching strategy for better performance and offline experience
  */
 
-/// <reference types="@cloudflare/workers-types" />
-/// <reference lib="webworker" />
+// Service Worker types
+interface ExtendableEvent extends Event {
+	waitUntil(fn: Promise<any>): void;
+}
+
+interface FetchEvent extends Event {
+	request: Request;
+	respondWith(response: Promise<Response> | Response): void;
+}
 
 declare const self: ServiceWorkerGlobalScope;
 
@@ -369,14 +376,20 @@ async function limitCacheSize(
 // ============= Event Listeners =============
 
 self.addEventListener("install", (event: ExtendableEvent) => {
-	console.log("⚙️ Service Worker installing");
 
 	event.waitUntil(
 		Promise.all([
-			// Pre-cache critical resources
+			// Pre-cache critical resources with error handling
 			caches
 				.open(CACHE_NAMES.static)
-				.then((cache) => cache.addAll(["/", "/manifest.json", "/favicon.ico"])),
+				.then((cache) => {
+					const urlsToCache = ["/", "/manifest.json"];
+					return cache.addAll(urlsToCache).catch((error) => {
+						console.warn("Failed to cache some resources during install:", error);
+						// Continue installation even if caching fails
+						return Promise.resolve();
+					});
+				}),
 			// Skip waiting to activate immediately
 			self.skipWaiting(),
 		]),

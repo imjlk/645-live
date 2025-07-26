@@ -512,15 +512,18 @@ export function useStatsMemo<TArgs extends readonly unknown[], TReturn>(
 		lastCalculated = null;
 	};
 
-	// Reactive recalculation when dependencies change
+	// Reactive recalculation when dependencies change - 무한 루프 방지
 	$effect(() => {
-		if (!reactive) return;
+		if (!reactive || isCalculating) return;
 
-		if (
-			!lastDeps ||
-			JSON.stringify(dependencies) !== JSON.stringify(lastDeps)
-		) {
-			calculate();
+		const currentDeps = JSON.stringify(dependencies);
+		const prevDeps = lastDeps ? JSON.stringify(lastDeps) : null;
+		
+		if (!lastDeps || currentDeps !== prevDeps) {
+			// 계산 중 플래그로 재귀 호출 방지
+			if (!isCalculating) {
+				calculate();
+			}
 		}
 	});
 

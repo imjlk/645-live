@@ -22,12 +22,18 @@ let {
 	class: className = "",
 }: Props = $props();
 
-// 메시지가 변경될 때마다 고유한 키 생성하여 강제 업데이트
+// 메시지가 변경될 때마다 고유한 키 생성하여 강제 업데이트 - 무한 루프 방지
 let messageKey = $state(0);
+let lastMessage = "";
 
 $effect(() => {
-	if (message) {
+	// 메시지가 실제로 변경된 경우에만 키 업데이트 (중복 업데이트 방지)
+	if (message && message !== lastMessage) {
 		messageKey++;
+		lastMessage = message;
+	} else if (!message && lastMessage) {
+		// 메시지가 빈 문자열로 변경된 경우
+		lastMessage = "";
 	}
 });
 </script>
