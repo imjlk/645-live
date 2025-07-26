@@ -1,0 +1,132 @@
+---
+title: "🎯 제1150회 로또 28억 독점! 1명이 모든 걸 가져갔다"
+subtitle: "1인당 28억원, 세후 약 22억원 수령 예정"
+date: "2024년 1월 27일"
+round: 1150
+numbers: [7, 15, 23, 28, 34, 41]
+bonus: 9
+jackpot_winners: 1
+jackpot_amount: 2847382100
+second_winners: 58
+second_amount: 64537200
+total_sales: 11389528000
+auto_percentage: 87.2
+manual_percentage: 12.8
+slug: "lotto-1150-results"
+description: "제1150회 로또 645 당첨번호 발표 및 분석"
+keywords: ["로또", "당첨번호", "제1150회", "로또645", "복권"]
+clickbait_elements: {
+	has_jackpot: true,
+	is_rollover: false,
+	high_sales: true,
+	consecutive_numbers: false,
+	special_pattern: ""
+}
+---
+
+<script>
+	import StatsCard from '$lib/components/stats/StatsCard.svelte';
+	import LottoBall from '$lib/modules/lotto/components/LottoBall.svelte';
+	
+	// 당첨번호 데이터
+	const drawData = {
+		round: 1150,
+		numbers: [7, 15, 23, 28, 34, 41],
+		bonus: 9,
+		date: "2024년 1월 27일",
+		jackpotWinners: 1,
+		jackpotAmount: 2847382100,
+		secondWinners: 58,
+		secondAmount: 64537200,
+		totalSales: 11389528000,
+		autoPercentage: 87.2,
+		manualPercentage: 12.8
+	};
+</script>
+
+<svelte:head>
+	<title>🎯 제1150회 로또 28억 독점! 1명이 모든 걸 가져갔다 - 645.live</title>
+	<meta name="description" content="1인당 28억원, 세후 약 22억원 수령 예정" />
+</svelte:head>
+
+# 🎯 제1150회 로또 28억 독점! 1명이 모든 걸 가져갔다
+
+## 1인당 28억원, 세후 약 22억원 수령 예정
+
+**추첨일: 2024년 1월 27일**
+
+<div class="alert alert-success mb-4">
+	🎯 **독점 당첨!** 1명이 전체 1등 당첨금을 독차지했습니다!
+</div>
+
+## 🎯 당첨번호
+
+<div class="flex gap-2 my-6 justify-center flex-wrap">
+	{#each drawData.numbers as number}
+		<LottoBall {number} />
+	{/each}
+	<span class="mx-2 text-2xl">+</span>
+	<LottoBall number={drawData.bonus} isBonus={true} />
+</div>
+
+## 📊 당첨 현황
+
+### 1등 당첨자
+- **당첨자 수**: 1명
+- **1인당 당첨금**: 2,847,382,100원
+
+🎯 **단독 당첨!** 1명이 모든 1등 당첨금을 독차지했습니다!
+
+### 2등 당첨자  
+- **당첨자 수**: 58명
+- **1인당 당첨금**: 64,537,200원
+
+## 💰 판매 현황
+
+<StatsCard 
+	title="총 판매금액"
+	value="113억 8,952만 8천원"
+	description="이번 회차 전체 판매액"
+/>
+
+### 구매 방식별 비율
+- **자동**: 87.2%
+- **수동**: 12.8%
+
+## 📈 번호 분석
+
+### 이번 회차 특징
+- 1~10 구간에서 **1개** 번호 출현
+- 40번대 고번호에서 **1개** 번호 출현  
+
+### 홀짝 분포
+- **홀수**: 3개 (7, 15, 23)
+- **짝수**: 3개 (28, 34, 41)
+
+### 구간별 분포
+- **1~10**: 1개 (7)
+- **11~20**: 1개 (15)
+- **21~30**: 2개 (23, 28)
+- **31~40**: 1개 (34)
+- **41~45**: 1개 (41)
+
+## 🎲 다음 회차 예상
+
+다음 제1151회 로또는 **2024년 2월 3일 토요일 오후 8시 45분**에 추첨됩니다.
+
+예상 1등 당첨금은 약 **20억원** 내외로 예상됩니다.
+
+---
+
+**※ 당첨금 수령 기한**: 추첨일로부터 1년 이내  
+**※ 당첨금액은 세전 기준이며, 실제 수령액은 세금을 제외한 금액입니다.**
+
+이번 주도 많은 분들이 꿈과 희망을 품고 로또에 참여해주셨습니다. 아쉽게 당첨되지 못한 분들도 다음 기회를 위해 파이팅하세요! 🍀
+
+<div class="mt-8 p-4 bg-base-200 rounded-lg">
+	<h3 class="text-lg font-bold mb-2">📰 이 페이지는 mdsvex 템플릿 샘플입니다</h3>
+	<p class="text-sm text-base-content/70">
+		실제 로또 데이터와 제목 생성기를 통해 자동으로 생성되는 뉴스 기사 형태입니다.
+		<code class="bg-base-100 px-2 py-1 rounded ml-1">/news/sample/+page.svx</code> 파일을 확인해보세요.
+	</p>
+</div>

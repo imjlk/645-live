@@ -1,0 +1,153 @@
+---
+title: "{title}"
+subtitle: "{subtitle}"
+date: "{date}"
+round: {round}
+numbers: [{numbers}]
+bonus: {bonus}
+jackpot_winners: {jackpot_winners}
+jackpot_amount: {jackpot_amount}
+second_winners: {second_winners}
+second_amount: {second_amount}
+total_sales: {total_sales}
+auto_percentage: {auto_percentage}
+manual_percentage: {manual_percentage}
+slug: "lotto-{round}-results"
+description: "{description}"
+keywords: [{keywords}]
+clickbait_elements: {
+	has_jackpot: {has_jackpot},
+	is_rollover: {is_rollover},
+	high_sales: {high_sales},
+	consecutive_numbers: {consecutive_numbers},
+	special_pattern: "{special_pattern}"
+}
+---
+
+<script>
+	import StatsCard from '$lib/components/stats/StatsCard.svelte';
+	import NumberBall from '$lib/components/ui/NumberBall.svelte';
+	import WinningStats from '$lib/modules/lotto/components/WinningStats.svelte';
+	
+	// 당첨번호 데이터
+	const drawData = {
+		round: {round},
+		numbers: [{numbers}],
+		bonus: {bonus},
+		date: "{date}",
+		jackpotWinners: {jackpot_winners},
+		jackpotAmount: {jackpot_amount},
+		secondWinners: {second_winners},
+		secondAmount: {second_amount},
+		totalSales: {total_sales},
+		autoPercentage: {auto_percentage},
+		manualPercentage: {manual_percentage}
+	};
+</script>
+
+# {title}
+
+{#if subtitle}
+## {subtitle}
+{/if}
+
+**추첨일: {date}**
+
+{#if clickbait_elements.is_rollover}
+<div class="alert alert-warning mb-4">
+	🔥 **이월 발생!** 1등 당첨자가 없어 다음 회차 당첨금이 대폭 증가합니다!
+</div>
+{:else if clickbait_elements.has_jackpot && jackpot_winners === 1}
+<div class="alert alert-success mb-4">
+	🎯 **독점 당첨!** 1명이 전체 1등 당첨금을 독차지했습니다!
+</div>
+{:else if clickbait_elements.high_sales}
+<div class="alert alert-info mb-4">
+	📊 **역대급 판매량!** 이번 회차 판매금액이 평균을 크게 웃돌았습니다!
+</div>
+{/if}
+
+{#if clickbait_elements.special_pattern}
+<div class="alert alert-error mb-4">
+	⚡ **{clickbait_elements.special_pattern}** 패턴 출현!
+</div>
+{/if}
+
+## 🎯 당첨번호
+
+<div class="flex gap-2 my-6 justify-center flex-wrap">
+	{#each drawData.numbers as number}
+		<NumberBall {number} />
+	{/each}
+	<span class="mx-2 text-2xl">+</span>
+	<NumberBall number={drawData.bonus} isBonus={true} />
+</div>
+
+## 📊 당첨 현황
+
+### 1등 당첨자
+- **당첨자 수**: {jackpot_winners}명
+- **1인당 당첨금**: {jackpot_amount.toLocaleString()}원
+
+{#if jackpot_winners === 0}
+🚨 **이번 주 1등 당첨자가 없어 다음 회차로 당첨금이 이월됩니다!**
+{:else if jackpot_winners === 1}
+🎯 **단독 당첨!** 1명이 모든 1등 당첨금을 독차지했습니다!
+{:else if jackpot_winners <= 3}
+🔥 **소수 당첨!** 단 {jackpot_winners}명만이 1등에 당첨되었습니다!
+{:else if jackpot_winners >= 20}
+😱 **대박 러시!** 무려 {jackpot_winners}명이 동시에 1등에 당첨되었습니다!
+{/if}
+
+### 2등 당첨자  
+- **당첨자 수**: {second_winners}명
+- **1인당 당첨금**: {second_amount.toLocaleString()}원
+
+## 💰 판매 현황
+
+<StatsCard 
+	title="총 판매금액"
+	value="{total_sales.toLocaleString()}원"
+	description="이번 회차 전체 판매액"
+/>
+
+### 구매 방식별 비율
+- **자동**: {auto_percentage}%
+- **수동**: {manual_percentage}%
+
+## 📈 번호 분석
+
+### 이번 회차 특징
+{#if numbers.some(n => n <= 10)}
+- 1~10 구간에서 **{numbers.filter(n => n <= 10).length}개** 번호 출현
+{/if}
+
+{#if numbers.some(n => n >= 40)}
+- 40번대 고번호에서 **{numbers.filter(n => n >= 40).length}개** 번호 출현  
+{/if}
+
+{#if numbers.filter((n, i, arr) => i < arr.length - 1 && arr[i + 1] === n + 1).length > 0}
+- 연번 출현: {numbers.filter((n, i, arr) => i < arr.length - 1 && arr[i + 1] === n + 1).map(n => `${n}-${n+1}`).join(', ')}
+{/if}
+
+### 홀짝 분포
+- **홀수**: {numbers.filter(n => n % 2 === 1).length}개
+- **짝수**: {numbers.filter(n => n % 2 === 0).length}개
+
+### 구간별 분포
+- **1~10**: {numbers.filter(n => n <= 10).length}개
+- **11~20**: {numbers.filter(n => n >= 11 && n <= 20).length}개  
+- **21~30**: {numbers.filter(n => n >= 21 && n <= 30).length}개
+- **31~40**: {numbers.filter(n => n >= 31 && n <= 40).length}개
+- **41~45**: {numbers.filter(n => n >= 41).length}개
+
+## 🎲 다음 회차 예상
+
+<WinningStats round={round + 1} />
+
+---
+
+**※ 당첨금 수령 기한**: 추첨일로부터 1년 이내  
+**※ 당첨금액은 세전 기준이며, 실제 수령액은 세금을 제외한 금액입니다.**
+
+이번 주도 많은 분들이 꿈과 희망을 품고 로또에 참여해주셨습니다. 아쉽게 당첨되지 못한 분들도 다음 기회를 위해 파이팅하세요! 🍀
