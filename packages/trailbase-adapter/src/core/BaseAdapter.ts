@@ -3,13 +3,13 @@
  */
 
 import type {
-	RealtimeAdapter,
-	ConnectionState,
-	ReconnectConfig,
 	AdapterError,
-	ConnectionStateCallback,
 	BaseRecord,
-} from '../types/index.js';
+	ConnectionState,
+	ConnectionStateCallback,
+	RealtimeAdapter,
+	ReconnectConfig,
+} from "../types/index.js";
 
 export abstract class BaseAdapter<T extends BaseRecord = BaseRecord>
 	implements RealtimeAdapter<T>
@@ -22,7 +22,10 @@ export abstract class BaseAdapter<T extends BaseRecord = BaseRecord>
 		retryCount: 0,
 	};
 
-	protected connectionStateSubscribers = new Map<string, ConnectionStateCallback>();
+	protected connectionStateSubscribers = new Map<
+		string,
+		ConnectionStateCallback
+	>();
 	protected retryTimeoutId: number | null = null;
 
 	protected readonly reconnectConfig: ReconnectConfig = {
@@ -55,14 +58,14 @@ export abstract class BaseAdapter<T extends BaseRecord = BaseRecord>
 	abstract connect(): Promise<void>;
 	abstract disconnect(): Promise<void>;
 	abstract subscribe(
-		options: import('../types/index.js').SubscriptionOptions,
-		callback: import('../types/index.js').SubscriberCallback<T>,
+		options: import("../types/index.js").SubscriptionOptions,
+		callback: import("../types/index.js").SubscriberCallback<T>,
 	): () => void;
 	abstract findOne(table: string, id: string | number): Promise<T | null>;
 	abstract findMany(
 		table: string,
-		options?: import('../types/index.js').QueryOptions,
-	): Promise<import('../types/index.js').QueryResult<T>>;
+		options?: import("../types/index.js").QueryOptions,
+	): Promise<import("../types/index.js").QueryResult<T>>;
 	abstract create(table: string, data: Partial<T>): Promise<T>;
 	abstract update(
 		table: string,
@@ -131,7 +134,7 @@ export abstract class BaseAdapter<T extends BaseRecord = BaseRecord>
 			try {
 				callback({ ...this.connectionState });
 			} catch (err) {
-				console.warn('Connection state callback error:', err);
+				console.warn("Connection state callback error:", err);
 			}
 		}
 	}
@@ -142,17 +145,17 @@ export abstract class BaseAdapter<T extends BaseRecord = BaseRecord>
 			this.reconnectConfig.baseDelay * 2 ** retryCount,
 			this.reconnectConfig.maxDelay,
 		);
-		
+
 		if (this.reconnectConfig.jitter) {
 			return delay + Math.random() * 1000;
 		}
-		
+
 		return delay;
 	}
 
 	protected scheduleRetry(callback: () => Promise<void>): void {
 		if (this.connectionState.retryCount >= this.reconnectConfig.maxAttempts) {
-			console.warn('Max retry attempts reached');
+			console.warn("Max retry attempts reached");
 			return;
 		}
 
@@ -170,7 +173,7 @@ export abstract class BaseAdapter<T extends BaseRecord = BaseRecord>
 			try {
 				await callback();
 			} catch (error) {
-				console.error('Retry failed:', error);
+				console.error("Retry failed:", error);
 				this.scheduleRetry(callback);
 			}
 		}, delay) as unknown as number;
@@ -179,18 +182,18 @@ export abstract class BaseAdapter<T extends BaseRecord = BaseRecord>
 	// Error handling
 	protected createAdapterError(
 		error: unknown,
-		defaultMessage = 'Adapter operation failed',
+		defaultMessage = "Adapter operation failed",
 	): AdapterError {
 		if (error instanceof Error) {
 			return Object.assign(error, {
 				status: (error as { status?: number }).status || 500,
-				code: (error as { code?: string }).code || 'ADAPTER_ERROR',
+				code: (error as { code?: string }).code || "ADAPTER_ERROR",
 			});
 		}
-		
+
 		const adapterError = new Error(defaultMessage) as AdapterError;
 		adapterError.status = 500;
-		adapterError.code = 'ADAPTER_ERROR';
+		adapterError.code = "ADAPTER_ERROR";
 		return adapterError;
 	}
 

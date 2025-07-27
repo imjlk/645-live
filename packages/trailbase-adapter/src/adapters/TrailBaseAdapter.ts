@@ -3,6 +3,9 @@
  */
 
 import { BaseAdapter } from '../core/BaseAdapter.js';
+import { TrailBaseAuthAdapter } from './AuthAdapter.js';
+import { TrailBaseRecordUtilities } from './RecordUtilities.js';
+import { TrailBaseCacheUtilities } from './CacheUtilities.js';
 import type {
 	AdapterConfig,
 	SubscriptionOptions,
@@ -11,6 +14,9 @@ import type {
 	QueryResult,
 	StreamEvent,
 	BaseRecord,
+	AuthAdapter,
+	RecordUtilities,
+	CacheUtilities,
 } from '../types/index.js';
 
 // TrailBase specific types
@@ -29,6 +35,11 @@ export class TrailBaseAdapter<T extends BaseRecord = BaseRecord> extends BaseAda
 	private isInitializing = false;
 	private isInitialized = false;
 	private initializationPromise: Promise<void> | null = null;
+
+	// Utility adapters
+	public auth?: AuthAdapter;
+	public records?: RecordUtilities<T>;
+	public cacheUtils?: CacheUtilities;
 
 	constructor(private config: AdapterConfig) {
 		super(config);
@@ -56,6 +67,14 @@ export class TrailBaseAdapter<T extends BaseRecord = BaseRecord> extends BaseAda
 			
 			this.client = initClient(this.config.url);
 			this.isInitialized = true;
+
+			// Initialize utility adapters
+			this.auth = new TrailBaseAuthAdapter(this.client);
+			this.records = new TrailBaseRecordUtilities<T>(this.client);
+			this.cacheUtils = new TrailBaseCacheUtilities(
+				this.client, 
+				this.config.cache?.ttl || 5 * 60 * 1000 // 5 minutes default
+			);
 
 			this.updateConnectionState({
 				connected: true,
@@ -384,10 +403,24 @@ export class TrailBaseAdapter<T extends BaseRecord = BaseRecord> extends BaseAda
 	}
 
 	private invalidateTableCache(table: string): void {
+		// Use the new cache utility if available
+		if (this.cacheUtils) {
+			this.cacheUtils.invalidateTable(table);
+		}
+		
+		// Also invalidate BaseAdapter cache
 		for (const key of this.cache.keys()) {
 			if (key.startsWith(`${table}:list:`)) {
 				this.cache.delete(key);
 			}
+		}
+	}
+
+	// Enhanced cache methods using the new cache utility
+	override clearCache(): void {
+		super.clearCache();
+		if (this.cacheUtils) {
+			this.cacheUtils.clearCache();
 		}
 	}
 
@@ -398,4 +431,5 @@ export class TrailBaseAdapter<T extends BaseRecord = BaseRecord> extends BaseAda
 			limit: 1,
 		}).then((result) => result.records[0] || null);
 	}
+
 }

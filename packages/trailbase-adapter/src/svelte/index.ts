@@ -7,7 +7,7 @@ export {
 	useConnectionStatus,
 	useRealtimeSubscription,
 	useCachedData,
-} from './composables.svelte.js';
+} from "./composables.svelte.js";
 
 // Re-export types for convenience
 export type {
@@ -15,4 +15,4 @@ export type {
 	RealtimeAdapter,
 	ConnectionState,
 	AdapterError,
-} from '../types/index.js';
+} from "../types/index.js";

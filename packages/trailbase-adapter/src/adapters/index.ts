@@ -3,6 +3,9 @@
  */
 
 export { TrailBaseAdapter } from './TrailBaseAdapter.js';
+export { TrailBaseAuthAdapter } from './AuthAdapter.js';
+export { TrailBaseRecordUtilities } from './RecordUtilities.js';
+export { TrailBaseCacheUtilities } from './CacheUtilities.js';
 export { BaseAdapter } from '../core/BaseAdapter.js';
 
 import { TrailBaseAdapter } from './TrailBaseAdapter.js';

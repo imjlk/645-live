@@ -108,7 +108,7 @@
 </script>
 
 {#if showInstallPrompt && !isInstalled}
-	<div class="fixed bottom-4 left-4 right-4 z-50 md:left-auto md:right-4 md:w-96">
+	<div class="fixed bottom-20 left-4 right-4 z-50 sm:bottom-4 md:left-auto md:right-4 md:w-96">
 		<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg p-4">
 			<div class="flex items-start gap-3">
 				<div class="flex-shrink-0 w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">

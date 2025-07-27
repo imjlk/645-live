@@ -3,15 +3,15 @@
  * Provides reactive state management with proper lifecycle handling
  */
 
-import { untrack } from 'svelte';
+import { untrack } from "svelte";
 import type {
-	RealtimeAdapter,
-	BaseRecord,
 	AdapterError,
+	BaseRecord,
 	ConnectionState,
-	SubscriptionOptions,
 	QueryOptions,
-} from '../types/index.js';
+	RealtimeAdapter,
+	SubscriptionOptions,
+} from "../types/index.js";
 
 interface UseRealtimeDataOptions<T extends BaseRecord = BaseRecord> {
 	table: string;
@@ -245,16 +245,13 @@ export function useRealtimeSubscription<T extends BaseRecord = BaseRecord>(
 		const subscriberId = `subscription-${Date.now()}-${Math.random()}`;
 
 		// Subscribe to data updates
-		const unsubscribeData = adapter.subscribe(
-			{ table, filter },
-			(data) => {
-				latestUpdate = data;
+		const unsubscribeData = adapter.subscribe({ table, filter }, (data) => {
+			latestUpdate = data;
 
-				if (onUpdate) {
-					onUpdate(data);
-				}
-			},
-		);
+			if (onUpdate) {
+				onUpdate(data);
+			}
+		});
 
 		// Subscribe to connection state changes
 		const unsubscribeConnection = adapter.subscribeToConnectionState(
