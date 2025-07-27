@@ -4,8 +4,8 @@ import type { PageServerLoad } from "./$types";
 
 const client = initClient(PUBLIC_TRAILBASE_URL || "http://localhost:4000");
 
-// 동적 페이지 설정
-export const prerender = true;
+// 동적 페이지 설정 - SSR 사용으로 변경 (실시간 데이터 반영)
+export const prerender = false;
 
 export const load: PageServerLoad = async ({ params }) => {
 	try {

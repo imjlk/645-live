@@ -1,8 +1,8 @@
 import { getACAnalysis } from "$lib/trailbase/stats";
 import type { PageServerLoad } from "./$types";
 
-// 페이지 옵션 설정
-export const prerender = true;
+// SSR 사용으로 변경 (실시간 데이터 반영)
+export const prerender = false;
 
 export const load: PageServerLoad = async () => {
 	try {
