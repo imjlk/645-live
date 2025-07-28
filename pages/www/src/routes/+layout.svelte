@@ -60,6 +60,7 @@ onMount(async () => {
 	<meta name="viewport" content="width=device-width, initial-scale=1" />
 	<meta name="theme-color" content="#3b82f6" />
 	<meta name="google-adsense-account" content="ca-pub-4441205887996163">
+	<meta name="naver-site-verification" content="61430164e06bd982855b384e778a1c565ee14065" />
 	<!-- Google tag (gtag.js) -->
 	<script async src="https://www.googletagmanager.com/gtag/js?id=G-KEBJGHESGM"></script>
 	<script>
