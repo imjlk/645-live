@@ -26,24 +26,8 @@ export { calculateExpectedLatestRound };
  * 서버 시간은 UTC 기준이므로 한국 시간(UTC+9)으로 변환하여 계산
  */
 export function calculateDisplayRound(): number {
-	// 한국 시간으로 현재 시간 생성
-	const now = new Date();
-	const koreaTime = new Date(
-		now.toLocaleString("en-US", { timeZone: "Asia/Seoul" }),
-	);
-
-	const dayOfWeek = koreaTime.getDay(); // 0=일요일, 6=토요일
-	const hour = koreaTime.getHours();
-
-	const latestRound = calculateExpectedLatestRound();
-
-	// 토요일 20시 이후 ~ 일요일 06시 이전: 최신 회차 (발표된 회차)
-	if ((dayOfWeek === 6 && hour >= 20) || (dayOfWeek === 0 && hour < 6)) {
-		return latestRound;
-	}
-
-	// 그 외의 시간: 다음 회차 (예측할 회차)
-	return latestRound + 1;
+	// 현재 판매 중인 회차를 보여주기 위해 calculateExpectedLatestRound와 동일한 로직 사용
+	return calculateExpectedLatestRound();
 }
 
 /**
