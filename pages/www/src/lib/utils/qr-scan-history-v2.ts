@@ -253,13 +253,13 @@ export class LocalStorageProvider implements QRScanStorageProvider {
 	async isDuplicate(qrData: string, userId?: string): Promise<boolean> {
 		const items = await this.loadFromStorage();
 		const qrHash = this.generateQRHash(qrData);
-		const oneDayAgo = new Date();
-		oneDayAgo.setHours(oneDayAgo.getHours() - 24);
+		const oneWeekAgo = new Date();
+		oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
 		
 		return items.some(item => {
 			const itemHash = this.generateQRHash(item.qrData);
 			const matchesUser = userId ? item.userId === userId : true;
-			return itemHash === qrHash && item.scannedAt > oneDayAgo && matchesUser;
+			return itemHash === qrHash && item.scannedAt > oneWeekAgo && matchesUser;
 		});
 	}
 
