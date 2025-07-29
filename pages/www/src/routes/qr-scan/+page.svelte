@@ -1,20 +1,19 @@
 <script lang="ts">
-import { enhance } from "$app/forms";
 import { browser } from "$app/environment";
+import { enhance } from "$app/forms";
 import { env } from "$env/dynamic/public";
-import ScanStatusGrid from "$lib/modules/lotto/components/ScanStatusGrid.svelte";
 import QRScanHistory from "$lib/components/qr-scan/QRScanHistory.svelte";
+import ScanStatusGrid from "$lib/modules/lotto/components/ScanStatusGrid.svelte";
 import {
+	calculateExpectedLatestRound,
 	getLatestLottoRoundFromAPI,
 	getLottoNumbersFromAPI,
-	calculateExpectedLatestRound,
 } from "$lib/utils/lotto-common.js";
 import { parseLottoQR } from "$lib/utils/lotto-parser.js";
-import { 
-	qrScanHistory, 
-	qrScanHistoryV2,
-	generateScanSummary, 
-	type QRScanHistoryItem 
+import {
+	type QRScanHistoryItem,
+	generateScanSummary,
+	qrScanHistory,
 } from "$lib/utils/qr-scan-history.js";
 import {
 	type BarcodeFormat,
@@ -24,7 +23,6 @@ import {
 } from "barqode";
 import { MetaTags } from "svelte-meta-tags";
 import { Toaster, toast } from "svelte-sonner";
-import { initClient } from "trailbase";
 import type { ActionData, PageData } from "./$types";
 
 // Props
@@ -60,12 +58,8 @@ let cameraFOVs = $state<Map<string, number>>(new Map());
 
 // Detection Results
 let lastDetected = $state("");
-let uploaded = $state("");
-let processedNumbers = $state<number[]>([]);
 let isSubmittingForm = $state(false);
 
-// Trailbase client
-const client = initClient(env.PUBLIC_TRAILBASE_URL || "http://localhost:4000");
 
 // Form element reference for programmatic submission
 let scanForm: HTMLFormElement;
@@ -75,15 +69,7 @@ let qrDataInput: HTMLInputElement;
 let scanStatusGrid = $state<ScanStatusGrid>();
 let currentRound = $state(0); // QR 스캔 후에 실제 회차로 설정
 
-// User state (for future use)
-let currentUserId = $state<string | null>(null);
 
-// Check user status on mount
-$effect(() => {
-	if (browser) {
-		currentUserId = qrScanHistoryV2.getUserId();
-	}
-});
 
 // ===== LOTTO WINNING CHECK UTILITIES =====
 interface WinningResult {
@@ -166,7 +152,7 @@ async function checkQRWinning(qrData: string): Promise<{
 		if (!games || games.length === 0) {
 			return null;
 		}
-		
+
 		const qrRound = games[0].round;
 		if (!qrRound) {
 			return null;
@@ -272,10 +258,6 @@ async function onDetect(detectedCodes: DetectedBarcode[]) {
 }
 
 async function onDetectUploaded(detectedCodes: DetectedBarcode[]) {
-	uploaded = detectedCodes
-		.map((detectedCode) => detectedCode.rawValue)
-		.join(", ");
-
 	// 업로드된 이미지에서도 로또 QR 코드 파싱 및 처리
 	if (detectedCodes.length > 0) {
 		const qrData = detectedCodes[0].rawValue;
@@ -293,6 +275,17 @@ async function onDetectUploaded(detectedCodes: DetectedBarcode[]) {
 // 현재 처리 중인 QR 데이터 추적 (중복 제출 방지)
 let processingQRData = $state<string | null>(null);
 
+// 최근 스캔한 QR 데이터들 (5초 쿨다운용)
+let recentScannedQRs = $state(new Set<string>());
+
+// QR 쿨다운 해제 함수
+function clearQRCooldown(qrData: string) {
+	setTimeout(() => {
+		recentScannedQRs.delete(qrData);
+		recentScannedQRs = new Set(recentScannedQRs); // 반응성을 위한 재할당
+	}, 5000); // 5초 후 쿨다운 해제
+}
+
 // QR 데이터를 서버 액션으로 제출하는 함수
 async function submitQRData(qrData: string) {
 	try {
@@ -302,13 +295,30 @@ async function submitQRData(qrData: string) {
 			return;
 		}
 
-		// 중복 스캔 확인 (브라우저 환경에서만)
-		if (browser && qrScanHistory.isDuplicate(qrData)) {
-			toast.info("ℹ️ 이미 스캔한 로또 용지입니다", {
-				description: "최근 24시간 내에 동일한 QR 코드를 스캔했습니다.",
-				duration: 4000,
+		// 5초 쿨다운 체크
+		if (recentScannedQRs.has(qrData)) {
+			toast.info("ℹ️ 잠시만 기다려주세요", {
+				description: "같은 QR 코드는 5초 후에 다시 스캔할 수 있습니다.",
+				duration: 3000,
 			});
 			return;
+		}
+
+		// 히스토리 기반 중복 스캔 확인 (브라우저 환경에서만)
+		if (browser) {
+			const isDupe = await qrScanHistory.isDuplicate(qrData);
+			if (isDupe) {
+				toast.info("ℹ️ 이미 스캔한 로또 용지입니다", {
+					description: "이 로또 용지는 이미 스캔 내역에 저장되어 있습니다.",
+					duration: 4000,
+				});
+
+				// 쿨다운 추가 (중복이지만 5초 후 다시 시도 가능)
+				recentScannedQRs.add(qrData);
+				recentScannedQRs = new Set(recentScannedQRs);
+				clearQRCooldown(qrData);
+				return;
+			}
 		}
 
 		if (!scanForm || !qrDataInput) {
@@ -321,7 +331,12 @@ async function submitQRData(qrData: string) {
 
 		// 처리 시작 표시
 		processingQRData = qrData;
-		
+
+		// 성공적인 스캔 시도 시 쿨다운 추가
+		recentScannedQRs.add(qrData);
+		recentScannedQRs = new Set(recentScannedQRs);
+		clearQRCooldown(qrData);
+
 		// 숨겨진 input에 QR 데이터 설정
 		qrDataInput.value = qrData;
 
@@ -345,16 +360,14 @@ $effect(() => {
 		processingQRData = null; // 처리 완료 표시
 
 		if (form.success) {
-			if (form.data?.uniqueNumbers) {
-				processedNumbers = form.data.uniqueNumbers;
-			}
+			// Process successful form submission
 
 			// Check if QR code contains games and update round
 			const qrData = form.data?.qrData;
 			if (qrData) {
 				const games = parseLottoQR(qrData);
 				if (games && games.length > 0) {
-					const qrRound = games[0].round;
+					const qrRound = games[0]?.round;
 					if (qrRound) {
 						// 첫 스캔이거나 다른 회차인 경우 업데이트
 						if (currentRound === 0 || qrRound !== currentRound) {
@@ -373,7 +386,7 @@ $effect(() => {
 			if (qrData) {
 				// 비동기적으로 당첨 확인 수행
 				checkQRWinning(qrData)
-					.then((winningCheck) => {
+					.then(async (winningCheck) => {
 						if (winningCheck) {
 							const { isWinner, winningResults, qrRound, isUnreleased } =
 								winningCheck;
@@ -382,16 +395,26 @@ $effect(() => {
 							const games = parseLottoQR(qrData);
 							const round = games?.[0]?.round || qrRound;
 							const gamesCount = form.data?.gamesCount || games?.length || 0;
-							
+
 							let winningGrade = "";
 							if (isWinner && winningResults) {
-								const winners = winningResults.filter(result => result.isWinner);
+								const winners = winningResults.filter(
+									(result) => result.isWinner,
+								);
 								if (winners.length > 0) {
 									const highestGrade = winners.reduce((highest, current) => {
-										const gradeOrder = { "1등": 1, "2등": 2, "3등": 3, "4등": 4, "5등": 5 };
-										return gradeOrder[current.grade as keyof typeof gradeOrder] <
-											gradeOrder[highest.grade as keyof typeof gradeOrder]
-											? current : highest;
+										const gradeOrder = {
+											"1등": 1,
+											"2등": 2,
+											"3등": 3,
+											"4등": 4,
+											"5등": 5,
+										};
+										return gradeOrder[
+											current.grade as keyof typeof gradeOrder
+										] < gradeOrder[highest.grade as keyof typeof gradeOrder]
+											? current
+											: highest;
 									});
 									winningGrade = highestGrade.grade;
 								}
@@ -399,20 +422,24 @@ $effect(() => {
 
 							// 히스토리 저장 (브라우저 환경에서만)
 							if (browser) {
-								qrScanHistory.addScan({
-									qrData,
-									round,
-									gamesCount,
-									isWinner: isWinner || false,
-									winningGrade: winningGrade,
-									summary: generateScanSummary({
+								try {
+									await qrScanHistory.addScan({
+										qrData,
 										round,
 										gamesCount,
-										isWinner,
-										winningGrade,
-										isUnreleased: isUnreleased || false
-									})
-								});
+										isWinner: isWinner || false,
+										winningGrade: winningGrade,
+										summary: generateScanSummary({
+											round,
+											gamesCount,
+											isWinner,
+											winningGrade,
+											isUnreleased: isUnreleased || false,
+										}),
+									});
+								} catch (error) {
+									console.error('히스토리 저장 실패:', error);
+								}
 							}
 
 							if (isUnreleased) {
