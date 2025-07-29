@@ -18,11 +18,17 @@ function checkLoginStatus() {
 }
 
 // Load history when component mounts
-function loadHistory() {
+async function loadHistory() {
 	if (!browser) return;
-	historyItems = qrScanHistory.getHistory();
-	todayScansCount = qrScanHistory.getTotalScansToday();
-	checkLoginStatus();
+	try {
+		historyItems = await qrScanHistory.getHistory();
+		todayScansCount = await qrScanHistory.getTotalScansToday();
+		checkLoginStatus();
+	} catch (error) {
+		console.error('히스토리 로드 실패:', error);
+		historyItems = [];
+		todayScansCount = 0;
+	}
 }
 
 // Open modal and load fresh data
@@ -37,18 +43,26 @@ function closeModal() {
 }
 
 // Delete specific scan
-function deleteScan(id: string) {
+async function deleteScan(id: string) {
 	if (!browser) return;
-	qrScanHistory.removeScan(id);
-	loadHistory(); // Refresh list
+	try {
+		await qrScanHistory.removeScan(id);
+		await loadHistory(); // Refresh list
+	} catch (error) {
+		console.error('스캔 삭제 실패:', error);
+	}
 }
 
 // Clear all history
-function clearAllHistory() {
+async function clearAllHistory() {
 	if (!browser) return;
 	if (confirm('정말로 모든 스캔 기록을 삭제하시겠습니까?')) {
-		qrScanHistory.clearHistory();
-		loadHistory();
+		try {
+			await qrScanHistory.clearHistory();
+			await loadHistory();
+		} catch (error) {
+			console.error('전체 히스토리 삭제 실패:', error);
+		}
 	}
 }
 
@@ -305,7 +319,7 @@ loadHistory();
 			{#if historyItems.length > 0}
 				<div class="sticky bottom-0 bg-base-100 border-t border-base-300 p-4">
 					<div class="flex justify-between items-center text-xs text-base-content/60">
-						<span>최근 24시간 내 동일한 QR 코드는 중복 스캔이 방지됩니다</span>
+						<span>로그인하지 않은 스캔 내역은 최대 1주일 동안 보관됩니다</span>
 						<span>최대 100개까지 저장됩니다</span>
 					</div>
 				</div>
