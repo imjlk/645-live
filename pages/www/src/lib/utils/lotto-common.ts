@@ -43,11 +43,14 @@ export function calculateExpectedLatestRound(): number {
 	// 기본 예상 회차 (1회 + 경과한 주 수)
 	let expectedRound = 1 + weeksDiff;
 
-	// 토요일 20시 이전이면 아직 추첨이 안된 것이므로 -1
-	if (dayOfWeek === 6 && hour < 20) {
-		expectedRound -= 1;
+	// 일요일 오전 6시 이전이면 아직 당첨번호가 발표되지 않았지만,
+	// 로또 구매는 다음 회차를 위한 것이므로 현재 회차 그대로 유지
+	// 일요일 오전 6시 이후부터는 다음 회차로 진행
+	if (dayOfWeek === 0 && hour >= 6) {
+		expectedRound += 1;
+	} else if (dayOfWeek >= 1) { // 월요일~토요일
+		expectedRound += 1;
 	}
-	// 일요일~금요일이거나 토요일 20시 이후면 해당 주차의 추첨이 완료된 것
 
 	return expectedRound;
 }
