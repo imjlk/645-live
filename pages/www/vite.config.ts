@@ -24,4 +24,12 @@ export default defineConfig(({ command, mode }) => ({
 		// Force IPv4 for better Bun compatibility
 		host: "127.0.0.1",
 	},
+	// Add WebSocket compatibility for Bun
+	define: {
+		global: 'globalThis',
+	},
+	optimizeDeps: {
+		exclude: ['ws'],
+		include: ['vite > ws'],
+	},
 }));

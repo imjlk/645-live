@@ -4,7 +4,8 @@
 	"type": "module",
 	"scripts": {
 		"add": "bun add",
-		"dev": "bunx --bun vite dev",
+		"dev": "vite dev --host 0.0.0.0",
+		"dev:bun": "bunx --bun vite dev",
 		"build": "bunx --bun vite build",
 		"preview": "bun run build && wrangler pages dev",
 		"deploy": "bun run build && wrangler pages deploy",
