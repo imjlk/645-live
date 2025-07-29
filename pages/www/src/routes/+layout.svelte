@@ -7,9 +7,9 @@ import "../app.css";
 import InstallPrompt from "$lib/components/ui/InstallPrompt.svelte";
 import UpdatePrompt from "$lib/components/ui/UpdatePrompt.svelte";
 import Footer from "$lib/layout/Footer.svelte";
-import Clarity from "@microsoft/clarity";
 import { NuqsAdapter } from "nuqs-svelte/adapters/svelte-kit";
 import { onMount } from "svelte";
+import { browser } from "$app/environment";
 
 let { children } = $props();
 import { PUBLIC_TRAILBASE_URL } from "$env/static/public";
@@ -24,9 +24,14 @@ let availableRounds = $state<number[]>([]);
 let currentPath = $derived(page.url.pathname);
 
 onMount(async () => {
-	// Microsoft Clarity 초기화 (프로덕션에서만)
-	if (import.meta.env.PROD) {
-		Clarity.init("qeumg5ffol");
+	// Microsoft Clarity 초기화 (브라우저 환경 & 프로덕션에서만)
+	if (browser && import.meta.env.PROD) {
+		try {
+			const { default: Clarity } = await import("@microsoft/clarity");
+			Clarity.init("qeumg5ffol");
+		} catch (error) {
+			console.warn("Failed to initialize Microsoft Clarity:", error);
+		}
 	}
 
 	// PWA 성능 모니터링 초기화
