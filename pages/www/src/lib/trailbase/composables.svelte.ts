@@ -322,8 +322,8 @@ export function useBallValues(
 				}
 			}
 
-			// Strategy 2: If specific round fails, try latest available data
-			if (!scanData) {
+			// Strategy 2: If specific round fails and no specific round was requested, try latest available data
+			if (!scanData && !roundToLoad) {
 				scanData = await trailbaseClient.getLatestScanData();
 
 				if (scanData) {
@@ -352,12 +352,15 @@ export function useBallValues(
 			} else {
 				// Initialize with zeros if no data found
 				console.warn(`No scan data available, initializing with zeros`);
+				// Keep the requested round even if no data exists
 				currentRound = roundToLoad || null;
 				totalScans = 0;
 				ballValues = initializeBallValues();
 
-				// Increment retry count for no data scenarios
-				retryCount++;
+				// Only increment retry count if no specific round was requested
+				if (!roundToLoad) {
+					retryCount++;
+				}
 
 				// Still call onValuesChange to notify components
 				if (onValuesChange) {
@@ -378,7 +381,8 @@ export function useBallValues(
 			retryCount++;
 
 			// Initialize with zeros on error
-			currentRound = round || initialRound || null;
+			// Keep the requested round even if there's an error
+			currentRound = roundToLoad || null;
 			ballValues = initializeBallValues();
 			totalScans = 0;
 
@@ -416,7 +420,7 @@ export function useBallValues(
 			let hasChanges = false;
 
 			for (let i = 1; i <= 45; i++) {
-				const newValue = newValues[i];
+				const newValue = newValues[i] || 0;
 				const currentValue = ballValues[i] || 0;
 
 				if (newValue !== currentValue) {
