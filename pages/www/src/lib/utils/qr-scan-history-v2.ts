@@ -98,6 +98,7 @@ export interface QRScanHistoryManager {
 	removeScan(id: string): Promise<boolean>;
 	getScanById(id: string): Promise<QRScanHistoryItem | null>;
 	getStats(): Promise<QRScanHistoryStats>;
+	getTotalScansToday(): Promise<number>;
 	
 	// 회원 관리
 	setUserId(userId: string | null): void;
@@ -413,6 +414,13 @@ export class QRScanHistoryManagerImpl implements QRScanHistoryManager {
 
 	async addScan(item: Omit<QRScanHistoryItem, 'id' | 'scannedAt'>): Promise<QRScanHistoryItem> {
 		const provider = this.getCurrentProvider();
+		
+		// 중복 검사 (URL/QR 데이터 기준)
+		const isDupe = await provider.isDuplicate(item.qrData, this.currentUserId || undefined);
+		if (isDupe) {
+			throw new Error('이미 스캔한 QR 코드입니다');
+		}
+		
 		const itemWithUser = {
 			...item,
 			userId: this.currentUserId || undefined
@@ -464,6 +472,11 @@ export class QRScanHistoryManagerImpl implements QRScanHistoryManager {
 	async getStats(): Promise<QRScanHistoryStats> {
 		const provider = this.getCurrentProvider();
 		return provider.getStats(this.currentUserId || undefined);
+	}
+
+	async getTotalScansToday(): Promise<number> {
+		const stats = await this.getStats();
+		return stats.todayScans;
 	}
 
 	// === 동기화 관리 ===

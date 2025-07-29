@@ -42,7 +42,7 @@ export const load: PageServerLoad = async () => {
 };
 
 export const actions: Actions = {
-	scan: async ({ request, fetch }) => {
+	scan: async ({ request, fetch, cookies }) => {
 		try {
 			const formData = await request.formData();
 			const qrData = formData.get("qrData");

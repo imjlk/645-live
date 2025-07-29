@@ -1,13 +1,19 @@
 <script lang="ts">
 import { browser } from "$app/environment";
-import { qrScanHistory, qrScanHistoryV2, getRelativeTimeString, syncHistory, type QRScanHistoryItem } from "$lib/utils/qr-scan-history.js";
 import { parseLottoQR } from "$lib/utils/lotto-parser.js";
+import {
+	type QRScanHistoryItem,
+	getRelativeTimeString,
+	qrScanHistory,
+	qrScanHistoryV2,
+	syncHistory,
+} from "$lib/utils/qr-scan-history.js";
 
 // State
 let showModal = $state(false);
 let historyItems = $state<QRScanHistoryItem[]>([]);
 let todayScansCount = $state(0);
-let syncStatus = $state<'idle' | 'syncing' | 'success' | 'error'>('idle');
+let syncStatus = $state<"idle" | "syncing" | "success" | "error">("idle");
 let isLoggedIn = $state(false);
 
 // Check login status
@@ -25,7 +31,7 @@ async function loadHistory() {
 		todayScansCount = await qrScanHistory.getTotalScansToday();
 		checkLoginStatus();
 	} catch (error) {
-		console.error('히스토리 로드 실패:', error);
+		console.error("히스토리 로드 실패:", error);
 		historyItems = [];
 		todayScansCount = 0;
 	}
@@ -49,19 +55,19 @@ async function deleteScan(id: string) {
 		await qrScanHistory.removeScan(id);
 		await loadHistory(); // Refresh list
 	} catch (error) {
-		console.error('스캔 삭제 실패:', error);
+		console.error("스캔 삭제 실패:", error);
 	}
 }
 
 // Clear all history
 async function clearAllHistory() {
 	if (!browser) return;
-	if (confirm('정말로 모든 스캔 기록을 삭제하시겠습니까?')) {
+	if (confirm("정말로 모든 스캔 기록을 삭제하시겠습니까?")) {
 		try {
 			await qrScanHistory.clearHistory();
 			await loadHistory();
 		} catch (error) {
-			console.error('전체 히스토리 삭제 실패:', error);
+			console.error("전체 히스토리 삭제 실패:", error);
 		}
 	}
 }
@@ -69,55 +75,61 @@ async function clearAllHistory() {
 // Manual sync for logged in users
 async function handleSync() {
 	if (!browser || !isLoggedIn) return;
-	
-	syncStatus = 'syncing';
+
+	syncStatus = "syncing";
 	try {
 		const result = await syncHistory();
 		if (result.success) {
-			syncStatus = 'success';
+			syncStatus = "success";
 			loadHistory(); // Refresh data after sync
-			setTimeout(() => { syncStatus = 'idle'; }, 2000); // Reset status after 2s
+			setTimeout(() => {
+				syncStatus = "idle";
+			}, 2000); // Reset status after 2s
 		} else {
-			syncStatus = 'error';
-			console.error('동기화 실패:', result.error);
-			setTimeout(() => { syncStatus = 'idle'; }, 3000);
+			syncStatus = "error";
+			console.error("동기화 실패:", result.error);
+			setTimeout(() => {
+				syncStatus = "idle";
+			}, 3000);
 		}
 	} catch (error) {
-		syncStatus = 'error';
-		console.error('동기화 중 오류:', error);
-		setTimeout(() => { syncStatus = 'idle'; }, 3000);
+		syncStatus = "error";
+		console.error("동기화 중 오류:", error);
+		setTimeout(() => {
+			syncStatus = "idle";
+		}, 3000);
 	}
 }
 
 // Get icon based on scan result
 function getScanIcon(item: QRScanHistoryItem): string {
 	if (item.isWinner) {
-		if (item.winningGrade === '1등' || item.winningGrade === '2등') {
-			return '🎉';
+		if (item.winningGrade === "1등" || item.winningGrade === "2등") {
+			return "🎉";
 		}
-		return '🎊';
+		return "🎊";
 	}
-	return '📄';
+	return "📄";
 }
 
 // Get background color based on scan result
 function getScanBgColor(item: QRScanHistoryItem): string {
 	if (item.isWinner) {
-		if (item.winningGrade === '1등' || item.winningGrade === '2등') {
-			return 'bg-gradient-to-r from-yellow-100 to-orange-100 border-yellow-300';
+		if (item.winningGrade === "1등" || item.winningGrade === "2등") {
+			return "bg-gradient-to-r from-yellow-100 to-orange-100 border-yellow-300";
 		}
-		return 'bg-gradient-to-r from-green-50 to-blue-50 border-green-300';
+		return "bg-gradient-to-r from-green-50 to-blue-50 border-green-300";
 	}
-	return 'bg-base-100 border-base-300';
+	return "bg-base-100 border-base-300";
 }
 
 // Format date for display
 function formatScanDate(date: Date): string {
-	return date.toLocaleDateString('ko-KR', {
-		month: 'short',
-		day: 'numeric',
-		hour: '2-digit',
-		minute: '2-digit'
+	return date.toLocaleDateString("ko-KR", {
+		month: "short",
+		day: "numeric",
+		hour: "2-digit",
+		minute: "2-digit",
 	});
 }
 
@@ -125,24 +137,24 @@ function formatScanDate(date: Date): string {
 function getLottoNumbers(qrData: string): string {
 	try {
 		const games = parseLottoQR(qrData);
-		if (!games || games.length === 0) return '';
-		
+		if (!games || games.length === 0) return "";
+
 		// 최대 3개 게임까지만 표시, 나머지는 "외 N개"로 표시
 		const displayGames = games.slice(0, 3);
 		const remainingCount = Math.max(0, games.length - 3);
-		
-		const gameTexts = displayGames.map(game => 
-			game.numbers.sort((a, b) => a - b).join(', ')
+
+		const gameTexts = displayGames.map((game) =>
+			game.numbers.sort((a, b) => a - b).join(", "),
 		);
-		
-		let result = gameTexts.join(' | ');
+
+		let result = gameTexts.join(" | ");
 		if (remainingCount > 0) {
 			result += ` 외 ${remainingCount}개`;
 		}
-		
+
 		return result;
 	} catch (error) {
-		return '';
+		return "";
 	}
 }
 
@@ -175,7 +187,7 @@ loadHistory();
 <!-- Modal -->
 {#if showModal}
 	<div class="modal modal-open">
-		<div class="modal-box max-w-2xl max-h-[80vh] p-0">
+		<div class="modal-box max-w-2xl max-h-[50vh] p-0">
 			<!-- Header -->
 			<div class="sticky top-0 bg-base-100 border-b border-base-300 p-6 z-10">
 				<div class="flex items-center justify-between">
@@ -239,7 +251,7 @@ loadHistory();
 			</div>
 
 			<!-- Content -->
-			<div class="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
+			<div class="p-1 space-y-4 max-h-[35vh] overflow-y-auto">
 				{#if historyItems.length === 0}
 					<div class="text-center py-12">
 						<div class="text-base-content/40 mb-4">
@@ -252,8 +264,8 @@ loadHistory();
 					</div>
 				{:else}
 					{#each historyItems as item (item.id)}
-						<div class="card border {getScanBgColor(item)} transition-all hover:shadow-md">
-							<div class="card-body p-4">
+						<div class="card border {getScanBgColor(item)} transition-all hover:shadow-md mb-1">
+							<div class="card-body p-2">
 								<div class="flex items-start justify-between">
 									<div class="flex items-start gap-3 flex-1">
 										<div class="text-2xl mt-1">
@@ -288,11 +300,11 @@ loadHistory();
 													</p>
 												{/if}
 												{#if getLottoNumbers(item.qrData)}
-													<div class="mt-2 p-2 bg-base-200 rounded text-xs">
+													<div class="p-1 bg-base-200 rounded text-xs">
 														<span class="font-medium text-base-content/80">번호:</span>
-														<div class="mt-1 text-base-content/70 font-mono text-xs leading-relaxed">
+														<span class="pl-1 text-base-content/70 font-mono text-xs leading-relaxed">
 															{getLottoNumbers(item.qrData)}
-														</div>
+														</span>
 													</div>
 												{/if}
 											</div>

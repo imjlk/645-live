@@ -9,6 +9,9 @@ const config = {
 		serviceWorker: {
 			register: true,
 		},
+		csrf: {
+			checkOrigin: false,
+		},
 	},
 	extensions: [".svelte", ".svx"],
 	compilerOptions: {

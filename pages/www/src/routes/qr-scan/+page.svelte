@@ -54,7 +54,7 @@ let showPermissionModal = $state(false);
 // Camera States
 let videoDevices = $state<MediaDeviceInfo[]>([]);
 let selectedDeviceId = $state("");
-let cameraFOVs = $state<Map<string, number>>(new Map());
+let cameraFOVs = $state<Map<string, number | null>>(new Map());
 
 // Detection Results
 let lastDetected = $state("");
@@ -244,7 +244,7 @@ let selectedCameraLabel = $derived(() => {
 	const deviceIndex = videoDevices.indexOf(device) + 1;
 	const label = device.label || `카메라 ${deviceIndex}`;
 	const fov = cameraFOVs.get(device.deviceId);
-	return fov ? `${label} (FOV: ${Math.round(fov)}°)` : label;
+	return fov !== null && fov !== undefined ? `${label} (FOV: ${Math.round(fov)}°)` : label;
 });
 
 // ===== BARCODE DETECTION HANDLERS =====
@@ -343,6 +343,7 @@ async function submitQRData(qrData: string) {
 		// 폼 제출
 		isSubmittingForm = true;
 		scanForm.requestSubmit();
+		
 	} catch (error) {
 		console.error("Form submission error:", error);
 		toast.error("❌ 폼 제출 실패", {
@@ -354,8 +355,17 @@ async function submitQRData(qrData: string) {
 }
 
 // Form 결과 처리
+let lastProcessedFormId: string | null = null;
+
 $effect(() => {
 	if (form) {
+		// 중복 처리 방지 (form ID로 체크)
+		const currentFormId = `${form.success ? 'success' : 'error'}-${JSON.stringify(form.data || form.error)}`;
+		if (lastProcessedFormId === currentFormId) {
+			return;
+		}
+		lastProcessedFormId = currentFormId;
+
 		isSubmittingForm = false;
 		processingQRData = null; // 처리 완료 표시
 
@@ -438,7 +448,12 @@ $effect(() => {
 										}),
 									});
 								} catch (error) {
-									console.error('히스토리 저장 실패:', error);
+									// 중복이면 로그만 남기고 처리 계속
+									if (error instanceof Error && error.message.includes('이미 스캔한')) {
+										console.log('중복 스캔 방지됨:', qrData);
+									} else {
+										console.error('히스토리 저장 실패:', error);
+									}
 								}
 							}
 
@@ -614,7 +629,7 @@ function onError(err: { name: string; message: string }) {
 }
 
 // ===== CAMERA UTILITIES =====
-async function calculateFOV(deviceId: string): Promise<number> {
+async function calculateFOV(deviceId: string): Promise<number | null> {
 	try {
 		const stream = await navigator.mediaDevices.getUserMedia({
 			video: {
@@ -625,7 +640,7 @@ async function calculateFOV(deviceId: string): Promise<number> {
 		});
 
 		const track = stream.getVideoTracks()[0];
-		if (!track) return 80;
+		if (!track) return null;
 
 		const capabilities = track.getCapabilities?.() as
 			| ExtendedMediaTrackCapabilities
@@ -636,7 +651,7 @@ async function calculateFOV(deviceId: string): Promise<number> {
 		track.stop();
 
 		if (capabilities && settings && settings.width && settings.height) {
-			// Try to get FOV from capabilities if available
+			// Try to get FOV from capabilities if available (가장 정확한 방법)
 			if (capabilities.horizontalViewAngle) {
 				return capabilities.horizontalViewAngle;
 			}
@@ -651,24 +666,19 @@ async function calculateFOV(deviceId: string): Promise<number> {
 					2 *
 					Math.atan(estimatedSensorDiagonal / (2 * focalLength)) *
 					(180 / Math.PI);
-				return fov;
-			}
-
-			// Fallback: estimate based on resolution ratio
-			const aspectRatio = settings.width / settings.height;
-			if (aspectRatio > 1.5) {
-				return 100; // Likely wide-angle
-			}
-			if (aspectRatio < 1.2) {
-				return 70; // Likely standard
+				
+				// 합리적인 범위 체크 (20-150도)
+				if (fov >= 20 && fov <= 150) {
+					return fov;
+				}
 			}
 		}
 
-		// Default fallback
-		return 80;
+		// FOV를 정확히 측정할 수 없는 경우 null 반환
+		return null;
 	} catch (error) {
 		console.warn(`FOV calculation failed for device ${deviceId}:`, error);
-		return 80; // Default FOV
+		return null;
 	}
 }
 
@@ -682,56 +692,89 @@ async function getPreferredCamera(devices: MediaDeviceInfo[]): Promise<string> {
 
 	const deviceFOVs = await Promise.all(fovPromises);
 
-	// Camera selection priority logic
-	const rearCameras = deviceFOVs.filter(
-		({ device }) =>
-			device.label.toLowerCase().includes("back") ||
-			device.label.toLowerCase().includes("rear") ||
-			device.label.toLowerCase().includes("환경"),
+	// 광각 카메라 필터링 (QR 스캔에 적합하지 않음)
+	const wideAngleKeywords = [
+		"wide", "ultra", "광각", "초광각", "ultrawide", 
+		"0.5x", "0.6x", "telephoto", "macro", "zoom"
+	];
+	
+	const isWideAngleCamera = (device: MediaDeviceInfo, fov: number | null) => {
+		const label = device.label.toLowerCase();
+		
+		// 레이블에 광각 키워드가 포함된 경우
+		if (wideAngleKeywords.some(keyword => label.includes(keyword))) {
+			return true;
+		}
+		
+		// FOV가 95도 이상인 경우 (광각으로 간주)
+		if (fov !== null && fov >= 95) {
+			return true;
+		}
+		
+		return false;
+	};
+
+	// QR 스캔에 적합한 카메라 필터링
+	const qrSuitableDevices = deviceFOVs.filter(({ device, fov }) => 
+		!isWideAngleCamera(device, fov)
 	);
 
-	const nonWideDevices = deviceFOVs.filter(
-		({ device, fov }) =>
-			!device.label.toLowerCase().includes("wide") &&
-			!device.label.toLowerCase().includes("ultra") &&
-			!device.label.toLowerCase().includes("광각") &&
-			fov <= 90,
+	// 후면 카메라 중 QR 스캔에 적합한 것들
+	const rearQRSuitableDevices = qrSuitableDevices.filter(({ device }) =>
+		device.label.toLowerCase().includes("back") ||
+		device.label.toLowerCase().includes("rear") ||
+		device.label.toLowerCase().includes("환경") ||
+		device.label.toLowerCase().includes("main")
 	);
 
-	const standardFOVDevices = deviceFOVs.filter(
-		({ fov }) => fov >= 60 && fov <= 85,
+	// 표준 FOV 범위 (60-85도) 카메라
+	const standardFOVDevices = qrSuitableDevices.filter(
+		({ fov }) => fov !== null && fov >= 60 && fov <= 85,
 	);
 
-	// Priority selection
-	const rearStandardDevices = rearCameras.filter(({ device }) =>
+	// 우선순위별 선택
+	console.log("카메라 선택 디버깅:", {
+		totalDevices: devices.length,
+		qrSuitableDevices: qrSuitableDevices.length,
+		rearQRSuitableDevices: rearQRSuitableDevices.length,
+		standardFOVDevices: standardFOVDevices.length
+	});
+
+	// 1순위: 후면 + 표준 FOV + QR 적합
+	const rearStandardDevices = rearQRSuitableDevices.filter(({ device }) =>
 		standardFOVDevices.some((std) => std.device.deviceId === device.deviceId),
 	);
 
 	if (rearStandardDevices.length > 0) {
+		console.log("선택된 카메라: 후면 표준 FOV", rearStandardDevices[0]?.device.label);
 		return rearStandardDevices[0]?.device.deviceId || "";
 	}
 
-	const rearNonWideDevices = rearCameras.filter(({ device }) =>
-		nonWideDevices.some((nw) => nw.device.deviceId === device.deviceId),
-	);
-
-	if (rearNonWideDevices.length > 0) {
-		return rearNonWideDevices[0]?.device.deviceId || "";
+	// 2순위: 후면 + QR 적합
+	if (rearQRSuitableDevices.length > 0) {
+		console.log("선택된 카메라: 후면 QR 적합", rearQRSuitableDevices[0]?.device.label);
+		return rearQRSuitableDevices[0]?.device.deviceId || "";
 	}
 
+	// 3순위: 표준 FOV (전면 포함)
 	if (standardFOVDevices.length > 0) {
+		console.log("선택된 카메라: 표준 FOV", standardFOVDevices[0]?.device.label);
 		return standardFOVDevices[0]?.device.deviceId || "";
 	}
 
-	if (rearCameras.length > 0) {
-		return rearCameras[0]?.device.deviceId || "";
+	// 4순위: QR 적합한 모든 카메라
+	if (qrSuitableDevices.length > 0) {
+		console.log("선택된 카메라: QR 적합", qrSuitableDevices[0]?.device.label);
+		return qrSuitableDevices[0]?.device.deviceId || "";
 	}
 
-	if (nonWideDevices.length > 0) {
-		return nonWideDevices[0]?.device.deviceId || "";
+	// 최후: 첫 번째 사용 가능한 카메라 (광각이라도)
+	if (devices.length > 0) {
+		console.log("선택된 카메라: 기본 (광각일 수 있음)", devices[0]?.label);
+		return devices[0]?.deviceId || "";
 	}
 
-	return devices.length > 0 ? devices[0]?.deviceId || "" : "";
+	return "";
 }
 
 // ===== CAMERA MANAGEMENT =====
@@ -851,7 +894,7 @@ async function requestPermission() {
 	}}
 />
 
-<!-- 숨겨진 폼 - QR 데이터를 서버 액션으로 전송 -->
+<!-- QR 데이터를 서버 액션으로 전송하는 폼 -->
 <form 
 	bind:this={scanForm}
 	method="POST" 
@@ -861,7 +904,7 @@ async function requestPermission() {
 			await update();
 		};
 	}}
-	style="display: none;"
+	class="hidden"
 >
 	<input bind:this={qrDataInput} type="hidden" name="qrData" />
 </form>
@@ -928,7 +971,12 @@ async function requestPermission() {
 	
 	{#if hasCameraSelection}
 		<div class="mb-4">
-			<label for="camera-select" class="block text-sm font-medium text-base-content mb-2">카메라 선택</label>
+			<label for="camera-select" class="block text-sm font-medium text-base-content mb-2">
+				카메라 선택
+				<span class="text-xs text-base-content/60 font-normal ml-1">
+					(일반 카메라 추천, 광각은 QR 스캔 어려움)
+				</span>
+			</label>
 			<select 
 				id="camera-select"
 				bind:value={selectedDeviceId} 
@@ -936,10 +984,22 @@ async function requestPermission() {
 				class="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
 			>
 				{#each videoDevices as device}
+					{@const fov = cameraFOVs.get(device.deviceId)}
+					{@const isWideAngle = 
+						device.label.toLowerCase().includes("wide") ||
+						device.label.toLowerCase().includes("ultra") ||
+						device.label.toLowerCase().includes("광각") ||
+						device.label.toLowerCase().includes("0.5x") ||
+						device.label.toLowerCase().includes("0.6x") ||
+						(fov !== null && fov >= 95)
+					}
 					<option value={device.deviceId}>
 						{device.label || `카메라 ${videoDevices.indexOf(device) + 1}`}
-						{#if cameraFOVs.has(device.deviceId)}
-							(FOV: {Math.round(cameraFOVs.get(device.deviceId) || 0)}°)
+						{#if fov !== null && fov !== undefined}
+							(FOV: {Math.round(fov)}°)
+						{/if}
+						{#if isWideAngle}
+							⚠️ QR 스캔 부적합
 						{/if}
 					</option>
 				{/each}

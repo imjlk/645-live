@@ -107,5 +107,14 @@ record_apis: [{
   name: "lotto_winning_stores"
   table_name: "lotto_winning_stores"
   acl_world: [READ]
-  enable_subscriptions: false
+}, {
+  name: "active_users_stats"
+  table_name: "active_users_stats"
+  acl_world: [READ]
+  enable_subscriptions: true
+}, {
+  name: "active_connections"
+  table_name: "active_connections"
+  acl_world: [READ]
+  enable_subscriptions: true
 }]
