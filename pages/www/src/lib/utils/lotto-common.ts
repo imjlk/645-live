@@ -48,8 +48,6 @@ export function calculateExpectedLatestRound(): number {
 	// 일요일 오전 6시 이후부터는 다음 회차로 진행
 	if (dayOfWeek === 0 && hour >= 6) {
 		expectedRound += 1;
-	} else if (dayOfWeek >= 1) { // 월요일~토요일
-		expectedRound += 1;
 	}
 
 	return expectedRound;
