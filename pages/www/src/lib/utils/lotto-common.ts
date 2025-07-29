@@ -46,7 +46,10 @@ export function calculateExpectedLatestRound(): number {
 	// 일요일 오전 6시 이전이면 아직 당첨번호가 발표되지 않았지만,
 	// 로또 구매는 다음 회차를 위한 것이므로 현재 회차 그대로 유지
 	// 일요일 오전 6시 이후부터는 다음 회차로 진행
+	// 월요일~토요일은 항상 다음 회차
 	if (dayOfWeek === 0 && hour >= 6) {
+		expectedRound += 1;
+	} else if (dayOfWeek >= 1) { // 월요일~토요일
 		expectedRound += 1;
 	}
 
