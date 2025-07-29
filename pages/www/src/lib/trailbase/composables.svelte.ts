@@ -5,6 +5,7 @@
 
 import { untrack } from "svelte";
 import { trailbaseClient } from "./client.js";
+import { subscribeToGlobalConnection } from "./global-connection.svelte.js";
 import type {
 	ConnectionState,
 	LottoDrawScanCount,
@@ -538,16 +539,13 @@ export function useConnectionStatus() {
 	let error = $state<TrailbaseError | null>(null);
 	let retryCount = $state(0);
 
-	// Auto-subscribe on creation
-	const unsubscribe = trailbaseClient.subscribeToConnectionState(
-		`connection-status-${Date.now()}`,
-		(state) => {
-			connected = state.connected;
-			connecting = state.connecting;
-			error = state.error;
-			retryCount = state.retryCount;
-		},
-	);
+	// Use global connection state instead of individual subscriptions
+	const unsubscribe = subscribeToGlobalConnection((state) => {
+		connected = state.connected;
+		connecting = state.connecting;
+		error = state.error;
+		retryCount = state.retryCount;
+	});
 
 	const subscribe = (): (() => void) => {
 		// Return the existing unsubscribe function

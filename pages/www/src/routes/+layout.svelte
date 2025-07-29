@@ -10,6 +10,7 @@ import Footer from "$lib/layout/Footer.svelte";
 import { NuqsAdapter } from "nuqs-svelte/adapters/svelte-kit";
 import { onMount } from "svelte";
 import { browser } from "$app/environment";
+import { enableAutoInitialization } from "$lib/trailbase/global-connection.svelte";
 
 let { children } = $props();
 import { PUBLIC_TRAILBASE_URL } from "$env/static/public";
@@ -24,6 +25,9 @@ let availableRounds = $state<number[]>([]);
 let currentPath = $derived(page.url.pathname);
 
 onMount(async () => {
+	// TrailBase 전역 연결 초기화
+	enableAutoInitialization();
+	
 	// Microsoft Clarity 초기화 (브라우저 환경 & 프로덕션에서만)
 	if (browser && import.meta.env.PROD) {
 		try {
