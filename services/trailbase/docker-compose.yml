@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  trailbase:
+    build: .
+    container_name: trailbase-645live
+    ports:
+      - "4000:4000"
+    volumes:
+      - ./traildepot:/app/traildepot
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4000/api/healthcheck"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    environment:
+      - RUST_LOG=info

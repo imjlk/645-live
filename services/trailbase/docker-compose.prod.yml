@@ -1,0 +1,10 @@
+version: '3.8'
+
+services:
+  trailbase:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+    volumes:
+      - ./traildepot:/app/traildepot
