@@ -15,7 +15,7 @@ interface FetchEvent extends Event {
 
 declare const self: ServiceWorkerGlobalScope;
 
-const CACHE_VERSION = "v1.0.0";
+const CACHE_VERSION = "v1.1.0"; // Updated for better real-time data handling
 const CACHE_NAMES = {
 	static: `static-${CACHE_VERSION}`,
 	dynamic: `dynamic-${CACHE_VERSION}`,
@@ -24,12 +24,10 @@ const CACHE_NAMES = {
 } as const;
 
 const CACHE_STRATEGIES = {
-	// Static assets - cache first
+	// Static assets - cache first (excluding main page)
 	STATIC_ASSETS: [
-		"/",
 		"/guide",
 		"/faq",
-		"/stats",
 		"/generator",
 		"/qr-scan",
 		"/_app/",
@@ -37,6 +35,9 @@ const CACHE_STRATEGIES = {
 		"/app.css",
 		"/manifest.json",
 	],
+	
+	// Main page - needs fresh data for real-time updates
+	MAIN_PAGE: ["/"],
 
 	// API endpoints - network first with fallback
 	API_ENDPOINTS: ["/api/", "/trailbase/"],
@@ -274,6 +275,16 @@ function createOfflineResponse(request: Request): Response {
 function getRouteConfig(url: string): CacheConfig {
 	const pathname = new URL(url).pathname;
 
+	// Main page - stale while revalidate for real-time data freshness
+	if (CACHE_STRATEGIES.MAIN_PAGE.some((page) => pathname === page)) {
+		return {
+			strategy: "staleWhileRevalidate",
+			cacheName: CACHE_NAMES.dynamic,
+			maxAge: 300, // 5 minutes - short cache to ensure freshness
+			networkTimeoutSeconds: 8,
+		};
+	}
+
 	// Static assets
 	if (
 		CACHE_STRATEGIES.STATIC_ASSETS.some((asset) => pathname.startsWith(asset))
@@ -286,12 +297,12 @@ function getRouteConfig(url: string): CacheConfig {
 		};
 	}
 
-	// API endpoints
+	// API endpoints - shorter cache for real-time data
 	if (CACHE_STRATEGIES.API_ENDPOINTS.some((api) => pathname.startsWith(api))) {
 		return {
 			strategy: "networkFirst",
 			cacheName: CACHE_NAMES.api,
-			maxAge: 300, // 5 minutes
+			maxAge: 60, // 1 minute - shorter for real-time updates
 			maxEntries: 100,
 			networkTimeoutSeconds: 10,
 		};
