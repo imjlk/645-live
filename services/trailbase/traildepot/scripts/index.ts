@@ -1,5 +1,5 @@
 import { executeLottoUpdate, processScannedLottoData } from "../lotto-utils.ts";
-// import { executeWinningStoreUpdate } from "../winning-store-utils.ts";
+import { executeWinningStoreUpdate } from "../winning-store-utils.ts";
 import { addCronCallback, addRoute, jsonHandler, query, transaction } from "../trailbase.js";
 
 console.log("Adding routes...");
@@ -71,13 +71,22 @@ addRoute(
 				? ((activeConnections[0] as unknown) as Record<string, unknown>)?.count as number || 0 
 				: 0;
 			
-			const finalCount = Math.max(1, activeCount);
+			const finalCount = Math.max(0, activeCount); // Allow 0 users for debugging
 			
-			// active_users_stats 테이블 업데이트 (브로드캐스트 트리거)
+			console.log(`[Heartbeat] Active connections count: ${activeCount}, final count: ${finalCount}`);
+			
+			// active_users_stats 테이블 UPSERT (브로드캐스트 트리거)
 			await query(
-				"UPDATE active_users_stats SET current_count = ?, peak_count = MAX(peak_count, ?), updated_at = ? WHERE id = 1",
+				`INSERT INTO active_users_stats (id, current_count, peak_count, updated_at) 
+				 VALUES (1, ?, ?, ?)
+				 ON CONFLICT(id) DO UPDATE SET 
+					 current_count = excluded.current_count,
+					 peak_count = MAX(active_users_stats.peak_count, excluded.peak_count),
+					 updated_at = excluded.updated_at`,
 				[finalCount, finalCount, now]
 			);
+			
+			console.log(`[Heartbeat] Updated active_users_stats: current=${finalCount}`);
 			
 			return { 
 				success: true, 
@@ -135,12 +144,17 @@ addRoute(
 				? ((activeConnections[0] as unknown) as Record<string, unknown>)?.count as number || 0 
 				: 0;
 			
-			const finalCount = Math.max(1, activeCount);
+			const finalCount = Math.max(0, activeCount); // Allow 0 users for debugging
 			
-			// active_users_stats 테이블 업데이트 (브로드캐스트 트리거)
+			// active_users_stats 테이블 UPSERT (브로드캐스트 트리거)
+			const now = new Date().toISOString();
 			await query(
-				"UPDATE active_users_stats SET current_count = ?, updated_at = ? WHERE id = 1",
-				[finalCount, new Date().toISOString()]
+				`INSERT INTO active_users_stats (id, current_count, peak_count, updated_at) 
+				 VALUES (1, ?, 1, ?)
+				 ON CONFLICT(id) DO UPDATE SET 
+					 current_count = excluded.current_count,
+					 updated_at = excluded.updated_at`,
+				[finalCount, now]
 			);
 			
 			return { success: true, active_count: finalCount };
@@ -154,13 +168,57 @@ addRoute(
 
 console.log("POST /connection/disconnect route registered");
 
+// 디버깅용 연결 상태 조회 라우트
+addRoute(
+	"GET",
+	"/connection/debug",
+	jsonHandler(async () => {
+		try {
+			// 현재 활성 연결 수 조회 (2분 이내)
+			const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000).toISOString();
+			const activeConnections = await query(
+				"SELECT * FROM active_connections WHERE last_seen > ? ORDER BY last_seen DESC",
+				[twoMinutesAgo]
+			);
+			
+			// 현재 사용자 통계 조회
+			const userStats = await query(
+				"SELECT * FROM active_users_stats ORDER BY id DESC LIMIT 1",
+				[]
+			);
+			
+			// 전체 연결 기록 (최근 10개)
+			const recentConnections = await query(
+				"SELECT * FROM active_connections ORDER BY last_seen DESC LIMIT 10",
+				[]
+			);
+			
+			return {
+				success: true,
+				current_time: new Date().toISOString(),
+				two_minutes_ago: twoMinutesAgo,
+				active_connections: activeConnections,
+				user_stats: userStats,
+				recent_connections: recentConnections,
+				active_count: Array.isArray(activeConnections) ? activeConnections.length : 0
+			};
+			
+		} catch (error) {
+			console.error("Error in debug endpoint:", error);
+			return { error: "Internal server error", details: error };
+		}
+	}),
+);
+
+console.log("GET /connection/debug route registered");
+
 // 메인 크론 작업 - 매주 토요일 오전 20시 40분
 addCronCallback("Lotto Weekly Updater", "0 40 11 * * 7", async () => {
 	await executeLottoUpdate();
 });
 
-// addCronCallback("Lotto Store Weekly Updater", "0 0 12 * * 7", async () => {
-// 	await executeWinningStoreUpdate();
-// });
+addCronCallback("Lotto Store Weekly Updater", "0 0 12 * * 7", async () => {
+	await executeWinningStoreUpdate();
+});
 
 console.log("=== All routes and callbacks registered successfully ===");

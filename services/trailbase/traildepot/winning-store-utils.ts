@@ -2,7 +2,7 @@
  * 로또 당첨점 업데이트 유틸리티 함수들 (Deno/V8 환경용)
  */
 
-import { query } from "./lotto-utils.ts";
+import { query } from "./trailbase.js";
 
 // 당첨점 정보 타입
 export type WinningStore = {
