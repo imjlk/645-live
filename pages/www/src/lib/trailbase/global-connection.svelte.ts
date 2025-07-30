@@ -35,36 +35,45 @@ let initializationPromise: Promise<void> | null = null;
  * 전역 TrailBase 연결을 초기화하고 유지 (한 번만 실행)
  */
 export async function initializeGlobalConnection(): Promise<void> {
-	if (!browser) return;
+	console.log('🔄 initializeGlobalConnection called, browser:', browser);
+	
+	if (!browser) {
+		console.log('❌ Not in browser, skipping initializeGlobalConnection');
+		return;
+	}
 	
 	// 이미 초기화되었거나 초기화 중이면 기존 Promise 반환
 	if (isInitialized) {
-		console.log('Global TrailBase connection already initialized');
+		console.log('✅ Global TrailBase connection already initialized');
 		return;
 	}
 	
 	if (isInitializing && initializationPromise) {
-		console.log('Global TrailBase connection initialization in progress, waiting...');
+		console.log('⏳ Global TrailBase connection initialization in progress, waiting...');
 		return initializationPromise;
 	}
 	
 	isInitializing = true;
+	console.log('🚀 Starting global TrailBase connection initialization...');
 	
 	initializationPromise = (async () => {
 		try {
-			console.log('Initializing global TrailBase connection...');
+			console.log('🔧 Initializing global TrailBase connection...');
 			
 			globalConnectionState.connecting = true;
 			notifyConnectionStateSubscribers();
 			
 			// 연결 상태 구독 (중복 구독 방지)
 			// TrailBase 클라이언트는 싱글톤으로 자동 초기화됨
+			console.log('📡 Setting up connection state subscription...');
 			trailbaseClient.subscribeToConnectionState('global-persistent', (state) => {
+				console.log('🔗 Connection state changed:', state);
 				globalConnectionState = { ...state };
 				notifyConnectionStateSubscribers();
 			});
 			
 			// 실시간 접속자 수 추적 시작
+			console.log('👥 Starting active users tracking...');
 			await startActiveUsersTracking();
 			
 			// active_connections 테이블 변경 사항 구독
@@ -159,7 +168,8 @@ async function updateConnectionRecord(sessionId: string): Promise<void> {
 			page_path: window.location.pathname
 		};
 		
-		console.log('[Connection Tracking] Sending heartbeat:', requestBody);
+		console.log('[Connection Tracking] Sending heartbeat to:', `${baseUrl}/connection/heartbeat`);
+		console.log('[Connection Tracking] Request body:', requestBody);
 		
 		const response = await fetch(`${baseUrl}/connection/heartbeat`, {
 			method: 'POST',
@@ -169,11 +179,16 @@ async function updateConnectionRecord(sessionId: string): Promise<void> {
 			body: JSON.stringify(requestBody)
 		});
 		
+		console.log('[Connection Tracking] Response status:', response.status, response.statusText);
+		
 		if (!response.ok) {
-			throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+			const errorText = await response.text();
+			console.error('[Connection Tracking] Error response:', errorText);
+			throw new Error(`HTTP ${response.status}: ${response.statusText} - ${errorText}`);
 		}
 		
 		const result = await response.json() as { success?: boolean; active_count?: number; error?: string };
+		console.log('[Connection Tracking] Response result:', result);
 		
 		if (result.success) {
 			console.log(`[Connection Tracking] Session ${sessionId} heartbeat sent, active: ${result.active_count}`);
@@ -216,7 +231,7 @@ async function getActiveConnectionsFromTrailBase(): Promise<number> {
 		const activeCount = response.records?.length || 0;
 		console.log(`[Connection Tracking] Active connections: ${activeCount}`);
 		
-		return Math.max(1, activeCount); // 최소 1명으로 설정
+		return Math.max(0, activeCount); // Allow 0 for debugging
 		
 	} catch (error) {
 		console.warn('Error getting active connections from TrailBase, using simulation:', error);
@@ -273,7 +288,7 @@ function subscribeToActiveConnectionsChanges() {
 			
 			// 접속자 수 업데이트
 			if (data.current_count !== currentActiveUsers) {
-				currentActiveUsers = Math.max(1, data.current_count);
+				currentActiveUsers = Math.max(0, data.current_count); // Allow 0 for debugging
 				peakActiveUsers = Math.max(peakActiveUsers, data.peak_count);
 				notifyActiveUsersSubscribers();
 				
@@ -337,7 +352,7 @@ async function startActiveUsersTracking() {
 		
 		// 초기 접속자 수 설정 - 실제 연결 수로 시작
 		const initialConnectionCount = await getActiveConnectionCount();
-		currentActiveUsers = Math.max(1, initialConnectionCount);
+		currentActiveUsers = Math.max(0, initialConnectionCount); // Allow 0 for debugging
 		peakActiveUsers = Math.max(peakActiveUsers, currentActiveUsers);
 		notifyActiveUsersSubscribers();
 		
@@ -457,7 +472,12 @@ let autoInitialized = false;
  * 자동 초기화 (앱 전체에서 한 번만 실행)
  */
 export function enableAutoInitialization() {
-	if (!browser) return;
+	console.log('🚀 enableAutoInitialization called, browser:', browser);
+	
+	if (!browser) {
+		console.log('❌ Not in browser, skipping initialization');
+		return;
+	}
 	
 	// 이미 자동 초기화가 활성화되었으면 스킵
 	if (autoInitialized) {
@@ -466,7 +486,7 @@ export function enableAutoInitialization() {
 	}
 	
 	autoInitialized = true;
-	console.log('Enabling auto initialization for global TrailBase connection');
+	console.log('✅ Enabling auto initialization for global TrailBase connection');
 	
 	// 즉시 초기화 시작
 	initializeGlobalConnection().catch(error => {
@@ -484,9 +504,9 @@ export function enableAutoInitialization() {
 	// SPA 라우팅에서도 연결 유지되도록 설정
 	// SvelteKit의 페이지 전환은 실제 페이지 리로드가 아니므로 연결이 유지됨
 	
-	// 개발 모드에서 디버깅을 위해 전역 함수 노출
+	// 개발 모드에서 디버깅을 위해 전역 함수 노출  
 	if (import.meta.env.DEV) {
-		(window as unknown as Record<string, unknown>).__trailbaseDebug = {
+		(window as unknown as Record<string, unknown>)['__trailbaseDebug'] = {
 			getDebugInfo: getGlobalConnectionDebugInfo,
 			getConnectionState: getGlobalConnectionState,
 			getCurrentUsers: getCurrentActiveUsers,

@@ -38,8 +38,12 @@ let unsubscribeConnection: (() => void) | null = null;
 let recentlyUpdated = $state(false);
 
 onMount(() => {
+	console.log('[ActiveUsersIndicator] Component mounted, subscribing to users');
+	
 	// 접속자 수 구독
 	unsubscribeUsers = subscribeToActiveUsers((current, peak) => {
+		console.log(`[ActiveUsersIndicator] Users update: ${currentUsers} → ${current}, peak: ${peak}`);
+		
 		if (current !== currentUsers) {
 			recentlyUpdated = true;
 			setTimeout(() => {
@@ -49,7 +53,7 @@ onMount(() => {
 		
 		currentUsers = current;
 		peakUsers = peak;
-		isVisible = current > 0;
+		isVisible = true; // Always show for debugging
 	});
 	
 	// 연결 상태 구독
