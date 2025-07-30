@@ -37,7 +37,7 @@ addRoute(
 		
 		const { session_id, user_agent, page_path } = parsedBody || {};
 		
-		console.log('[Heartbeat] Parsed values:', { session_id, user_agent, page_path });
+		console.log('[Heartbeat] Parsed values:', JSON.stringify({ session_id, user_agent, page_path }));
 		
 		if (!session_id) {
 			console.log('[Heartbeat] session_id is missing!');
@@ -47,8 +47,10 @@ addRoute(
 		const now = new Date().toISOString();
 		
 		try {
+			console.log('[Heartbeat] Executing database transaction...');
 			await transaction(async (tx) => {
 				// UPSERT 쿼리를 사용하여 중복 제약 조건 문제 해결
+				console.log('[Heartbeat] Inserting/updating connection record...');
 				tx.execute(
 					`INSERT INTO active_connections (session_id, user_agent, connected_at, last_seen, page_path) 
 					 VALUES (?, ?, ?, ?, ?)
@@ -58,14 +60,18 @@ addRoute(
 						 user_agent = excluded.user_agent`,
 					[session_id, user_agent || "Unknown", now, now, page_path || "/"]
 				);
+				console.log('[Heartbeat] Connection record updated successfully');
 			});
+			console.log('[Heartbeat] Transaction completed successfully');
 			
 			// 현재 활성 연결 수 조회 (2분 이내 업데이트된 연결)
 			const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000).toISOString();
+			console.log('[Heartbeat] Querying active connections since:', twoMinutesAgo);
 			const activeConnections = await query(
-				"SELECT COUNT(*) as count FROM active_connections WHERE last_seen > ?",
+				"SELECT COUNT(*) as count FROM active_connections WHERE datetime(last_seen) > datetime(?)",
 				[twoMinutesAgo]
 			);
+			console.log('[Heartbeat] Raw query result:', activeConnections);
 			
 			const activeCount = Array.isArray(activeConnections) && activeConnections.length > 0 
 				? ((activeConnections[0] as unknown) as Record<string, unknown>)?.count as number || 0 
@@ -96,7 +102,11 @@ addRoute(
 			
 		} catch (error) {
 			console.error("Error in connection heartbeat:", error);
-			return { error: "Internal server error" };
+			console.error("Error details:", JSON.stringify(error, null, 2));
+			console.error("Session ID:", session_id);
+			console.error("User Agent:", user_agent);
+			console.error("Page Path:", page_path);
+			return { error: "Internal server error", details: String(error) };
 		}
 	}),
 );

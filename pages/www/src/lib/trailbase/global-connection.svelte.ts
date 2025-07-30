@@ -278,28 +278,73 @@ async function removeConnectionRecord(sessionId: string): Promise<void> {
 }
 
 /**
- * active_users_stats 테이블 변경 사항을 구독하여 실시간으로 접속자 수 업데이트
+ * active_connections 테이블을 직접 구독하여 실시간으로 접속자 수 계산 및 업데이트
  */
 function subscribeToActiveConnectionsChanges() {
 	try {
-		// ActiveUsersClient를 통해 active_users_stats 테이블 변경 사항 구독
+		// active_connections 테이블 직접 구독
+		trailbaseClient.subscribe('active_connections', 'global-active-connections', (action, record) => {
+			console.log('[Active Connections] Change detected:', action, record);
+			
+			// 연결 변화가 있을 때마다 현재 활성 연결 수 계산
+			calculateActiveUsersFromConnections();
+		});
+		
+		// active_users_stats 테이블도 구독 (백업용)
 		activeUsersClient.subscribe('global-active-users', (data) => {
 			console.log('[Active Users] Stats update received:', data);
 			
-			// 접속자 수 업데이트
+			// 접속자 수 업데이트 (active_connections 구독이 실패할 경우의 백업)
 			if (data.current_count !== currentActiveUsers) {
-				currentActiveUsers = Math.max(0, data.current_count); // Allow 0 for debugging
-				peakActiveUsers = Math.max(peakActiveUsers, data.peak_count);
-				notifyActiveUsersSubscribers();
-				
-				console.log(`[Active Users] Updated: ${currentActiveUsers}, Peak: ${peakActiveUsers}`);
+				console.log(`[Active Users] Fallback update: ${data.current_count}`);
 			}
 		});
 		
-		console.log('✅ Active users stats subscription started');
+		console.log('✅ Active connections subscription started');
 		
 	} catch (error) {
-		console.error('❌ Failed to subscribe to active users stats changes:', error);
+		console.error('❌ Failed to subscribe to active connections changes:', error);
+	}
+}
+
+/**
+ * active_connections 테이블에서 실시간으로 활성 연결 수 계산
+ */
+async function calculateActiveUsersFromConnections() {
+	try {
+		// 2분 이내에 업데이트된 연결 수 조회
+		const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000).toISOString();
+		
+		const { initClient } = await import("trailbase");
+		const { env } = await import("$env/dynamic/public");
+		const client = initClient(env.PUBLIC_TRAILBASE_URL || "http://localhost:4000");
+		const api = client.records("active_connections");
+		
+		const response = await api.list({
+			filters: [
+				{
+					column: 'last_seen',
+					op: 'greaterThan',
+					value: twoMinutesAgo
+				}
+			],
+			pagination: { limit: 100 }
+		});
+		
+		const activeCount = response.records?.length || 0;
+		console.log(`[Active Connections] Calculated active users: ${activeCount}`);
+		
+		// 접속자 수가 변경되었을 때만 업데이트
+		if (activeCount !== currentActiveUsers) {
+			currentActiveUsers = Math.max(0, activeCount);
+			peakActiveUsers = Math.max(peakActiveUsers, currentActiveUsers);
+			notifyActiveUsersSubscribers();
+			
+			console.log(`[Active Connections] Updated: ${currentActiveUsers}, Peak: ${peakActiveUsers}`);
+		}
+		
+	} catch (error) {
+		console.error('❌ Failed to calculate active users from connections:', error);
 	}
 }
 
@@ -350,18 +395,17 @@ async function startActiveUsersTracking() {
 	try {
 		console.log('Starting active users tracking...');
 		
-		// 초기 접속자 수 설정 - 실제 연결 수로 시작
-		const initialConnectionCount = await getActiveConnectionCount();
-		currentActiveUsers = Math.max(0, initialConnectionCount); // Allow 0 for debugging
-		peakActiveUsers = Math.max(peakActiveUsers, currentActiveUsers);
-		notifyActiveUsersSubscribers();
+		// 초기 접속자 수 설정 - active_connections 테이블에서 직접 계산
+		await calculateActiveUsersFromConnections();
 		
 		// 주기적으로 heartbeat 전송하여 연결 상태 유지
 		activeUsersIntervalId = setInterval(async () => {
 			if (globalConnectionState.connected && currentSessionId) {
 				try {
-					// heartbeat를 통해 연결 상태 유지 (실제 카운트는 실시간 구독으로 처리)
+					// heartbeat를 통해 연결 상태 유지
 					await updateConnectionRecord(currentSessionId);
+					// 주기적으로 활성 연결 수 재계산 (구독이 놓친 경우 대비)
+					await calculateActiveUsersFromConnections();
 				} catch (error) {
 					console.warn('Failed to send heartbeat:', error);
 				}
@@ -506,7 +550,7 @@ export function enableAutoInitialization() {
 	
 	// 개발 모드에서 디버깅을 위해 전역 함수 노출  
 	if (import.meta.env.DEV) {
-		(window as unknown as Record<string, unknown>)['__trailbaseDebug'] = {
+		(window as unknown as Record<string, unknown>).__trailbaseDebug = {
 			getDebugInfo: getGlobalConnectionDebugInfo,
 			getConnectionState: getGlobalConnectionState,
 			getCurrentUsers: getCurrentActiveUsers,
