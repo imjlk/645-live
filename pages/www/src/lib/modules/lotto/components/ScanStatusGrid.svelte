@@ -24,6 +24,8 @@ interface Props {
 	enableNavigation?: boolean;
 	// Whether to show the header with round info
 	showHeader?: boolean;
+	// Force client-side refresh after SSR (for main page)
+	forceClientRefresh?: boolean;
 	// Grid columns configuration for different screen sizes
 	gridColumns?: {
 		mobile?: number; // default: 5
@@ -44,6 +46,7 @@ let {
 	latestRound,
 	enableNavigation = true,
 	showHeader = true,
+	forceClientRefresh = false,
 	gridColumns = { mobile: 5, tablet: 3, desktop: 4, large: 5 },
 	incrementEffectConfig = {
 		show: true,
@@ -55,6 +58,8 @@ let {
 // Use the new composables for state management
 const ballValuesComposable = useBallValues({
 	initialRound,
+	// Use shorter cache duration for main page to ensure freshness
+	cacheDuration: forceClientRefresh ? 10000 : 30000, // 10s for main page, 30s for others
 });
 
 const connectionStatus = useConnectionStatus();
@@ -189,7 +194,9 @@ function handleBallGridKeydown(event: KeyboardEvent, ballIndex: number) {
 // Initialize data using the new composable
 async function initializeData() {
 	if (initialRound) {
-		await ballValuesComposable.loadInitialData(initialRound);
+		// Force refresh if it's the main page or specifically requested
+		const shouldForceRefresh = forceClientRefresh;
+		await ballValuesComposable.loadInitialData(initialRound, shouldForceRefresh);
 	}
 }
 

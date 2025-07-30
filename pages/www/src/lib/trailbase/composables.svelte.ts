@@ -182,6 +182,8 @@ export function useRealtimeScanUpdates(
 interface UseBallValuesOptions {
 	initialRound?: number;
 	targetRound?: number; // Specific round to subscribe to (for filtering)
+	// Shorter cache duration for main page (default: 30s, main page: 10s)
+	cacheDuration?: number;
 	onValuesChange?: (values: Record<number, number>, totalScans: number) => void;
 	onBallUpdate?: (
 		ballNumber: number,
@@ -220,7 +222,7 @@ export function useBallValues(
 	let retryCount = $state(0);
 	let lastSuccessfulLoad = $state<Date | null>(null);
 
-	const { initialRound, onValuesChange, onBallUpdate } = options;
+	const { initialRound, onValuesChange, onBallUpdate, cacheDuration = 30000 } = options;
 	let targetRound = $state<number | null>(options.targetRound || null);
 
 	// Simple in-memory cache to avoid unnecessary API calls
@@ -228,7 +230,7 @@ export function useBallValues(
 		number,
 		{ data: LottoDrawScanCount; timestamp: Date }
 	>();
-	const CACHE_DURATION = 30000; // 30 seconds
+	const CACHE_DURATION = cacheDuration; // Use provided duration or default 30 seconds
 
 	// Initialize ball values with zeros
 	const initializeBallValues = () => {

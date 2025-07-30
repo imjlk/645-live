@@ -1,9 +1,23 @@
 <script lang="ts">
+import { browser } from "$app/environment";
 import ScanStatusGrid from "$lib/modules/lotto/components/ScanStatusGrid.svelte";
 import { JsonLd, MetaTags } from "svelte-meta-tags";
+import { onMount } from "svelte";
 import type { PageData } from "./$types";
 
 let { data }: { data: PageData } = $props();
+
+// Request cache cleanup on main page load for fresh data
+onMount(() => {
+	if (browser && 'serviceWorker' in navigator) {
+		navigator.serviceWorker.ready.then((registration) => {
+			// Request cache cleanup for fresh data
+			registration.active?.postMessage({
+				type: 'CLEANUP_CACHES'
+			});
+		}).catch(console.warn);
+	}
+});
 </script>
 
 <MetaTags
@@ -95,6 +109,7 @@ let { data }: { data: PageData } = $props();
 	latestRound={data.latestRound}
 	enableNavigation={true}
 	showHeader={true}
+	forceClientRefresh={true}
 	{...{
 		gridColumns: {
 			mobile: 5,
