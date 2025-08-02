@@ -88,19 +88,15 @@ class TrailBaseClient {
 			this.isInitialized = true;
 
 			this.updateConnectionState({
-				connected: true,
+				connected: false, // 클라이언트 초기화와 스트림 연결을 분리
 				connecting: false,
 				error: null,
 				retryCount: 0,
-				lastConnected: new Date(),
+				lastConnected: null,
 			});
 
 			// Start stream if there are waiting subscribers
-			if (
-				this.subscribers.size > 0 &&
-				!this.connectionState.connected &&
-				!this.connectionState.connecting
-			) {
+			if (this.subscribers.size > 0) {
 				this.startStream();
 			}
 		} catch (error) {
