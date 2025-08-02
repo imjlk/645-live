@@ -4,6 +4,11 @@ export declare function addPeriodicCallback(milliseconds: number, cb: (cancel: (
 
 export declare function addRoute(method: Method, route: string, callback: CallbackType): void;
 
+declare type Blob_2 = {
+    blob: string;
+};
+export { Blob_2 as Blob }
+
 export declare type CallbackType = (req: RequestType) => MaybeResponse<ResponseType_2>;
 
 declare namespace Deno_2 {
@@ -702,7 +707,7 @@ declare namespace Deno_2 {
     }
 }
 
-export declare function execute(sql: string, params: unknown[]): Promise<number>;
+export declare function execute(sql: string, params: SqlType[]): Promise<number>;
 
 export declare namespace fs {
     const writeFile: typeof Deno_2.writeFile;
@@ -785,7 +790,7 @@ export declare type PathParamsType = {
     [key: string]: string;
 };
 
-export declare function query(sql: string, params: unknown[]): Promise<unknown[][]>;
+export declare function query(sql: string, params: SqlType[]): Promise<SqlType[][]>;
 
 export declare type RequestType = {
     uri: string;
@@ -801,6 +806,8 @@ declare type ResponseType_2 = {
     body?: Uint8Array;
 };
 export { ResponseType_2 as ResponseType }
+
+declare type SqlType = number | string | Blob_2 | null;
 
 export declare enum StatusCodes {
     CONTINUE = 100,
@@ -882,8 +889,8 @@ export declare type StringResponseType = {
 export declare class Transaction {
     finalized: boolean;
     constructor();
-    query(queryStr: string, params: unknown[]): unknown[][];
-    execute(queryStr: string, params: unknown[]): number;
+    query(queryStr: string, params: SqlType[]): SqlType[][];
+    execute(queryStr: string, params: SqlType[]): SqlType;
     commit(): void;
     rollback(): void;
 }
