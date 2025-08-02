@@ -1,10 +1,12 @@
 <script lang="ts">
 /**
- * 실시간 접속자 수 표시 컴포넌트
+ * 실시간 접속자 수 표시 컴포넌트 (단순화된 구조)
  */
 import { onMount, onDestroy } from "svelte";
-import { subscribeToActiveUsers, subscribeToGlobalConnection } from "$lib/trailbase/global-connection.svelte";
-import type { ConnectionState } from "$lib/trailbase/types";
+import { 
+	subscribeToActiveUsers,
+	type ActiveUsersStats 
+} from "$lib/trailbase/active-users-client";
 
 interface Props {
 	showPeakUsers?: boolean;
@@ -21,18 +23,11 @@ let {
 // State
 let currentUsers = $state(0);
 let peakUsers = $state(0);
-let connectionState = $state<ConnectionState>({
-	connected: false,
-	connecting: false,
-	error: null,
-	lastConnected: null,
-	retryCount: 0,
-});
+let isConnected = $state(false);
 let isVisible = $state(false);
 
-// Subscription cleanup functions
+// Subscription cleanup function
 let unsubscribeUsers: (() => void) | null = null;
-let unsubscribeConnection: (() => void) | null = null;
 
 // Animation state
 let recentlyUpdated = $state(false);
@@ -40,44 +35,35 @@ let recentlyUpdated = $state(false);
 onMount(() => {
 	console.log('[ActiveUsersIndicator] Component mounted, subscribing to users');
 	
-	// 접속자 수 구독
-	unsubscribeUsers = subscribeToActiveUsers((current, peak) => {
-		console.log(`[ActiveUsersIndicator] Users update: ${currentUsers} → ${current}, peak: ${peak}`);
+	// 활성 유저 통계 구독
+	unsubscribeUsers = subscribeToActiveUsers("active-users-indicator", (stats: ActiveUsersStats) => {
+		console.log(`[ActiveUsersIndicator] Users update: ${currentUsers} → ${stats.current_count}, peak: ${stats.peak_count}`);
 		
-		if (current !== currentUsers) {
+		if (stats.current_count !== currentUsers) {
 			recentlyUpdated = true;
 			setTimeout(() => {
 				recentlyUpdated = false;
 			}, 1000);
 		}
 		
-		currentUsers = current;
-		peakUsers = peak;
-		isVisible = true; // Always show for debugging
+		currentUsers = stats.current_count;
+		peakUsers = stats.peak_count;
+		isConnected = true;
+		isVisible = true;
 	});
-	
-	// 연결 상태 구독
-	if (showConnectionStatus) {
-		unsubscribeConnection = subscribeToGlobalConnection((state) => {
-			connectionState = state;
-		});
-	}
 });
 
 onDestroy(() => {
 	if (unsubscribeUsers) {
 		unsubscribeUsers();
 	}
-	if (unsubscribeConnection) {
-		unsubscribeConnection();
-	}
 });
 
 // 연결 상태에 따른 스타일 클래스
-const getConnectionStatusClass = (state: ConnectionState): string => {
-	if (state.connected) return "text-green-600 dark:text-green-400";
-	if (state.connecting) return "text-yellow-600 dark:text-yellow-400 animate-pulse";
-	return "text-red-600 dark:text-red-400";
+const getConnectionStatusClass = (connected: boolean): string => {
+	return connected 
+		? "text-green-600 dark:text-green-400"
+		: "text-red-600 dark:text-red-400";
 };
 
 // 접속자 수에 따른 아이콘
@@ -99,11 +85,11 @@ const getUserIcon = (count: number): string => {
 		{#if showConnectionStatus}
 			<div class="flex items-center gap-1">
 				<div 
-					class="w-2 h-2 rounded-full transition-colors duration-300 {connectionState.connected ? 'bg-green-500 shadow-green-500/50 shadow-sm' : connectionState.connecting ? 'bg-yellow-500 animate-pulse' : 'bg-red-500'}"
+					class="w-2 h-2 rounded-full transition-colors duration-300 {isConnected ? 'bg-green-500 shadow-green-500/50 shadow-sm' : 'bg-red-500'}"
 				></div>
 				{#if !compact}
-					<span class="text-xs {getConnectionStatusClass(connectionState)}">
-						{connectionState.connected ? '온라인' : connectionState.connecting ? '연결 중' : '오프라인'}
+					<span class="text-xs {getConnectionStatusClass(isConnected)}">
+						{isConnected ? '온라인' : '오프라인'}
 					</span>
 				{/if}
 			</div>
