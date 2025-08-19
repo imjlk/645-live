@@ -4,15 +4,15 @@ import Header from "$lib/layout/Header.svelte";
 import MobileNavigation from "$lib/layout/MobileNavigation.svelte";
 import NavigationMenu from "$lib/layout/NavigationMenu.svelte";
 import "../app.css";
+import { browser } from "$app/environment";
 /* PWA 프롬프트 임시 비활성화
 import InstallPrompt from "$lib/components/ui/InstallPrompt.svelte";
 import UpdatePrompt from "$lib/components/ui/UpdatePrompt.svelte";
 */
 import Footer from "$lib/layout/Footer.svelte";
+import { initializeGlobalConnection } from "$lib/trailbase/global-connection-simple.svelte";
 import { NuqsAdapter } from "nuqs-svelte/adapters/svelte-kit";
 import { onMount } from "svelte";
-import { browser } from "$app/environment";
-import { initializeGlobalConnection } from "$lib/trailbase/global-connection-simple.svelte";
 
 let { children } = $props();
 import { PUBLIC_TRAILBASE_URL } from "$env/static/public";
@@ -29,7 +29,7 @@ let currentPath = $derived(page.url.pathname);
 onMount(async () => {
 	// TrailBase 전역 연결 초기화 (단순화된 버전)
 	await initializeGlobalConnection();
-	
+
 	// Microsoft Clarity 초기화 (브라우저 환경 & 프로덕션에서만)
 	if (browser && import.meta.env.PROD) {
 		try {
@@ -81,6 +81,8 @@ onMount(async () => {
 
 		gtag('config', 'G-KEBJGHESGM');
 	</script>
+	<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-4441205887996163"
+     crossorigin="anonymous"></script>
 </svelte:head>
 
 <NuqsAdapter>
