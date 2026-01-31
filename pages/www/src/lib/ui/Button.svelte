@@ -3,7 +3,6 @@ import type { Component, Snippet } from "svelte";
 import type { HTMLButtonAttributes } from "svelte/elements";
 
 let button: HTMLButtonElement;
-// TODO: Add leftIcon and rightIcon props with Snippet
 type Props = HTMLButtonAttributes & {
 	leftIcon?: Snippet<[object]>;
 	rightIcon?: Snippet<[object]>;
