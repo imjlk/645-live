@@ -1,26 +1,27 @@
 <script lang="ts">
-import type { Component } from "svelte";
+import type { Snippet } from "svelte";
 import type { HTMLAnchorAttributes } from "svelte/elements";
 
-// TODO: Add leftIcon and rightIcon props with Snippet
+type Props = HTMLAnchorAttributes & {
+	href: string;
+	leftIcon?: Snippet<[object]>;
+	rightIcon?: Snippet<[object]>;
+	variant?: "default" | "primary" | "secondary" | "outline" | "ghost";
+	size?: "default" | "sm" | "md" | "lg";
+	class?: string;
+	children?: Snippet<[]>;
+};
+
 let {
 	href,
-	leftIcon = null,
-	rightIcon = null,
+	leftIcon,
+	rightIcon,
 	variant = "default",
 	size = "default",
 	class: customClass = "",
+	children,
 	...props
-} = $props<
-	HTMLAnchorAttributes & {
-		href: string;
-		leftIcon?: Component | null;
-		rightIcon?: Component | null;
-		variant?: "default" | "primary" | "secondary" | "outline" | "ghost";
-		size?: "default" | "sm" | "md" | "lg";
-		class?: string;
-	}
->();
+}: Props = $props();
 
 const baseClass = "btn";
 
@@ -58,11 +59,7 @@ $effect.pre(() => {
 </script>
 
 <a class={classes} {...props} href={href}>
-	{#if leftIcon}
-		{@render leftIcon({ class: "size-[1.2em]" })}
-	{/if}
-	{@render props.children()}
-	{#if rightIcon}
-		{@render rightIcon({ class: "size-[1.2em]" })}
-	{/if}
+	{@render leftIcon?.({ class: "size-[1.2em]" })}
+	{@render children?.()}
+	{@render rightIcon?.({ class: "size-[1.2em]" })}
 </a>
