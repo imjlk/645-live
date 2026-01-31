@@ -1,6 +1,6 @@
 <script lang="ts">
-import LinkButton from "$lib/ui/LinkButton.svelte";
 import ActiveUsersIndicator from "$lib/components/ui/ActiveUsersIndicator.svelte";
+import LinkButton from "$lib/ui/LinkButton.svelte";
 </script>
 
 <header class="flex justify-between items-center px-4 py-2 bg-base-200 max-xl:mx-3 mt-3 rounded-full">
@@ -16,7 +16,6 @@ import ActiveUsersIndicator from "$lib/components/ui/ActiveUsersIndicator.svelte
 			showPeakUsers={false}
 		/>
 		
-		<!-- TODO: 내 정보 이름 바꾸기 -->
-		<LinkButton href="/my" class="btn-primary rounded-full shadow-none">내 645</LinkButton>
+		<LinkButton href="/my" class="btn-primary rounded-full shadow-none">프로필</LinkButton>
 	</div>
 </header>
