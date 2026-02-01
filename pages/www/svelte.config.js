@@ -3,7 +3,12 @@ import { vitePreprocess } from "@sveltejs/vite-plugin-svelte";
 import { mdsvex } from "mdsvex";
 
 const config = {
-	preprocess: [vitePreprocess(), mdsvex()],
+	preprocess: [
+		vitePreprocess(),
+		mdsvex({
+			extensions: [".mdx", ".svx"]
+		}),
+	],
 	kit: {
 		adapter: adapter(),
 		serviceWorker: {
@@ -13,7 +18,7 @@ const config = {
 			checkOrigin: false,
 		},
 	},
-	extensions: [".svelte", ".svx"],
+	extensions: [".svelte", ".svx", ".mdx"],
 	compilerOptions: {
 		runes: true,
 	},
