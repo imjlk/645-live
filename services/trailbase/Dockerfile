@@ -31,14 +31,12 @@ COPY entrypoint.sh /app/entrypoint.sh
 USER root
 RUN mkdir -p /app/traildepot/wasm
 COPY --from=backfill-runtime /usr/local/bin/bun /usr/local/bin/bun
-COPY --from=backfill-runtime /usr/lib/libstdc++.so.6 /lib/libstdc++.so.6
-COPY --from=backfill-runtime /usr/lib/libgcc_s.so.1 /lib/libgcc_s.so.1
 COPY --from=wasm-builder /build/wasm-guest/dist/component.wasm /app/traildepot/wasm/component.wasm
 COPY --from=auth-ui /build/auth-ui/auth_ui_component.wasm /app/traildepot/wasm/auth_ui_component.wasm
 
 RUN chmod +x /app/entrypoint.sh \
-  && ln -sf /lib/libstdc++.so.6 /usr/lib/libstdc++.so.6 \
-  && ln -sf /lib/libgcc_s.so.1 /usr/lib/libgcc_s.so.1
+  && apk add --no-cache libstdc++ libgcc \
+  && bun --version
 
 ENV CORS_ALLOWED_ORIGINS="https://www.645.live,https://645.live" \
     BACKFILL_ON_STARTUP="true" \
