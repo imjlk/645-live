@@ -2,40 +2,29 @@ FROM oven/bun:1-alpine AS base
 
 WORKDIR /app
 
-# Install necessary system dependencies
 RUN apk add --no-cache \
     curl \
     tini
 
-# Copy package.json and install dependencies if they exist
-COPY traildepot/package.json* ./
-RUN if [ -f package.json ]; then bun install --frozen-lockfile; fi
-
-# Copy the scripts and data directory
 COPY traildepot/import-top-store.ts ./
 COPY traildepot/import-draw-results.ts ./
 COPY traildepot/data ./data/
 
-# Create entrypoint script
 RUN echo '#!/bin/sh' > entrypoint.sh && \
     echo 'set -e' >> entrypoint.sh && \
     echo '' >> entrypoint.sh && \
     echo 'echo "🚀 Starting lottery data import scripts..."' >> entrypoint.sh && \
     echo '' >> entrypoint.sh && \
-    echo '# Run draw results import first' >> entrypoint.sh && \
     echo 'echo "📊 Running draw results import..."' >> entrypoint.sh && \
     echo 'bun run import-draw-results.ts latest' >> entrypoint.sh && \
     echo '' >> entrypoint.sh && \
-    echo '# Wait a bit between scripts' >> entrypoint.sh && \
     echo 'sleep 5' >> entrypoint.sh && \
     echo '' >> entrypoint.sh && \
-    echo '# Run top store import' >> entrypoint.sh && \
     echo 'echo "🏪 Running top store import..."' >> entrypoint.sh && \
     echo 'bun run import-top-store.ts latest' >> entrypoint.sh && \
     echo '' >> entrypoint.sh && \
     echo 'echo "✅ All scripts completed successfully!"' >> entrypoint.sh && \
     chmod +x entrypoint.sh
 
-# Use tini as PID 1
 ENTRYPOINT ["/sbin/tini", "--"]
 CMD ["./entrypoint.sh"]

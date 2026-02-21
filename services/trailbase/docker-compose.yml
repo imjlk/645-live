@@ -22,3 +22,4 @@ services:
         max-file: "3"
     environment:
       - RUST_LOG=info
+      - CORS_ALLOWED_ORIGINS=https://www.645.live,https://645.live

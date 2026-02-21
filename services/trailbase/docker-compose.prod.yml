@@ -8,3 +8,5 @@ services:
       - "4000:4000"
     volumes:
       - ./traildepot:/app/traildepot
+    environment:
+      - CORS_ALLOWED_ORIGINS=https://www.645.live,https://645.live
