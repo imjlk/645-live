@@ -20,9 +20,16 @@ on:
         options:
           - "false"
           - "true"
+      use_ai:
+        description: "ZAI API 기반 콘텐츠 생성 사용"
+        required: false
+        default: "true"
+        type: choice
+        options:
+          - "true"
+          - "false"
   schedule:
-    - cron: "20 12 * * 6"
-    - cron: "50 12 * * 6"
+    - cron: "0 13 * * 6"
 
 permissions:
   contents: write
@@ -50,6 +57,10 @@ jobs:
           ROUND: ${{ github.event.inputs.round }}
           LOOKBACK_ROUNDS: ${{ github.event.inputs.lookback_rounds || '30' }}
           FORCE: ${{ github.event.inputs.force || 'false' }}
+          USE_AI: ${{ github.event.inputs.use_ai || 'true' }}
+          ZAI_API_KEY: ${{ secrets.ZAI_API_KEY }}
+          ZAI_BASE_URL: ${{ vars.ZAI_BASE_URL }}
+          ZAI_MODEL: ${{ vars.ZAI_MODEL }}
         run: node scripts/news/generate-news-content.mjs
 
       - name: Commit and Push
