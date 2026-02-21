@@ -39,6 +39,52 @@ export type LottoDrawResult = {
 	bonus_number: number;
 };
 
+type LottoNewApiItem = {
+	ltEpsd?: number | string;
+	ltRflYmd?: string;
+	tm1WnNo?: number | string;
+	tm2WnNo?: number | string;
+	tm3WnNo?: number | string;
+	tm4WnNo?: number | string;
+	tm5WnNo?: number | string;
+	tm6WnNo?: number | string;
+	bnsWnNo?: number | string;
+	rnk1WnNope?: number | string;
+	rnk1WnAmt?: number | string;
+	rnk1SumWnAmt?: number | string;
+	rlvtEpsdSumNtslAmt?: number | string;
+};
+
+type LottoNewApiResponse = {
+	data?: {
+		list?: LottoNewApiItem[];
+	};
+};
+
+function toSafeInt(value: unknown): number {
+	if (typeof value === "number" && Number.isFinite(value)) {
+		return Math.trunc(value);
+	}
+	if (typeof value === "string") {
+		const parsed = Number.parseInt(value, 10);
+		if (Number.isFinite(parsed)) {
+			return parsed;
+		}
+	}
+	return 0;
+}
+
+function toIsoDate(value: unknown): string {
+	const text = typeof value === "string" ? value.trim() : "";
+	if (/^\d{8}$/.test(text)) {
+		return `${text.slice(0, 4)}-${text.slice(4, 6)}-${text.slice(6, 8)}`;
+	}
+	if (/^\d{4}-\d{2}-\d{2}$/.test(text)) {
+		return text;
+	}
+	return "1970-01-01";
+}
+
 /**
  * 현재 날짜를 기준으로 예상되는 최신 회차를 계산합니다.
  * 로또는 매주 토요일 추첨이며, 1회가 2002년 12월 7일에 시작되었습니다.
@@ -140,7 +186,7 @@ export async function fetchLottoDrawResult(
 
 		// URL 인젝션 방지: 숫자만 허용
 		const safeRound = Math.floor(Number(round));
-		const url = `https://www.dhlottery.co.kr/common.do?method=getLottoNumber&drwNo=${safeRound}`;
+		const url = `https://www.dhlottery.co.kr/lt645/selectPstLt645InfoNew.do?srchDir=center&srchLtEpsd=${safeRound}&_=${Date.now()}`;
 
 		// 타임아웃 설정 (10초)
 		const controller = new AbortController();
@@ -149,22 +195,7 @@ export async function fetchLottoDrawResult(
 		const response = await fetch(url, {
 			signal: controller.signal,
 			headers: {
-				"User-Agent":
-					"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-				Accept: "application/json, text/javascript, */*; q=0.01",
-				"Accept-Language": "ko-KR,ko;q=0.9,en;q=0.8",
-				"Cache-Control": "no-cache",
-				Pragma: "no-cache",
-				"Sec-Fetch-Dest": "empty",
-				"Sec-Fetch-Mode": "cors",
-				"Sec-Fetch-Site": "same-origin",
-				"Sec-Ch-Ua":
-					'"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
-				"Sec-Ch-Ua-Mobile": "?0",
-				"Sec-Ch-Ua-Platform": '"macOS"',
-				Referer: "https://www.dhlottery.co.kr/gameResult.do?method=byWin",
-				Origin: "https://www.dhlottery.co.kr",
-				"X-Requested-With": "XMLHttpRequest",
+				Accept: "application/json,text/plain,*/*",
 			},
 		});
 
@@ -181,41 +212,40 @@ export async function fetchLottoDrawResult(
 		const contentType = response.headers.get("content-type") || "";
 		console.log(`📋 응답 Content-Type: ${contentType}`);
 
-		// 응답 텍스트 읽기
-		let responseText = "";
+		const responseText = await response.text();
 		if (!contentType.toLowerCase().includes("application/json")) {
-			responseText = await response.text();
 			console.warn(`⚠️ 응답이 JSON 형식이 아닙니다: ${contentType}`);
 			console.warn(`⚠️ 응답 내용(앞부분): ${responseText.substring(0, 300)}...`);
-			if (
-				responseText.includes("<html") ||
-				responseText.includes("DOCTYPE html")
-			) {
-				console.warn(
-					"⚠️ HTML 페이지가 반환되었습니다. 동행복권 사이트 점검/차단/오류 가능성.",
-				);
-			}
-		} else {
-			// JSON Content-Type인 경우 스트림 읽기
-			const reader = response.body?.getReader();
-			if (reader) {
-				const decoder = new TextDecoder();
-				while (true) {
-					const { done, value } = await reader.read();
-					if (done) break;
-					responseText += decoder.decode(value, { stream: true });
-				}
-			}
-		}
-
-		// JSON 파싱 시도
-		try {
-			const data = JSON.parse(responseText) as LottoApiResponse;
-			return processLottoApiResponse(data, round, safeRound);
-		} catch (e) {
-			console.error("❌ JSON 파싱 실패:", e);
 			return null;
 		}
+
+		const payload = JSON.parse(responseText) as LottoNewApiResponse;
+		const list = payload.data?.list ?? [];
+		const item = list.find((candidate) => toSafeInt(candidate.ltEpsd) === safeRound);
+
+		if (!item) {
+			console.warn(`⚠️ 회차 ${safeRound} 데이터가 API 응답에 없습니다.`);
+			return null;
+		}
+
+		const normalized: LottoApiResponse = {
+			totSellamnt: toSafeInt(item.rlvtEpsdSumNtslAmt),
+			returnValue: "success",
+			drwNoDate: toIsoDate(item.ltRflYmd),
+			firstWinamnt: toSafeInt(item.rnk1WnAmt),
+			drwtNo6: toSafeInt(item.tm6WnNo),
+			drwtNo4: toSafeInt(item.tm4WnNo),
+			firstPrzwnerCo: toSafeInt(item.rnk1WnNope),
+			drwtNo5: toSafeInt(item.tm5WnNo),
+			bnusNo: toSafeInt(item.bnsWnNo),
+			firstAccumamnt: toSafeInt(item.rnk1SumWnAmt),
+			drwNo: toSafeInt(item.ltEpsd),
+			drwtNo2: toSafeInt(item.tm2WnNo),
+			drwtNo3: toSafeInt(item.tm3WnNo),
+			drwtNo1: toSafeInt(item.tm1WnNo),
+		};
+
+		return processLottoApiResponse(normalized, round, safeRound);
 	} catch (error) {
 		if (error instanceof Error && error.name === "AbortError") {
 			console.error(`❌ 회차 ${round} API 호출 타임아웃`);

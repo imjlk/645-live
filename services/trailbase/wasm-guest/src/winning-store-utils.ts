@@ -13,217 +13,49 @@ export type WinningStore = {
 	selection_type?: "자동" | "수동"; // 1등만 해당
 };
 
-/**
- * HTML에서 당첨점 정보를 파싱합니다.
- */
-function parseWinningStores(
-	html: string,
-	round: number,
-	winType: "1등" | "2등",
-): WinningStore[] {
-	const stores: WinningStore[] = [];
+type WinningStoreApiItem = {
+	shpNm?: string;
+	shpAddr?: string;
+	wnShpRnk?: number | string;
+	atmtPsvYnTxt?: string | null;
+};
 
-	try {
-		// 인코딩 문제로 한글 텍스트 대신 HTML 구조로 찾기
-		// 1등은 첫 번째 group_content, 2등은 두 번째 group_content
-		const groupContentRegex =
-			/<div class="group_content">[\s\S]*?<table[\s\S]*?<tbody>([\s\S]*?)<\/tbody>/gi;
-		const matches: string[] = [];
-		let groupMatch: RegExpExecArray | null = groupContentRegex.exec(html);
+type WinningStoreApiResponse = {
+	data?: {
+		list?: WinningStoreApiItem[];
+	};
+};
 
-		while (groupMatch !== null) {
-			matches.push(groupMatch[1]);
-			groupMatch = groupContentRegex.exec(html);
-		}
+const WINNING_STORE_API_URL =
+	"https://www.dhlottery.co.kr/wnprchsplcsrch/selectLtWnShp.do";
 
-		let tbodyContent = "";
-		if (winType === "1등" && matches.length > 0) {
-			tbodyContent = matches[0]; // 첫 번째 테이블 (1등)
-		} else if (winType === "2등" && matches.length > 1) {
-			tbodyContent = matches[1]; // 두 번째 테이블 (2등)
-		}
-
-		if (!tbodyContent) {
-			console.log(`⚠️ ${winType} 테이블을 찾을 수 없습니다.`);
-			return stores;
-		}
-
-		// 테이블 행 추출 (번호가 있는 행만)
-		const rowRegex = /<tr[^>]*>\s*<td[^>]*>(\d+)<\/td>([\s\S]*?)<\/tr>/gi;
-		let rowMatch = rowRegex.exec(tbodyContent);
-
-		while (rowMatch !== null) {
-			const rowNumber = rowMatch[1];
-			const rowContent = rowMatch[2];
-
-			// 각 셀의 데이터를 추출
-			const cells = rowContent.match(/<td[^>]*>([\s\S]*?)<\/td>/gi);
-			if (!cells) {
-				rowMatch = rowRegex.exec(tbodyContent);
-				continue;
-			}
-
-			// HTML 태그 제거 및 텍스트 정리
-			const cleanHtml = (text: string) =>
-				cleanText(
-					text
-						.replace(/<[^>]*>/g, "")
-						.replace(/&nbsp;/g, " ")
-						.replace(/\s+/g, " ")
-						.trim(),
-				);
-
-			let store_name = "";
-			let address = "";
-			let selection_type: "자동" | "수동" | undefined;
-
-			if (winType === "1등") {
-				// 1등: [번호], 상호명, 구분(자동/수동), 소재지, 위치보기
-				if (cells.length >= 3) {
-					store_name = cleanHtml(cells[0]); // 상호명
-					const selectionText = cleanHtml(cells[1]); // 구분
-					address = cleanHtml(cells[2]); // 소재지
-
-					selection_type = selectionText.includes("자동")
-						? "자동"
-						: selectionText.includes("수동")
-							? "수동"
-							: undefined;
-				}
-			} else {
-				// 2등: [번호], 상호명, 소재지, 위치보기
-				if (cells.length >= 2) {
-					store_name = cleanHtml(cells[0]); // 상호명
-					address = cleanHtml(cells[1]); // 소재지
-				}
-			}
-
-			// 유효한 데이터인지 확인
-			if (
-				store_name &&
-				address &&
-				store_name !== "상호명" &&
-				address !== "소재지"
-			) {
-				stores.push({
-					round,
-					store_name,
-					address,
-					win_type: winType,
-					selection_type,
-				});
-			}
-
-			// 다음 매치 찾기
-			rowMatch = rowRegex.exec(tbodyContent);
-		}
-
-		console.log(`✅ ${winType} 당첨점 ${stores.length}개 파싱 완료`);
-		return stores;
-	} catch (error) {
-		console.error(`❌ HTML 파싱 중 오류 (${winType}):`, error);
-		return [];
+function normalizeText(value: unknown): string {
+	if (typeof value !== "string") {
+		return "";
 	}
+	return value.replace(/\s+/g, " ").trim();
 }
 
-/**
- * 총 페이지 수를 HTML에서 추출합니다.
- */
-function extractTotalPages(html: string): number {
-	try {
-		// #page_box 셀렉터 내에서 페이지 번호 추출
-		const pageBoxRegex =
-			/<div class="paginate_common" id="page_box">([\s\S]*?)<\/div>/i;
-		const pageBoxMatch = html.match(pageBoxRegex);
-
-		if (pageBoxMatch) {
-			const pageBoxContent = pageBoxMatch[1];
-
-			// 페이지 링크에서 최대 페이지 번호 찾기
-			const pageNumberRegex = /onclick="selfSubmit\((\d+)\)"/g;
-			const numbers: number[] = [];
-			let match: RegExpExecArray | null = pageNumberRegex.exec(pageBoxContent);
-
-			while (match !== null) {
-				numbers.push(Number.parseInt(match[1], 10));
-				match = pageNumberRegex.exec(pageBoxContent);
-			}
-
-			// 현재 페이지도 확인 (<strong>숫자</strong> 형태)
-			const currentPageRegex = /<strong>(\d+)<\/strong>/;
-			const currentMatch = pageBoxContent.match(currentPageRegex);
-			if (currentMatch) {
-				numbers.push(Number.parseInt(currentMatch[1], 10));
-			}
-
-			if (numbers.length > 0) {
-				const maxPage = Math.max(...numbers);
-				console.log(
-					`🔍 페이지 번호들 발견: ${numbers.join(", ")}, 최대: ${maxPage}`,
-				);
-				return maxPage;
-			}
-		}
-
-		// 기존 방법으로 폴백
-		const pageRegex = /총\s*(\d+)\s*페이지/i;
-		const fallbackMatch = html.match(pageRegex);
-		if (fallbackMatch) {
-			return Number.parseInt(fallbackMatch[1], 10);
-		}
-
-		// 다른 패턴으로 시도
-		const lastPageRegex = /nowPage=(\d+)[^>]*>(?:마지막|끝|\d+)<\/a>/gi;
-		let maxPage = 1;
-		let pageMatch: RegExpExecArray | null = lastPageRegex.exec(html);
-		while (pageMatch !== null) {
-			const pageNum = Number.parseInt(pageMatch[1], 10);
-			if (pageNum > maxPage) {
-				maxPage = pageNum;
-			}
-			pageMatch = lastPageRegex.exec(html);
-		}
-
-		return maxPage;
-	} catch (error) {
-		console.error("❌ 총 페이지 수 추출 중 오류:", error);
-		return 1;
+function toWinType(value: unknown): "1등" | "2등" | null {
+	const rank = typeof value === "number" ? value : Number.parseInt(String(value), 10);
+	if (rank === 1) {
+		return "1등";
 	}
+	if (rank === 2) {
+		return "2등";
+	}
+	return null;
 }
 
-/**
- * Deno/V8 환경에서 EUC-KR 페이지를 가져옵니다 (fetch 방식)
- * 참고: EUC-KR 인코딩 처리 제한으로 일부 한글이 깨질 수 있음
- */
-async function fetchEucKrPageDeno(url: string): Promise<string> {
-	try {
-		const response = await fetch(url, {
-			headers: {
-				"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-				"Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-				"Accept-Language": "ko-KR,ko;q=0.9,en;q=0.8",
-				"Cache-Control": "no-cache",
-				"Pragma": "no-cache",
-			},
-		});
-
-		if (!response.ok) {
-			throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-		}
-
-		// EUC-KR을 UTF-8로 변환 시도 (완전하지 않음)
-		const arrayBuffer = await response.arrayBuffer();
-		const uint8Array = new Uint8Array(arrayBuffer);
-		
-		// 기본 UTF-8 디코딩 시도
-		const decoder = new TextDecoder('utf-8', { fatal: false });
-		const text = decoder.decode(uint8Array);
-		
-		return text;
-	} catch (error) {
-		console.error(`❌ 페이지 가져오기 실패 (${url}):`, error);
-		throw error;
+function toSelectionType(value: unknown): "자동" | "수동" | undefined {
+	const text = normalizeText(value);
+	if (text.includes("자동")) {
+		return "자동";
 	}
+	if (text.includes("수동")) {
+		return "수동";
+	}
+	return undefined;
 }
 
 /**
@@ -235,51 +67,49 @@ export async function fetchWinningStores(
 	try {
 		console.log(`🏪 회차 ${round} 당첨점 정보 조회 시작...`);
 
+		const url = `${WINNING_STORE_API_URL}?srchWnShpRnk=all&srchLtEpsd=${Math.floor(round)}&srchShpLctn=&_=${Date.now()}`;
+		const response = await fetch(url, {
+			headers: {
+				Accept: "application/json,text/plain,*/*",
+			},
+		});
+
+		if (!response.ok) {
+			console.error(`❌ 당첨점 API 요청 실패: ${response.status} ${response.statusText}`);
+			return [];
+		}
+
+		const responseText = await response.text();
+		const contentType = response.headers.get("content-type") || "";
+		if (!contentType.toLowerCase().includes("application/json")) {
+			console.warn(`⚠️ 당첨점 API 응답이 JSON 형식이 아닙니다: ${contentType}`);
+			console.warn(`⚠️ 응답 내용(앞부분): ${responseText.substring(0, 300)}...`);
+			return [];
+		}
+
+		const payload = JSON.parse(responseText) as WinningStoreApiResponse;
+		const list = payload.data?.list ?? [];
 		const allStores: WinningStore[] = [];
 
-		// 1등 당첨점 조회 (첫 페이지만)
-		console.log(`🥇 ${round}회차 1등 당첨점 조회 중...`);
-		const firstWinUrl = `https://dhlottery.co.kr/store.do?method=topStore&pageGubun=L645&drwNo=${round}&nowPage=1`;
-
-		const firstWinHtml = await fetchEucKrPageDeno(firstWinUrl);
-
-		const firstWinStores = parseWinningStores(firstWinHtml, round, "1등");
-		allStores.push(...firstWinStores);
-
-		// 2등 당첨점 조회 (모든 페이지)
-		console.log(`🥈 ${round}회차 2등 당첨점 조회 중...`);
-
-		let currentPage = 1;
-		let totalPages = 1;
-		let hasMorePages = true;
-
-		while (hasMorePages && currentPage <= totalPages) {
-			console.log(
-				`📄 2등 당첨점 ${currentPage}/${totalPages} 페이지 조회 중...`,
-			);
-
-			// 기본 URL에서 페이지만 변경 (rank 파라미터 제거)
-			const pageUrl = `https://dhlottery.co.kr/store.do?method=topStore&pageGubun=L645&drwNo=${round}&nowPage=${currentPage}`;
-
-			const html = await fetchEucKrPageDeno(pageUrl);
-
-			// 첫 페이지에서 총 페이지 수 확인
-			if (currentPage === 1) {
-				totalPages = extractTotalPages(html);
-				console.log(`📊 총 ${totalPages} 페이지 확인됨`);
+		for (const item of list) {
+			const winType = toWinType(item.wnShpRnk);
+			if (!winType) {
+				continue;
 			}
 
-			const secondWinStores = parseWinningStores(html, round, "2등");
-			allStores.push(...secondWinStores);
-
-			// 다음 페이지로
-			currentPage++;
-			hasMorePages = currentPage <= totalPages;
-
-			// 요청 간격 조절 (너무 빠른 요청 방지)
-			if (hasMorePages) {
-				await new Promise((resolve) => setTimeout(resolve, 1000)); // 1초 대기
+			const store_name = normalizeText(item.shpNm);
+			const address = normalizeText(item.shpAddr);
+			if (!store_name || !address) {
+				continue;
 			}
+
+			allStores.push({
+				round,
+				store_name,
+				address,
+				win_type: winType,
+				selection_type: winType === "1등" ? toSelectionType(item.atmtPsvYnTxt) : undefined,
+			});
 		}
 
 		console.log(
@@ -559,11 +389,3 @@ export async function executeWinningStoreUpdate(): Promise<void> {
 //     console.error('당첨점 업데이트 알림 오류:', error);
 //   }
 // }
-
-// 텍스트 정리 함수 (간단한 정리만 수행)
-function cleanText(text: string): string {
-	return text
-		.replace(/&nbsp;/g, " ")
-		.replace(/\s+/g, " ")
-		.trim();
-}
