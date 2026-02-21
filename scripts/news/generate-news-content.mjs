@@ -568,8 +568,9 @@ async function generatePayloadWithAi(draw, stores, analysis, fallback) {
 		'사실 기반의 중립적 뉴스 요약으로 작성하라.',
 		'반드시 tool call(save_news_payload)로만 응답한다.',
 		'각 항목 규칙:',
-		'- title: 80자 이내',
-		'- description: 120~220자',
+		'- title: 40자 이내',
+		'- description: 20~40자',
+		'- description은 title과 중복 표현을 피하고 핵심 키워드 중심으로 작성',
 		'- category: "로또분석" 권장',
 		'- tags: 3~5개',
 		'- lead: 2~4문단, 합계 350자 이상',
@@ -587,6 +588,8 @@ async function generatePayloadWithAi(draw, stores, analysis, fallback) {
 		'사실 기반의 중립적 문체를 사용하라.',
 		'반드시 JSON 객체만 반환하라.',
 		'필수 키: title, description, category, tags, lead, bullet_points, insight, caution_message, recommended_stats',
+		'title은 40자 이내, description은 20~40자로 작성하라.',
+		'description은 title과 같은 표현 반복 없이 키워드 위주로 작성하라.',
 		'tags는 문자열 배열(3~5개), bullet_points는 문자열 배열(4~8개)이어야 한다.',
 		'lead와 insight는 각각 2~4문단으로 충분히 길게 작성하라.',
 		'recommended_stats는 2~5개 배열이며 각 항목은 {key, reason} 형식이다.',
@@ -813,28 +816,47 @@ function buildRecommendedStatsLinks(analysis) {
 	return links.slice(0, 6);
 }
 
+function escapeHtml(value) {
+	return String(value ?? '')
+		.replace(/&/g, '&amp;')
+		.replace(/</g, '&lt;')
+		.replace(/>/g, '&gt;')
+		.replace(/"/g, '&quot;')
+		.replace(/'/g, '&#39;');
+}
+
 function renderMdx(draw, analysis, payload) {
 	const round = analysis.round;
 	const bonus = safeInt(draw.bonus_number);
 	const drawDate = formatDate(draw.draw_date);
-	const thumbnail = `/og/news/lotto-${round}?title=${encodeURIComponent(payload.title)}&description=${encodeURIComponent(payload.description)}&round=${round}`;
+	const finalTitle = normalizeLine(payload.title, `제${round}회 로또 분석`);
+	const finalDescription = normalizeLine(payload.description, '당첨번호·당첨금·지역분포·당첨점 통계 요약');
+	const thumbnail = `/og/news/lotto-${round}?title=${encodeURIComponent(finalTitle)}&description=${encodeURIComponent(finalDescription)}&round=${round}`;
 	const bulletList = payload.bullet_points.map((value) => `- ${value}`).join('\n');
 	const insightCompact = payload.insight.replace(/\s*\n+\s*/g, ' ').trim();
 	const recommendedStatsLinks = payload.recommended_stats?.length > 0
 		? payload.recommended_stats
 		: buildRecommendedStatsLinks(analysis);
-	const recommendedStatsMarkdown = recommendedStatsLinks
-		.map((link) => link.reason
-			? `- [${link.label}](${link.href})\n  - ${link.reason}`
-			: `- [${link.label}](${link.href})`)
+	const recommendedStatsCards = recommendedStatsLinks
+		.map((link) => {
+			const label = escapeHtml(link.label);
+			const href = escapeHtml(link.href);
+			const reason = escapeHtml(link.reason || '이번 회차 데이터와 직접 연결되는 통계입니다.');
+			return `<a href="${href}" class="card bg-base-100 border border-base-300 shadow-sm hover:shadow-md transition-shadow no-underline">
+  <div class="card-body p-4">
+    <h3 class="card-title text-base text-base-content">${label}</h3>
+    <p class="text-sm text-base-content/70">${reason}</p>
+  </div>
+</a>`;
+		})
 		.join('\n');
 
 	return `---
-title: ${yamlString(payload.title)}
+title: ${yamlString(finalTitle)}
 date: ${yamlString(drawDate)}
 category: ${yamlString(payload.category)}
 tags: [${payload.tags.map((tag) => yamlString(tag)).join(', ')}]
-description: ${yamlString(payload.description)}
+description: ${yamlString(finalDescription)}
 author: ${yamlString('645.live 자동뉴스')}
 thumbnail: ${yamlString(thumbnail)}
 ---
@@ -921,9 +943,11 @@ ${payload.insight}
 
 ## 이번 회차에서 이어서 볼 통계
 
-아래 통계 페이지에서 이번 회차 특징을 장기 데이터와 함께 바로 비교해볼 수 있습니다.
+이번 회차 특징과 맞는 통계를 카드에서 바로 이동해 확인해보세요.
 
-${recommendedStatsMarkdown}
+<div class="not-prose grid grid-cols-1 md:grid-cols-2 gap-3 my-6">
+${recommendedStatsCards}
+</div>
 
 <Alert type="info">
   ${payload.caution_message}

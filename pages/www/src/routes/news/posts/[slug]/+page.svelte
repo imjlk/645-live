@@ -79,7 +79,6 @@
 		</div>
 
 		<h1 class="mt-3 text-3xl font-bold leading-tight text-base-content">{postTitle}</h1>
-		<p class="mt-3 text-base text-base-content/80">{description}</p>
 
 		{#if Array.isArray(data.meta?.tags) && data.meta.tags.length > 0}
 			<div class="mt-4 flex flex-wrap gap-2">
