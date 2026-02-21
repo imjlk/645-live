@@ -69,7 +69,6 @@
 	:global(.prose ul) {
 		list-style-type: disc;
 		list-style-position: inside;
-		margin-bottom: 1rem;
 	}
 	
 	:global(.prose ol) {

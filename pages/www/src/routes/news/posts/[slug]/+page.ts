@@ -18,10 +18,12 @@ export const load: PageLoad = async ({ params }) => {
 
 	try {
 		const post = await loader() as any;
+		const meta = post.metadata || {};
 		
 		return {
 			content: post.default,
-			meta: post.metadata
+			meta,
+			slug: params.slug
 		};
 	} catch (e) {
         console.error('Error loading MDX:', e);

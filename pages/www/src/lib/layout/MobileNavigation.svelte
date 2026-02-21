@@ -23,11 +23,11 @@ const navigationItems: NavigationItem[] = [
 		activePattern: (pathname) => pathname === "/",
 	},
 	{
-		href: "/guide",
-		label: "가이드",
-		icon: "📚",
-		ariaLabel: "로또 가이드 페이지로 이동",
-		activePattern: (pathname) => pathname === "/guide",
+		href: "/news",
+		label: "뉴스",
+		icon: "📰",
+		ariaLabel: "로또 뉴스 페이지로 이동",
+		activePattern: (pathname) => pathname.startsWith("/news"),
 	},
 	{
 		href: "/qr-scan",

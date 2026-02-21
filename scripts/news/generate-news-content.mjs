@@ -278,6 +278,53 @@ function pickTitle(analysis) {
 	};
 }
 
+const STATS_LINK_CATALOG = {
+	stats_main: {
+		label: '전체 통계 메인',
+		href: () => '/stats'
+	},
+	winning_stores: {
+		label: '회차별 당첨점 조회',
+		href: (round) => `/winning-stores?round=${round}`
+	},
+	numbers: {
+		label: '번호별 통계',
+		href: () => '/stats/numbers'
+	},
+	odd_even: {
+		label: '홀짝 분석',
+		href: () => '/stats/odd-even'
+	},
+	high_low: {
+		label: '고저번대 통계',
+		href: () => '/stats/high-low'
+	},
+	sections: {
+		label: '구간별 분석',
+		href: () => '/stats/sections'
+	},
+	pairs: {
+		label: '번호 쌍 통계',
+		href: () => '/stats/pairs'
+	},
+	repeat: {
+		label: '연속 중복 통계',
+		href: () => '/stats/repeat'
+	},
+	colors: {
+		label: '색깔별 통계',
+		href: () => '/stats/colors'
+	},
+	unit_digit: {
+		label: '끝수 분석',
+		href: () => '/stats/unit-digit'
+	},
+	ac: {
+		label: 'AC값 통계',
+		href: () => '/stats/ac'
+	}
+};
+
 function normalizeLine(value, fallback) {
 	const text = String(value ?? '').replace(/\s+/g, ' ').trim();
 	return text || fallback;
@@ -309,6 +356,38 @@ function normalizeTags(tags, round) {
 	return unique;
 }
 
+function normalizeRecommendedStats(recommendedStats, round) {
+	if (!Array.isArray(recommendedStats)) return [];
+
+	const result = [];
+	for (const item of recommendedStats) {
+		const key = typeof item === 'string'
+			? item.trim()
+			: typeof item?.key === 'string'
+				? item.key.trim()
+				: '';
+		if (!key) continue;
+
+		const catalog = STATS_LINK_CATALOG[key];
+		if (!catalog) continue;
+		if (result.some((entry) => entry.key === key)) continue;
+
+		const reason = typeof item === 'object' && item
+			? normalizeLine(item.reason, '')
+			: '';
+
+		result.push({
+			key,
+			label: catalog.label,
+			href: catalog.href(round),
+			reason
+		});
+		if (result.length >= 6) break;
+	}
+
+	return result;
+}
+
 function fallbackPayload(draw, analysis) {
 	const titleData = pickTitle(analysis);
 	const round = analysis.round;
@@ -333,7 +412,8 @@ function fallbackPayload(draw, analysis) {
 		insight: analysis.anomalies.length > 0
 			? `이번 회차 특이점: ${analysis.anomalies.map((value) => `\`${value}\``).join(', ')}`
 			: '이번 회차는 뚜렷한 이상치 없이 평균적인 분포를 보였습니다.',
-		caution_message: '복권은 건전한 오락으로 즐겨주세요. 과도한 구매는 경제적 부담을 유발할 수 있습니다.'
+		caution_message: '복권은 건전한 오락으로 즐겨주세요. 과도한 구매는 경제적 부담을 유발할 수 있습니다.',
+		recommended_stats: []
 	};
 }
 
@@ -379,7 +459,8 @@ function sanitizeAiPayload(rawPayload, round, fallback) {
 		lead: normalizeBlock(rawPayload.lead, fallback.lead),
 		bullet_points: bulletPoints.length > 0 ? bulletPoints : fallback.bullet_points,
 		insight: normalizeBlock(rawPayload.insight, fallback.insight),
-		caution_message: normalizeLine(rawPayload.caution_message, fallback.caution_message)
+		caution_message: normalizeLine(rawPayload.caution_message, fallback.caution_message),
+		recommended_stats: normalizeRecommendedStats(rawPayload.recommended_stats, round)
 	};
 }
 
@@ -495,6 +576,8 @@ async function generatePayloadWithAi(draw, stores, analysis, fallback) {
 		'- bullet_points: 4~8개',
 		'- insight: 2~4문단, 합계 300자 이상',
 		'- caution_message: 건전 구매 안내 1문장',
+		'- recommended_stats: 2~5개. 각 항목은 {key, reason} 형식',
+		'- key 허용값: stats_main, winning_stores, numbers, odd_even, high_low, sections, pairs, repeat, colors, unit_digit, ac',
 		'입력 데이터:',
 		JSON.stringify(input)
 	].join('\n');
@@ -503,9 +586,11 @@ async function generatePayloadWithAi(draw, stores, analysis, fallback) {
 		'다음 JSON 데이터로 로또 뉴스 payload를 생성하라.',
 		'사실 기반의 중립적 문체를 사용하라.',
 		'반드시 JSON 객체만 반환하라.',
-		'필수 키: title, description, category, tags, lead, bullet_points, insight, caution_message',
+		'필수 키: title, description, category, tags, lead, bullet_points, insight, caution_message, recommended_stats',
 		'tags는 문자열 배열(3~5개), bullet_points는 문자열 배열(4~8개)이어야 한다.',
 		'lead와 insight는 각각 2~4문단으로 충분히 길게 작성하라.',
+		'recommended_stats는 2~5개 배열이며 각 항목은 {key, reason} 형식이다.',
+		'key 허용값: stats_main, winning_stores, numbers, odd_even, high_low, sections, pairs, repeat, colors, unit_digit, ac',
 		JSON.stringify(input)
 	].join('\n');
 
@@ -595,7 +680,22 @@ async function generatePayloadWithAi(draw, stores, analysis, fallback) {
 										items: { type: 'string' }
 									},
 									insight: { type: 'string' },
-									caution_message: { type: 'string' }
+									caution_message: { type: 'string' },
+									recommended_stats: {
+										type: 'array',
+										items: {
+											type: 'object',
+											properties: {
+												key: {
+													type: 'string',
+													enum: ['stats_main', 'winning_stores', 'numbers', 'odd_even', 'high_low', 'sections', 'pairs', 'repeat', 'colors', 'unit_digit', 'ac']
+												},
+												reason: { type: 'string' }
+											},
+											required: ['key', 'reason'],
+											additionalProperties: false
+										}
+									}
 								},
 								required: [
 									'title',
@@ -605,7 +705,8 @@ async function generatePayloadWithAi(draw, stores, analysis, fallback) {
 									'lead',
 									'bullet_points',
 									'insight',
-									'caution_message'
+									'caution_message',
+									'recommended_stats'
 								],
 								additionalProperties: false
 							}
@@ -679,6 +780,39 @@ function renderAreaRows(rows) {
 		.join('\n      ');
 }
 
+function buildRecommendedStatsLinks(analysis) {
+	const links = [];
+
+	const push = (href, label, reason) => {
+		if (links.some((item) => item.href === href)) return;
+		links.push({ href, label, reason });
+	};
+
+	push('/stats', '전체 통계 메인', '전체 회차 흐름과 이번 회차를 비교할 때 가장 먼저 보는 기준 페이지');
+	push(`/winning-stores?round=${analysis.round}`, `${analysis.round}회차 당첨점 조회`, '회차별 1등/2등 당첨점 상세 주소와 선택방식을 바로 확인');
+	push('/stats/numbers', '번호별 통계', '당첨번호 6개의 장기 출현 빈도와 누적 경향을 확인');
+
+	if (analysis.oddCount !== analysis.evenCount) {
+		push('/stats/odd-even', '홀짝 분석', `이번 회차 홀짝 비율(${analysis.oddCount}:${analysis.evenCount})이 평균 대비 어떤지 점검`);
+	}
+
+	if (analysis.highCount >= 3 || analysis.lowCount >= 3) {
+		push('/stats/high-low', '고저번대 통계', '고번대/저번대 집중 여부를 장기 데이터와 비교');
+		push('/stats/sections', '구간별 분석', '번호대(1~10, 11~20...)별 분포 편중 확인');
+	}
+
+	if (analysis.consecutivePairs > 0 || analysis.anomalies.includes('consecutive_numbers')) {
+		push('/stats/repeat', '연속 중복 통계', '연속/중복 출현 패턴의 최근 추세를 검증');
+		push('/stats/pairs', '번호 쌍 통계', '함께 자주 나오는 번호 조합을 확인');
+	}
+
+	if (analysis.anomalies.includes('region_concentration')) {
+		push(`/winning-stores?round=${analysis.round}`, '지역 집중 당첨점 상세', '특정 지역 집중 현상이 실제 판매점 분포에서 어떻게 나타나는지 확인');
+	}
+
+	return links.slice(0, 6);
+}
+
 function renderMdx(draw, analysis, payload) {
 	const round = analysis.round;
 	const bonus = safeInt(draw.bonus_number);
@@ -686,6 +820,14 @@ function renderMdx(draw, analysis, payload) {
 	const thumbnail = `/og/news/lotto-${round}?title=${encodeURIComponent(payload.title)}&description=${encodeURIComponent(payload.description)}&round=${round}`;
 	const bulletList = payload.bullet_points.map((value) => `- ${value}`).join('\n');
 	const insightCompact = payload.insight.replace(/\s*\n+\s*/g, ' ').trim();
+	const recommendedStatsLinks = payload.recommended_stats?.length > 0
+		? payload.recommended_stats
+		: buildRecommendedStatsLinks(analysis);
+	const recommendedStatsMarkdown = recommendedStatsLinks
+		.map((link) => link.reason
+			? `- [${link.label}](${link.href})\n  - ${link.reason}`
+			: `- [${link.label}](${link.href})`)
+		.join('\n');
 
 	return `---
 title: ${yamlString(payload.title)}
@@ -776,6 +918,12 @@ ${payload.insight}
     <p>제${round}회는 총 ${analysis.storesCount}개 당첨점이 집계되었습니다. 집계 데이터는 이후 정정될 수 있습니다.</p>
   </TabsContent>
 </Tabs>
+
+## 이번 회차에서 이어서 볼 통계
+
+아래 통계 페이지에서 이번 회차 특징을 장기 데이터와 함께 바로 비교해볼 수 있습니다.
+
+${recommendedStatsMarkdown}
 
 <Alert type="info">
   ${payload.caution_message}

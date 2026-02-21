@@ -17,6 +17,12 @@ const navigationItems: NavigationItem[] = [
 		activePattern: (pathname) => pathname === "/guide",
 	},
 	{
+		href: "/news",
+		label: "뉴스",
+		ariaLabel: "로또 뉴스 페이지로 이동",
+		activePattern: (pathname) => pathname.startsWith("/news"),
+	},
+	{
 		href: "/qr-scan",
 		label: "QR 스캔",
 		ariaLabel: "QR 스캔 페이지로 이동",
