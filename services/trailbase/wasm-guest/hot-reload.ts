@@ -57,7 +57,6 @@ async function startTrailBaseAndHotRestart(opts: {
       `-a=${opts.address}`,
       "--cors-allowed-origins",
       opts.corsOrigins,
-      "--disable-auth-ui",
     ],
     {
       stdout: "inherit",

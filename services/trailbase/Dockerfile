@@ -22,4 +22,4 @@ ENV CORS_ALLOWED_ORIGINS="https://www.645.live,https://645.live"
 
 EXPOSE 4000
 ENTRYPOINT ["tini", "--"]
-CMD ["/bin/sh", "-lc", "exec /app/trail --data-dir /app/traildepot run --address 0.0.0.0:4000 --cors-allowed-origins \"${CORS_ALLOWED_ORIGINS}\" --disable-auth-ui"]
+CMD ["/bin/sh", "-lc", "exec /app/trail --data-dir /app/traildepot run --address 0.0.0.0:4000 --cors-allowed-origins \"${CORS_ALLOWED_ORIGINS}\""]

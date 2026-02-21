@@ -11,5 +11,4 @@ exec trail \
   --data-dir "$SCRIPT_DIR/traildepot" \
   run \
   --address 0.0.0.0:4000 \
-  --cors-allowed-origins "$LOCAL_CORS_ORIGINS" \
-  --disable-auth-ui
+  --cors-allowed-origins "$LOCAL_CORS_ORIGINS"
