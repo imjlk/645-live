@@ -45,6 +45,12 @@ async function startTrailBaseAndHotRestart(opts: {
 }) {
   await deployComponent({ depotPath: opts.depotPath, alwaysBuild: false });
 
+  const corsArgs = opts.corsOrigins
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter((origin) => origin.length > 0)
+    .flatMap((origin) => ["--cors-allowed-origins", origin]);
+
   const controller = new AbortController();
   const { signal } = controller;
 
@@ -55,8 +61,7 @@ async function startTrailBaseAndHotRestart(opts: {
       "run",
       "--dev",
       `-a=${opts.address}`,
-      "--cors-allowed-origins",
-      opts.corsOrigins,
+      ...corsArgs,
     ],
     {
       stdout: "inherit",

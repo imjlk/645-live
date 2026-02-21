@@ -53,9 +53,21 @@ else
   log "BACKFILL_ON_STARTUP=false, skipping backfill steps"
 fi
 
-exec /app/trail \
+set -- /app/trail \
   --data-dir /app/traildepot \
   run \
   --address 0.0.0.0:4000 \
-  --cors-allowed-origins "${CORS_ALLOWED_ORIGINS:-https://www.645.live,https://645.live}" \
   --runtime-threads "${RUNTIME_THREADS:-8}"
+
+cors_allowed_origins="${CORS_ALLOWED_ORIGINS:-https://www.645.live,https://645.live}"
+old_ifs="$IFS"
+IFS=','
+for origin in $cors_allowed_origins; do
+  origin="$(printf '%s' "$origin" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+  if [ -n "$origin" ]; then
+    set -- "$@" --cors-allowed-origins "$origin"
+  fi
+done
+IFS="$old_ifs"
+
+exec "$@"
