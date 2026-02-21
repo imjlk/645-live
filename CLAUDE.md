@@ -1,171 +1,161 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Claude Code when working with code in this repository.
+
+## Source of Truth
+
+When docs conflict, trust in this order:
+
+1. `/README.md`
+2. `/AGENTS.md`
+3. Workspace READMEs:
+   - `/pages/www/README.md`
+   - `/workers/og-645-live/README.md`
+   - `/services/trailbase/README.md`
+4. Legacy docs (`/_docs/**`, `/TODO`)
 
 ## Project Overview
 
-645.live is a Korean lottery (로또 645) statistics and analysis web application built with SvelteKit, TrailBase, and deployed on Cloudflare Pages. It provides real-time lottery draw monitoring, historical analysis, and statistical insights.
+645.live is a Korean lottery (로또 645) statistics and analysis monorepo.
 
-## Technology Stack
+Primary workspaces:
 
-- **Frontend**: SvelteKit 2.21+ with Svelte 5, TypeScript 5.8+
-- **Backend**: TrailBase 0.7+ for real-time data, PostgreSQL 17 via Docker
-- **Database**: Drizzle ORM 0.44+ with connection pooling via Cloudflare Hyperdrive
-- **Styling**: TailwindCSS 4.1+ with DaisyUI 5.0+ components
-- **Deployment**: Cloudflare Pages with Workers
-- **Package Manager**: Bun (not npm)
-- **Linting/Formatting**: Biome 1.9.4 (not ESLint/Prettier)
+- `pages/www`: SvelteKit app (Cloudflare Pages)
+- `workers/og-645-live`: OG image Worker
+- `packages/og-image-core`: shared OG rendering package
+- `packages/trailbase-adapter`: reusable TrailBase adapter package
+- `services/trailbase`: TrailBase depot + wasm guest + runtime assets
 
-## Development Commands
+## Core Stack
 
-### Main Application (pages/www/)
+- Frontend: SvelteKit 2 + Svelte 5 + TypeScript
+- Backend/data: TrailBase + PostgreSQL 17
+- ORM: Drizzle ORM
+- Infra: Cloudflare Pages/Workers + Hyperdrive
+- Package manager: Bun (default)
+- Formatting/linting: Biome
 
-```bash
-# Development server
-bun run www dev
-
-# Production build
-bun run www build
-
-# Deploy to Cloudflare Pages
-bun run www deploy
-
-# Preview locally with Wrangler
-bun run www preview
-
-# Type checking
-bun run www check
-
-# Watch mode type checking
-bun run www check:watch
-```
-
-### Database Commands
+## Quick Start
 
 ```bash
-# Start PostgreSQL via Docker Compose
+bun install
+cp pages/www/.env.example pages/www/.env
+cp workers/og-645-live/.env.example workers/og-645-live/.env
+
+# PostgreSQL
 bun run www db:start
 
-# Push schema changes to database
-bun run www db:push
-
-# Generate migrations
-bun run www db:generate
-
-# Run migrations in production
-bun run www db:migrate
-
-# Open local Drizzle Studio
-bun run www db:studio
-
-# Open remote Drizzle Studio
-bun run www db:studio:remote
-```
-
-### TrailBase Backend
-
-```bash
-# Start TrailBase service via Docker
+# TrailBase runtime
 bun run trail
+
+# Web app
+bun run www dev
+
+# Optional: OG worker only
+bun run og dev
 ```
 
-### Code Quality
+## Common Commands
+
+### Root
 
 ```bash
-# Format and lint code (uses Biome)
 bun run format
-
-# Lint only
 bun run lint
 ```
 
-### Cloudflare Integration
+### Web app (`pages/www`)
 
 ```bash
-# Generate Cloudflare Worker types
-bun run www cf-typegen
-
-# View deployment logs
+bun run www dev
+bun run www build
+bun run www preview
+bun run www deploy
+bun run www check
 bun run www tail
+bun run www db:start
+bun run www db:push
+bun run www db:generate
+bun run www db:migrate
+bun run www db:studio
 ```
 
-## Architecture Overview
+### OG Worker (`workers/og-645-live`)
 
-### Monorepo Structure
+```bash
+bun run og dev
+bun run og deploy
+```
 
-- `pages/www/` - Main SvelteKit application
-- `workers/og-645-live/` - Cloudflare Worker for OG image generation  
-- `services/trailbase/` - TrailBase backend service with Docker setup
+### TrailBase WASM guest (`services/trailbase/wasm-guest`)
 
-### Key Architectural Patterns
+```bash
+npm --prefix services/trailbase/wasm-guest run dev
+npm --prefix services/trailbase/wasm-guest run build
+```
 
-#### Real-time Data Flow
+## Environment Variables
 
-- TrailBase client (`src/lib/trailbase/client.ts`) provides singleton WebSocket connection
-- Uses reactive Svelte 5 runes for state management
-- Auto-reconnection with exponential backoff
-- Connection state tracking with comprehensive error handling
+Web app baseline (`/pages/www/.env.example`):
 
-#### Component Organization
+- `DATABASE_URL`
+- `HYPERDRIVE_PROXY`
+- `BETTER_AUTH_SECRET`
+- `BETTER_AUTH_URL`
+- `TRAILBASE_URL`
+- `PUBLIC_TRAILBASE_URL`
+- `TRAILBASE_BASIC_AUTH` (optional)
 
-- `src/lib/components/stats/` - Statistics visualization components
-- `src/lib/modules/lotto/` - Lotto-specific components and types  
-- `src/lib/ui/` - Reusable UI components
-- `src/lib/layout/` - Header, Footer, page transitions
+OG worker baseline (`/workers/og-645-live/.env.example`):
 
-#### Data Layer
+- `CACHE_ENABLED`
+- `CACHE_MAX_AGE`
 
-- Dual database architecture: TrailBase for real-time + Drizzle/PostgreSQL for persistence
-- Database schema in `src/lib/db/schema/`
-- TrailBase client abstraction with safe initialization patterns
+## Code Conventions
 
-### Code Conventions
+### Svelte 5 (Critical)
 
-#### ⚠️ **CRITICAL: Svelte 5 Syntax Requirements**
+Use Svelte 5 runes syntax in Svelte components:
 
-**HIGHEST PRIORITY - Always use Svelte 5 runes syntax:**
+- state: `$state(...)`
+- derived: `$derived(...)`
+- effects: `$effect(...)`
+- props: `$props()`
 
-- ❌ `let variable = value;` → ✅ `let variable = $state(value);`
-- ❌ `export let prop;` → ✅ `let { prop } = $props();`
-- ❌ `$: derived = expression;` → ✅ `let derived = $derived(expression);`
-- ❌ `$: { /* effect */ }` → ✅ `$effect(() => { /* effect */ });`
-- ❌ Legacy reactive statements → ✅ Runes-based reactivity
-- Always use `$state`, `$derived`, `$effect`, `$props` instead of legacy syntax
-- Never mix legacy Svelte syntax with runes in the same component
+Avoid mixing legacy Svelte reactive syntax with runes in the same component.
 
-#### Biome Configuration
+### Style and tooling
 
-- Uses tabs for indentation (not spaces)
-- Double quotes for strings
-- Trailing commas enabled
-- Svelte-specific rule overrides for `useConst` and `useImportType`
+- Use Biome formatting/lint rules.
+- Keep imports explicit and type-safe.
+- Prefer updating code/docs to match actual `package.json` scripts.
 
-#### Import Patterns
+## TrailBase Notes
 
-- Always use individual component imports, not barrel exports
-- TypeScript imports with proper type-only imports where applicable
-- SvelteKit imports use `$app/` and `$env/` aliases
+- Runtime depot lives at `services/trailbase/traildepot`.
+- Custom routes/cron registration are in `services/trailbase/traildepot/scripts/index.ts`.
+- Runtime DB files in `services/trailbase/traildepot/data/*.db` are not hand-edited.
 
-#### TrailBase Integration
+## OG Worker Notes
 
-- Always use `trailbaseClient.ensureInitialized()` before API calls
-- Handle 404s gracefully - they're expected for missing lottery data
-- Use proper cleanup patterns for subscriptions
-- Connection state should be reactive using Svelte stores/runes
+- Worker entry: `workers/og-645-live/src/index.tsx`
+- News route: `GET /news/*`
+- Generic route: `GET /*`
+- JSON generation route: `POST /generate`
+- Shared renderer package: `packages/og-image-core`
 
-### Environment Variables
+## Working Workflow (for Claude)
 
-- `PUBLIC_TRAILBASE_URL` - TrailBase backend URL (defaults to localhost:4000)
-- Environment variables in `.env` files are loaded automatically
+1. Run `git status --short` before editing.
+2. Focus on one workspace at a time.
+3. Run minimal validation for touched workspace.
+4. Summarize changes with file paths.
 
-### Testing
+## Legacy Docs
 
-- Uses Playwright for E2E testing (check package.json for specific commands)
-- No unit test framework currently configured
+Treat the following as reference archives, not implementation source of truth:
 
-### Deployment Notes
+- `/_docs/articles/*`
+- `/TODO`
+- `/services/trailbase/traildepot/PROMPT.md`
 
-- Builds target Cloudflare Pages with Workers adapter
-- Database connections use Cloudflare Hyperdrive for connection pooling
-- OG image generation handled by separate Cloudflare Worker
-- All Korean language content (lang="ko")

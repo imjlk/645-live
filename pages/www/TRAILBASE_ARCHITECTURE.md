@@ -1,5 +1,8 @@
 # TrailBase Client Architecture Documentation
 
+> Status: 레거시 참고 문서. 현재 실행/설정 기준은 `pages/www/README.md`와 실제 소스 코드를 우선합니다.
+> Svelte 예제 문법은 작성 시점 기준이므로, 신규 구현에서는 Svelte 5 runes 규칙을 우선 적용하세요.
+
 ## Overview
 
 This document describes the refactored TrailBase client architecture for the 645.live project, optimized for Svelte 5 with improved error handling, type safety, and SSR compatibility.

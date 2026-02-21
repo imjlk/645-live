@@ -36,3 +36,6 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 # Project specific ignores
 TODO
 _docs/
+
+# Auto Claude data directory
+.auto-claude/
