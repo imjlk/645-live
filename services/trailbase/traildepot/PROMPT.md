@@ -81,9 +81,9 @@ thumbnail: "/og/news/lotto-{round}?title=...&description=...&round={round}"
 <Alert type="info">건전 구매 메시지</Alert>
 ```
 
-## 사용 가능한 컴포넌트
+## 컴포넌트 import 규칙
 
-MDX에서 아래 컴포넌트를 바로 사용할 수 있습니다.
+아래 컴포넌트는 반드시 파일 상단에서 import 후 사용합니다.
 
 - `LottoNumbers`
 - `Card`
@@ -92,6 +92,19 @@ MDX에서 아래 컴포넌트를 바로 사용할 수 있습니다.
 - `Chart`
 - `RegionalMap`
 - `Tabs`, `TabsList`, `TabsTrigger`, `TabsContent`
+
+예시:
+
+```mdx
+import LottoNumbers from '$lib/components/news/LottoNumbers.svelte'
+import Card from '$lib/ui/Card.svelte'
+import Alert from '$lib/components/news/Alert.svelte'
+import Table from '$lib/components/news/Table.svelte'
+import Tabs from '$lib/components/news/Tabs.svelte'
+import TabsList from '$lib/components/news/TabsList.svelte'
+import TabsTrigger from '$lib/components/news/TabsTrigger.svelte'
+import TabsContent from '$lib/components/news/TabsContent.svelte'
+```
 
 ## Svelte/mdsvex 문법 강제 규칙
 

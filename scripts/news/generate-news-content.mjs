@@ -226,6 +226,15 @@ author: ${yamlString('645.live 자동뉴스')}
 thumbnail: ${yamlString(thumbnail)}
 ---
 
+import LottoNumbers from '$lib/components/news/LottoNumbers.svelte'
+import Card from '$lib/ui/Card.svelte'
+import Alert from '$lib/components/news/Alert.svelte'
+import Table from '$lib/components/news/Table.svelte'
+import Tabs from '$lib/components/news/Tabs.svelte'
+import TabsList from '$lib/components/news/TabsList.svelte'
+import TabsTrigger from '$lib/components/news/TabsTrigger.svelte'
+import TabsContent from '$lib/components/news/TabsContent.svelte'
+
 ## 이번 회차 핵심 요약
 
 <Card variant="bordered">
