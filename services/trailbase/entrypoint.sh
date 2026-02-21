@@ -1,0 +1,61 @@
+#!/bin/sh
+set -eu
+
+log() {
+  echo "[trailbase-startup] $*"
+}
+
+is_true() {
+  case "${1:-}" in
+    1|true|TRUE|yes|YES|on|ON) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+run_step() {
+  desc="$1"
+  shift
+
+  log "$desc"
+  if "$@"; then
+    log "ok: $desc"
+    return 0
+  fi
+
+  log "failed: $desc"
+  if is_true "${BACKFILL_STRICT:-false}"; then
+    log "BACKFILL_STRICT=true, aborting startup"
+    exit 1
+  fi
+
+  log "continuing startup because BACKFILL_STRICT=false"
+  return 0
+}
+
+if is_true "${BACKFILL_ON_STARTUP:-true}"; then
+  cd /app/traildepot
+
+  if command -v bun >/dev/null 2>&1; then
+    if is_true "${BACKFILL_DRAWS:-true}"; then
+      rounds="${BACKFILL_DRAW_LATEST_ROUNDS:-30}"
+      run_step "backfill draw results (latest ${rounds} rounds)" \
+        bun run import-draw-results.ts latest "${rounds}"
+    fi
+
+    if is_true "${BACKFILL_STORES:-true}"; then
+      run_step "backfill winning stores (latest)" \
+        bun run import-top-store.ts latest
+    fi
+  else
+    log "bun not found, skipping backfill steps"
+  fi
+else
+  log "BACKFILL_ON_STARTUP=false, skipping backfill steps"
+fi
+
+exec /app/trail \
+  --data-dir /app/traildepot \
+  run \
+  --address 0.0.0.0:4000 \
+  --cors-allowed-origins "${CORS_ALLOWED_ORIGINS:-https://www.645.live,https://645.live}" \
+  --runtime-threads "${RUNTIME_THREADS:-8}"
