@@ -311,10 +311,23 @@ async function fetchRecords(table, params = {}) {
 	}
 
 	const payload = await fetchJson(url.toString());
-	if (!Array.isArray(payload?.data)) {
-		throw new Error(`Unexpected payload for ${table}`);
+	if (Array.isArray(payload?.records)) {
+		return payload.records;
 	}
-	return payload.data;
+
+	if (Array.isArray(payload?.data)) {
+		return payload.data;
+	}
+
+	if (Array.isArray(payload)) {
+		return payload;
+	}
+
+	if (Array.isArray(payload?.items)) {
+		return payload.items;
+	}
+
+	throw new Error(`Unexpected payload for ${table}: keys=${Object.keys(payload || {}).join(',')}`);
 }
 
 async function getDrawRows() {
