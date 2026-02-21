@@ -596,11 +596,20 @@ export async function insertLottoDrawResult(
  */
 async function getIncompleteLatestRound(): Promise<number | null> {
 	try {
+		const latestRoundInDB = await getLatestLottoRoundFromDB();
+		// 오래된 회차의 0원 데이터(과거 수집 누락/소스 제약)는 무한 재시도 대상에서 제외
+		const minRoundForRetry = Math.max(1, latestRoundInDB - 5);
+
 		const result = await query(
 			`SELECT round FROM lotto_draw_results 
-			 WHERE total_sell_amount = 0 OR first_prize_amount = 0 OR first_prize_accumulated_amount = 0
+			 WHERE round >= ?
+			   AND (
+			     total_sell_amount = 0
+			     OR first_prize_amount = 0
+			     OR first_prize_accumulated_amount = 0
+			   )
 			 ORDER BY round DESC LIMIT 1`,
-			[]
+			[minRoundForRetry]
 		);
 
 		if (result.length > 0) {
