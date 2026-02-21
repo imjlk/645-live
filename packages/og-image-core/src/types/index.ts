@@ -52,6 +52,7 @@ export type LayoutType =
 	| "centered"
 	| "minimal"
 	| "blog"
+	| "news"
 	| "product"
 	| "hero"
 	| "testimonial"

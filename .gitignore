@@ -39,3 +39,6 @@ _docs/
 
 # Auto Claude data directory
 .auto-claude/
+
+# Playwright investigation artifacts
+.playwright-cli/

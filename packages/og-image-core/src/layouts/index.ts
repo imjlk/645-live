@@ -5,6 +5,7 @@ import { defaultLayout } from "./default.js";
 import { eventLayout } from "./event.js";
 import { heroLayout } from "./hero.js";
 import { minimalLayout } from "./minimal.js";
+import { newsLayout } from "./news.js";
 import { productLayout } from "./product.js";
 import { testimonialLayout } from "./testimonial.js";
 
@@ -13,6 +14,7 @@ export const layoutRegistry: Record<LayoutType, LayoutStyles> = {
 	centered: centeredLayout,
 	minimal: minimalLayout,
 	blog: blogLayout,
+	news: newsLayout,
 	product: productLayout,
 	hero: heroLayout,
 	testimonial: testimonialLayout,
@@ -31,6 +33,7 @@ export * from "./default.js";
 export * from "./centered.js";
 export * from "./minimal.js";
 export * from "./blog.js";
+export * from "./news.js";
 export * from "./product.js";
 export * from "./hero.js";
 export * from "./testimonial.js";

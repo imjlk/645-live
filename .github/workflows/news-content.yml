@@ -1,0 +1,66 @@
+name: Generate Lotto News Content
+
+on:
+  workflow_dispatch:
+    inputs:
+      round:
+        description: "특정 회차만 생성 (예: 1212)"
+        required: false
+        type: string
+      lookback_rounds:
+        description: "최신 N개 회차 확인 (기본 30)"
+        required: false
+        default: "30"
+        type: string
+      force:
+        description: "이미 존재하는 파일도 강제 재생성"
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+  schedule:
+    - cron: "20 12 * * 6"
+    - cron: "50 12 * * 6"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: lotto-news-content
+  cancel-in-progress: false
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Generate MDX
+        env:
+          TRAILBASE_URL: ${{ vars.TRAILBASE_PUBLIC_URL }}
+          ROUND: ${{ github.event.inputs.round }}
+          LOOKBACK_ROUNDS: ${{ github.event.inputs.lookback_rounds || '30' }}
+          FORCE: ${{ github.event.inputs.force || 'false' }}
+        run: node scripts/news/generate-news-content.mjs
+
+      - name: Commit and Push
+        run: |
+          if git diff --quiet -- pages/www/src/content/news; then
+            echo "No news updates."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add pages/www/src/content/news
+          git commit -m "chore(news): auto-generate lotto mdx content"
+          git push
