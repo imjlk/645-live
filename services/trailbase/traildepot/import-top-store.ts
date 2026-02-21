@@ -250,6 +250,31 @@ export async function updateLatestWinningStores(): Promise<void> {
   lastFailCount = ok ? 0 : 1;
 }
 
+export async function updateLatestWinningStoresRange(
+  latestRounds = 10,
+): Promise<void> {
+  const database = getDatabase();
+
+  const row = database
+    .prepare("SELECT MAX(round) as latest_round FROM lotto_draw_results")
+    .get() as { latest_round: number | null };
+
+  if (!row.latest_round) {
+    console.error("❌ lotto_draw_results에 회차 데이터가 없어 당첨점 업데이트를 진행할 수 없습니다.");
+    lastFailCount = 1;
+    return;
+  }
+
+  const latestRound = row.latest_round;
+  const startRound = Math.max(1, latestRound - latestRounds + 1);
+
+  console.log(
+    `최신 ${latestRounds}회차 당첨점을 가져옵니다... (회차 ${startRound} ~ ${latestRound})`,
+  );
+
+  await importWinningStoresForRange(startRound, latestRound);
+}
+
 function printUsage(): void {
   console.log(`
 🏪 로또 당첨점 조회 스크립트 (신규 API 기반)
@@ -261,6 +286,7 @@ function printUsage(): void {
   single <회차>                    # 특정 회차 당첨점 가져오기
   range <시작회차> <종료회차>       # 범위 회차 당첨점 가져오기
   latest                          # lotto_draw_results 최신 회차 당첨점 가져오기
+  latest-range [개수]              # lotto_draw_results 최신 N회차 당첨점 가져오기 (기본값: 10)
 `);
 }
 
@@ -314,6 +340,18 @@ async function main(): Promise<void> {
 
       case "latest": {
         await updateLatestWinningStores();
+        break;
+      }
+
+      case "latest-range": {
+        const latestRounds =
+          args.length >= 2 ? Number.parseInt(args[1], 10) : 10;
+
+        if (!Number.isInteger(latestRounds) || latestRounds <= 0) {
+          throw new Error("개수는 1 이상의 정수여야 합니다.");
+        }
+
+        await updateLatestWinningStoresRange(latestRounds);
         break;
       }
 

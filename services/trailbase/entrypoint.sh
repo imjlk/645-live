@@ -43,8 +43,18 @@ if is_true "${BACKFILL_ON_STARTUP:-true}"; then
     fi
 
     if is_true "${BACKFILL_STORES:-true}"; then
-      run_step "backfill winning stores (latest)" \
-        bun run import-top-store.ts latest
+      store_rounds="${BACKFILL_STORE_LATEST_ROUNDS:-0}"
+      case "$store_rounds" in
+        ''|*[!0-9]*) store_rounds=0 ;;
+      esac
+
+      if [ "$store_rounds" -gt 0 ]; then
+        run_step "backfill winning stores (latest ${store_rounds} rounds)" \
+          bun run import-top-store.ts latest-range "$store_rounds"
+      else
+        run_step "backfill winning stores (latest)" \
+          bun run import-top-store.ts latest
+      fi
     fi
   else
     log "bun not found, skipping backfill steps"
