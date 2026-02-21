@@ -13,7 +13,8 @@ const USE_AI = parseBool(process.env.USE_AI, true);
 const ZAI_API_KEY = process.env.ZAI_API_KEY || '';
 const ZAI_BASE_URL = (process.env.ZAI_BASE_URL || 'https://api.z.ai/api/coding/paas/v4').replace(/\/+$/, '');
 const ZAI_MODEL = process.env.ZAI_MODEL || 'glm-5';
-const ZAI_TIMEOUT_MS = Number.parseInt(process.env.ZAI_TIMEOUT_MS || '30000', 10);
+const ZAI_TIMEOUT_MS = Number.parseInt(process.env.ZAI_TIMEOUT_MS || '120000', 10);
+const ZAI_MAX_TOKENS = Number.parseInt(process.env.ZAI_MAX_TOKENS || '4000', 10);
 
 function parseBool(value, fallback = false) {
 	if (value === undefined || value === null || value === '') return fallback;
@@ -63,7 +64,60 @@ function toEok(value) {
 function extractRegion(address) {
 	const normalized = String(address ?? '').trim();
 	if (!normalized) return '기타';
-	return normalized.split(/\s+/)[0]?.replace(/[()]/g, '') || '기타';
+
+	if (/dhlottery|https?:\/\/|www\.|\.co\.kr|\.com/i.test(normalized)) {
+		return '온라인';
+	}
+
+	const token = normalized.split(/\s+/)[0]?.replace(/[()]/g, '') || '';
+	if (!token) return '기타';
+
+	const aliases = new Map([
+		['서울특별시', '서울'], ['서울시', '서울'],
+		['부산광역시', '부산'], ['부산시', '부산'],
+		['대구광역시', '대구'], ['대구시', '대구'],
+		['인천광역시', '인천'], ['인천시', '인천'],
+		['광주광역시', '광주'], ['광주시', '광주'],
+		['대전광역시', '대전'], ['대전시', '대전'],
+		['울산광역시', '울산'], ['울산시', '울산'],
+		['세종특별자치시', '세종'],
+		['경기도', '경기'], ['강원도', '강원'], ['강원특별자치도', '강원'],
+		['충청북도', '충북'], ['충청남도', '충남'],
+		['전라북도', '전북'], ['전북특별자치도', '전북'],
+		['전라남도', '전남'],
+		['경상북도', '경북'], ['경상남도', '경남'],
+		['제주특별자치도', '제주'], ['제주도', '제주']
+	]);
+
+	if (aliases.has(token)) {
+		return aliases.get(token);
+	}
+
+	if (/^[가-힣]{2,4}$/.test(token)) {
+		return token;
+	}
+
+	return '기타';
+}
+
+function extractArea(address) {
+	const normalized = String(address ?? '').trim();
+	if (!normalized) return '기타';
+
+	if (/dhlottery|https?:\/\/|www\.|\.co\.kr|\.com/i.test(normalized)) {
+		return '온라인';
+	}
+
+	const parts = normalized.split(/\s+/).filter(Boolean);
+	const region = extractRegion(normalized);
+	const district = parts[1]?.replace(/[0-9].*$/, '')?.replace(/[()]/g, '') || '';
+
+	if (region === '온라인') return '온라인';
+	if (!district) return region;
+	if (/^[가-힣]{1,8}$/.test(district)) {
+		return `${region} ${district}`;
+	}
+	return region;
 }
 
 function getNumbers(draw) {
@@ -95,28 +149,41 @@ function analyzeRound(draw, stores) {
 	let manualCount = 0;
 	let semiCount = 0;
 
+	const byArea = new Map();
+
 	for (const store of stores) {
 		const region = extractRegion(store.address);
+		const area = extractArea(store.address);
 		const current = byRegion.get(region) || { first: 0, second: 0, total: 0 };
+		const areaCurrent = byArea.get(area) || { first: 0, second: 0, total: 0 };
 		if (store.win_type === '1등') {
 			current.first += 1;
+			areaCurrent.first += 1;
 			firstStoreCount += 1;
 		}
 		if (store.win_type === '2등') {
 			current.second += 1;
+			areaCurrent.second += 1;
 			secondStoreCount += 1;
 		}
 		if (store.selection_type === '자동') autoCount += 1;
 		if (store.selection_type === '수동') manualCount += 1;
 		if (store.selection_type === '반자동') semiCount += 1;
 		current.total += 1;
+		areaCurrent.total += 1;
 		byRegion.set(region, current);
+		byArea.set(area, areaCurrent);
 	}
 
 	const regionRows = [...byRegion.entries()]
 		.map(([region, stats]) => ({ region, ...stats }))
 		.sort((left, right) => right.total - left.total || right.first - left.first)
 		.slice(0, 10);
+
+	const areaRows = [...byArea.entries()]
+		.map(([area, stats]) => ({ area, ...stats }))
+		.sort((left, right) => right.total - left.total || right.first - left.first)
+		.slice(0, 12);
 
 	const dominantRegion = regionRows[0];
 	const dominantRatio = dominantRegion ? dominantRegion.total / Math.max(stores.length, 1) : 0;
@@ -152,6 +219,7 @@ function analyzeRound(draw, stores) {
 		manualCount,
 		semiCount,
 		regionRows,
+		areaRows,
 		dominantRegion,
 		dominantRatio,
 		anomalies
@@ -213,6 +281,12 @@ function pickTitle(analysis) {
 function normalizeLine(value, fallback) {
 	const text = String(value ?? '').replace(/\s+/g, ' ').trim();
 	return text || fallback;
+}
+
+function normalizeBlock(value, fallback) {
+	const raw = String(value ?? '').replace(/\r/g, '').trim();
+	if (!raw) return fallback;
+	return raw.replace(/\n{3,}/g, '\n\n');
 }
 
 function normalizeTags(tags, round) {
@@ -302,9 +376,9 @@ function sanitizeAiPayload(rawPayload, round, fallback) {
 		description: normalizeLine(rawPayload.description, fallback.description),
 		category: normalizeLine(rawPayload.category, fallback.category),
 		tags: normalizeTags(rawPayload.tags, round),
-		lead: normalizeLine(rawPayload.lead, fallback.lead),
+		lead: normalizeBlock(rawPayload.lead, fallback.lead),
 		bullet_points: bulletPoints.length > 0 ? bulletPoints : fallback.bullet_points,
-		insight: normalizeLine(rawPayload.insight, fallback.insight),
+		insight: normalizeBlock(rawPayload.insight, fallback.insight),
 		caution_message: normalizeLine(rawPayload.caution_message, fallback.caution_message)
 	};
 }
@@ -395,14 +469,9 @@ function aiInputPayload(draw, stores, analysis) {
 			auto_count: analysis.autoCount,
 			manual_count: analysis.manualCount,
 			semi_auto_count: analysis.semiCount,
-			top_regions: analysis.regionRows
-		},
-		stores: stores.map((store) => ({
-			store_name: store.store_name,
-			address: store.address,
-			win_type: store.win_type,
-			selection_type: store.selection_type
-		}))
+			top_regions: analysis.regionRows,
+			top_areas: analysis.areaRows
+		}
 	};
 }
 
@@ -414,35 +483,91 @@ async function generatePayloadWithAi(draw, stores, analysis, fallback) {
 	const endpoint = `${ZAI_BASE_URL}/chat/completions`;
 	const input = aiInputPayload(draw, stores, analysis);
 	const prompt = [
-		'다음 JSON 데이터(로또 회차/당첨점)를 기반으로 한국어 뉴스 콘텐츠를 생성하라.',
-		'과장/허위 없이 사실 기반으로 작성하고, 클릭 유도형 제목은 가능하지만 선정적 표현은 금지한다.',
+		'다음 JSON 데이터(로또 회차 집계/당첨점 집계)를 기반으로 한국어 뉴스 콘텐츠를 생성하라.',
+		'사실 기반의 중립적 뉴스 요약으로 작성하라.',
 		'반드시 tool call(save_news_payload)로만 응답한다.',
 		'각 항목 규칙:',
-		'- title: 60자 이내',
-		'- description: 100자 이내',
+		'- title: 80자 이내',
+		'- description: 120~220자',
 		'- category: "로또분석" 권장',
 		'- tags: 3~5개',
-		'- lead: 1문단',
-		'- bullet_points: 3~6개',
-		'- insight: 1문단',
+		'- lead: 2~4문단, 합계 350자 이상',
+		'- bullet_points: 4~8개',
+		'- insight: 2~4문단, 합계 300자 이상',
 		'- caution_message: 건전 구매 안내 1문장',
 		'입력 데이터:',
 		JSON.stringify(input)
 	].join('\n');
 
-	const controller = new AbortController();
-	const timeout = setTimeout(() => controller.abort(), ZAI_TIMEOUT_MS);
+	const jsonObjectPrompt = [
+		'다음 JSON 데이터로 로또 뉴스 payload를 생성하라.',
+		'사실 기반의 중립적 문체를 사용하라.',
+		'반드시 JSON 객체만 반환하라.',
+		'필수 키: title, description, category, tags, lead, bullet_points, insight, caution_message',
+		'tags는 문자열 배열(3~5개), bullet_points는 문자열 배열(4~8개)이어야 한다.',
+		'lead와 insight는 각각 2~4문단으로 충분히 길게 작성하라.',
+		JSON.stringify(input)
+	].join('\n');
+
+	async function requestZai(body) {
+		const controller = new AbortController();
+		const timeout = setTimeout(() => controller.abort(), ZAI_TIMEOUT_MS);
+
+		try {
+			const response = await fetch(endpoint, {
+				method: 'POST',
+				headers: {
+					authorization: `Bearer ${ZAI_API_KEY}`,
+					'content-type': 'application/json'
+				},
+				body: JSON.stringify(body),
+				signal: controller.signal
+			});
+
+			const rawBody = await response.text();
+			return {
+				ok: response.ok,
+				status: response.status,
+				rawBody
+			};
+		} finally {
+			clearTimeout(timeout);
+		}
+	}
+
+	async function requestJsonObjectFallback() {
+		const jsonResponse = await requestZai({
+			model: ZAI_MODEL,
+			temperature: 0.2,
+			max_tokens: ZAI_MAX_TOKENS,
+			stream: false,
+			response_format: { type: 'json_object' },
+			messages: [
+				{ role: 'system', content: '너는 로또 데이터 전문 기자다. 출력은 반드시 JSON 객체 하나만 반환한다.' },
+				{ role: 'user', content: jsonObjectPrompt }
+			]
+		});
+
+		if (!jsonResponse.ok) {
+			console.warn(`[news] AI json_object fallback failed status=${jsonResponse.status}`);
+			return null;
+		}
+
+		const payload = tryParseJson(jsonResponse.rawBody);
+		if (!payload) return null;
+
+		const content = payload?.choices?.[0]?.message?.content;
+		const parsed = tryParseJson(content);
+		if (!parsed) return null;
+
+		return sanitizeAiPayload(parsed, analysis.round, fallback);
+	}
 
 	try {
-		const response = await fetch(endpoint, {
-			method: 'POST',
-			headers: {
-				authorization: `Bearer ${ZAI_API_KEY}`,
-				'content-type': 'application/json'
-			},
-			body: JSON.stringify({
+		const toolResponse = await requestZai({
 				model: ZAI_MODEL,
 				temperature: 0.2,
+				max_tokens: ZAI_MAX_TOKENS,
 				stream: false,
 				messages: [
 					{ role: 'system', content: '너는 로또 데이터 전문 기자다. 출력은 반드시 함수 호출로만 반환한다.' },
@@ -491,20 +616,19 @@ async function generatePayloadWithAi(draw, stores, analysis, fallback) {
 					type: 'function',
 					function: { name: 'save_news_payload' }
 				}
-			}),
-			signal: controller.signal
 		});
 
-		const rawBody = await response.text();
-		if (!response.ok) {
-			console.warn(`[news] AI fallback (status=${response.status})`);
-			return fallback;
+		if (!toolResponse.ok) {
+			const errorPreview = toolResponse.rawBody.slice(0, 200).replace(/\s+/g, ' ').trim();
+			console.warn(`[news] AI tool-call failed status=${toolResponse.status} body=${errorPreview}`);
+			const jsonFallback = await requestJsonObjectFallback();
+			return jsonFallback ?? fallback;
 		}
 
-		const payload = tryParseJson(rawBody);
+		const payload = tryParseJson(toolResponse.rawBody);
 		if (!payload) {
-			console.warn('[news] AI fallback (invalid response body)');
-			return fallback;
+			const jsonFallback = await requestJsonObjectFallback();
+			return jsonFallback ?? fallback;
 		}
 
 		const message = payload?.choices?.[0]?.message || {};
@@ -517,14 +641,21 @@ async function generatePayloadWithAi(draw, stores, analysis, fallback) {
 			parsed = tryParseJson(message.content);
 		}
 
+		if (!parsed) {
+			const jsonFallback = await requestJsonObjectFallback();
+			if (jsonFallback) {
+				console.log(`[news] ai json_object payload applied round=${analysis.round}`);
+				return jsonFallback;
+			}
+			return fallback;
+		}
+
 		const result = sanitizeAiPayload(parsed, analysis.round, fallback);
-		console.log(`[news] ai payload applied round=${analysis.round}`);
+		console.log(`[news] ai tool-call payload applied round=${analysis.round}`);
 		return result;
 	} catch (error) {
 		console.warn(`[news] AI fallback (error=${error?.name || 'unknown'})`);
 		return fallback;
-	} finally {
-		clearTimeout(timeout);
 	}
 }
 
@@ -538,12 +669,23 @@ function renderRegionRows(rows) {
 		.join('\n      ');
 }
 
+function renderAreaRows(rows) {
+	if (rows.length === 0) {
+		return '<tr><td colspan="4">주소 기반 집계 데이터가 아직 없습니다.</td></tr>';
+	}
+
+	return rows
+		.map((row) => `<tr><td>${row.area}</td><td>${row.first}</td><td>${row.second}</td><td>${row.total}</td></tr>`)
+		.join('\n      ');
+}
+
 function renderMdx(draw, analysis, payload) {
 	const round = analysis.round;
 	const bonus = safeInt(draw.bonus_number);
 	const drawDate = formatDate(draw.draw_date);
 	const thumbnail = `/og/news/lotto-${round}?title=${encodeURIComponent(payload.title)}&description=${encodeURIComponent(payload.description)}&round=${round}`;
 	const bulletList = payload.bullet_points.map((value) => `- ${value}`).join('\n');
+	const insightCompact = payload.insight.replace(/\s*\n+\s*/g, ' ').trim();
 
 	return `---
 title: ${yamlString(payload.title)}
@@ -555,14 +697,16 @@ author: ${yamlString('645.live 자동뉴스')}
 thumbnail: ${yamlString(thumbnail)}
 ---
 
-import LottoNumbers from '$lib/components/news/LottoNumbers.svelte'
-import Card from '$lib/ui/Card.svelte'
-import Alert from '$lib/components/news/Alert.svelte'
-import Table from '$lib/components/news/Table.svelte'
-import Tabs from '$lib/components/news/Tabs.svelte'
-import TabsList from '$lib/components/news/TabsList.svelte'
-import TabsTrigger from '$lib/components/news/TabsTrigger.svelte'
-import TabsContent from '$lib/components/news/TabsContent.svelte'
+<script>
+  import LottoNumbers from '$lib/components/news/LottoNumbers.svelte';
+  import Card from '$lib/ui/Card.svelte';
+  import Alert from '$lib/components/news/Alert.svelte';
+  import Table from '$lib/components/news/Table.svelte';
+  import Tabs from '$lib/components/news/Tabs.svelte';
+  import TabsList from '$lib/components/news/TabsList.svelte';
+  import TabsTrigger from '$lib/components/news/TabsTrigger.svelte';
+  import TabsContent from '$lib/components/news/TabsContent.svelte';
+</script>
 
 ## 이번 회차 핵심 요약
 
@@ -604,13 +748,29 @@ ${payload.insight}
   </tbody>
 </Table>
 
+## 주소 기반 당첨점 집중 구역 (상위)
+
+<Table>
+  <thead>
+    <tr>
+      <th>구역</th>
+      <th>1등</th>
+      <th>2등</th>
+      <th>합계</th>
+    </tr>
+  </thead>
+  <tbody>
+      ${renderAreaRows(analysis.areaRows)}
+  </tbody>
+</Table>
+
 <Tabs defaultValue="insight">
   <TabsList>
     <TabsTrigger value="insight">요약 인사이트</TabsTrigger>
     <TabsTrigger value="stores">당첨점 규모</TabsTrigger>
   </TabsList>
   <TabsContent value="insight">
-    <p>${payload.insight}</p>
+    <p>${insightCompact}</p>
   </TabsContent>
   <TabsContent value="stores">
     <p>제${round}회는 총 ${analysis.storesCount}개 당첨점이 집계되었습니다. 집계 데이터는 이후 정정될 수 있습니다.</p>
