@@ -12,15 +12,6 @@ RUN npm run build:bundle && npm run build:wasm
 
 FROM oven/bun:1-alpine AS backfill-runtime
 
-FROM alpine:3.21 AS auth-ui
-ARG TRAILBASE_VERSION=0.24.0
-
-WORKDIR /build/auth-ui
-RUN apk add --no-cache curl unzip
-RUN curl -fLsS -o auth-ui.zip "https://github.com/trailbaseio/trailbase/releases/download/v${TRAILBASE_VERSION}/trailbase_v${TRAILBASE_VERSION}_wasm_auth_ui.zip" \
-  && unzip -jo auth-ui.zip auth_ui_component.wasm \
-  && rm -f auth-ui.zip
-
 FROM trailbase/trailbase:${TRAILBASE_VERSION} AS runtime
 
 WORKDIR /app
@@ -32,7 +23,6 @@ USER root
 RUN mkdir -p /app/traildepot/wasm
 COPY --from=backfill-runtime /usr/local/bin/bun /usr/local/bin/bun
 COPY --from=wasm-builder /build/wasm-guest/dist/component.wasm /app/traildepot/wasm/component.wasm
-COPY --from=auth-ui /build/auth-ui/auth_ui_component.wasm /app/traildepot/wasm/auth_ui_component.wasm
 
 RUN chmod +x /app/entrypoint.sh \
   && apk add --no-cache libstdc++ libgcc \
