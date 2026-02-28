@@ -8,6 +8,7 @@ const TRAILBASE_URL = (process.env.TRAILBASE_URL || 'https://trail.645.live').re
 const LOOKBACK_ROUNDS = Number.parseInt(process.env.LOOKBACK_ROUNDS || '30', 10);
 const FORCE = parseBool(process.env.FORCE, false);
 const TARGET_ROUND = process.env.ROUND ? Number.parseInt(process.env.ROUND, 10) : null;
+const MAX_GENERATE_ROUNDS = Number.parseInt(process.env.MAX_GENERATE_ROUNDS || '0', 10);
 
 const USE_AI = parseBool(process.env.USE_AI, true);
 const ZAI_API_KEY = process.env.ZAI_API_KEY || '';
@@ -280,46 +281,57 @@ function pickTitle(analysis) {
 
 const STATS_LINK_CATALOG = {
 	stats_main: {
+		icon: '📊',
 		label: '전체 통계 메인',
 		href: () => '/stats'
 	},
 	winning_stores: {
+		icon: '🏪',
 		label: '회차별 당첨점 조회',
 		href: (round) => `/winning-stores?round=${round}`
 	},
 	numbers: {
+		icon: '🔢',
 		label: '번호별 통계',
 		href: () => '/stats/numbers'
 	},
 	odd_even: {
+		icon: '⚖️',
 		label: '홀짝 분석',
 		href: () => '/stats/odd-even'
 	},
 	high_low: {
+		icon: '📈',
 		label: '고저번대 통계',
 		href: () => '/stats/high-low'
 	},
 	sections: {
+		icon: '🧩',
 		label: '구간별 분석',
 		href: () => '/stats/sections'
 	},
 	pairs: {
+		icon: '👥',
 		label: '번호 쌍 통계',
 		href: () => '/stats/pairs'
 	},
 	repeat: {
+		icon: '🔁',
 		label: '연속 중복 통계',
 		href: () => '/stats/repeat'
 	},
 	colors: {
+		icon: '🎨',
 		label: '색깔별 통계',
 		href: () => '/stats/colors'
 	},
 	unit_digit: {
+		icon: '🔟',
 		label: '끝수 분석',
 		href: () => '/stats/unit-digit'
 	},
 	ac: {
+		icon: '🧮',
 		label: 'AC값 통계',
 		href: () => '/stats/ac'
 	}
@@ -328,6 +340,24 @@ const STATS_LINK_CATALOG = {
 function normalizeLine(value, fallback) {
 	const text = String(value ?? '').replace(/\s+/g, ' ').trim();
 	return text || fallback;
+}
+
+function escapeMdxInline(value) {
+	return String(value ?? '')
+		.replace(/&/g, '&amp;')
+		.replace(/</g, '&lt;')
+		.replace(/>/g, '&gt;')
+		.replace(/{/g, '&#123;')
+		.replace(/}/g, '&#125;');
+}
+
+function sanitizeMdxInline(value, fallback = '') {
+	return escapeMdxInline(normalizeLine(value, fallback));
+}
+
+function sanitizeMdxBlock(value, fallback = '') {
+	const block = normalizeBlock(value, fallback);
+	return escapeMdxInline(block).replace(/\n{3,}/g, '\n\n');
 }
 
 function normalizeBlock(value, fallback) {
@@ -378,6 +408,7 @@ function normalizeRecommendedStats(recommendedStats, round) {
 
 		result.push({
 			key,
+			icon: catalog.icon,
 			label: catalog.label,
 			href: catalog.href(round),
 			reason
@@ -786,31 +817,40 @@ function renderAreaRows(rows) {
 function buildRecommendedStatsLinks(analysis) {
 	const links = [];
 
-	const push = (href, label, reason) => {
+	const push = (key, label, reason) => {
+		const catalog = STATS_LINK_CATALOG[key];
+		if (!catalog) return;
+		const href = catalog.href(analysis.round);
 		if (links.some((item) => item.href === href)) return;
-		links.push({ href, label, reason });
+		links.push({
+			key,
+			icon: catalog.icon,
+			href,
+			label: label || catalog.label,
+			reason
+		});
 	};
 
-	push('/stats', '전체 통계 메인', '전체 회차 흐름과 이번 회차를 비교할 때 가장 먼저 보는 기준 페이지');
-	push(`/winning-stores?round=${analysis.round}`, `${analysis.round}회차 당첨점 조회`, '회차별 1등/2등 당첨점 상세 주소와 선택방식을 바로 확인');
-	push('/stats/numbers', '번호별 통계', '당첨번호 6개의 장기 출현 빈도와 누적 경향을 확인');
+	push('stats_main', '전체 통계 메인', '전체 회차 흐름과 이번 회차를 비교할 때 가장 먼저 보는 기준 페이지');
+	push('winning_stores', `${analysis.round}회차 당첨점 조회`, '회차별 1등/2등 당첨점 상세 주소와 선택방식을 바로 확인');
+	push('numbers', '번호별 통계', '당첨번호 6개의 장기 출현 빈도와 누적 경향을 확인');
 
 	if (analysis.oddCount !== analysis.evenCount) {
-		push('/stats/odd-even', '홀짝 분석', `이번 회차 홀짝 비율(${analysis.oddCount}:${analysis.evenCount})이 평균 대비 어떤지 점검`);
+		push('odd_even', '홀짝 분석', `이번 회차 홀짝 비율(${analysis.oddCount}:${analysis.evenCount})이 평균 대비 어떤지 점검`);
 	}
 
 	if (analysis.highCount >= 3 || analysis.lowCount >= 3) {
-		push('/stats/high-low', '고저번대 통계', '고번대/저번대 집중 여부를 장기 데이터와 비교');
-		push('/stats/sections', '구간별 분석', '번호대(1~10, 11~20...)별 분포 편중 확인');
+		push('high_low', '고저번대 통계', '고번대/저번대 집중 여부를 장기 데이터와 비교');
+		push('sections', '구간별 분석', '번호대(1~10, 11~20...)별 분포 편중 확인');
 	}
 
 	if (analysis.consecutivePairs > 0 || analysis.anomalies.includes('consecutive_numbers')) {
-		push('/stats/repeat', '연속 중복 통계', '연속/중복 출현 패턴의 최근 추세를 검증');
-		push('/stats/pairs', '번호 쌍 통계', '함께 자주 나오는 번호 조합을 확인');
+		push('repeat', '연속 중복 통계', '연속/중복 출현 패턴의 최근 추세를 검증');
+		push('pairs', '번호 쌍 통계', '함께 자주 나오는 번호 조합을 확인');
 	}
 
 	if (analysis.anomalies.includes('region_concentration')) {
-		push(`/winning-stores?round=${analysis.round}`, '지역 집중 당첨점 상세', '특정 지역 집중 현상이 실제 판매점 분포에서 어떻게 나타나는지 확인');
+		push('winning_stores', '지역 집중 당첨점 상세', '특정 지역 집중 현상이 실제 판매점 분포에서 어떻게 나타나는지 확인');
 	}
 
 	return links.slice(0, 6);
@@ -832,20 +872,32 @@ function renderMdx(draw, analysis, payload) {
 	const finalTitle = normalizeLine(payload.title, `제${round}회 로또 분석`);
 	const finalDescription = normalizeLine(payload.description, '당첨번호·당첨금·지역분포·당첨점 통계 요약');
 	const thumbnail = `/og/news/lotto-${round}?title=${encodeURIComponent(finalTitle)}&description=${encodeURIComponent(finalDescription)}&round=${round}`;
-	const bulletList = payload.bullet_points.map((value) => `- ${value}`).join('\n');
-	const insightCompact = payload.insight.replace(/\s*\n+\s*/g, ' ').trim();
+	const safeLead = sanitizeMdxBlock(payload.lead, '핵심 요약을 준비 중입니다.');
+	const safeInsight = sanitizeMdxBlock(payload.insight, '이번 회차 인사이트를 정리 중입니다.');
+	const insightCompact = safeInsight.replace(/\s*\n+\s*/g, ' ').trim();
+	const safeCautionMessage = sanitizeMdxInline(payload.caution_message, '복권은 건전한 오락으로 즐겨주세요.');
+	const bulletList = payload.bullet_points
+		.map((value) => `- ${sanitizeMdxInline(value, '')}`)
+		.join('\n');
 	const recommendedStatsLinks = payload.recommended_stats?.length > 0
 		? payload.recommended_stats
 		: buildRecommendedStatsLinks(analysis);
 	const recommendedStatsCards = recommendedStatsLinks
 		.map((link) => {
+			const icon = escapeHtml(link.icon || '📊');
 			const label = escapeHtml(link.label);
 			const href = escapeHtml(link.href);
 			const reason = escapeHtml(link.reason || '이번 회차 데이터와 직접 연결되는 통계입니다.');
-			return `<a href="${href}" class="card bg-base-100 border border-base-300 shadow-sm hover:shadow-md transition-shadow no-underline">
-  <div class="card-body p-4">
-    <h3 class="card-title text-base text-base-content">${label}</h3>
-    <p class="text-sm text-base-content/70">${reason}</p>
+			return `<a href="${href}" class="group block rounded-2xl border border-base-300 bg-gradient-to-br from-base-100 to-base-200/70 p-0.5 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all no-underline">
+  <div class="h-full rounded-2xl bg-base-100 p-4">
+    <div class="flex items-start gap-3">
+      <span class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-lg">${icon}</span>
+      <div class="min-w-0 flex-1">
+        <h3 class="text-base font-semibold text-base-content group-hover:text-primary transition-colors">${label}</h3>
+        <p class="mt-1 text-sm leading-relaxed text-base-content/70">${reason}</p>
+      </div>
+      <span class="text-base-content/40 group-hover:text-primary transition-colors">↗</span>
+    </div>
   </div>
 </a>`;
 		})
@@ -884,7 +936,7 @@ thumbnail: ${yamlString(thumbnail)}
   </ul>
 </Card>
 
-${payload.lead}
+${safeLead}
 
 ## 당첨번호
 
@@ -894,7 +946,7 @@ ${payload.lead}
 
 ${bulletList}
 
-${payload.insight}
+${safeInsight}
 
 ## 지역별 당첨점 현황 (상위)
 
@@ -950,7 +1002,7 @@ ${recommendedStatsCards}
 </div>
 
 <Alert type="info">
-  ${payload.caution_message}
+  ${safeCautionMessage}
 </Alert>
 `;
 }
@@ -972,11 +1024,17 @@ async function main() {
 
 	let generatedCount = 0;
 	let updatedCount = 0;
+	let processingCount = 0;
 
 	for (const draw of drawRows) {
 		const round = safeInt(draw.round);
 		if (!round) continue;
 		if (!FORCE && existingRounds.has(round)) continue;
+		if (MAX_GENERATE_ROUNDS > 0 && processingCount >= MAX_GENERATE_ROUNDS) {
+			console.log(`[news] max generate rounds reached (${MAX_GENERATE_ROUNDS}), stop.`);
+			break;
+		}
+		processingCount += 1;
 
 		const stores = await getWinningStores(round);
 		const analysis = analyzeRound(draw, stores);

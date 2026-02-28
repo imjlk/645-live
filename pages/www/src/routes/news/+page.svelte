@@ -9,7 +9,7 @@
 <MetaTags
 	title="로또 뉴스 - 645.live"
 	description="최신 로또 당첨 결과 분석과 통계 뉴스를 제공하는 전문 뉴스 사이트"
-	canonical="https://645.live/news"
+	canonical="https://www.645.live/news"
 />
 
 <div class="space-y-8">

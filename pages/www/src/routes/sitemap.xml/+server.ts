@@ -1,9 +1,16 @@
 import * as sitemap from 'super-sitemap';
 
+const newsModules = import.meta.glob('/src/content/news/*.mdx', { eager: true });
+const newsSlugs = Object.keys(newsModules)
+	.map((filePath) => filePath.split('/').pop()?.replace('.mdx', ''))
+	.filter((slug): slug is string => Boolean(slug))
+	.sort((a, b) => b.localeCompare(a, 'ko-KR', { numeric: true }));
+
 export const GET = async () => {
 	return await sitemap.response({
 		origin: 'https://www.645.live',
 		paramValues: {
+			'/news/posts/[slug]': newsSlugs,
 			'/stats/numbers/[number]': Array.from({ length: 45 }, (_, i) => String(i + 1)),
 			'/stats/ac/recent/[rounds]': ['10', '20', '50', '100'],
 			'/stats/colors/recent/[rounds]': ['10', '20', '50', '100'],
@@ -16,10 +23,13 @@ export const GET = async () => {
 		},
 		excludeRoutePatterns: [
 			'^/api/.*',
-			'^/og/.*'
+			'^/og/.*',
+			'^/news/sample.*'
 		],
 		changefreq: {
 			'/': 'hourly',
+			'/news': 'daily',
+			'/news/posts/.*': 'weekly',
 			'/stats': 'weekly',
 			'/stats/.*': 'weekly',
 			'/history': 'weekly',
@@ -32,6 +42,8 @@ export const GET = async () => {
 		},
 		priority: {
 			'/': 1.0,
+			'/news': 0.85,
+			'/news/posts/[slug]': 0.75,
 			'/stats': 0.9,
 			'/stats/numbers': 0.8,
 			'/stats/numbers/[number]': 0.7,

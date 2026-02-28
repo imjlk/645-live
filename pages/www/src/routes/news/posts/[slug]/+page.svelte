@@ -3,7 +3,7 @@
 
 	let { data } = $props();
 
-	const siteUrl = 'https://645.live';
+	const siteUrl = 'https://www.645.live';
 	const postTitle = data.meta?.title || '로또 분석 기사';
 	const description = data.meta?.description || '로또 당첨 결과 분석 기사';
 	const canonicalUrl = `${siteUrl}/news/posts/${data.slug}`;
@@ -53,6 +53,7 @@
 	{#if datePublished}
 		<meta property="article:published_time" content={datePublished} />
 	{/if}
+	<meta name="robots" content="index,follow,max-image-preview:large" />
 
 	<meta name="twitter:card" content="summary_large_image" />
 	<meta name="twitter:title" content={postTitle} />

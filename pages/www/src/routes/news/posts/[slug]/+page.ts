@@ -2,12 +2,7 @@ import { error } from '@sveltejs/kit';
 import type { PageLoad } from './$types';
 
 export const load: PageLoad = async ({ params }) => {
-	// Use absolute path glob for better reliability
 	const modules = import.meta.glob('/src/content/news/*.mdx');
-	
-    // Debug logging
-    console.log('Available modules:', Object.keys(modules));
-    console.log('Looking for:', `/src/content/news/${params.slug}.mdx`);
 
 	const path = `/src/content/news/${params.slug}.mdx`;
 	const loader = modules[path];
@@ -25,8 +20,7 @@ export const load: PageLoad = async ({ params }) => {
 			meta,
 			slug: params.slug
 		};
-	} catch (e) {
-        console.error('Error loading MDX:', e);
+	} catch {
 		throw error(500, `Could not load ${params.slug}`);
 	}
 };

@@ -8,9 +8,9 @@ on:
         required: false
         type: string
       lookback_rounds:
-        description: "최신 N개 회차 확인 (기본 30)"
+        description: "최신 N개 회차 확인 (기본 10)"
         required: false
-        default: "30"
+        default: "10"
         type: string
       force:
         description: "이미 존재하는 파일도 강제 재생성"
@@ -41,7 +41,7 @@ concurrency:
 jobs:
   generate:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -54,21 +54,43 @@ jobs:
       - name: Generate MDX
         env:
           TRAILBASE_URL: ${{ vars.TRAILBASE_PUBLIC_URL }}
-          ROUND: ${{ github.event.inputs.round }}
-          LOOKBACK_ROUNDS: ${{ github.event.inputs.lookback_rounds || '30' }}
-          FORCE: ${{ github.event.inputs.force || 'false' }}
-          USE_AI: ${{ github.event.inputs.use_ai || 'true' }}
+          ROUND: ${{ github.event.inputs.round || '' }}
+          INPUT_LOOKBACK_ROUNDS: ${{ github.event.inputs.lookback_rounds || '10' }}
+          INPUT_FORCE: ${{ github.event.inputs.force || 'false' }}
+          INPUT_USE_AI: ${{ github.event.inputs.use_ai || 'true' }}
           ZAI_API_KEY: ${{ secrets.ZAI_API_KEY }}
           ZAI_BASE_URL: ${{ vars.ZAI_BASE_URL }}
           ZAI_MODEL: ${{ vars.ZAI_MODEL }}
-        run: node scripts/news/generate-news-content.mjs
+          NEWS_SCHEDULE_LOOKBACK_ROUNDS: ${{ vars.NEWS_SCHEDULE_LOOKBACK_ROUNDS || '10' }}
+          NEWS_SCHEDULE_USE_AI: ${{ vars.NEWS_SCHEDULE_USE_AI || 'true' }}
+          NEWS_SCHEDULE_MAX_GENERATE_ROUNDS: ${{ vars.NEWS_SCHEDULE_MAX_GENERATE_ROUNDS || '10' }}
+          NEWS_MAX_GENERATE_ROUNDS: ${{ vars.NEWS_MAX_GENERATE_ROUNDS || '0' }}
+        run: |
+          LOOKBACK_ROUNDS="$INPUT_LOOKBACK_ROUNDS"
+          FORCE="$INPUT_FORCE"
+          USE_AI="$INPUT_USE_AI"
+          MAX_GENERATE_ROUNDS="$NEWS_MAX_GENERATE_ROUNDS"
+
+          if [ "$GITHUB_EVENT_NAME" = "schedule" ]; then
+            LOOKBACK_ROUNDS="$NEWS_SCHEDULE_LOOKBACK_ROUNDS"
+            USE_AI="$NEWS_SCHEDULE_USE_AI"
+            MAX_GENERATE_ROUNDS="$NEWS_SCHEDULE_MAX_GENERATE_ROUNDS"
+          fi
+
+          export LOOKBACK_ROUNDS FORCE USE_AI MAX_GENERATE_ROUNDS
+          echo "Generate config: event=$GITHUB_EVENT_NAME lookback=$LOOKBACK_ROUNDS use_ai=$USE_AI max_generate_rounds=$MAX_GENERATE_ROUNDS force=$FORCE round=$ROUND"
+          node scripts/news/generate-news-content.mjs
 
       - name: Commit and Push
+        id: commit_push
         run: |
           git add pages/www/src/content/news
+          CHANGED_NEWS_FILES="$(git diff --cached --name-only --diff-filter=ACM -- 'pages/www/src/content/news/*.mdx' | paste -sd ',' -)"
 
           if git diff --cached --quiet; then
             echo "No news updates."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "changed_news_files=" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
@@ -76,3 +98,27 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -m "chore(news): auto-generate lotto mdx content"
           git push
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+          echo "changed_news_files=${CHANGED_NEWS_FILES}" >> "$GITHUB_OUTPUT"
+
+      - name: Submit sitemap/news URLs to search engines
+        if: steps.commit_push.outputs.changed == 'true'
+        env:
+          SITE_BASE_URL: https://www.645.live
+          INDEXNOW_HOST: www.645.live
+          INDEXNOW_KEY: ${{ secrets.INDEXNOW_KEY }}
+          INDEXNOW_KEY_LOCATION: ${{ vars.INDEXNOW_KEY_LOCATION }}
+          INDEXNOW_ENDPOINT: ${{ vars.INDEXNOW_ENDPOINT }}
+          INDEXNOW_MAX_URLS: ${{ vars.INDEXNOW_MAX_URLS || '100' }}
+          GOOGLE_INDEXING_ENABLED: ${{ vars.GOOGLE_INDEXING_ENABLED || 'true' }}
+          GOOGLE_INDEXING_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_INDEXING_SERVICE_ACCOUNT_JSON }}
+          GOOGLE_INDEXING_NOTIFY_TYPE: ${{ vars.GOOGLE_INDEXING_NOTIFY_TYPE || 'URL_UPDATED' }}
+          GOOGLE_INDEXING_ENDPOINT: ${{ vars.GOOGLE_INDEXING_ENDPOINT }}
+          GOOGLE_OAUTH_TOKEN_ENDPOINT: ${{ vars.GOOGLE_OAUTH_TOKEN_ENDPOINT }}
+          GOOGLE_INDEXING_MAX_URLS: ${{ vars.GOOGLE_INDEXING_MAX_URLS || '20' }}
+          NAVER_SUBMIT_ENABLED: ${{ vars.NAVER_SUBMIT_ENABLED || 'true' }}
+          NAVER_SEARCHADVISOR_ACCESS_TOKEN: ${{ secrets.NAVER_SEARCHADVISOR_ACCESS_TOKEN }}
+          NAVER_CRAWL_REQUEST_ENDPOINT: ${{ vars.NAVER_CRAWL_REQUEST_ENDPOINT }}
+          NAVER_MAX_URLS: ${{ vars.NAVER_MAX_URLS || '100' }}
+          CHANGED_NEWS_FILES: ${{ steps.commit_push.outputs.changed_news_files }}
+        run: node scripts/seo/submit-indexnow.mjs
