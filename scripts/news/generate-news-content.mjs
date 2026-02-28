@@ -16,6 +16,9 @@ const ZAI_BASE_URL = (process.env.ZAI_BASE_URL || 'https://api.z.ai/api/coding/p
 const ZAI_MODEL = process.env.ZAI_MODEL || 'glm-5';
 const ZAI_TIMEOUT_MS = Number.parseInt(process.env.ZAI_TIMEOUT_MS || '120000', 10);
 const ZAI_MAX_TOKENS = Number.parseInt(process.env.ZAI_MAX_TOKENS || '4000', 10);
+const FETCH_TIMEOUT_MS = Number.parseInt(process.env.FETCH_TIMEOUT_MS || '15000', 10);
+const FETCH_RETRY_COUNT = Number.parseInt(process.env.FETCH_RETRY_COUNT || '3', 10);
+const FETCH_RETRY_DELAY_MS = Number.parseInt(process.env.FETCH_RETRY_DELAY_MS || '1200', 10);
 
 function parseBool(value, fallback = false) {
 	if (value === undefined || value === null || value === '') return fallback;
@@ -48,6 +51,12 @@ function formatDate(value) {
 	const mm = String(date.getUTCMonth() + 1).padStart(2, '0');
 	const dd = String(date.getUTCDate()).padStart(2, '0');
 	return `${yyyy}-${mm}-${dd}`;
+}
+
+function sleep(ms) {
+	return new Promise((resolve) => {
+		setTimeout(resolve, ms);
+	});
 }
 
 function formatWon(value) {
@@ -496,16 +505,50 @@ function sanitizeAiPayload(rawPayload, round, fallback) {
 }
 
 async function fetchJson(url) {
-	const response = await fetch(url, { headers: { accept: 'application/json' } });
-	const body = await response.text();
-	if (!response.ok) {
-		throw new Error(`Request failed (${response.status}): ${url}\n${body.slice(0, 200)}`);
+	const maxAttempts = Number.isFinite(FETCH_RETRY_COUNT) && FETCH_RETRY_COUNT > 0 ? FETCH_RETRY_COUNT : 1;
+
+	for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+		const controller = new AbortController();
+		const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+
+		try {
+			const response = await fetch(url, {
+				headers: { accept: 'application/json' },
+				signal: controller.signal
+			});
+			const body = await response.text();
+
+			if (!response.ok) {
+				const retryable = response.status >= 500 || response.status === 429;
+				if (retryable && attempt < maxAttempts) {
+					const delayMs = FETCH_RETRY_DELAY_MS * attempt;
+					console.warn(`[news] fetch retry ${attempt}/${maxAttempts} status=${response.status} url=${url}`);
+					await sleep(delayMs);
+					continue;
+				}
+				throw new Error(`Request failed (${response.status}): ${url}\n${body.slice(0, 200)}`);
+			}
+
+			try {
+				return JSON.parse(body);
+			} catch {
+				throw new Error(`Invalid JSON from ${url}\n${body.slice(0, 200)}`);
+			}
+		} catch (error) {
+			const shouldRetry = attempt < maxAttempts && (error?.name === 'AbortError' || /fetch/i.test(String(error?.message || '')));
+			if (shouldRetry) {
+				const delayMs = FETCH_RETRY_DELAY_MS * attempt;
+				console.warn(`[news] fetch retry ${attempt}/${maxAttempts} reason=${error?.name || 'error'} url=${url}`);
+				await sleep(delayMs);
+				continue;
+			}
+			throw error;
+		} finally {
+			clearTimeout(timeoutId);
+		}
 	}
-	try {
-		return JSON.parse(body);
-	} catch {
-		throw new Error(`Invalid JSON from ${url}\n${body.slice(0, 200)}`);
-	}
+
+	throw new Error(`Request failed after retries: ${url}`);
 }
 
 async function fetchRecords(table, params = {}) {
@@ -538,11 +581,16 @@ async function getDrawRows() {
 }
 
 async function getWinningStores(round) {
-	return fetchRecords('lotto_winning_stores', {
-		'filter[round][$eq]': round,
-		order: 'win_type,id',
-		limit: 500
-	});
+	try {
+		return await fetchRecords('lotto_winning_stores', {
+			'filter[round][$eq]': round,
+			order: 'win_type,id',
+			limit: 500
+		});
+	} catch (error) {
+		console.warn(`[news] winning stores fetch failed round=${round}. continue with empty list. reason=${error?.message || error}`);
+		return [];
+	}
 }
 
 async function getExistingRounds() {
