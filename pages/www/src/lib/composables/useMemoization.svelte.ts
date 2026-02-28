@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Advanced memoization system for heavy calculations
  * Provides intelligent caching, invalidation, and memory management

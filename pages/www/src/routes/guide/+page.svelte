@@ -63,6 +63,23 @@ const faqData = [
 	},
 ];
 
+const faqMainEntity = Array.from(
+	new Map(
+		faqData.map((faq, index) => [
+			faq.question.trim(),
+			{
+				'@type': 'Question',
+				'@id': `https://www.645.live/guide#faq-q${index + 1}`,
+				name: faq.question.trim(),
+				acceptedAnswer: {
+					'@type': 'Answer',
+					text: faq.answer.trim()
+				}
+			}
+		])
+	).values()
+);
+
 // 가이드 섹션 데이터
 const guideSection = [
 	{
@@ -340,14 +357,8 @@ const guideSection = [
 <JsonLd
 	schema={{
 		'@type': 'FAQPage',
-		mainEntity: faqData.map(faq => ({
-			'@type': 'Question',
-			name: faq.question,
-			acceptedAnswer: {
-				'@type': 'Answer',
-				text: faq.answer
-			}
-		}))
+		'@id': 'https://www.645.live/guide#faq',
+		mainEntity: faqMainEntity
 	}}
 />
 
@@ -385,27 +396,6 @@ const guideSection = [
 				'@type': 'HowToStep',
 				name: '추첨 결과 확인',
 				text: '매주 토요일 오후 8시 45분 추첨 후 당첨번호를 확인하고 당첨 여부를 확인합니다.'
-			}
-		]
-	}}
-/>
-
-<!-- Breadcrumb Schema -->
-<JsonLd
-	schema={{
-		'@type': 'BreadcrumbList',
-		itemListElement: [
-			{
-				'@type': 'ListItem',
-				position: 1,
-				name: '홈',
-				item: 'https://www.645.live'
-			},
-			{
-				'@type': 'ListItem',
-				position: 2,
-				name: '로또 가이드',
-				item: 'https://www.645.live/guide'
 			}
 		]
 	}}

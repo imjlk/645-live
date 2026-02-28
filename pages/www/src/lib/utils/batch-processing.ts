@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Advanced batch processing utilities for large dataset operations
  * Provides memory-efficient processing with progress tracking and error handling

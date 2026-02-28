@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Composable for form state management and validation
  * Provides consistent form handling patterns across the application

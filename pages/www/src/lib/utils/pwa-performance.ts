@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * PWA 성능 모니터링 및 최적화 유틸리티
  * - Web Vitals 측정

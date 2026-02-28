@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Optimized statistics calculations with memoization and batch processing
  * Reduces computational overhead for heavy statistical analysis

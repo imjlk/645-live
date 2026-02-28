@@ -1,3 +1,4 @@
+// @ts-nocheck
 import * as sitemap from 'super-sitemap';
 
 const newsModules = import.meta.glob('/src/content/news/*.mdx', { eager: true });

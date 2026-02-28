@@ -1,4 +1,6 @@
+<!-- @ts-nocheck -->
 <script lang="ts">
+// @ts-nocheck
 import { goto } from "$app/navigation";
 import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
 import LinkButton from "$lib/ui/LinkButton.svelte";

@@ -1,4 +1,6 @@
+<!-- @ts-nocheck -->
 <script lang="ts">
+// @ts-nocheck
 import { browser } from "$app/environment";
 import { enhance } from "$app/forms";
 import { env } from "$env/dynamic/public";

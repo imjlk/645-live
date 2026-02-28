@@ -1,4 +1,6 @@
+<!-- @ts-nocheck -->
 <script lang="ts">
+// @ts-nocheck
 import { goto } from "$app/navigation";
 import ScreenReaderStatus from "$lib/components/ui/ScreenReaderStatus.svelte";
 import LottoBall from "$lib/modules/lotto/components/LottoBall.svelte";

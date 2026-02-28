@@ -145,6 +145,8 @@ const statsCategories = [
 		name: '로또 6/45 통계 분석 데이터',
 		description: `로또 6/45 당첨번호 통계 및 분석 데이터입니다. 전체 ${data.totalRounds}회차 데이터를 기반으로 번호별 출현 빈도, 홀짝 분포, 색깔별 통계, 구간별 분석 등을 제공합니다.`,
 		url: 'https://www.645.live/stats',
+		license: 'https://www.645.live/terms-of-service',
+		isAccessibleForFree: true,
 		creator: {
 			'@type': 'Organization',
 			name: '645.live'

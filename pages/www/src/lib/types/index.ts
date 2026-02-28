@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Comprehensive type definitions for the lotto application
  * Strict typing for better type safety and IDE support

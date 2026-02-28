@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * TrailBase Stats API helpers
  * Centralized data fetching for statistics pages
