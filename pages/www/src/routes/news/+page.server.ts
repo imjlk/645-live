@@ -1,7 +1,7 @@
 
 import type { PageServerLoad } from './$types';
 
-const PAGE_SIZE = 9;
+const PAGE_SIZE = 12;
 
 export const load: PageServerLoad = async ({ url }) => {
 	const requestedPage = Number.parseInt(url.searchParams.get('page') || '1', 10);
@@ -34,6 +34,7 @@ export const load: PageServerLoad = async ({ url }) => {
 
 	return {
 		posts: paginatedPosts,
+		feedInsertions: [],
 		pagination: {
 			page,
 			pageSize: PAGE_SIZE,

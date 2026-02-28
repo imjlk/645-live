@@ -2,8 +2,38 @@
 	// News index page - list all news articles
 	import { MetaTags } from "svelte-meta-tags";
 
+	type NewsPost = {
+		slug: string;
+		title: string;
+		date: string;
+		description: string;
+		category: string;
+		thumbnail: string;
+	};
+
+	type FeedInsertion = {
+		key: string;
+		afterPostIndex: number;
+		colSpan: 'normal' | 'wide' | 'full';
+		label?: string;
+	};
+
+	type FeedItem =
+		| {
+			type: 'post';
+			key: string;
+			colSpan: 'normal';
+			post: NewsPost;
+		}
+		| {
+			type: 'insertion';
+			key: string;
+			colSpan: 'normal' | 'wide' | 'full';
+			label?: string;
+		};
+
 	let { data } = $props();
-	const newsPosts = $derived(data.posts ?? []);
+	const newsPosts = $derived((data.posts ?? []) as NewsPost[]);
 	const pagination = $derived(data.pagination);
 	const currentPage = $derived(pagination?.page ?? 1);
 	const totalPages = $derived(pagination?.totalPages ?? 1);
@@ -21,6 +51,73 @@
 		return `/news/posts/${encodeURIComponent(slug)}`;
 	}
 
+	function normalizeFeedInsertions(raw: unknown): FeedInsertion[] {
+		if (!Array.isArray(raw)) return [];
+
+		return raw
+			.map((value, index) => {
+				const source = (value ?? {}) as Record<string, unknown>;
+				const afterPostIndex = Number.parseInt(String(source['afterPostIndex'] ?? ''), 10);
+				const colSpanValue = String(source['colSpan'] ?? 'full');
+				const colSpan: FeedInsertion['colSpan'] = colSpanValue === 'normal' || colSpanValue === 'wide' ? colSpanValue : 'full';
+				const labelValue = typeof source['label'] === 'string' ? source['label'] : null;
+				const normalized: FeedInsertion = {
+					key: String(source['key'] ?? `insertion-${index + 1}`),
+					afterPostIndex: Number.isFinite(afterPostIndex) ? afterPostIndex : index,
+					colSpan
+				};
+				if (labelValue !== null) {
+					normalized.label = labelValue;
+				}
+
+				return normalized;
+			})
+			.filter((item) => item.afterPostIndex >= 0)
+			.sort((a, b) => a.afterPostIndex - b.afterPostIndex);
+	}
+
+	function buildFeedItems(posts: NewsPost[], insertions: FeedInsertion[]): FeedItem[] {
+		const items: FeedItem[] = [];
+		const groupedInsertions = new Map<number, FeedInsertion[]>();
+
+		for (const insertion of insertions) {
+			const group = groupedInsertions.get(insertion.afterPostIndex) ?? [];
+			group.push(insertion);
+			groupedInsertions.set(insertion.afterPostIndex, group);
+		}
+
+		for (let index = 0; index < posts.length; index += 1) {
+			const post = posts[index];
+			if (!post) continue;
+			items.push({
+				type: 'post',
+				key: `post-${post.slug}`,
+				colSpan: 'normal',
+				post
+			});
+
+			const pendingInsertions = groupedInsertions.get(index);
+			if (!pendingInsertions) continue;
+
+			for (const insertion of pendingInsertions) {
+				items.push({
+					type: 'insertion',
+					key: `insertion-${insertion.key}`,
+					colSpan: insertion.colSpan,
+					...(insertion.label !== undefined ? { label: insertion.label } : {})
+				});
+			}
+		}
+
+		return items;
+	}
+
+	function feedColSpanClass(item: FeedItem): string {
+		if (item.colSpan === 'wide') return 'md:col-span-2';
+		if (item.colSpan === 'full') return 'md:col-span-2 lg:col-span-3';
+		return '';
+	}
+
 	function getVisiblePages(page: number, pages: number, windowSize = 5) {
 		if (pages <= windowSize) return Array.from({ length: pages }, (_, i) => i + 1);
 		const half = Math.floor(windowSize / 2);
@@ -31,6 +128,8 @@
 	}
 
 	const visiblePages = $derived(getVisiblePages(currentPage, totalPages));
+	const feedInsertions = $derived(normalizeFeedInsertions(data.feedInsertions));
+	const feedItems = $derived(buildFeedItems(newsPosts, feedInsertions));
 </script>
 
 <MetaTags
@@ -56,39 +155,51 @@
 		</div>
 	{:else}
 		<div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-			{#each newsPosts as post (post.slug)}
-				<article class="card bg-base-200 shadow-lg hover:shadow-xl transition-shadow">
-					<!-- Thumbnail -->
-					<figure class="aspect-video">
-						<img 
-							src={post.thumbnail} 
-							alt={post.title}
-							class="w-full h-full object-cover"
-							loading="lazy"
-						/>
-					</figure>
-					
-					<div class="card-body">
-						<div class="flex items-center gap-2 text-sm text-base-content/70 mb-2">
-							<span class="badge badge-primary badge-sm">{post.category}</span>
-							<span>{post.date}</span>
+			{#each feedItems as item (item.key)}
+				{#if item.type === 'post'}
+					<article class={`card bg-base-200 shadow-lg hover:shadow-xl transition-shadow ${feedColSpanClass(item)}`}>
+						<!-- Thumbnail -->
+						<figure class="aspect-video">
+							<img 
+								src={item.post.thumbnail} 
+								alt={item.post.title}
+								class="w-full h-full object-cover"
+								loading="lazy"
+							/>
+						</figure>
+						
+						<div class="card-body">
+							<div class="flex items-center gap-2 text-sm text-base-content/70 mb-2">
+								<span class="badge badge-primary badge-sm">{item.post.category}</span>
+								<span>{item.post.date}</span>
+							</div>
+							
+							<h2 class="card-title text-lg">
+								<a href={hrefForPost(item.post.slug)} class="hover:text-primary transition-colors">
+									{item.post.title}
+								</a>
+							</h2>
+							
+							<p class="text-base-content/80">{item.post.description}</p>
+							
+							<div class="card-actions justify-end">
+								<a href={hrefForPost(item.post.slug)} class="btn btn-primary btn-sm">
+									읽기
+								</a>
+							</div>
 						</div>
-						
-						<h2 class="card-title text-lg">
-							<a href={hrefForPost(post.slug)} class="hover:text-primary transition-colors">
-								{post.title}
-							</a>
-						</h2>
-						
-						<p class="text-base-content/80">{post.description}</p>
-						
-						<div class="card-actions justify-end">
-							<a href={hrefForPost(post.slug)} class="btn btn-primary btn-sm">
-								읽기
-							</a>
+					</article>
+				{:else}
+					<section
+						class={`card border border-dashed border-base-300 bg-base-100 ${feedColSpanClass(item)}`}
+						data-feed-insertion={item.key}
+						aria-label="중간 삽입 영역"
+					>
+						<div class="card-body p-4 sm:p-5">
+							<p class="text-sm text-base-content/60">{item.label ?? '추가 컨텐츠 영역'}</p>
 						</div>
-					</div>
-				</article>
+					</section>
+				{/if}
 			{/each}
 		</div>
 
