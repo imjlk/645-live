@@ -37,7 +37,8 @@ function normalizeText(value: unknown): string {
 }
 
 function toWinType(value: unknown): "1등" | "2등" | null {
-	const rank = typeof value === "number" ? value : Number.parseInt(String(value), 10);
+	const rank =
+		typeof value === "number" ? value : Number.parseInt(String(value), 10);
 	if (rank === 1) {
 		return "1등";
 	}
@@ -75,7 +76,9 @@ export async function fetchWinningStores(
 		});
 
 		if (!response.ok) {
-			console.error(`❌ 당첨점 API 요청 실패: ${response.status} ${response.statusText}`);
+			console.error(
+				`❌ 당첨점 API 요청 실패: ${response.status} ${response.statusText}`,
+			);
 			return [];
 		}
 
@@ -108,7 +111,8 @@ export async function fetchWinningStores(
 				store_name,
 				address,
 				win_type: winType,
-				selection_type: winType === "1등" ? toSelectionType(item.atmtPsvYnTxt) : undefined,
+				selection_type:
+					winType === "1등" ? toSelectionType(item.atmtPsvYnTxt) : undefined,
 			});
 		}
 
@@ -316,7 +320,7 @@ export async function updateMissingWinningStores(): Promise<void> {
 		for (const round of missingRounds) {
 			try {
 				await collectAndSaveWinningStores(round);
-				
+
 				// 요청 간격 조절 (너무 빠른 요청 방지)
 				if (round < latestDrawRound) {
 					console.log("⏳ 5초 대기 중...");
@@ -341,6 +345,7 @@ export async function updateMissingWinningStores(): Promise<void> {
 export async function executeWinningStoreUpdate(): Promise<void> {
 	const maxRetries = 3;
 	const retryDelayMs = 5 * 60 * 1000; // 5분
+	let lastError: unknown = null;
 
 	for (let attempt = 1; attempt <= maxRetries; attempt++) {
 		const now = new Date().toISOString();
@@ -352,7 +357,11 @@ export async function executeWinningStoreUpdate(): Promise<void> {
 			console.info(`[${now}] ✅ 당첨점 업데이트 성공 (시도 ${attempt})`);
 			return;
 		} catch (error) {
-			console.error(`[${now}] ❌ 당첨점 업데이트 실패 (시도 ${attempt}):`, error);
+			lastError = error;
+			console.error(
+				`[${now}] ❌ 당첨점 업데이트 실패 (시도 ${attempt}):`,
+				error,
+			);
 			if (attempt < maxRetries) {
 				console.info(`[${now}] ⏳ 5분 후 재시도...`);
 				await new Promise((res) => setTimeout(res, retryDelayMs));
@@ -364,6 +373,10 @@ export async function executeWinningStoreUpdate(): Promise<void> {
 			}
 		}
 	}
+
+	throw lastError instanceof Error
+		? lastError
+		: new Error("당첨점 업데이트가 최대 재시도 횟수를 초과했습니다.");
 }
 
 /**
@@ -376,12 +389,12 @@ export async function executeWinningStoreUpdate(): Promise<void> {
 //     const response = await fetch('/api/notify/winning-stores-update', {
 //       method: 'POST',
 //       headers: { 'Content-Type': 'application/json' },
-//       body: JSON.stringify({ 
-//         round, 
+//       body: JSON.stringify({
+//         round,
 //         storeCount: stores.length,
 //         firstPlaceCount: stores.filter(s => s.win_type === '1등').length,
 //         secondPlaceCount: stores.filter(s => s.win_type === '2등').length,
-//         timestamp: new Date().toISOString() 
+//         timestamp: new Date().toISOString()
 //       })
 //     });
 //     if (!response.ok) console.error('당첨점 업데이트 알림 실패:', response.status);

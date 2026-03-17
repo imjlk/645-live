@@ -34,9 +34,13 @@ npm --prefix services/trailbase/wasm-guest run build
 
 - 스캔 데이터 처리 라우트: `services/trailbase/traildepot/scripts/index.ts`
 - 접속자 heartbeat/disconnect 라우트: `services/trailbase/traildepot/scripts/index.ts`
-- 로또 크론 작업 등록:
-  - `"Lotto Weekly Updater"`: `0 40 11 * * 7`
-  - `"Lotto Store Weekly Updater"`: `0 0 12 * * 7`
+- 로또 크론 작업 등록: UTC 기준 cron 표현식 사용
+  - `"Lotto Weekly Updater"`: `0 40 11 * * 7` (토 20:40 KST)
+  - `"Lotto Weekly Catch-up 1/2/3"`: 토 21:10 / 22:00 / 23:00 KST
+  - `"Lotto Daily Reconcile"`: 매일 09:05 KST
+  - `"Lotto Store Weekly Updater"`: `0 0 12 * * 7` (토 21:00 KST)
+  - `"Lotto Store Catch-up 1/2/3"`: 토 21:20 / 22:10 / 23:10 KST
+  - `"Lotto Store Daily Reconcile"`: 매일 09:15 KST
 
 ## 주의사항
 

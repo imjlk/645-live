@@ -221,7 +221,9 @@ export async function fetchLottoDrawResult(
 
 		const payload = JSON.parse(responseText) as LottoNewApiResponse;
 		const list = payload.data?.list ?? [];
-		const item = list.find((candidate) => toSafeInt(candidate.ltEpsd) === safeRound);
+		const item = list.find(
+			(candidate) => toSafeInt(candidate.ltEpsd) === safeRound,
+		);
 
 		if (!item) {
 			console.warn(`⚠️ 회차 ${safeRound} 데이터가 API 응답에 없습니다.`);
@@ -337,7 +339,9 @@ export function processLottoApiResponse(
 	for (const { field, name } of criticalAmountFields) {
 		const value = data[field as keyof LottoApiResponse];
 		if (typeof value === "number" && value === 0) {
-			console.warn(`⚠️ ${name}이 0입니다. 아직 최종 결과가 발표되지 않은 것 같습니다.`);
+			console.warn(
+				`⚠️ ${name}이 0입니다. 아직 최종 결과가 발표되지 않은 것 같습니다.`,
+			);
 			hasZeroAmounts = true;
 		}
 	}
@@ -373,7 +377,7 @@ export function processLottoApiResponse(
 		bonus_number: data.bnusNo,
 		hasIncompleteData: hasZeroAmounts, // 0값 포함 여부 플래그 추가
 	};
-	
+
 	return result;
 }
 
@@ -609,7 +613,7 @@ async function getIncompleteLatestRound(): Promise<number | null> {
 			     OR first_prize_accumulated_amount = 0
 			   )
 			 ORDER BY round DESC LIMIT 1`,
-			[minRoundForRetry]
+			[minRoundForRetry],
 		);
 
 		if (result.length > 0) {
@@ -642,8 +646,10 @@ export async function updateLatestLottoRound(): Promise<void> {
 	// 1. 먼저 불완전한 데이터가 있는 최신 회차 확인
 	const incompleteRound = await getIncompleteLatestRound();
 	if (incompleteRound) {
-		console.log(`🔍 불완전한 데이터가 있는 회차 ${incompleteRound}를 먼저 업데이트합니다.`);
-		
+		console.log(
+			`🔍 불완전한 데이터가 있는 회차 ${incompleteRound}를 먼저 업데이트합니다.`,
+		);
+
 		const drawResult = await fetchLottoDrawResult(incompleteRound);
 		if (drawResult) {
 			console.log(`🎉 회차 ${incompleteRound} 갱신된 결과를 찾았습니다!`);
@@ -651,7 +657,9 @@ export async function updateLatestLottoRound(): Promise<void> {
 
 			if (success) {
 				if (drawResult.hasIncompleteData) {
-					console.log(`⚠️ 회차 ${incompleteRound} 업데이트했지만 여전히 일부 금액이 0입니다. 재시도합니다.`);
+					console.log(
+						`⚠️ 회차 ${incompleteRound} 업데이트했지만 여전히 일부 금액이 0입니다. 재시도합니다.`,
+					);
 					// TODO: fetch API 호출 - 0값으로 업데이트된 경우 알림
 					// await notifyIncompleteDataUpdate(incompleteRound, drawResult);
 					throw new Error(`회차 ${incompleteRound} 여전히 불완전한 데이터`);
@@ -663,7 +671,9 @@ export async function updateLatestLottoRound(): Promise<void> {
 			}
 			throw new Error(`회차 ${incompleteRound} DB 업데이트 실패`);
 		}
-		console.log(`ℹ️ 회차 ${incompleteRound}의 완전한 결과가 아직 없습니다. 재시도합니다.`);
+		console.log(
+			`ℹ️ 회차 ${incompleteRound}의 완전한 결과가 아직 없습니다. 재시도합니다.`,
+		);
 		throw new Error(`회차 ${incompleteRound} 완전한 데이터 미수신`);
 	}
 
@@ -683,7 +693,9 @@ export async function updateLatestLottoRound(): Promise<void> {
 		if (success) {
 			// 불완전한 데이터가 있으면 재시도를 위해 에러 발생
 			if (drawResult.hasIncompleteData) {
-				console.log(`⚠️ 회차 ${nextRound} 저장 완료했지만 일부 금액이 0입니다. 재시도합니다.`);
+				console.log(
+					`⚠️ 회차 ${nextRound} 저장 완료했지만 일부 금액이 0입니다. 재시도합니다.`,
+				);
 				// TODO: fetch API 호출 - 새 회차 0값으로 첫 저장된 경우 알림
 				// await notifyNewRoundIncompleteData(nextRound, drawResult);
 				throw new Error(`회차 ${nextRound} 불완전한 데이터`);
@@ -780,6 +792,7 @@ export async function updateLatestLottoRound(): Promise<void> {
 export async function executeLottoUpdate(): Promise<void> {
 	const maxRetries = 20;
 	const retryDelayMs = 60 * 1000; // 1분
+	let lastError: unknown = null;
 
 	for (let attempt = 1; attempt <= maxRetries; attempt++) {
 		const now = new Date().toISOString();
@@ -791,6 +804,7 @@ export async function executeLottoUpdate(): Promise<void> {
 			console.info(`[${now}] ✅ 로또 업데이트 성공 (시도 ${attempt})`);
 			return;
 		} catch (error) {
+			lastError = error;
 			console.error(`[${now}] ❌ 로또 업데이트 실패 (시도 ${attempt}):`, error);
 			if (attempt < maxRetries) {
 				console.info(`[${now}] ⏳ 1분 후 재시도...`);
@@ -803,6 +817,10 @@ export async function executeLottoUpdate(): Promise<void> {
 			}
 		}
 	}
+
+	throw lastError instanceof Error
+		? lastError
+		: new Error("로또 업데이트가 최대 재시도 횟수를 초과했습니다.");
 }
 
 /**
