@@ -13,7 +13,7 @@ import {
 } from "$lib/utils/lotto-common.js";
 import { parseLottoQR } from "$lib/utils/lotto-parser.js";
 import {
-	type QRScanHistoryItem,
+	deriveScanResultStatus,
 	generateScanSummary,
 	qrScanHistory,
 } from "$lib/utils/qr-scan-history.js";
@@ -62,7 +62,6 @@ let cameraFOVs = $state<Map<string, number | null>>(new Map());
 let lastDetected = $state("");
 let isSubmittingForm = $state(false);
 
-
 // Form element reference for programmatic submission
 let scanForm: HTMLFormElement;
 let qrDataInput: HTMLInputElement;
@@ -70,8 +69,6 @@ let qrDataInput: HTMLInputElement;
 // Scan status grid reference for round updates
 let scanStatusGrid = $state<ScanStatusGrid>();
 let currentRound = $state(0); // QR 스캔 후에 실제 회차로 설정
-
-
 
 // ===== LOTTO WINNING CHECK UTILITIES =====
 interface WinningResult {
@@ -246,7 +243,9 @@ let selectedCameraLabel = $derived(() => {
 	const deviceIndex = videoDevices.indexOf(device) + 1;
 	const label = device.label || `카메라 ${deviceIndex}`;
 	const fov = cameraFOVs.get(device.deviceId);
-	return fov !== null && fov !== undefined ? `${label} (FOV: ${Math.round(fov)}°)` : label;
+	return fov !== null && fov !== undefined
+		? `${label} (FOV: ${Math.round(fov)}°)`
+		: label;
 });
 
 // ===== BARCODE DETECTION HANDLERS =====
@@ -345,7 +344,6 @@ async function submitQRData(qrData: string) {
 		// 폼 제출
 		isSubmittingForm = true;
 		scanForm.requestSubmit();
-		
 	} catch (error) {
 		console.error("Form submission error:", error);
 		toast.error("❌ 폼 제출 실패", {
@@ -362,7 +360,7 @@ let lastProcessedFormId: string | null = null;
 $effect(() => {
 	if (form) {
 		// 중복 처리 방지 (form ID로 체크)
-		const currentFormId = `${form.success ? 'success' : 'error'}-${JSON.stringify(form.data || form.error)}`;
+		const currentFormId = `${form.success ? "success" : "error"}-${JSON.stringify(form.data || form.error)}`;
 		if (lastProcessedFormId === currentFormId) {
 			return;
 		}
@@ -399,66 +397,84 @@ $effect(() => {
 				// 비동기적으로 당첨 확인 수행
 				checkQRWinning(qrData)
 					.then(async (winningCheck) => {
-						if (winningCheck) {
-							const { isWinner, winningResults, qrRound, isUnreleased } =
-								winningCheck;
+						const { isWinner, winningResults, qrRound, isUnreleased } =
+							winningCheck ?? {
+								isWinner: false,
+								winningResults: [],
+								qrRound: undefined,
+								isUnreleased: false,
+							};
 
-							// 히스토리에 스캔 결과 저장
-							const games = parseLottoQR(qrData);
-							const round = games?.[0]?.round || qrRound;
-							const gamesCount = form.data?.gamesCount || games?.length || 0;
+						const games = parseLottoQR(qrData);
+						const round =
+							games?.[0]?.round ??
+							qrRound ??
+							(currentRound > 0 ? currentRound : undefined) ??
+							calculateExpectedLatestRound();
+						const gamesCount = form.data?.gamesCount || games?.length || 0;
+						const lastCheckedAt = new Date();
 
-							let winningGrade = "";
-							if (isWinner && winningResults) {
-								const winners = winningResults.filter(
-									(result) => result.isWinner,
-								);
-								if (winners.length > 0) {
-									const highestGrade = winners.reduce((highest, current) => {
-										const gradeOrder = {
-											"1등": 1,
-											"2등": 2,
-											"3등": 3,
-											"4등": 4,
-											"5등": 5,
-										};
-										return gradeOrder[
-											current.grade as keyof typeof gradeOrder
-										] < gradeOrder[highest.grade as keyof typeof gradeOrder]
-											? current
-											: highest;
-									});
-									winningGrade = highestGrade.grade;
-								}
+						let winningGrade = "";
+						if (isWinner && winningResults) {
+							const winners = winningResults.filter(
+								(result) => result.isWinner,
+							);
+							if (winners.length > 0) {
+								const highestGrade = winners.reduce((highest, current) => {
+									const gradeOrder = {
+										"1등": 1,
+										"2등": 2,
+										"3등": 3,
+										"4등": 4,
+										"5등": 5,
+									};
+									return gradeOrder[current.grade as keyof typeof gradeOrder] <
+										gradeOrder[highest.grade as keyof typeof gradeOrder]
+										? current
+										: highest;
+								});
+								winningGrade = highestGrade.grade;
 							}
+						}
 
-							// 히스토리 저장 (브라우저 환경에서만)
-							if (browser) {
-								try {
-									await qrScanHistory.addScan({
-										qrData,
+						const resultStatus = deriveScanResultStatus({
+							resultStatus: winningCheck ? undefined : "unknown",
+							isWinner,
+							isUnreleased: isUnreleased || false,
+						});
+
+						// 히스토리 저장 (브라우저 환경에서만)
+						if (browser) {
+							try {
+								await qrScanHistory.addScan({
+									qrData,
+									round,
+									gamesCount,
+									resultStatus,
+									lastCheckedAt,
+									isWinner: resultStatus === "winner",
+									winningGrade: winningGrade || undefined,
+									summary: generateScanSummary({
 										round,
 										gamesCount,
-										isWinner: isWinner || false,
-										winningGrade: winningGrade,
-										summary: generateScanSummary({
-											round,
-											gamesCount,
-											isWinner,
-											winningGrade,
-											isUnreleased: isUnreleased || false,
-										}),
-									});
-								} catch (error) {
-									// 중복이면 로그만 남기고 처리 계속
-									if (error instanceof Error && error.message.includes('이미 스캔한')) {
-										console.log('중복 스캔 방지됨:', qrData);
-									} else {
-										console.error('히스토리 저장 실패:', error);
-									}
+										resultStatus,
+										winningGrade,
+									}),
+								});
+							} catch (error) {
+								// 중복이면 로그만 남기고 처리 계속
+								if (
+									error instanceof Error &&
+									error.message.includes("이미 스캔한")
+								) {
+									console.log("중복 스캔 방지됨:", qrData);
+								} else {
+									console.error("히스토리 저장 실패:", error);
 								}
 							}
+						}
 
+						if (winningCheck) {
 							if (isUnreleased) {
 								// 아직 발표되지 않은 회차
 								toast.success("✅ 로또 스캔 저장 완료!", {
@@ -535,7 +551,7 @@ $effect(() => {
 								});
 							}
 						} else {
-							// 당첨 확인 실패 시 기본 성공 메시지
+							// 당첨 확인 실패 시에도 히스토리는 unknown 상태로 저장
 							toast.success("✅ QR 스캔 성공!", {
 								description: `${form.data?.gamesCount}개 게임 처리됨 (당첨 확인 불가)`,
 								duration: 5000,
@@ -668,7 +684,7 @@ async function calculateFOV(deviceId: string): Promise<number | null> {
 					2 *
 					Math.atan(estimatedSensorDiagonal / (2 * focalLength)) *
 					(180 / Math.PI);
-				
+
 				// 합리적인 범위 체크 (20-150도)
 				if (fov >= 20 && fov <= 150) {
 					return fov;
@@ -696,37 +712,46 @@ async function getPreferredCamera(devices: MediaDeviceInfo[]): Promise<string> {
 
 	// 광각 카메라 필터링 (QR 스캔에 적합하지 않음)
 	const wideAngleKeywords = [
-		"wide", "ultra", "광각", "초광각", "ultrawide", 
-		"0.5x", "0.6x", "telephoto", "macro", "zoom"
+		"wide",
+		"ultra",
+		"광각",
+		"초광각",
+		"ultrawide",
+		"0.5x",
+		"0.6x",
+		"telephoto",
+		"macro",
+		"zoom",
 	];
-	
+
 	const isWideAngleCamera = (device: MediaDeviceInfo, fov: number | null) => {
 		const label = device.label.toLowerCase();
-		
+
 		// 레이블에 광각 키워드가 포함된 경우
-		if (wideAngleKeywords.some(keyword => label.includes(keyword))) {
+		if (wideAngleKeywords.some((keyword) => label.includes(keyword))) {
 			return true;
 		}
-		
+
 		// FOV가 95도 이상인 경우 (광각으로 간주)
 		if (fov !== null && fov >= 95) {
 			return true;
 		}
-		
+
 		return false;
 	};
 
 	// QR 스캔에 적합한 카메라 필터링
-	const qrSuitableDevices = deviceFOVs.filter(({ device, fov }) => 
-		!isWideAngleCamera(device, fov)
+	const qrSuitableDevices = deviceFOVs.filter(
+		({ device, fov }) => !isWideAngleCamera(device, fov),
 	);
 
 	// 후면 카메라 중 QR 스캔에 적합한 것들
-	const rearQRSuitableDevices = qrSuitableDevices.filter(({ device }) =>
-		device.label.toLowerCase().includes("back") ||
-		device.label.toLowerCase().includes("rear") ||
-		device.label.toLowerCase().includes("환경") ||
-		device.label.toLowerCase().includes("main")
+	const rearQRSuitableDevices = qrSuitableDevices.filter(
+		({ device }) =>
+			device.label.toLowerCase().includes("back") ||
+			device.label.toLowerCase().includes("rear") ||
+			device.label.toLowerCase().includes("환경") ||
+			device.label.toLowerCase().includes("main"),
 	);
 
 	// 표준 FOV 범위 (60-85도) 카메라
@@ -739,7 +764,7 @@ async function getPreferredCamera(devices: MediaDeviceInfo[]): Promise<string> {
 		totalDevices: devices.length,
 		qrSuitableDevices: qrSuitableDevices.length,
 		rearQRSuitableDevices: rearQRSuitableDevices.length,
-		standardFOVDevices: standardFOVDevices.length
+		standardFOVDevices: standardFOVDevices.length,
 	});
 
 	// 1순위: 후면 + 표준 FOV + QR 적합
@@ -748,13 +773,19 @@ async function getPreferredCamera(devices: MediaDeviceInfo[]): Promise<string> {
 	);
 
 	if (rearStandardDevices.length > 0) {
-		console.log("선택된 카메라: 후면 표준 FOV", rearStandardDevices[0]?.device.label);
+		console.log(
+			"선택된 카메라: 후면 표준 FOV",
+			rearStandardDevices[0]?.device.label,
+		);
 		return rearStandardDevices[0]?.device.deviceId || "";
 	}
 
 	// 2순위: 후면 + QR 적합
 	if (rearQRSuitableDevices.length > 0) {
-		console.log("선택된 카메라: 후면 QR 적합", rearQRSuitableDevices[0]?.device.label);
+		console.log(
+			"선택된 카메라: 후면 QR 적합",
+			rearQRSuitableDevices[0]?.device.label,
+		);
 		return rearQRSuitableDevices[0]?.device.deviceId || "";
 	}
 
@@ -985,7 +1016,7 @@ async function requestPermission() {
 				onchange={changeCamera} 
 				class="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
 			>
-				{#each videoDevices as device}
+				{#each videoDevices as device (device.deviceId)}
 					{@const fov = cameraFOVs.get(device.deviceId)}
 					{@const isWideAngle = 
 						device.label.toLowerCase().includes("wide") ||

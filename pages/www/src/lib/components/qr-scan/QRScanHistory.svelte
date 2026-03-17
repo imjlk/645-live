@@ -103,24 +103,52 @@ async function handleSync() {
 
 // Get icon based on scan result
 function getScanIcon(item: QRScanHistoryItem): string {
-	if (item.isWinner) {
+	if (item.resultStatus === "winner") {
 		if (item.winningGrade === "1등" || item.winningGrade === "2등") {
 			return "🎉";
 		}
 		return "🎊";
+	}
+	if (item.resultStatus === "unreleased") {
+		return "⏳";
+	}
+	if (item.resultStatus === "unknown") {
+		return "❔";
 	}
 	return "📄";
 }
 
 // Get background color based on scan result
 function getScanBgColor(item: QRScanHistoryItem): string {
-	if (item.isWinner) {
+	if (item.resultStatus === "winner") {
 		if (item.winningGrade === "1등" || item.winningGrade === "2등") {
 			return "bg-gradient-to-r from-yellow-100 to-orange-100 border-yellow-300";
 		}
 		return "bg-gradient-to-r from-green-50 to-blue-50 border-green-300";
 	}
+	if (item.resultStatus === "unreleased") {
+		return "bg-gradient-to-r from-amber-50 to-yellow-50 border-amber-300";
+	}
+	if (item.resultStatus === "unknown") {
+		return "bg-gradient-to-r from-slate-50 to-gray-100 border-slate-300";
+	}
 	return "bg-base-100 border-base-300";
+}
+
+function getStatusBadge(item: QRScanHistoryItem): string | null {
+	if (item.resultStatus === "winner" && item.winningGrade) {
+		return item.winningGrade;
+	}
+
+	if (item.resultStatus === "unreleased") {
+		return "미발표";
+	}
+
+	if (item.resultStatus === "unknown") {
+		return "확인 필요";
+	}
+
+	return null;
 }
 
 // Format date for display
@@ -264,6 +292,7 @@ loadHistory();
 					</div>
 				{:else}
 					{#each historyItems as item (item.id)}
+						{@const statusBadge = getStatusBadge(item)}
 						<div class="card border {getScanBgColor(item)} transition-all hover:shadow-md mb-1">
 							<div class="card-body p-2">
 								<div class="flex items-start justify-between">
@@ -276,9 +305,14 @@ loadHistory();
 												<h4 class="font-semibold text-sm truncate">
 													{item.summary}
 												</h4>
-												{#if item.isWinner}
-													<div class="badge badge-success badge-sm">
-														{item.winningGrade}
+												{#if statusBadge}
+													<div
+														class="badge badge-sm"
+														class:badge-success={item.resultStatus === "winner"}
+														class:badge-warning={item.resultStatus === "unreleased"}
+														class:badge-neutral={item.resultStatus === "unknown"}
+													>
+														{statusBadge}
 													</div>
 												{/if}
 											</div>

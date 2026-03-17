@@ -2,13 +2,15 @@
  * QR 스캔 히스토리 관리 유틸리티 (v2 only)
  */
 
-import { 
-	QRScanHistoryManagerImpl, 
+import {
+	type QRScanHistoryItem,
+	type QRScanHistoryManager,
+	QRScanHistoryManagerImpl,
+	type QRScanResultStatus,
+	deriveScanResultStatus as v2DeriveScanResultStatus,
 	generateScanSummary as v2GenerateScanSummary,
 	getRelativeTimeString as v2GetRelativeTimeString,
-	type QRScanHistoryItem,
-	type QRScanHistoryManager
-} from './qr-scan-history-v2.js';
+} from "./qr-scan-history-v2.js";
 
 /**
  * 전역 QR 스캔 히스토리 매니저 인스턴스 (v2 직접 사용)
@@ -26,11 +28,21 @@ export const qrScanHistoryV2 = qrScanHistory;
 export function generateScanSummary(options: {
 	round?: number;
 	gamesCount?: number;
+	resultStatus?: QRScanResultStatus;
 	isWinner?: boolean;
 	winningGrade?: string;
 	isUnreleased?: boolean;
 }): string {
 	return v2GenerateScanSummary(options);
+}
+
+export function deriveScanResultStatus(options: {
+	resultStatus?: QRScanResultStatus;
+	isWinner?: boolean;
+	isUnreleased?: boolean;
+	summary?: string;
+}): QRScanResultStatus {
+	return v2DeriveScanResultStatus(options);
 }
 
 /**
@@ -43,13 +55,16 @@ export function getRelativeTimeString(date: Date): string {
 /**
  * 수동 동기화 트리거 (회원용)
  */
-export async function syncHistory(): Promise<{ success: boolean; error?: string }> {
+export async function syncHistory(): Promise<{
+	success: boolean;
+	error?: string;
+}> {
 	if (!qrScanHistory.getUserId()) {
-		return { success: false, error: '로그인이 필요합니다' };
+		return { success: false, error: "로그인이 필요합니다" };
 	}
 
 	return await qrScanHistory.sync();
 }
 
 // 타입 내보내기 (기존 코드 호환성)
-export type { QRScanHistoryItem, QRScanHistoryManager };
+export type { QRScanHistoryItem, QRScanHistoryManager, QRScanResultStatus };
