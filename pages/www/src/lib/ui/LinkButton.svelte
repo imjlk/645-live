@@ -42,14 +42,11 @@ const sizeClasses: Record<string, string> = {
 	lg: "btn-lg",
 };
 
-const classes = [
-	baseClass,
-	variantClasses[variant] || "",
-	sizeClasses[size] || "",
-	customClass,
-]
-	.filter(Boolean)
-	.join(" ");
+const classes = $derived.by(() =>
+	[baseClass, variantClasses[variant] || "", sizeClasses[size] || "", customClass]
+		.filter(Boolean)
+		.join(" "),
+);
 
 $effect.pre(() => {
 	if (!href) {

@@ -40,11 +40,21 @@ let urlRound = $derived.by(() => {
 });
 
 // 현재 상태 변수들 - Svelte 5 runes 사용
-let round = $state(data.initialRound);
-let stores = $state(data.initialStores);
-let statistics = $state(data.initialStatistics);
+let round = $state(0);
+let stores = $state<Props["data"]["initialStores"]>([]);
+let statistics = $state<Props["data"]["initialStatistics"]>({
+	total: 0,
+	firstPlace: 0,
+	secondPlace: 0,
+});
 let loading = $state(false);
 let error = $state("");
+
+$effect(() => {
+	round = data.initialRound;
+	stores = data.initialStores;
+	statistics = data.initialStatistics;
+});
 
 // Trailbase client를 사용한 데이터 조회
 async function fetchWinningStores() {
@@ -60,7 +70,7 @@ async function fetchWinningStores() {
 			filters: [{ column: "round", op: "equal", value: round.toString() }],
 		});
 
-		let fetchedStores = response.records as Array<{
+		const fetchedStores = response.records as Array<{
 			id: number;
 			round: number;
 			store_name: string;

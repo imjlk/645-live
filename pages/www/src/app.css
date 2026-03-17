@@ -50,8 +50,9 @@ nav.fixed.bottom-0 {
 	position: fixed !important;
 }
 
-/* View Transition 중에도 모바일 네비게이션이 최상위 유지 */
-::view-transition nav[aria-label*="모바일"],
-::view-transition .btm-nav {
+/* View Transition 중에도 모바일 네비게이션 스냅샷이 최상위 유지 */
+::view-transition-group(mobile-navigation),
+::view-transition-old(mobile-navigation),
+::view-transition-new(mobile-navigation) {
 	z-index: 2147483647 !important;
 }

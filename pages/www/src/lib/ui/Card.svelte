@@ -31,18 +31,16 @@ const variantClasses: Record<Required<CardProps>["variant"], string> = {
 	"image-full": "image-full text-primary-content",
 };
 
-const conditionalClasses = [
-	shadow && "shadow-lg",
-	hoverable && "hover:shadow-xl hover:-translate-y-0.5 cursor-pointer",
-].filter(Boolean);
-
-const cardClasses = $derived(
+const cardClasses = $derived.by(() =>
 	[
 		baseClasses,
 		variantClasses[variant],
-		...conditionalClasses,
+		shadow && "shadow-lg",
+		hoverable && "hover:shadow-xl hover:-translate-y-0.5 cursor-pointer",
 		customClass,
-	].join(" "),
+	]
+		.filter(Boolean)
+		.join(" "),
 );
 
 // Event handlers
@@ -56,74 +54,71 @@ const handleCardClick = (event: MouseEvent) => {
 	}
 };
 
-const handleKeyDown = (event: KeyboardEvent) => {
-	if (hoverable && (event.key === "Enter" || event.key === " ")) {
-		event.preventDefault();
-		const cardClickEvent = new CustomEvent("card-click", {
-			detail: { originalEvent: event },
-		});
-		event.currentTarget?.dispatchEvent(cardClickEvent);
-	}
-};
 </script>
 
-<div 
-  class={cardClasses}
-  data-testid={testId}
-  onclick={handleCardClick}
-  onkeydown={handleKeyDown}
-  role={hoverable ? 'button' : undefined}
-  tabindex={hoverable ? 0 : undefined}
-  {...restProps}
->
-  <!-- Image section for image variants -->
-  {#if image && (variant === 'side' || variant === 'image-full')}
-    <figure class={variant === 'side' ? 'aspect-square w-48' : 'aspect-video'}>
-      <img
-        src={image}
-        alt={imageAlt}
-        class="object-cover w-full h-full"
-        loading="lazy"
-      />
-    </figure>
-  {/if}
+{#snippet content()}
+	{#if image && (variant === 'side' || variant === 'image-full')}
+		<figure class={variant === 'side' ? 'aspect-square w-48' : 'aspect-video'}>
+			<img
+				src={image}
+				alt={imageAlt}
+				class="object-cover w-full h-full"
+				loading="lazy"
+			/>
+		</figure>
+	{/if}
 
-  <!-- Card body -->
-  <div class="card-body">
-    <!-- Image for default variants -->
-    {#if image && variant !== 'side' && variant !== 'image-full'}
-      <figure class="aspect-video mb-4 rounded-lg overflow-hidden">
-        <img
-          src={image}
-          alt={imageAlt}
-          class="object-cover w-full h-full"
-          loading="lazy"
-        />
-      </figure>
-    {/if}
+	<div class="card-body">
+		{#if image && variant !== 'side' && variant !== 'image-full'}
+			<figure class="aspect-video mb-4 rounded-lg overflow-hidden">
+				<img
+					src={image}
+					alt={imageAlt}
+					class="object-cover w-full h-full"
+					loading="lazy"
+				/>
+			</figure>
+		{/if}
 
-    <!-- Title section -->
-    {#if title}
-      <h2 class="card-title text-base-content">
-        {title}
-      </h2>
-    {/if}
+		{#if title}
+			<h2 class="card-title text-base-content">
+				{title}
+			</h2>
+		{/if}
 
-    <!-- Content section -->
-    {#if children}
-      <div class="text-base-content/80 leading-relaxed">
-        {@render children()}
-      </div>
-    {/if}
+		{#if children}
+			<div class="text-base-content/80 leading-relaxed">
+				{@render children()}
+			</div>
+		{/if}
 
-    <!-- Actions section -->
-    {#if actions}
-      <div class="card-actions justify-end mt-4">
-        {@render actions()}
-      </div>
-    {/if}
-  </div>
-</div>
+		{#if actions}
+			<div class="card-actions justify-end mt-4">
+				{@render actions()}
+			</div>
+		{/if}
+	</div>
+{/snippet}
+
+{#if hoverable}
+	<button
+		type="button"
+		class={cardClasses}
+		data-testid={testId}
+		onclick={handleCardClick}
+		{...restProps}
+	>
+		{@render content()}
+	</button>
+{:else}
+	<div
+		class={cardClasses}
+		data-testid={testId}
+		{...restProps}
+	>
+		{@render content()}
+	</div>
+{/if}
 
 <style>
   /* Enhanced hover effects */

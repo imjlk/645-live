@@ -75,6 +75,7 @@ function handleKeydown(event: KeyboardEvent, href: string) {
 <nav 
 	class="fixed bottom-0 left-0 right-0 z-[99999] sm:hidden border-t border-base-300 bg-base-100/90 backdrop-blur supports-[backdrop-filter]:bg-base-100/80 grid grid-cols-5"
 	aria-label="모바일 주요 페이지 네비게이션"
+	style:view-transition-name="mobile-navigation"
 >
 	{#each navigationItems as item (item.href)}
 		<a 

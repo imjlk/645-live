@@ -116,7 +116,7 @@ const getSortIcon = (column: TableColumn<T>): string => {
   data-testid={testId}
   {...restProps}
 >
-  <table class={tableClasses} role="table">
+  <table class={tableClasses}>
     <!-- Table header -->
     <thead>
       <tr>

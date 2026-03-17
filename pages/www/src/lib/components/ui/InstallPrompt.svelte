@@ -155,6 +155,7 @@
 				<button
 					type="button"
 					onclick={handleDismiss}
+					aria-label="설치 안내 닫기"
 					class="flex-shrink-0 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
 				>
 					<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

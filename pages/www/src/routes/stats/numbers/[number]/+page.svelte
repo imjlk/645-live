@@ -1,5 +1,6 @@
 <script lang="ts">
 import { goto } from "$app/navigation";
+import { resolveRoute } from "$app/paths";
 import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
 import LinkButton from "$lib/ui/LinkButton.svelte";
 import { JsonLd, MetaTags } from "svelte-meta-tags";
@@ -12,7 +13,11 @@ interface Props {
 let { data }: Props = $props();
 
 // 사용자 입력 상태 - Svelte 5 runes
-let inputValue = $state(String(data.selectedNumber));
+let inputValue = $state("");
+
+$effect(() => {
+	inputValue = String(data.selectedNumber);
+});
 
 // 입력값 유효성 검사
 const validateInput = (value: string): boolean => {
@@ -34,7 +39,11 @@ const navigateToNumber = async () => {
 	if (validateInput(inputStr)) {
 		const number = Number(inputStr);
 		try {
-			await goto(`/stats/numbers/${number}`);
+			await goto(
+				resolveRoute("/stats/numbers/[number]", {
+					number: String(number),
+				}),
+			);
 		} catch (error) {
 			console.error("Navigation error:", error);
 			alert("페이지 이동 중 오류가 발생했습니다.");

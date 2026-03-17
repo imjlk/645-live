@@ -4,17 +4,20 @@
 	let { data } = $props();
 
 	const siteUrl = 'https://www.645.live';
-	const postTitle = data.meta?.title || '로또 분석 기사';
-	const description = data.meta?.description || '로또 당첨 결과 분석 기사';
-	const canonicalUrl = `${siteUrl}/news/posts/${data.slug}`;
-	const imageUrl = data.meta?.thumbnail
-		? (String(data.meta.thumbnail).startsWith('http')
-			? data.meta.thumbnail
-			: `${siteUrl}${data.meta.thumbnail}`)
-		: `${siteUrl}/og/news/${data.slug}`;
-	const datePublished = data.meta?.date || undefined;
-
-	const articleJsonLd = {
+	const postTitle = $derived(data.meta?.title || '로또 분석 기사');
+	const description = $derived(
+		data.meta?.description || '로또 당첨 결과 분석 기사',
+	);
+	const canonicalUrl = $derived(`${siteUrl}/news/posts/${data.slug}`);
+	const imageUrl = $derived.by(() =>
+		data.meta?.thumbnail
+			? (String(data.meta.thumbnail).startsWith('http')
+				? data.meta.thumbnail
+				: `${siteUrl}${data.meta.thumbnail}`)
+			: `${siteUrl}/og/news/${data.slug}`,
+	);
+	const datePublished = $derived(data.meta?.date || undefined);
+	const articleJsonLd = $derived.by(() => ({
 		'@context': 'https://schema.org',
 		'@type': 'NewsArticle',
 		headline: postTitle,
@@ -23,7 +26,9 @@
 		dateModified: datePublished,
 		mainEntityOfPage: canonicalUrl,
 		image: [imageUrl],
-		keywords: Array.isArray(data.meta?.tags) ? data.meta.tags.join(', ') : undefined,
+		keywords: Array.isArray(data.meta?.tags)
+			? data.meta.tags.join(', ')
+			: undefined,
 		author: {
 			'@type': 'Organization',
 			name: data.meta?.author || '645.live'
@@ -36,7 +41,8 @@
 				url: `${siteUrl}/favicon.png`
 			}
 		}
-	};
+	}));
+	const Content = $derived(data.content);
 </script>
 
 <svelte:head>
@@ -83,12 +89,12 @@
 
 		{#if Array.isArray(data.meta?.tags) && data.meta.tags.length > 0}
 			<div class="mt-4 flex flex-wrap gap-2">
-				{#each data.meta.tags as tag}
+				{#each data.meta.tags as tag (tag)}
 					<span class="badge badge-outline">{tag}</span>
 				{/each}
 			</div>
 		{/if}
 	</header>
 
-	<svelte:component this={data.content} />
+	<Content />
 </NewsLayout>

@@ -1,0 +1,154 @@
+현재 우선순위:
+  웹 안정화 및 빌드 정리:
+    ☐ SvelteKit service worker build 경고 정리
+      ☐ `inlineDynamicImports` deprecation 대응 가능 여부 확인
+      ☐ upstream 수정 반영 또는 `patch-package` 적용 여부 결정
+    ☐ 모바일 네비게이션 / view transition 동작 재확인
+    ☐ mdsvex 전처리 normalize 래퍼 유지 여부 점검
+
+  스캔 히스토리 / 회원 연동 방향 정리:
+    ✔ 비회원 스캔 히스토리 7일 보관 정책 반영
+    ✔ 스캔 히스토리 상태 모델 초안 정리 (resultStatus, lastCheckedAt, ticketHash)
+    ☐ 로컬 우선 + 회원 동기화 가능한 구조로 재설계
+    ☐ better-auth 세션 기준 userId 주입 설계 (TrailBase auth 아님)
+    ☐ 미발표 회차 스캔의 당첨 여부 자동 재확인 플로우 설계
+
+핵심 기능 (Core Features):
+  로또 QR 스캔:
+    ✔ 스캔 결과 파싱 및 검증 로직 @done(25-07-13 10:12)
+    ✔ 로컬 스캔 히스토리 저장 및 7일 TTL 반영
+    ☐ 회원 연동 가능한 히스토리 동기화 구조 구현
+    ☐ 오프라인 스캔 지원 (PWA)
+
+  실시간 집계 / TrailBase:
+    ✔ TrailBase 실시간 구독 계층 정리
+    ✔ 로컬 TrailBase에서 스캔 카운트 실시간 반영 복구
+    ✔ 1216회차 기준 스캔 적재 로직 정리
+    ☐ 운영 환경 배포 후 재연결 / 실시간 반영 점검
+
+  당첨 결과 / 뉴스:
+    ✔ 주간 draw/store catch-up 스케줄 보강
+    ✔ 뉴스 생성 fallback 및 누락 회차(1214, 1215) 복구
+    ☐ 당첨 결과 알림 기능
+    ☐ 뉴스/회차 데이터 백필 운영 절차 정리
+
+인증 및 계정:
+  Better Auth:
+    ☐ Better Auth 기반 로그인 / 회원가입 / 로그아웃 UI
+    ☐ hono auth 라우트와 SvelteKit hooks.server.ts 연동
+    ☐ 인증 상태에 따른 헤더 / 내비게이션 UI 분기
+    ☐ MY 스캔 페이지 기본 구조 및 접근 제어
+    ☐ 비로그인 사용자 리다이렉트 처리
+
+프론트엔드:
+  폼 및 입력 UX:
+    ☐ superforms + typia 적용 범위 정리
+    ☐ login / register 폼 검증
+    ☐ 로또 번호 입력 폼 고도화
+    ☐ 실시간 폼 검증 UX
+
+  라우팅 / 페이지:
+    ☐ /login 페이지
+    ☐ /register 페이지
+    ☐ /history 페이지
+    ☐ /profile 페이지
+    ☐ /results 페이지
+
+  레이아웃 / 정보 구조:
+    메인 페이지:
+      ☐ 최근 스캔 이력 표시 강화
+      ☐ 당첨 번호 / 뉴스 / 스캔 진입 동선 정리
+
+    상단 / 하단 네비게이션:
+      ☐ 프로필 / MY 스캔 진입점 정리
+      ☐ 반응형 네비게이션 마무리
+
+    마이페이지:
+      ☐ 회원 정보 관리
+      ☐ 내가 스캔한 로또 정보
+      ☐ 당첨 이력
+      ☐ 설정 (알림, 테마 등)
+
+    Footer:
+      ☐ FAQ 페이지
+      ☐ footer 아코디언 구성
+      ☐ 이용약관 / 개인정보처리방침
+      ☐ 고객센터 연락처
+
+PWA 및 모바일:
+  PWA:
+    ✔ 앱 설치 프롬프트
+    ✔ 업데이트 프롬프트
+    ☐ 오프라인 지원 고도화
+    ☐ 푸시 알림
+
+  모바일 호환성:
+    모델별 테스트:
+      ☐ iPhone SE3 최적화
+      ☐ 갤럭시 S 시리즈
+      ☐ 저사양 안드로이드
+    브라우저별 테스트:
+      ☐ 크롬
+      ☐ 웨일
+      ☐ 사파리 (iOS 전용)
+      ☐ 인앱 브라우저 (네이버/카카오 등)
+
+백엔드 / 데이터:
+  서버 구축:
+    ☐ Hono API 서버 정리
+    ☐ 데이터베이스 스키마 설계
+    ☐ 백업 및 복구 전략 수립
+
+  보안 / 운영:
+    ☐ API 보안 (Rate limiting, CORS 등)
+    ☐ 데이터 암호화
+    ☐ TrailBase 운영 로그 / 잡 이력 기록 체계
+
+테스팅 및 품질:
+  테스트:
+    ☐ 단위 테스트
+    ☐ 통합 테스트
+    ☐ E2E 테스트 (Playwright)
+    ☐ API 테스트
+
+  품질 관리:
+    ✔ Svelte source warning 0개 유지
+    ☐ 빌드 경고 0개 목표 (`inlineDynamicImports` 포함)
+    ☐ 접근성(a11y) 회귀 점검
+
+배포 및 모니터링:
+  CI/CD:
+    ☐ GitHub Actions 워크플로우 정리
+    ☐ 자동 빌드 및 테스트
+    ☐ 스테이징 환경 배포
+    ☐ 프로덕션 배포 자동화
+
+  모니터링:
+    ☐ 에러 모니터링 (Sentry)
+    ☐ 성능 모니터링
+    ☐ 사용자 분석
+    ☐ 서버 헬스 체크
+
+연관 작업 (Related Projects):
+  Template 저장소:
+    ☐ bun-typia-monorepo 템플릿 저장소 완성
+      file:///Users/imjlk/repos/imjlk/bun-typia-monorepo/
+    ☐ appwrite-sveltekit 템플릿 만들기
+      ☐ FSD 아키텍처 구성
+      ☐ TanStack Query Svelte 적용
+      ☐ 인증 플로우 템플릿
+      ☐ 폼 검증 템플릿
+
+Archive:
+  ✔ preview에서 SSE 테스트 @done(25-06-02 15:41) @project(Daily)
+    > 아마 gzip middleware가 문제인듯?
+  ✔ add-www 브랜치 main으로 병합 @done(25-06-01 23:59) @project(Daily)
+  ✔ 기존 web앱 www로 이전 @started(25-05-30 18:53) @done(25-05-30 19:42) @lasted(49m14s) @project(Daily)
+  ✔ barqode 라이브러리 통합 완료 확인 @done(25-05-30 17:27) @project(핵심 기능 (Core Features).로또 QR 스캔)
+  ✔ barqode 라이브러리 활용 @started(25-02-23 17:42) @done(25-05-30 13:11) @lasted(13w4d19h29m48s) @project(Todo)
+  ✘ Docker swarm? @cancelled(25-05-29 21:46) @project(Todo.Coolify 서버 구축)
+  ✘ appwrite 설치 @cancelled(25-05-29 21:46) @project(Todo.Coolify 서버 구축)
+  ✔ iwinv 베어메탈 신청 @done(25-04-26 06:17) @project(Todo.Coolify 서버 구축)
+  ✘ html5-qrcode UI 수정 @cancelled(25-02-23 17:41) @project(Todo)
+  ✔ sveltekit web 기본 구성 @done(25-02-23 17:41) @project(Todo)
+  ✘ ssgoi 바탕으로 트랜지션 적용 @cancelled(25-02-18 21:10) @project(Todo)

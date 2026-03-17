@@ -534,7 +534,7 @@ const guideSection = [
 
 <style>
 /* 부드러운 스크롤 및 앵커 오프셋 */
-html {
+:global(html) {
 	scroll-behavior: smooth;
 }
 

@@ -142,13 +142,12 @@ onMount(() => {
   class={modalClasses}
   data-testid={testId}
   aria-labelledby={title ? 'modal-title' : undefined}
-  role="dialog"
   aria-modal="true"
   onkeydown={handleKeydown}
   onclick={handleBackdropClick}
   {...restProps}
 >
-  <div class={boxClasses} onclick={(e) => e.stopPropagation()}>
+  <div class={boxClasses}>
     <!-- Close button (if closable) -->
     {#if closable}
       <button

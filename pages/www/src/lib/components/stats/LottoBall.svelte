@@ -25,7 +25,7 @@ const getColorFromNumber = (num: number): string => {
 	return "grey";
 };
 
-const ballColor = color || getColorFromNumber(number);
+const ballColor = $derived(color || getColorFromNumber(number));
 
 const getColorClass = (colorName: string): string => {
 	const colorMap: Record<string, string> = {

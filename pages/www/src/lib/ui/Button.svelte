@@ -19,7 +19,9 @@ let {
 }: Props = $props();
 
 const baseClass = "btn";
-const classes = `${baseClass}${customClass ? ` ${customClass}` : ""}`;
+const classes = $derived(
+	`${baseClass}${customClass ? ` ${customClass}` : ""}`,
+);
 
 export function getButton() {
 	return button;

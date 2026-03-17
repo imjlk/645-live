@@ -1,5 +1,6 @@
 <script lang="ts">
 import { goto } from "$app/navigation";
+import { resolveRoute } from "$app/paths";
 import { page } from "$app/state";
 import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
 import LinkButton from "$lib/ui/LinkButton.svelte";
@@ -13,7 +14,11 @@ interface Props {
 let { data }: Props = $props();
 
 // 사용자 입력 상태
-let inputValue = $state(String(data.selectedRounds));
+let inputValue = $state("");
+
+$effect(() => {
+	inputValue = String(data.selectedRounds);
+});
 
 // Breadcrumbs 데이터
 const breadcrumbItems = $derived([
@@ -47,7 +52,11 @@ const navigateToAnalysis = async () => {
 	if (validateInput(inputStr)) {
 		const rounds = Number(inputStr);
 		try {
-			await goto(`/stats/unit-digit/recent/${rounds}`);
+			await goto(
+				resolveRoute("/stats/unit-digit/recent/[rounds]", {
+					rounds: String(rounds),
+				}),
+			);
 		} catch (error) {
 			console.error("Navigation error:", error);
 			alert("페이지 이동 중 오류가 발생했습니다.");

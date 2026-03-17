@@ -19,7 +19,7 @@ let {
 }: Props = $props();
 
 // Use number prop if provided, otherwise use ballNumber
-const displayNumber = number ?? ballNumber;
+const displayNumber = $derived(number ?? ballNumber);
 
 // Get ball color based on number ranges - lighter colors
 function getBallColor(num: number): string {
