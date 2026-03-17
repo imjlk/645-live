@@ -2,15 +2,15 @@
  * Mock adapter for testing purposes
  */
 
-import { BaseAdapter } from '../../src/core/BaseAdapter.js';
+import { BaseAdapter } from "../../src/core/BaseAdapter.js";
 import type {
-	SubscriptionOptions,
-	SubscriberCallback,
+	AdapterError,
+	BaseRecord,
 	QueryOptions,
 	QueryResult,
-	BaseRecord,
-	AdapterError,
-} from '../../src/types/index.js';
+	SubscriberCallback,
+	SubscriptionOptions,
+} from "../../src/types/index.js";
 
 export interface MockAdapterOptions {
 	autoConnect?: boolean;
@@ -20,11 +20,13 @@ export interface MockAdapterOptions {
 	simulateNetworkLatency?: number;
 }
 
-export class MockAdapter<T extends BaseRecord = BaseRecord> extends BaseAdapter<T> {
+export class MockAdapter<
+	T extends BaseRecord = BaseRecord,
+> extends BaseAdapter<T> {
 	private subscribers = new Map<string, SubscriberCallback<T>>();
-	private isConnected = false;
+	private connected = false;
 	private connectionPromise: Promise<void> | null = null;
-	
+
 	// Mock data storage
 	private mockData: Map<string, T[]> = new Map();
 	private nextId = 1;
@@ -44,9 +46,9 @@ export class MockAdapter<T extends BaseRecord = BaseRecord> extends BaseAdapter<
 
 		// Initialize mock data
 		if (options.mockData) {
-			Object.entries(options.mockData).forEach(([table, records]) => {
+			for (const [table, records] of Object.entries(options.mockData)) {
 				this.mockData.set(table, records as T[]);
-			});
+			}
 		}
 
 		if (options.autoConnect) {
@@ -55,7 +57,7 @@ export class MockAdapter<T extends BaseRecord = BaseRecord> extends BaseAdapter<
 	}
 
 	async connect(): Promise<void> {
-		if (this.isConnected || this.connectionPromise) {
+		if (this.connected || this.connectionPromise) {
 			return this.connectionPromise || Promise.resolve();
 		}
 
@@ -69,8 +71,8 @@ export class MockAdapter<T extends BaseRecord = BaseRecord> extends BaseAdapter<
 			setTimeout(() => {
 				if (this.options.shouldFailConnection) {
 					const error = this.createAdapterError(
-						new Error('Mock connection failed'),
-						'Mock connection failed',
+						new Error("Mock connection failed"),
+						"Mock connection failed",
 					);
 					this.updateConnectionState({
 						connecting: false,
@@ -79,7 +81,7 @@ export class MockAdapter<T extends BaseRecord = BaseRecord> extends BaseAdapter<
 					});
 					reject(error);
 				} else {
-					this.isConnected = true;
+					this.connected = true;
 					this.updateConnectionState({
 						connecting: false,
 						connected: true,
@@ -95,7 +97,7 @@ export class MockAdapter<T extends BaseRecord = BaseRecord> extends BaseAdapter<
 	}
 
 	async disconnect(): Promise<void> {
-		this.isConnected = false;
+		this.connected = false;
 		this.connectionPromise = null;
 		this.updateConnectionState({
 			connected: false,
@@ -117,14 +119,14 @@ export class MockAdapter<T extends BaseRecord = BaseRecord> extends BaseAdapter<
 
 	async findOne(table: string, id: string | number): Promise<T | null> {
 		await this.simulateDelay();
-		
+
 		const tableData = this.mockData.get(table) || [];
 		const record = tableData.find((r) => r.id === id);
-		
+
 		if (record) {
 			return { ...record } as T;
 		}
-		
+
 		return null;
 	}
 
@@ -133,42 +135,48 @@ export class MockAdapter<T extends BaseRecord = BaseRecord> extends BaseAdapter<
 		options: QueryOptions = {},
 	): Promise<QueryResult<T>> {
 		await this.simulateDelay();
-		
+
 		let tableData = [...(this.mockData.get(table) || [])];
 
 		// Apply filter
-		if (options.filter) {
+		const { filter } = options;
+		if (filter) {
 			tableData = tableData.filter((record) => {
-				return Object.entries(options.filter!).every(([key, value]) => {
-					return (record as any)[key] === value;
+				const typedRecord = record as Record<string, unknown>;
+				return Object.entries(filter).every(([key, value]) => {
+					return typedRecord[key] === value;
 				});
 			});
 		}
 
 		// Apply order
 		if (options.order) {
-			options.order.forEach((orderBy) => {
-				const desc = orderBy.startsWith('-');
+			for (const orderBy of options.order) {
+				const desc = orderBy.startsWith("-");
 				const field = desc ? orderBy.slice(1) : orderBy;
-				
+
 				tableData.sort((a, b) => {
-					const aVal = (a as any)[field];
-					const bVal = (b as any)[field];
-					
+					const typedA = a as Record<string, unknown>;
+					const typedB = b as Record<string, unknown>;
+					const aVal = typedA[field];
+					const bVal = typedB[field];
+
 					if (aVal < bVal) return desc ? 1 : -1;
 					if (aVal > bVal) return desc ? -1 : 1;
 					return 0;
 				});
-			});
+			}
 		}
 
 		// Apply pagination
 		const total = tableData.length;
 		const offset = options.offset || 0;
 		const limit = options.limit || total;
-		
-		const records = tableData.slice(offset, offset + limit).map(r => ({ ...r })) as T[];
-		
+
+		const records = tableData
+			.slice(offset, offset + limit)
+			.map((r) => ({ ...r })) as T[];
+
 		return {
 			records,
 			total,
@@ -178,7 +186,7 @@ export class MockAdapter<T extends BaseRecord = BaseRecord> extends BaseAdapter<
 
 	async create(table: string, data: Partial<T>): Promise<T> {
 		await this.simulateDelay();
-		
+
 		const newRecord = {
 			...data,
 			id: this.nextId++,
@@ -196,16 +204,20 @@ export class MockAdapter<T extends BaseRecord = BaseRecord> extends BaseAdapter<
 		return { ...newRecord };
 	}
 
-	async update(table: string, id: string | number, data: Partial<T>): Promise<T> {
+	async update(
+		table: string,
+		id: string | number,
+		data: Partial<T>,
+	): Promise<T> {
 		await this.simulateDelay();
-		
+
 		const tableData = this.mockData.get(table) || [];
 		const index = tableData.findIndex((r) => r.id === id);
-		
+
 		if (index === -1) {
 			throw this.createAdapterError(
-				new Error('Record not found'),
-				'Record not found',
+				new Error("Record not found"),
+				"Record not found",
 			);
 		}
 
@@ -227,14 +239,14 @@ export class MockAdapter<T extends BaseRecord = BaseRecord> extends BaseAdapter<
 
 	async delete(table: string, id: string | number): Promise<void> {
 		await this.simulateDelay();
-		
+
 		const tableData = this.mockData.get(table) || [];
 		const index = tableData.findIndex((r) => r.id === id);
-		
+
 		if (index === -1) {
 			throw this.createAdapterError(
-				new Error('Record not found'),
-				'Record not found',
+				new Error("Record not found"),
+				"Record not found",
 			);
 		}
 
@@ -249,10 +261,10 @@ export class MockAdapter<T extends BaseRecord = BaseRecord> extends BaseAdapter<
 
 	async simulateConnectionError(): Promise<void> {
 		const error = this.createAdapterError(
-			new Error('Simulated connection error'),
-			'Simulated connection error',
+			new Error("Simulated connection error"),
+			"Simulated connection error",
 		);
-		
+
 		this.updateConnectionState({
 			connected: false,
 			connecting: false,
@@ -274,8 +286,8 @@ export class MockAdapter<T extends BaseRecord = BaseRecord> extends BaseAdapter<
 
 	private async simulateDelay(): Promise<void> {
 		if (this.options.simulateNetworkLatency) {
-			await new Promise((resolve) => 
-				setTimeout(resolve, this.options.simulateNetworkLatency)
+			await new Promise((resolve) =>
+				setTimeout(resolve, this.options.simulateNetworkLatency),
 			);
 		}
 	}
@@ -285,7 +297,7 @@ export class MockAdapter<T extends BaseRecord = BaseRecord> extends BaseAdapter<
 			try {
 				callback(record);
 			} catch (err) {
-				console.warn('Mock subscriber callback error:', err);
+				console.warn("Mock subscriber callback error:", err);
 			}
 		}
 	}

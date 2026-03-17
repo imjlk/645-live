@@ -372,9 +372,9 @@ const getColorClass = (color: string | undefined) => {
 	<!-- 하단 네비게이션 -->
 	<div class="mt-8 text-center space-y-4">
 		<div class="flex flex-wrap justify-center gap-4">
-				<a href={resolveRoute("/stats/numbers", {})} class="btn btn-outline btn-primary">전체 번호 통계</a>
-				<a href={resolveRoute("/generator", {})} class="btn btn-outline btn-secondary">번호 생성기</a>
-				<a href={resolveRoute("/", {})} class="btn btn-outline">홈으로</a>
+				<a href={resolveRoute("/stats/numbers")} class="btn btn-outline btn-primary">전체 번호 통계</a>
+				<a href={resolveRoute("/generator")} class="btn btn-outline btn-secondary">번호 생성기</a>
+				<a href={resolveRoute("/")} class="btn btn-outline">홈으로</a>
 		</div>
 		<div class="flex justify-center gap-2">
 			{#if ballNumber > 1}

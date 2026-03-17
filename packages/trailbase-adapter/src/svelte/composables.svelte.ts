@@ -3,7 +3,6 @@
  * Provides reactive state management with proper lifecycle handling
  */
 
-import { untrack } from "svelte";
 import type {
 	AdapterError,
 	BaseRecord,
@@ -242,8 +241,6 @@ export function useRealtimeSubscription<T extends BaseRecord = BaseRecord>(
 	const { table, filter, onUpdate, onConnectionChange } = options;
 
 	const subscribe = (): (() => void) => {
-		const subscriberId = `subscription-${Date.now()}-${Math.random()}`;
-
 		// Subscribe to data updates
 		const unsubscribeData = adapter.subscribe({ table, filter }, (data) => {
 			latestUpdate = data;
@@ -290,7 +287,7 @@ export function useRealtimeSubscription<T extends BaseRecord = BaseRecord>(
 	};
 }
 
-interface UseCachedDataOptions<T extends BaseRecord = BaseRecord> {
+interface UseCachedDataOptions {
 	table: string;
 	id?: string | number;
 	refreshInterval?: number;
@@ -313,7 +310,7 @@ interface UseCachedDataReturn<T extends BaseRecord = BaseRecord> {
  */
 export function useCachedData<T extends BaseRecord = BaseRecord>(
 	adapter: RealtimeAdapter<T>,
-	options: UseCachedDataOptions<T>,
+	options: UseCachedDataOptions,
 ): UseCachedDataReturn<T> {
 	let data = $state<T | T[] | null>(null);
 	let loading = $state(false);
@@ -330,7 +327,7 @@ export function useCachedData<T extends BaseRecord = BaseRecord>(
 
 	let refreshTimeoutId: number | null = null;
 
-	const isStale = $derived(() => {
+	const isStale = $derived.by(() => {
 		if (!lastFetched) return true;
 		return Date.now() - lastFetched.getTime() > staleTime;
 	});
@@ -385,15 +382,6 @@ export function useCachedData<T extends BaseRecord = BaseRecord>(
 	refetch().then(() => {
 		scheduleRefresh();
 	});
-
-	// Cleanup on destroy
-	const cleanup = () => {
-		if (refreshTimeoutId) {
-			clearTimeout(refreshTimeoutId);
-		}
-	};
-
-	// Note: In a real Svelte component, you'd use onDestroy(cleanup)
 
 	return {
 		get data() {

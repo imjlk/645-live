@@ -23,9 +23,14 @@ export interface LayoutStyles {
 	title: {
 		fontSize: string;
 		marginBottom: string;
+		lineHeight?: string;
+		fontWeight?: string;
+		letterSpacing?: string;
 	};
 	description: {
 		fontSize: string;
+		lineHeight?: string;
+		opacity?: string;
 	};
 }
 

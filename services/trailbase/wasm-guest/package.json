@@ -1,24 +1,24 @@
 {
-  "name": "trailbase-645live-wasm-guest",
-  "private": true,
-  "version": "0.1.0",
-  "type": "module",
-  "scripts": {
-    "build:bundle": "vite build",
-    "build:wasm": "jco componentize dist/index.js -w node_modules/trailbase-wasm/wit -o dist/component.wasm",
-    "deploy:wasm": "mkdir -p ../traildepot/wasm && cp dist/component.wasm ../traildepot/wasm/component.wasm",
-    "build": "npm run build:bundle && npm run build:wasm && npm run deploy:wasm",
-    "dev": "node --experimental-strip-types hot-reload.ts --watch-path src --depot ../traildepot --port 4000"
-  },
-  "dependencies": {
-    "trailbase-wasm": "0.5.0"
-  },
-  "devDependencies": {
-    "@bytecodealliance/jco": "^1.17.0",
-    "@types/node": "^25.2.3",
-    "commander": "^14.0.3",
-    "nano-spawn": "^2.0.0",
-    "typescript": "^5.9.3",
-    "vite": "^7.3.1"
-  }
+	"name": "trailbase-645live-wasm-guest",
+	"private": true,
+	"version": "0.1.0",
+	"type": "module",
+	"scripts": {
+		"build:bundle": "vite build",
+		"build:wasm": "jco componentize dist/index.js -w node_modules/trailbase-wasm/wit -o dist/component.wasm",
+		"deploy:wasm": "mkdir -p ../traildepot/wasm && cp dist/component.wasm ../traildepot/wasm/component.wasm",
+		"build": "npm run build:bundle && npm run build:wasm && npm run deploy:wasm",
+		"dev": "node --experimental-strip-types hot-reload.ts --watch-path src --depot ../traildepot --port 4000"
+	},
+	"dependencies": {
+		"trailbase-wasm": "0.5.1"
+	},
+	"devDependencies": {
+		"@bytecodealliance/jco": "^1.17.0",
+		"@types/node": "^25.5.0",
+		"commander": "^14.0.3",
+		"nano-spawn": "^2.0.0",
+		"typescript": "^5.9.3",
+		"vite": "^7.3.1"
+	}
 }

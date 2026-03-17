@@ -17,14 +17,14 @@
 		"@types/bun": "latest"
 	},
 	"peerDependencies": {
-		"typescript": "^5.8.3"
+		"typescript": "^5.9.3"
 	},
 	"workspaces": {
 		"packages": ["pages/*", "workers/*", "packages/*"],
 		"catalog": {
-			"vite": "^6.3.5",
-			"wrangler": "^4.25.0",
-			"hono": "^4.8.5"
+			"vite": "^6.4.1",
+			"wrangler": "^4.74.0",
+			"hono": "^4.12.8"
 		}
 	}
 }

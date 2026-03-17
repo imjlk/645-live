@@ -15,7 +15,7 @@ const config = {
 			register: process.env.NODE_ENV === "production",
 		},
 		csrf: {
-			checkOrigin: false,
+			trustedOrigins: ["*"],
 		},
 	},
 	extensions: [".svelte", ".svx", ".mdx"],

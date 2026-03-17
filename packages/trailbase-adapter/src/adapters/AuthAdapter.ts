@@ -10,13 +10,38 @@ import type {
 	User,
 } from "../types/index.js";
 
+interface TrailBaseAuthUser extends Record<string, unknown> {
+	id: string;
+	email: string;
+	created_at: string;
+	updated_at: string;
+	user_metadata?: Record<string, unknown>;
+	app_metadata?: Record<string, unknown>;
+}
+
+interface TrailBaseSessionResponse {
+	user?: TrailBaseAuthUser;
+	access_token?: string;
+	refresh_token?: string;
+}
+
 interface TrailBaseClient {
 	auth: {
-		signInWithPassword(credentials: { email: string; password: string }): Promise<unknown>;
+		signInWithPassword(credentials: {
+			email: string;
+			password: string;
+		}): Promise<TrailBaseSessionResponse>;
 		signOut(): Promise<void>;
-		signUp(data: { email: string; password: string; options?: { data?: Record<string, unknown> } }): Promise<unknown>;
-		getUser(): Promise<{ user?: unknown }>;
-		refreshSession(): Promise<{ access_token?: string; refresh_token?: string }>;
+		signUp(data: {
+			email: string;
+			password: string;
+			options?: { data?: Record<string, unknown> };
+		}): Promise<TrailBaseSessionResponse>;
+		getUser(): Promise<{ user?: TrailBaseAuthUser }>;
+		refreshSession(): Promise<{
+			access_token?: string;
+			refresh_token?: string;
+		}>;
 	};
 }
 
@@ -40,6 +65,10 @@ export class TrailBaseAuthAdapter implements AuthAdapter {
 				email,
 				password,
 			});
+
+			if (!response.user || !response.access_token) {
+				throw new Error("TrailBase login response is missing user or token");
+			}
 
 			const authResult: AuthResult = {
 				user: this.mapUser(response.user),
@@ -87,6 +116,12 @@ export class TrailBaseAuthAdapter implements AuthAdapter {
 					},
 				},
 			});
+
+			if (!response.user || !response.access_token) {
+				throw new Error(
+					"TrailBase registration response is missing user or token",
+				);
+			}
 
 			const authResult: AuthResult = {
 				user: this.mapUser(response.user),
@@ -168,8 +203,12 @@ export class TrailBaseAuthAdapter implements AuthAdapter {
 
 	// Private helper methods
 	private mapUser(userData: Record<string, unknown>): User {
-		const userMetadata = userData.user_metadata as Record<string, unknown> | undefined;
-		const appMetadata = userData.app_metadata as Record<string, unknown> | undefined;
+		const userMetadata = userData.user_metadata as
+			| Record<string, unknown>
+			| undefined;
+		const appMetadata = userData.app_metadata as
+			| Record<string, unknown>
+			| undefined;
 		const email = userData.email as string;
 
 		return {
@@ -239,7 +278,8 @@ export class TrailBaseAuthAdapter implements AuthAdapter {
 
 		if (error && typeof error === "object") {
 			const err = error as Record<string, unknown>;
-			authError.status = (err.status as number) || (err.statusCode as number) || 500;
+			authError.status =
+				(err.status as number) || (err.statusCode as number) || 500;
 			authError.code = (err.code as string) || "AUTH_ERROR";
 
 			if (err.message) {

@@ -32,7 +32,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 		const auth = createAuth(event.locals.db);
 		event.locals.auth = auth;
 
-		return await svelteKitHandler({ event, resolve, auth });
+		return await svelteKitHandler({ event, resolve, auth, building });
 	} catch (error) {
 		console.error("Database connection failed:", error);
 		// 개발 환경에서는 에러를 던지지 않고 계속 진행

@@ -2,33 +2,62 @@
  * TrailBase specific adapter implementation
  */
 
-import { BaseAdapter } from '../core/BaseAdapter.js';
-import { TrailBaseAuthAdapter } from './AuthAdapter.js';
-import { TrailBaseRecordUtilities } from './RecordUtilities.js';
-import { TrailBaseCacheUtilities } from './CacheUtilities.js';
+import { BaseAdapter } from "../core/BaseAdapter.js";
 import type {
 	AdapterConfig,
-	SubscriptionOptions,
-	SubscriberCallback,
+	AuthAdapter,
+	BaseRecord,
+	CacheUtilities,
 	QueryOptions,
 	QueryResult,
-	StreamEvent,
-	BaseRecord,
-	AuthAdapter,
 	RecordUtilities,
-	CacheUtilities,
-} from '../types/index.js';
+	SubscriberCallback,
+	SubscriptionOptions,
+} from "../types/index.js";
+import { TrailBaseAuthAdapter } from "./AuthAdapter.js";
+import { TrailBaseCacheUtilities } from "./CacheUtilities.js";
+import { TrailBaseRecordUtilities } from "./RecordUtilities.js";
 
 // TrailBase specific types
 interface TrailBaseEvent {
 	Update?: unknown;
 	Insert?: unknown;
 	Delete?: unknown;
+	Error?: string;
 }
 
-export class TrailBaseAdapter<T extends BaseRecord = BaseRecord> extends BaseAdapter<T> {
-	private client: any = null;
-	private api: any = null;
+interface TrailBaseListResult<T extends BaseRecord> {
+	records?: T[];
+	total?: number;
+	has_more?: boolean;
+}
+
+interface TrailBaseRecordApi<T extends BaseRecord> {
+	tableName?: string;
+	subscribe(channel: string): Promise<ReadableStream<TrailBaseEvent>>;
+	read(id: string): Promise<T | null>;
+	list(params: {
+		order?: string[];
+		pagination?: {
+			limit?: number;
+			offset?: number;
+		};
+		filter?: Record<string, unknown>;
+	}): Promise<TrailBaseListResult<T>>;
+	create(data: Partial<T>): Promise<T>;
+	update(id: string, data: Partial<T>): Promise<T>;
+	delete(id: string): Promise<void>;
+}
+
+interface TrailBaseClient<T extends BaseRecord> {
+	records(table: string): TrailBaseRecordApi<T>;
+}
+
+export class TrailBaseAdapter<
+	T extends BaseRecord = BaseRecord,
+> extends BaseAdapter<T> {
+	private client: TrailBaseClient<T> | null = null;
+	private api: TrailBaseRecordApi<T> | null = null;
 	private stream: ReadableStream<TrailBaseEvent> | null = null;
 	private reader: ReadableStreamDefaultReader<TrailBaseEvent> | null = null;
 	private subscribers = new Map<string, SubscriberCallback<T>>();
@@ -63,17 +92,24 @@ export class TrailBaseAdapter<T extends BaseRecord = BaseRecord> extends BaseAda
 
 		try {
 			// Dynamic import to avoid SSR issues
-			const { initClient } = await import('trailbase');
-			
-			this.client = initClient(this.config.url);
+			const { initClient } = await import("trailbase");
+			const client = initClient(
+				this.config.url,
+			) as unknown as TrailBaseClient<T>;
+
+			this.client = client;
 			this.isInitialized = true;
 
 			// Initialize utility adapters
-			this.auth = new TrailBaseAuthAdapter(this.client);
-			this.records = new TrailBaseRecordUtilities<T>(this.client);
+			this.auth = new TrailBaseAuthAdapter(
+				client as unknown as ConstructorParameters<
+					typeof TrailBaseAuthAdapter
+				>[0],
+			);
+			this.records = new TrailBaseRecordUtilities<T>(client);
 			this.cacheUtils = new TrailBaseCacheUtilities(
-				this.client, 
-				this.config.cache?.ttl || 5 * 60 * 1000 // 5 minutes default
+				client,
+				this.config.cache?.ttl || 5 * 60 * 1000, // 5 minutes default
 			);
 
 			this.updateConnectionState({
@@ -89,11 +125,11 @@ export class TrailBaseAdapter<T extends BaseRecord = BaseRecord> extends BaseAda
 				await this.startStream();
 			}
 		} catch (error) {
-			console.error('❌ Failed to initialize TrailBase client:', error);
+			console.error("❌ Failed to initialize TrailBase client:", error);
 
 			const adapterError = this.createAdapterError(
 				error,
-				'Failed to initialize TrailBase client',
+				"Failed to initialize TrailBase client",
 			);
 
 			this.updateConnectionState({
@@ -119,7 +155,7 @@ export class TrailBaseAdapter<T extends BaseRecord = BaseRecord> extends BaseAda
 			try {
 				await this.reader.cancel();
 			} catch (err) {
-				console.warn('Reader cancellation error:', err);
+				console.warn("Reader cancellation error:", err);
 			}
 			this.reader = null;
 		}
@@ -134,9 +170,16 @@ export class TrailBaseAdapter<T extends BaseRecord = BaseRecord> extends BaseAda
 		const subscriberId = `${options.table}-${Date.now()}-${Math.random()}`;
 		this.subscribers.set(subscriberId, callback);
 
+		const client = this.client;
+		if (!client) {
+			return () => {
+				this.subscribers.delete(subscriberId);
+			};
+		}
+
 		// Ensure we have API instance for the table
 		if (!this.api || this.api.tableName !== options.table) {
-			this.api = this.client?.records(options.table);
+			this.api = client.records(options.table);
 		}
 
 		// Start stream if this is the first subscriber and we're connected
@@ -146,7 +189,7 @@ export class TrailBaseAdapter<T extends BaseRecord = BaseRecord> extends BaseAda
 			!this.connectionState.connected
 		) {
 			this.startStream().catch((error) => {
-				console.error('Failed to start stream:', error);
+				console.error("Failed to start stream:", error);
 			});
 		}
 
@@ -156,7 +199,7 @@ export class TrailBaseAdapter<T extends BaseRecord = BaseRecord> extends BaseAda
 			// Stop stream if no subscribers left
 			if (this.subscribers.size === 0) {
 				this.disconnect().catch((error) => {
-					console.error('Failed to disconnect:', error);
+					console.error("Failed to disconnect:", error);
 				});
 			}
 		};
@@ -174,7 +217,7 @@ export class TrailBaseAdapter<T extends BaseRecord = BaseRecord> extends BaseAda
 		this.updateConnectionState({ connecting: true, error: null });
 
 		try {
-			this.stream = await this.api.subscribe('*');
+			this.stream = await this.api.subscribe("*");
 
 			if (this.stream) {
 				this.reader = this.stream.getReader();
@@ -188,11 +231,11 @@ export class TrailBaseAdapter<T extends BaseRecord = BaseRecord> extends BaseAda
 				this.readStreamData();
 			}
 		} catch (error) {
-			console.error('❌ TrailBase stream connection failed:', error);
+			console.error("❌ TrailBase stream connection failed:", error);
 
 			const adapterError = this.createAdapterError(
 				error,
-				'Stream connection failed',
+				"Stream connection failed",
 			);
 
 			this.updateConnectionState({
@@ -216,7 +259,7 @@ export class TrailBaseAdapter<T extends BaseRecord = BaseRecord> extends BaseAda
 					break;
 				}
 
-				if (value && 'Update' in value) {
+				if (value && "Update" in value) {
 					const data = value.Update as T;
 
 					// Notify all subscribers
@@ -224,16 +267,13 @@ export class TrailBaseAdapter<T extends BaseRecord = BaseRecord> extends BaseAda
 						try {
 							callback(data);
 						} catch (err) {
-							console.warn('Subscriber callback error:', err);
+							console.warn("Subscriber callback error:", err);
 						}
 					}
 				}
 			}
 		} catch (error) {
-			const adapterError = this.createAdapterError(
-				error,
-				'Stream read error',
-			);
+			const adapterError = this.createAdapterError(error, "Stream read error");
 
 			this.updateConnectionState({
 				connected: false,
@@ -256,7 +296,7 @@ export class TrailBaseAdapter<T extends BaseRecord = BaseRecord> extends BaseAda
 
 		try {
 			if (!this.client) {
-				throw new Error('TrailBase client not initialized');
+				throw new Error("TrailBase client not initialized");
 			}
 
 			const api = this.client.records(table);
@@ -273,13 +313,16 @@ export class TrailBaseAdapter<T extends BaseRecord = BaseRecord> extends BaseAda
 			const err = error as { status?: number; message?: string };
 			if (
 				err.status === 404 ||
-				err.message?.includes('404') ||
-				err.message?.includes('Not Found')
+				err.message?.includes("404") ||
+				err.message?.includes("Not Found")
 			) {
 				return null;
 			}
 
-			throw this.createAdapterError(error, `Failed to find record ${id} in ${table}`);
+			throw this.createAdapterError(
+				error,
+				`Failed to find record ${id} in ${table}`,
+			);
 		}
 	}
 
@@ -295,11 +338,11 @@ export class TrailBaseAdapter<T extends BaseRecord = BaseRecord> extends BaseAda
 
 		try {
 			if (!this.client) {
-				throw new Error('TrailBase client not initialized');
+				throw new Error("TrailBase client not initialized");
 			}
 
 			const api = this.client.records(table);
-			const queryParams: any = {};
+			const queryParams: Parameters<TrailBaseRecordApi<T>["list"]>[0] = {};
 
 			if (options.order) {
 				queryParams.order = options.order;
@@ -315,7 +358,7 @@ export class TrailBaseAdapter<T extends BaseRecord = BaseRecord> extends BaseAda
 			}
 
 			const response = await api.list(queryParams);
-			
+
 			const result: QueryResult<T> = {
 				records: (response.records || []) as T[],
 				total: response.total,
@@ -334,7 +377,7 @@ export class TrailBaseAdapter<T extends BaseRecord = BaseRecord> extends BaseAda
 
 		try {
 			if (!this.client) {
-				throw new Error('TrailBase client not initialized');
+				throw new Error("TrailBase client not initialized");
 			}
 
 			const api = this.client.records(table);
@@ -345,16 +388,23 @@ export class TrailBaseAdapter<T extends BaseRecord = BaseRecord> extends BaseAda
 
 			return result as T;
 		} catch (error) {
-			throw this.createAdapterError(error, `Failed to create record in ${table}`);
+			throw this.createAdapterError(
+				error,
+				`Failed to create record in ${table}`,
+			);
 		}
 	}
 
-	async update(table: string, id: string | number, data: Partial<T>): Promise<T> {
+	async update(
+		table: string,
+		id: string | number,
+		data: Partial<T>,
+	): Promise<T> {
 		await this.ensureInitialized();
 
 		try {
 			if (!this.client) {
-				throw new Error('TrailBase client not initialized');
+				throw new Error("TrailBase client not initialized");
 			}
 
 			const api = this.client.records(table);
@@ -366,7 +416,10 @@ export class TrailBaseAdapter<T extends BaseRecord = BaseRecord> extends BaseAda
 
 			return result as T;
 		} catch (error) {
-			throw this.createAdapterError(error, `Failed to update record ${id} in ${table}`);
+			throw this.createAdapterError(
+				error,
+				`Failed to update record ${id} in ${table}`,
+			);
 		}
 	}
 
@@ -375,7 +428,7 @@ export class TrailBaseAdapter<T extends BaseRecord = BaseRecord> extends BaseAda
 
 		try {
 			if (!this.client) {
-				throw new Error('TrailBase client not initialized');
+				throw new Error("TrailBase client not initialized");
 			}
 
 			const api = this.client.records(table);
@@ -385,7 +438,10 @@ export class TrailBaseAdapter<T extends BaseRecord = BaseRecord> extends BaseAda
 			this.cache.delete(`${table}:${id}`);
 			this.invalidateTableCache(table);
 		} catch (error) {
-			throw this.createAdapterError(error, `Failed to delete record ${id} from ${table}`);
+			throw this.createAdapterError(
+				error,
+				`Failed to delete record ${id} from ${table}`,
+			);
 		}
 	}
 
@@ -407,7 +463,7 @@ export class TrailBaseAdapter<T extends BaseRecord = BaseRecord> extends BaseAda
 		if (this.cacheUtils) {
 			this.cacheUtils.invalidateTable(table);
 		}
-		
+
 		// Also invalidate BaseAdapter cache
 		for (const key of this.cache.keys()) {
 			if (key.startsWith(`${table}:list:`)) {
@@ -427,9 +483,8 @@ export class TrailBaseAdapter<T extends BaseRecord = BaseRecord> extends BaseAda
 	// Add convenience method for latest data (specific to lotto use case)
 	async getLatest(table: string): Promise<T | null> {
 		return this.findMany(table, {
-			order: ['-updated_at'],
+			order: ["-updated_at"],
 			limit: 1,
 		}).then((result) => result.records[0] || null);
 	}
-
 }
