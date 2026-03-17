@@ -284,7 +284,9 @@ class AdvancedMemoCache<T> {
 					}
 				}
 
-				keysToRemove.forEach((key) => storage.removeItem(key));
+				for (const key of keysToRemove) {
+					storage.removeItem(key);
+				}
 			} catch (error) {
 				this.log("Failed to clear storage:", error);
 			}
@@ -519,7 +521,7 @@ export function useStatsMemo<TArgs extends readonly unknown[], TReturn>(
 
 		const currentDeps = JSON.stringify(dependencies);
 		const prevDeps = lastDeps ? JSON.stringify(lastDeps) : null;
-		
+
 		if (!lastDeps || currentDeps !== prevDeps) {
 			// 계산 중 플래그로 재귀 호출 방지
 			if (!isCalculating) {

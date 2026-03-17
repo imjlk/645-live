@@ -6,21 +6,25 @@
 	"scripts": {
 		"www": "bun --cwd pages/www --",
 		"og": "bun --cwd workers/og-645-live --",
-		"format": "biome check --write .",
-		"lint": "biome lint .",
+		"format": "biome check --write package.json biome.json && biome check --write pages && biome check --write workers && biome check --write packages && biome check --write scripts",
+		"lint": "biome lint package.json biome.json && biome lint pages && biome lint workers && biome lint packages && biome lint scripts",
 		"clean": "find . \\( -name 'node_modules' -o -name '.svelte-kit' \\) -type d -exec rm -rf {} + && rm -rf bun.lockb",
 		"trail": "docker run --pull=always --network host --mount type=bind,source=$PWD/services/trailbase/traildepot,target=/app/traildepot trailbase/trailbase:latest /app/trail",
 		"news:generate": "node scripts/news/generate-news-content.mjs"
 	},
 	"devDependencies": {
-		"@biomejs/biome": "1.9.4",
+		"@biomejs/biome": "2.4.7",
 		"@types/bun": "latest"
 	},
 	"peerDependencies": {
 		"typescript": "^5.9.3"
 	},
 	"workspaces": {
-		"packages": ["pages/*", "workers/*", "packages/*"],
+		"packages": [
+			"pages/*",
+			"workers/*",
+			"packages/*"
+		],
 		"catalog": {
 			"vite": "^6.4.1",
 			"wrangler": "^4.74.0",
