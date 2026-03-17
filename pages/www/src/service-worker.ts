@@ -5,7 +5,7 @@
 
 // Service Worker types
 interface ExtendableEvent extends Event {
-	waitUntil(fn: Promise<any>): void;
+	waitUntil(fn: Promise<unknown>): void;
 }
 
 interface FetchEvent extends Event {
@@ -35,7 +35,7 @@ const CACHE_STRATEGIES = {
 		"/app.css",
 		"/manifest.json",
 	],
-	
+
 	// Main page - needs fresh data for real-time updates
 	MAIN_PAGE: ["/"],
 
@@ -62,6 +62,30 @@ interface CacheConfig {
 	networkTimeoutSeconds?: number;
 }
 
+interface PendingPreference {
+	id: string;
+	[key: string]: unknown;
+}
+
+function shouldBypassCaching(request: Request): boolean {
+	const url = new URL(request.url);
+	const accept = request.headers.get("accept") ?? "";
+
+	if (url.origin !== self.location.origin) {
+		return true;
+	}
+
+	if (accept.includes("text/event-stream")) {
+		return true;
+	}
+
+	return (
+		url.pathname.startsWith("/api/records/v1/") ||
+		url.pathname.startsWith("/api/auth/v1/") ||
+		url.pathname.startsWith("/connection/")
+	);
+}
+
 // ============= Caching Strategies =============
 
 async function cacheFirst(
@@ -72,7 +96,7 @@ async function cacheFirst(
 	const cached = await cache.match(request);
 
 	if (cached && !isExpired(cached, config.maxAge)) {
-			return cached;
+		return cached;
 	}
 
 	try {
@@ -138,7 +162,7 @@ async function staleWhileRevalidate(
 		});
 
 	if (cached && !isExpired(cached, config.maxAge)) {
-			return cached;
+		return cached;
 	}
 
 	// If no cache or expired, wait for network
@@ -343,6 +367,10 @@ function getRouteConfig(url: string): CacheConfig {
 }
 
 async function handleRequest(request: Request): Promise<Response> {
+	if (shouldBypassCaching(request)) {
+		return fetch(request);
+	}
+
 	const config = getRouteConfig(request.url);
 
 	switch (config.strategy) {
@@ -364,7 +392,7 @@ async function cleanupOldCaches(): Promise<void> {
 	const currentCaches = Object.values(CACHE_NAMES);
 
 	const deletePromises = cacheNames
-		.filter((name) => !currentCaches.includes(name as any))
+		.filter((name) => !currentCaches.some((cacheName) => cacheName === name))
 		.map((name) => caches.delete(name));
 
 	await Promise.all(deletePromises);
@@ -381,13 +409,12 @@ async function limitCacheSize(
 	if (requests.length > maxEntries) {
 		const entriesToDelete = requests.slice(0, requests.length - maxEntries);
 		await Promise.all(entriesToDelete.map((request) => cache.delete(request)));
-		}
+	}
 }
 
 // ============= Event Listeners =============
 
 self.addEventListener("install", (event: ExtendableEvent) => {
-
 	event.waitUntil(
 		Promise.all([
 			// Pre-cache critical resources with error handling
@@ -396,7 +423,10 @@ self.addEventListener("install", (event: ExtendableEvent) => {
 				.then((cache) => {
 					const urlsToCache = ["/", "/manifest.json"];
 					return cache.addAll(urlsToCache).catch((error) => {
-						console.warn("Failed to cache some resources during install:", error);
+						console.warn(
+							"Failed to cache some resources during install:",
+							error,
+						);
 						// Continue installation even if caching fails
 						return Promise.resolve();
 					});
@@ -408,7 +438,6 @@ self.addEventListener("install", (event: ExtendableEvent) => {
 });
 
 self.addEventListener("activate", (event: ExtendableEvent) => {
-
 	event.waitUntil(Promise.all([cleanupOldCaches(), self.clients.claim()]));
 });
 
@@ -424,7 +453,6 @@ self.addEventListener("fetch", (event: FetchEvent) => {
 
 // Background sync for offline actions
 self.addEventListener("sync", (event) => {
-
 	if (event.tag === "background-sync-lotto-data") {
 		event.waitUntil(syncLottoData());
 	} else if (event.tag === "background-sync-statistics") {
@@ -437,25 +465,23 @@ self.addEventListener("sync", (event) => {
 // 로또 데이터 백그라운드 동기화
 async function syncLottoData(): Promise<void> {
 	try {
-			
 		// 최신 추첨 결과 가져오기
 		const response = await fetch("/api/latest-draw");
 		if (response.ok) {
 			const latestData = await response.json();
-			
+
 			// 캐시 업데이트
 			const cache = await caches.open(CACHE_NAMES.api);
 			await cache.put("/api/latest-draw", response.clone());
-			
+
 			// 클라이언트에게 업데이트 알림
 			const clients = await self.clients.matchAll();
-			clients.forEach(client => {
+			for (const client of clients) {
 				client.postMessage({
 					type: "LOTTO_DATA_UPDATED",
-					data: latestData
+					data: latestData,
 				});
-			});
-			
+			}
 		}
 	} catch (error) {
 		console.error("❌ Background sync failed for lotto data:", error);
@@ -466,10 +492,13 @@ async function syncLottoData(): Promise<void> {
 // 통계 데이터 백그라운드 동기화
 async function syncStatistics(): Promise<void> {
 	try {
-		
-		const endpoints = ["/api/stats/frequency", "/api/stats/patterns", "/api/stats/trends"];
+		const endpoints = [
+			"/api/stats/frequency",
+			"/api/stats/patterns",
+			"/api/stats/trends",
+		];
 		const cache = await caches.open(CACHE_NAMES.api);
-		
+
 		for (const endpoint of endpoints) {
 			try {
 				const response = await fetch(endpoint);
@@ -480,7 +509,6 @@ async function syncStatistics(): Promise<void> {
 				console.warn(`Failed to sync ${endpoint}:`, error);
 			}
 		}
-		
 	} catch (error) {
 		console.error("❌ Background sync failed for statistics:", error);
 		throw error;
@@ -491,19 +519,19 @@ async function syncStatistics(): Promise<void> {
 async function syncUserPreferences(): Promise<void> {
 	try {
 		console.log("⚙️ Syncing user preferences in background");
-		
+
 		// IndexedDB에서 오프라인 중 변경된 설정 가져오기
 		const pendingPreferences = await getPendingPreferences();
-		
+
 		if (pendingPreferences.length > 0) {
 			for (const pref of pendingPreferences) {
 				try {
 					const response = await fetch("/api/user/preferences", {
 						method: "POST",
 						headers: { "Content-Type": "application/json" },
-						body: JSON.stringify(pref)
+						body: JSON.stringify(pref),
 					});
-					
+
 					if (response.ok) {
 						await removePendingPreference(pref.id);
 					}
@@ -512,7 +540,6 @@ async function syncUserPreferences(): Promise<void> {
 				}
 			}
 		}
-		
 	} catch (error) {
 		console.error("❌ Background sync failed for user preferences:", error);
 		throw error;
@@ -520,10 +547,10 @@ async function syncUserPreferences(): Promise<void> {
 }
 
 // IndexedDB 헬퍼 함수들
-async function getPendingPreferences(): Promise<any[]> {
+async function getPendingPreferences(): Promise<PendingPreference[]> {
 	return new Promise((resolve, reject) => {
 		const request = indexedDB.open("645-live-offline", 1);
-		
+
 		request.onerror = () => reject(request.error);
 		request.onsuccess = () => {
 			const db = request.result;
@@ -531,15 +558,15 @@ async function getPendingPreferences(): Promise<any[]> {
 				resolve([]);
 				return;
 			}
-			
+
 			const transaction = db.transaction("pendingPreferences", "readonly");
 			const store = transaction.objectStore("pendingPreferences");
 			const getAllRequest = store.getAll();
-			
+
 			getAllRequest.onsuccess = () => resolve(getAllRequest.result);
 			getAllRequest.onerror = () => reject(getAllRequest.error);
 		};
-		
+
 		request.onupgradeneeded = (event) => {
 			const db = (event.target as IDBOpenDBRequest).result;
 			if (!db.objectStoreNames.contains("pendingPreferences")) {
@@ -552,13 +579,13 @@ async function getPendingPreferences(): Promise<any[]> {
 async function removePendingPreference(id: string): Promise<void> {
 	return new Promise((resolve, reject) => {
 		const request = indexedDB.open("645-live-offline", 1);
-		
+
 		request.onsuccess = () => {
 			const db = request.result;
 			const transaction = db.transaction("pendingPreferences", "readwrite");
 			const store = transaction.objectStore("pendingPreferences");
 			const deleteRequest = store.delete(id);
-			
+
 			deleteRequest.onsuccess = () => resolve();
 			deleteRequest.onerror = () => reject(deleteRequest.error);
 		};
@@ -578,7 +605,10 @@ self.addEventListener("message", (event) => {
 	} else if (event.data?.type === "REGISTER_BACKGROUND_SYNC") {
 		// 백그라운드 동기화 등록
 		const { tag } = event.data;
-		if ("serviceWorker" in navigator && "sync" in window.ServiceWorkerRegistration.prototype) {
+		if (
+			"serviceWorker" in navigator &&
+			"sync" in window.ServiceWorkerRegistration.prototype
+		) {
 			self.registration.sync.register(tag).catch(console.error);
 		}
 	} else if (event.data?.type === "SKIP_WAITING") {
@@ -589,13 +619,12 @@ self.addEventListener("message", (event) => {
 
 // Push notification 처리
 self.addEventListener("push", (event) => {
-	
 	let notificationData = {
 		title: "645.live",
 		body: "새로운 소식이 있습니다!",
 		icon: "/favicon.ico",
 		badge: "/favicon.ico",
-		data: { url: "/" }
+		data: { url: "/" },
 	};
 
 	if (event.data) {
@@ -616,27 +645,26 @@ self.addEventListener("push", (event) => {
 			{
 				action: "open",
 				title: "열기",
-				icon: "/favicon.ico"
+				icon: "/favicon.ico",
 			},
 			{
 				action: "close",
-				title: "닫기"
-			}
+				title: "닫기",
+			},
 		],
 		requireInteraction: false,
 		silent: false,
 		vibrate: [200, 100, 200],
-		tag: "lotto-notification"
+		tag: "lotto-notification",
 	};
 
 	event.waitUntil(
-		self.registration.showNotification(notificationData.title, options)
+		self.registration.showNotification(notificationData.title, options),
 	);
 });
 
 // Notification click 처리
 self.addEventListener("notificationclick", (event) => {
-	
 	event.notification.close();
 
 	if (event.action === "close") {
@@ -646,7 +674,8 @@ self.addEventListener("notificationclick", (event) => {
 	const urlToOpen = event.notification.data?.url || "/";
 
 	event.waitUntil(
-		self.clients.matchAll({ type: "window", includeUncontrolled: true })
+		self.clients
+			.matchAll({ type: "window", includeUncontrolled: true })
 			.then((clientList) => {
 				// 이미 열린 창이 있는지 확인
 				for (const client of clientList) {
@@ -654,19 +683,19 @@ self.addEventListener("notificationclick", (event) => {
 						return client.focus();
 					}
 				}
-				
+
 				// 새 창 열기
 				if (self.clients.openWindow) {
 					return self.clients.openWindow(urlToOpen);
 				}
-			})
+			}),
 	);
 });
 
 // 주기적 백그라운드 동기화 (지원되는 브라우저에서)
 self.addEventListener("periodicsync", (event) => {
 	console.log("⏰ Periodic background sync triggered:", event.tag);
-	
+
 	if (event.tag === "lotto-data-sync") {
 		event.waitUntil(syncLottoData());
 	}

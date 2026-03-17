@@ -7,6 +7,7 @@ export default defineConfig(async ({ command }) => {
 		Promise.resolve(tailwindcss()),
 		Promise.resolve(sveltekit()),
 	]);
+	const trailbaseTarget = process.env.TRAILBASE_URL || "http://localhost:4000";
 
 	return {
 		plugins: [...tailwindPlugins, ...sveltePlugins],
@@ -29,6 +30,27 @@ export default defineConfig(async ({ command }) => {
 					: undefined,
 			// Force IPv4 for better Bun compatibility
 			host: "127.0.0.1",
+			proxy:
+				command === "serve"
+					? {
+							"/api/records/v1": {
+								target: trailbaseTarget,
+								changeOrigin: true,
+							},
+							"/api/auth/v1": {
+								target: trailbaseTarget,
+								changeOrigin: true,
+							},
+							"/connection": {
+								target: trailbaseTarget,
+								changeOrigin: true,
+							},
+							"/scanned": {
+								target: trailbaseTarget,
+								changeOrigin: true,
+							},
+						}
+					: undefined,
 		},
 		// Add WebSocket compatibility for Bun
 		define: {

@@ -49,8 +49,8 @@ const statusConfig = $derived(
 				},
 );
 
-const dotSize = size === "small" ? "w-2 h-2" : "w-3 h-3";
-const textSize = size === "small" ? "text-xs" : "text-sm";
+const dotSize = $derived(size === "small" ? "w-2 h-2" : "w-3 h-3");
+const textSize = $derived(size === "small" ? "text-xs" : "text-sm");
 </script>
 
 {#if showDetails}

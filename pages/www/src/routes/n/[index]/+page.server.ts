@@ -1,4 +1,5 @@
 import { TRAILBASE_URL } from "$env/static/private";
+import { calculateDisplayRound } from "$lib/utils/lotto-api";
 import { error } from "@sveltejs/kit";
 import { initClient } from "trailbase";
 import type { PageServerLoad } from "./$types";
@@ -193,6 +194,7 @@ export const load: PageServerLoad = async ({ params }) => {
 
 		// Use the same totalRounds as latestRound (since we already fetched it)
 		const latestRound = totalRounds;
+		const displayRound = calculateDisplayRound();
 
 		return {
 			ballNumber,
@@ -202,6 +204,7 @@ export const load: PageServerLoad = async ({ params }) => {
 			bottomPairs,
 			mathematicalProperties,
 			latestRound,
+			displayRound,
 			historicalScanData,
 		};
 	} catch (e) {

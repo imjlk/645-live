@@ -6,13 +6,13 @@ const config = {
 	preprocess: [
 		vitePreprocess(),
 		mdsvex({
-			extensions: [".mdx", ".svx"]
+			extensions: [".mdx", ".svx"],
 		}),
 	],
 	kit: {
 		adapter: adapter(),
 		serviceWorker: {
-			register: true,
+			register: process.env.NODE_ENV === "production",
 		},
 		csrf: {
 			checkOrigin: false,

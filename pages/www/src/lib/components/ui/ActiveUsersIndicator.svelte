@@ -1,12 +1,12 @@
 <script lang="ts">
+import {
+	subscribeToActiveUsers,
+	subscribeToGlobalConnection,
+} from "$lib/trailbase/global-connection.svelte";
 /**
  * 실시간 접속자 수 표시 컴포넌트 (단순화된 구조)
  */
-import { onMount, onDestroy } from "svelte";
-import { 
-	subscribeToActiveUsers,
-	type ActiveUsersStats 
-} from "$lib/trailbase/active-users-client";
+import { onDestroy, onMount } from "svelte";
 
 interface Props {
 	showPeakUsers?: boolean;
@@ -14,10 +14,10 @@ interface Props {
 	showConnectionStatus?: boolean;
 }
 
-let { 
-	showPeakUsers = false, 
-	compact = false, 
-	showConnectionStatus = true 
+let {
+	showPeakUsers = false,
+	compact = false,
+	showConnectionStatus = true,
 }: Props = $props();
 
 // State
@@ -28,27 +28,27 @@ let isVisible = $state(false);
 
 // Subscription cleanup function
 let unsubscribeUsers: (() => void) | null = null;
+let unsubscribeConnection: (() => void) | null = null;
 
 // Animation state
 let recentlyUpdated = $state(false);
 
 onMount(() => {
-	console.log('[ActiveUsersIndicator] Component mounted, subscribing to users');
-	
-	// 활성 유저 통계 구독
-	unsubscribeUsers = subscribeToActiveUsers("active-users-indicator", (stats: ActiveUsersStats) => {
-		console.log(`[ActiveUsersIndicator] Users update: ${currentUsers} → ${stats.current_count}, peak: ${stats.peak_count}`);
-		
-		if (stats.current_count !== currentUsers) {
+	unsubscribeUsers = subscribeToActiveUsers((count, peak) => {
+		if (count !== currentUsers) {
 			recentlyUpdated = true;
 			setTimeout(() => {
 				recentlyUpdated = false;
 			}, 1000);
 		}
-		
-		currentUsers = stats.current_count;
-		peakUsers = stats.peak_count;
-		isConnected = true;
+
+		currentUsers = count;
+		peakUsers = peak;
+		isVisible = true;
+	});
+
+	unsubscribeConnection = subscribeToGlobalConnection((state) => {
+		isConnected = state.connected;
 		isVisible = true;
 	});
 });
@@ -57,11 +57,14 @@ onDestroy(() => {
 	if (unsubscribeUsers) {
 		unsubscribeUsers();
 	}
+	if (unsubscribeConnection) {
+		unsubscribeConnection();
+	}
 });
 
 // 연결 상태에 따른 스타일 클래스
 const getConnectionStatusClass = (connected: boolean): string => {
-	return connected 
+	return connected
 		? "text-green-600 dark:text-green-400"
 		: "text-red-600 dark:text-red-400";
 };

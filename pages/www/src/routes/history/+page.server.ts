@@ -1,5 +1,9 @@
 import { env } from "$env/dynamic/private";
-import { getLatestLottoRound, getLottoNumbers } from "$lib/utils/lotto-api";
+import {
+	calculateDisplayRound,
+	getLatestLottoRound,
+	getLottoNumbers,
+} from "$lib/utils/lotto-api";
 import { initClient } from "trailbase";
 import type { PageServerLoad } from "./$types";
 
@@ -65,9 +69,10 @@ export const load: PageServerLoad = async ({ url }) => {
 			throw new Error("최신 회차 정보를 불러올 수 없습니다.");
 		}
 
+		const displayRound = calculateDisplayRound();
 		const targetRound = roundParam
 			? Number.parseInt(roundParam)
-			: latestInfo.drwNo;
+			: displayRound;
 
 		// Get scan count data from TrailBase first to determine available rounds
 		const client = initClient(env.TRAILBASE_URL || "http://localhost:4000");
@@ -92,6 +97,12 @@ export const load: PageServerLoad = async ({ url }) => {
 					.filter((round: number) => !Number.isNaN(round) && round > 0)
 					.sort((a: number, b: number) => b - a); // Sort descending (newest first)
 
+				if (targetRound > 0 && !availableRounds.includes(targetRound)) {
+					availableRounds = [targetRound, ...availableRounds].sort(
+						(a: number, b: number) => b - a,
+					);
+				}
+
 				// Find the specific round data
 				const roundData = response.records.find(
 					(record: unknown) =>
@@ -108,6 +119,11 @@ export const load: PageServerLoad = async ({ url }) => {
 				{ length: Math.min(20, latestInfo.drwNo) },
 				(_, i) => latestInfo.drwNo - i,
 			);
+			if (targetRound > 0 && !availableRounds.includes(targetRound)) {
+				availableRounds = [targetRound, ...availableRounds].sort(
+					(a: number, b: number) => b - a,
+				);
+			}
 		}
 
 		// Validate round - use a more permissive approach
@@ -131,6 +147,7 @@ export const load: PageServerLoad = async ({ url }) => {
 		return {
 			targetRound: finalTargetRound,
 			latestRound: latestInfo.drwNo,
+			displayRound,
 			lottoNumbers,
 			scanData,
 			availableRounds,
@@ -141,6 +158,7 @@ export const load: PageServerLoad = async ({ url }) => {
 			error: (error as Error).message,
 			targetRound: null,
 			latestRound: null,
+			displayRound: null,
 			lottoNumbers: null,
 			scanData: null,
 			availableRounds: [],

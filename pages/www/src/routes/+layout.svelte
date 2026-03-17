@@ -10,12 +10,12 @@ import InstallPrompt from "$lib/components/ui/InstallPrompt.svelte";
 import UpdatePrompt from "$lib/components/ui/UpdatePrompt.svelte";
 */
 import Footer from "$lib/layout/Footer.svelte";
-import { initializeGlobalConnection } from "$lib/trailbase/global-connection-simple.svelte";
+import { getTrailbaseBrowserBaseUrl } from "$lib/trailbase/browser-base";
+import { initializeGlobalConnection } from "$lib/trailbase/global-connection.svelte";
 import { NuqsAdapter } from "nuqs-svelte/adapters/svelte-kit";
 import { onMount } from "svelte";
 
 let { children } = $props();
-import { PUBLIC_TRAILBASE_URL } from "$env/static/public";
 import { preparePageTransition } from "$lib/layout/page-transition";
 import { initPWAPerformanceMonitor } from "$lib/utils/pwa-performance";
 
@@ -26,7 +26,44 @@ let availableRounds = $state<number[]>([]);
 
 let currentPath = $derived(page.url.pathname);
 
+async function resetDevServiceWorkers(): Promise<boolean> {
+	if (!browser || !import.meta.env.DEV || !("serviceWorker" in navigator)) {
+		return false;
+	}
+
+	const registrations = await navigator.serviceWorker.getRegistrations();
+	if (registrations.length === 0) {
+		sessionStorage.removeItem("dev-sw-reset");
+		return false;
+	}
+
+	await Promise.all(
+		registrations.map((registration) => registration.unregister()),
+	);
+
+	if ("caches" in window) {
+		const cacheNames = await caches.keys();
+		await Promise.all(cacheNames.map((cacheName) => caches.delete(cacheName)));
+	}
+
+	if (navigator.serviceWorker.controller) {
+		if (sessionStorage.getItem("dev-sw-reset") !== "done") {
+			sessionStorage.setItem("dev-sw-reset", "done");
+			window.location.reload();
+			return true;
+		}
+	} else {
+		sessionStorage.removeItem("dev-sw-reset");
+	}
+
+	return false;
+}
+
 onMount(async () => {
+	if (await resetDevServiceWorkers()) {
+		return;
+	}
+
 	// TrailBase 전역 연결 초기화 (단순화된 버전)
 	await initializeGlobalConnection();
 
@@ -50,7 +87,7 @@ onMount(async () => {
 	// 실제 데이터가 있는 회차들을 가져오기
 	try {
 		const { initClient } = await import("trailbase");
-		const client = initClient(PUBLIC_TRAILBASE_URL || "http://localhost:4000");
+		const client = initClient(getTrailbaseBrowserBaseUrl());
 		const api = client.records("lotto_draw_scan_counts");
 
 		const response = await api.list({

@@ -4,8 +4,9 @@
  */
 
 import { browser } from "$app/environment";
-import { env } from "$env/dynamic/public";
 import type { Client, Event as TrailbaseEvent } from "trailbase";
+import { getTrailbaseBrowserBaseUrl } from "./browser-base";
+import { shouldSuppressStreamError } from "./stream-errors";
 import type {
 	ConnectionState,
 	ConnectionStateCallback,
@@ -42,11 +43,13 @@ class TrailBaseClient {
 	};
 
 	private subscribers = new Map<string, SubscriberCallback>();
+	private retainedConnections = new Set<string>();
 	private connectionStateSubscribers = new Map<
 		string,
 		ConnectionStateCallback
 	>();
 	private retryTimeoutId: number | null = null;
+	private stopping = false;
 
 	private constructor() {
 		if (!browser) return;
@@ -79,8 +82,7 @@ class TrailBaseClient {
 
 		try {
 			const { initClient } = await import("trailbase");
-
-			const url = env.PUBLIC_TRAILBASE_URL || "http://localhost:4000";
+			const url = getTrailbaseBrowserBaseUrl();
 
 			this.client = initClient(url);
 			this.api = this.client.records("lotto_draw_scan_counts");
@@ -95,9 +97,9 @@ class TrailBaseClient {
 				lastConnected: null,
 			});
 
-			// Start stream if there are waiting subscribers
-			if (this.subscribers.size > 0) {
-				this.startStream();
+			// Start stream if there are waiting subscribers or a retained connection.
+			if (this.shouldKeepStreamAlive()) {
+				void this.startStream();
 			}
 		} catch (error) {
 			console.error("❌ Failed to initialize TrailBase client:", error);
@@ -137,16 +139,43 @@ class TrailBaseClient {
 		return delay + Math.random() * 1000; // Add jitter
 	}
 
+	private shouldKeepStreamAlive(): boolean {
+		return this.subscribers.size > 0 || this.retainedConnections.size > 0;
+	}
+
+	private extractScanDataFromEvent(
+		event: TrailbaseEvent,
+	): LottoDrawScanCount | null {
+		if ("Insert" in event) {
+			return event.Insert as LottoDrawScanCount;
+		}
+
+		if ("Update" in event) {
+			return event.Update as LottoDrawScanCount;
+		}
+
+		if ("Error" in event) {
+			throw Object.assign(new Error(event.Error), {
+				status: 500,
+				code: "STREAM_EVENT_ERROR",
+			}) as TrailbaseError;
+		}
+
+		return null;
+	}
+
 	private async startStream(): Promise<void> {
 		if (
 			!this.api ||
 			this.connectionState.connecting ||
-			this.connectionState.connected
+			this.connectionState.connected ||
+			!this.shouldKeepStreamAlive()
 		) {
 			return;
 		}
 
 		this.updateConnectionState({ connecting: true, error: null });
+		this.stopping = false;
 
 		try {
 			this.stream = await this.api.subscribe("*");
@@ -163,7 +192,14 @@ class TrailBaseClient {
 				this.readStreamData();
 			}
 		} catch (error) {
-			console.error("❌ TrailBase stream connection failed:", error);
+			if (
+				!shouldSuppressStreamError(
+					error,
+					this.stopping || !this.shouldKeepStreamAlive(),
+				)
+			) {
+				console.error("❌ TrailBase stream connection failed:", error);
+			}
 
 			const trailbaseError: TrailbaseError =
 				error instanceof Error
@@ -179,23 +215,32 @@ class TrailBaseClient {
 				error: trailbaseError,
 			});
 
-			this.scheduleRetry();
+			if (!this.stopping) {
+				this.scheduleRetry();
+			}
 		}
 	}
 
 	private async readStreamData(): Promise<void> {
 		if (!this.reader) return;
 
+		let shouldRetry = false;
+		let connectionError: TrailbaseError | null = null;
+
 		try {
 			while (this.connectionState.connected && this.reader) {
 				const { done, value } = await this.reader.read();
 
 				if (done) {
+					shouldRetry = this.shouldKeepStreamAlive();
 					break;
 				}
 
-				if (value && "Update" in value) {
-					const scanData = value.Update as unknown as LottoDrawScanCount;
+				if (value) {
+					const scanData = this.extractScanDataFromEvent(value);
+					if (!scanData) {
+						continue;
+					}
 
 					// Notify all subscribers
 					for (const callback of this.subscribers.values()) {
@@ -208,7 +253,7 @@ class TrailBaseClient {
 				}
 			}
 		} catch (error) {
-			const trailbaseError: TrailbaseError =
+			connectionError =
 				error instanceof Error
 					? Object.assign(error, {
 							status: (error as { status?: number }).status || 500,
@@ -216,18 +261,40 @@ class TrailBaseClient {
 						})
 					: new Error("Stream read error");
 
+			shouldRetry = this.shouldKeepStreamAlive();
+		}
+
+		await this.cleanup({ clearRetryTimeout: false });
+
+		if (
+			connectionError &&
+			!shouldSuppressStreamError(
+				connectionError,
+				this.stopping || !this.shouldKeepStreamAlive(),
+			)
+		) {
 			this.updateConnectionState({
 				connected: false,
-				error: trailbaseError,
+				connecting: false,
+				error: connectionError,
 			});
+		} else if (!connectionError) {
+			this.updateConnectionState({
+				connected: false,
+				connecting: false,
+			});
+		}
 
+		if (shouldRetry && this.shouldKeepStreamAlive()) {
 			this.scheduleRetry();
-		} finally {
-			await this.cleanup();
 		}
 	}
 
 	private scheduleRetry(): void {
+		if (!this.shouldKeepStreamAlive()) {
+			return;
+		}
+
 		if (this.connectionState.retryCount >= MAX_RETRY_ATTEMPTS) {
 			console.warn("Max retry attempts reached");
 			return;
@@ -244,19 +311,22 @@ class TrailBaseClient {
 				retryCount: this.connectionState.retryCount + 1,
 			});
 
-			if (this.subscribers.size > 0) {
-				this.startStream();
-			}
+			void this.startStream();
 		}, delay) as unknown as number;
 	}
 
-	private async cleanup(): Promise<void> {
+	private async cleanup(
+		options: { clearRetryTimeout?: boolean } = {},
+	): Promise<void> {
+		const { clearRetryTimeout = true } = options;
+		this.stopping = true;
+
 		this.updateConnectionState({
 			connected: false,
 			connecting: false,
 		});
 
-		if (this.retryTimeoutId) {
+		if (clearRetryTimeout && this.retryTimeoutId) {
 			clearTimeout(this.retryTimeoutId);
 			this.retryTimeoutId = null;
 		}
@@ -264,8 +334,8 @@ class TrailBaseClient {
 		if (this.reader) {
 			try {
 				await this.reader.cancel();
-			} catch (err) {
-				console.warn("Reader cancellation error:", err);
+			} catch {
+				// Ignore shutdown-time reader cancellation errors.
 			}
 			this.reader = null;
 		}
@@ -293,29 +363,15 @@ class TrailBaseClient {
 
 	subscribe(id: string, callback: SubscriberCallback): () => void {
 		this.subscribers.set(id, callback);
+		this.stopping = false;
 
 		// Start stream if this is the first subscriber
 		if (
-			this.subscribers.size === 1 &&
+			this.shouldKeepStreamAlive() &&
 			!this.connectionState.connected &&
 			!this.connectionState.connecting
 		) {
-			// Wait for client initialization if needed
-			if (!this.api) {
-				console.log("⏳ Waiting for TrailBase client initialization...");
-				// Retry after initialization
-				setTimeout(() => {
-					if (
-						this.api &&
-						!this.connectionState.connected &&
-						!this.connectionState.connecting
-					) {
-						this.startStream();
-					}
-				}, 100);
-			} else {
-				this.startStream();
-			}
+			void this.ensureInitialized().then(() => this.startStream());
 		}
 
 		return () => {
@@ -323,11 +379,26 @@ class TrailBaseClient {
 
 			// Schedule cleanup if no subscribers left
 			setTimeout(() => {
-				if (this.subscribers.size === 0) {
-					this.cleanup();
+				if (!this.shouldKeepStreamAlive()) {
+					void this.cleanup();
 				}
 			}, CLEANUP_DELAY);
 		};
+	}
+
+	async retainConnection(id: string): Promise<void> {
+		this.retainedConnections.add(id);
+		this.stopping = false;
+		await this.ensureInitialized();
+		await this.startStream();
+	}
+
+	releaseConnection(id: string): void {
+		this.retainedConnections.delete(id);
+		if (!this.shouldKeepStreamAlive()) {
+			this.stopping = true;
+			void this.cleanup();
+		}
 	}
 
 	subscribeToConnectionState(
@@ -414,7 +485,7 @@ class TrailBaseClient {
 	async reconnect(): Promise<void> {
 		await this.cleanup();
 
-		if (this.subscribers.size > 0) {
+		if (this.shouldKeepStreamAlive()) {
 			this.updateConnectionState({ retryCount: 0 });
 			await this.startStream();
 		}
@@ -474,3 +545,5 @@ export const getScanDataSafely = (round: number) =>
 export const getLatestScanData = () => trailbaseClient.getLatestScanData();
 
 export const reconnectClient = () => trailbaseClient.reconnect();
+
+export type { LottoDrawScanCount } from "./types";

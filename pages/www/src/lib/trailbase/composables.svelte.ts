@@ -222,7 +222,12 @@ export function useBallValues(
 	let retryCount = $state(0);
 	let lastSuccessfulLoad = $state<Date | null>(null);
 
-	const { initialRound, onValuesChange, onBallUpdate, cacheDuration = 30000 } = options;
+	const {
+		initialRound,
+		onValuesChange,
+		onBallUpdate,
+		cacheDuration = 30000,
+	} = options;
 	let targetRound = $state<number | null>(options.targetRound || null);
 
 	// Simple in-memory cache to avoid unnecessary API calls
@@ -307,7 +312,6 @@ export function useBallValues(
 		error = null;
 
 		try {
-
 			let scanData: LottoDrawScanCount | null = null;
 
 			// Strategy 1: Try to get specific round data
@@ -315,7 +319,6 @@ export function useBallValues(
 				scanData = await trailbaseClient.getScanDataSafely(roundToLoad);
 
 				if (scanData) {
-
 					// Cache the successful result
 					setCachedData(roundToLoad, scanData);
 				} else {
@@ -330,11 +333,10 @@ export function useBallValues(
 				scanData = await trailbaseClient.getLatestScanData();
 
 				if (scanData) {
-
 					// Cache the latest data
 					setCachedData(scanData.round, scanData);
 				} else {
-					console.warn(`No latest scan data found`);
+					console.warn("No latest scan data found");
 				}
 			}
 
@@ -342,7 +344,6 @@ export function useBallValues(
 				currentRound = scanData.round;
 				totalScans = Number(scanData.total_scans) || 0;
 				const newBallValues = extractBallValues(scanData);
-
 
 				// Force update of ballValues to ensure reactivity
 				ballValues = { ...newBallValues };
@@ -354,7 +355,7 @@ export function useBallValues(
 				}
 			} else {
 				// Initialize with zeros if no data found
-				console.warn(`No scan data available, initializing with zeros`);
+				console.warn("No scan data available, initializing with zeros");
 				// Keep the requested round even if no data exists
 				currentRound = roundToLoad || null;
 				totalScans = 0;
@@ -402,23 +403,22 @@ export function useBallValues(
 		const subscriberId = `ball-values-${Date.now()}-${Math.random()}`;
 
 		return trailbaseClient.subscribe(subscriberId, (scanData) => {
-			// **KEY FIX**: Filter by targetRound if specified (for main page latest round only)
-			const filterRound = targetRound || currentRound;
+			// Filter by explicit target round first, otherwise track the current round.
+			const filterRound = targetRound ?? currentRound;
 			if (filterRound && scanData.round !== filterRound) {
-				// Ignore updates for different rounds
 				return;
 			}
 
-			// Update current round only if no targetRound specified or if it matches
-			if (!targetRound && scanData.round !== currentRound) {
+			if (targetRound) {
+				currentRound = targetRound;
+			} else if (scanData.round !== currentRound) {
 				currentRound = scanData.round;
 			}
 
-			// Extract new values
 			const newValues = extractBallValues(scanData);
 			const newTotalScans = Number(scanData.total_scans) || 0;
+			const previousTotalScans = totalScans;
 
-			// Check for changes and trigger animations
 			const updatedBalls: Record<number, boolean> = {};
 			let hasChanges = false;
 
@@ -453,7 +453,7 @@ export function useBallValues(
 				totalScans = newTotalScans;
 			}
 
-			if (hasChanges || newTotalScans !== totalScans) {
+			if (hasChanges || newTotalScans !== previousTotalScans) {
 				if (onValuesChange) {
 					onValuesChange(ballValues, totalScans);
 				}
@@ -464,12 +464,9 @@ export function useBallValues(
 	// Retry connection with exponential backoff
 	const retryConnection = async () => {
 		if (retryCount >= 3) {
-			console.warn(
-				`Max retry attempts (${retryCount}) reached, not retrying`,
-			);
+			console.warn(`Max retry attempts (${retryCount}) reached, not retrying`);
 			return;
 		}
-
 
 		// Try to reconnect TrailBase client first
 		try {
@@ -540,18 +537,29 @@ export function useConnectionStatus() {
 	let connecting = $state(false);
 	let error = $state<TrailbaseError | null>(null);
 	let retryCount = $state(0);
+	let unsubscribeInternal: (() => void) | null = null;
 
-	// Use global connection state instead of individual subscriptions
-	const unsubscribe = subscribeToGlobalConnection((state) => {
+	const handleStateChange = (state: ConnectionState) => {
 		connected = state.connected;
 		connecting = state.connecting;
 		error = state.error;
 		retryCount = state.retryCount;
-	});
+	};
 
 	const subscribe = (): (() => void) => {
-		// Return the existing unsubscribe function
-		return unsubscribe;
+		if (!unsubscribeInternal) {
+			unsubscribeInternal = subscribeToGlobalConnection(handleStateChange);
+		}
+
+		return () => {
+			unsubscribeInternal?.();
+			unsubscribeInternal = null;
+		};
+	};
+
+	const unsubscribe = () => {
+		unsubscribeInternal?.();
+		unsubscribeInternal = null;
 	};
 
 	return {
@@ -568,6 +576,6 @@ export function useConnectionStatus() {
 			return retryCount;
 		},
 		subscribe,
-		unsubscribe, // Also provide direct access
+		unsubscribe,
 	};
 }

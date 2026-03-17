@@ -4,8 +4,9 @@
  */
 
 import { browser } from "$app/environment";
-import { env } from "$env/dynamic/public";
 import type { Client, Event as TrailbaseEvent } from "trailbase";
+import { getTrailbaseBrowserBaseUrl } from "./browser-base";
+import { shouldSuppressStreamError } from "./stream-errors";
 
 // 활성 유저 통계 타입
 export type ActiveUsersStats = {
@@ -17,6 +18,8 @@ export type ActiveUsersStats = {
 
 // 구독자 콜백 타입
 type ActiveUsersCallback = (stats: ActiveUsersStats) => void;
+
+const RETRY_DELAY_MS = 2000;
 
 class ActiveUsersClient {
 	private static instance: ActiveUsersClient | null = null;
@@ -32,6 +35,8 @@ class ActiveUsersClient {
 	private subscribers = new Map<string, ActiveUsersCallback>();
 	private connected = false;
 	private connecting = false;
+	private retryTimeoutId: number | null = null;
+	private stopping = false;
 
 	private constructor() {
 		if (!browser) return;
@@ -50,17 +55,15 @@ class ActiveUsersClient {
 
 		try {
 			const { initClient } = await import("trailbase");
-			const url = env.PUBLIC_TRAILBASE_URL || "http://localhost:4000";
+			const url = getTrailbaseBrowserBaseUrl();
 
 			this.client = initClient(url);
 			this.api = this.client.records("active_users_stats");
 			this.isInitialized = true;
 
-			console.log("✅ ActiveUsersClient initialized");
-
 			// Start stream if there are waiting subscribers
 			if (this.subscribers.size > 0) {
-				this.startStream();
+				void this.startStream();
 			}
 		} catch (error) {
 			console.error("❌ Failed to initialize ActiveUsersClient:", error);
@@ -73,21 +76,26 @@ class ActiveUsersClient {
 		}
 
 		this.connecting = true;
+		this.stopping = false;
 
 		try {
-			console.log("🔌 Starting active users stream subscription...");
 			this.stream = await this.api.subscribe("*");
 
 			if (this.stream) {
 				this.reader = this.stream.getReader();
 				this.connected = true;
 				this.connecting = false;
-
-				console.log("✅ Active users stream connected");
-				this.readStreamData();
+				void this.readStreamData();
 			}
 		} catch (error) {
-			console.error("❌ Active users stream connection failed:", error);
+			if (
+				!shouldSuppressStreamError(
+					error,
+					this.stopping || this.subscribers.size === 0,
+				)
+			) {
+				console.error("❌ Active users stream connection failed:", error);
+			}
 			this.connected = false;
 			this.connecting = false;
 		}
@@ -96,16 +104,27 @@ class ActiveUsersClient {
 	private async readStreamData(): Promise<void> {
 		if (!this.reader) return;
 
+		let shouldRetry = false;
+
 		try {
 			while (this.connected && this.reader) {
 				const { done, value } = await this.reader.read();
 
-				if (done) break;
+				if (done) {
+					shouldRetry = this.subscribers.size > 0;
+					break;
+				}
 
-				if (value && "Update" in value) {
-					const stats = value.Update as unknown as ActiveUsersStats;
-					console.log("📊 Active users update received:", stats);
+				let stats: ActiveUsersStats | null = null;
+				if (value && "Insert" in value) {
+					stats = value.Insert as ActiveUsersStats;
+				} else if (value && "Update" in value) {
+					stats = value.Update as ActiveUsersStats;
+				} else if (value && "Error" in value) {
+					throw new Error(value.Error);
+				}
 
+				if (stats) {
 					// Notify all subscribers
 					for (const callback of this.subscribers.values()) {
 						try {
@@ -117,21 +136,64 @@ class ActiveUsersClient {
 				}
 			}
 		} catch (error) {
-			console.error("❌ Active users stream read error:", error);
-			this.connected = false;
-			await this.cleanup();
+			if (
+				!shouldSuppressStreamError(
+					error,
+					this.stopping || this.subscribers.size === 0,
+				)
+			) {
+				console.error("❌ Active users stream read error:", error);
+			}
+			shouldRetry = this.subscribers.size > 0;
+		}
+
+		await this.cleanup({ clearRetryTimeout: false });
+
+		if (shouldRetry && this.subscribers.size > 0) {
+			this.scheduleRetry();
 		}
 	}
 
-	private async cleanup(): Promise<void> {
+	private scheduleRetry(): void {
+		if (this.retryTimeoutId) {
+			clearTimeout(this.retryTimeoutId);
+		}
+
+		this.retryTimeoutId = setTimeout(() => {
+			void this.reconnect();
+		}, RETRY_DELAY_MS) as unknown as number;
+	}
+
+	private async reconnect(): Promise<void> {
+		try {
+			await this.cleanup();
+			if (this.subscribers.size > 0) {
+				await this.startStream();
+			}
+		} catch (error) {
+			console.error("❌ Failed to reconnect ActiveUsers:", error);
+		}
+	}
+
+	private async cleanup(
+		options: { clearRetryTimeout?: boolean } = {},
+	): Promise<void> {
+		const { clearRetryTimeout = true } = options;
+
 		this.connected = false;
 		this.connecting = false;
+		this.stopping = true;
+
+		if (clearRetryTimeout && this.retryTimeoutId) {
+			clearTimeout(this.retryTimeoutId);
+			this.retryTimeoutId = null;
+		}
 
 		if (this.reader) {
 			try {
 				await this.reader.cancel();
-			} catch (err) {
-				console.warn("Reader cancellation error:", err);
+			} catch {
+				// Ignore shutdown-time reader cancellation errors.
 			}
 			this.reader = null;
 		}
@@ -142,13 +204,10 @@ class ActiveUsersClient {
 	// Public API
 	subscribe(id: string, callback: ActiveUsersCallback): () => void {
 		this.subscribers.set(id, callback);
+		this.stopping = false;
 
 		// Start stream if this is the first subscriber and client is ready
-		if (
-			this.subscribers.size === 1 &&
-			!this.connected &&
-			!this.connecting
-		) {
+		if (this.subscribers.size === 1 && !this.connected && !this.connecting) {
 			if (!this.isInitialized) {
 				// Wait for initialization
 				this.initializationPromise?.then(() => {
@@ -163,11 +222,14 @@ class ActiveUsersClient {
 
 		return () => {
 			this.subscribers.delete(id);
+			if (this.subscribers.size === 0) {
+				this.stopping = true;
+			}
 
 			// Cleanup if no subscribers left
 			setTimeout(() => {
 				if (this.subscribers.size === 0) {
-					this.cleanup();
+					void this.cleanup();
 				}
 			}, 100);
 		};
@@ -178,7 +240,6 @@ class ActiveUsersClient {
 			await this.initializationPromise;
 
 			if (!this.api) {
-				console.warn("ActiveUsersClient API not available");
 				return null;
 			}
 

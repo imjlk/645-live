@@ -102,6 +102,30 @@ export function calculateExpectedLatestRound(): number {
 }
 
 /**
+ * 현재 판매 중인 회차를 계산합니다.
+ * 프론트엔드의 calculateDisplayRound와 동일한 KST 기준 로직을 사용합니다.
+ */
+export function calculateCurrentSellingRound(): number {
+	const firstDrawDate = new Date("2002-12-07");
+	const utcNow = new Date();
+	const koreaTime = new Date(utcNow.getTime() + 9 * 60 * 60 * 1000);
+	const timeDiff = koreaTime.getTime() - firstDrawDate.getTime();
+	const weeksDiff = Math.floor(timeDiff / (1000 * 60 * 60 * 24 * 7));
+	const dayOfWeek = koreaTime.getDay();
+	const hour = koreaTime.getHours();
+
+	let expectedRound = 1 + weeksDiff;
+
+	if (dayOfWeek === 0 && hour >= 6) {
+		expectedRound += 1;
+	} else if (dayOfWeek >= 1 && dayOfWeek < 6) {
+		expectedRound += 1;
+	}
+
+	return expectedRound;
+}
+
+/**
  * 입력값이 유효한 로또 회차인지 검증합니다.
  */
 export function isValidLottoRound(round: unknown): round is number {
@@ -882,9 +906,11 @@ export async function processScannedLottoData(req: { body: unknown }) {
 		if (gameWithRound?.round) {
 			currentRound = gameWithRound.round;
 		} else {
-			// 게임 데이터에 회차가 없으면 DB에서 최신 회차 조회
-			const latestRoundFromDB = await getLatestLottoRoundFromDB();
-			currentRound = latestRoundFromDB;
+			// 회차를 알 수 없는 스캔은 현재 판매 중인 회차에 적재
+			currentRound = calculateCurrentSellingRound();
+			console.log(
+				`ℹ️ 스캔 데이터에 회차 정보가 없어 현재 판매 회차 ${currentRound}를 사용합니다.`,
+			);
 		}
 
 		// 최종 회차 검증

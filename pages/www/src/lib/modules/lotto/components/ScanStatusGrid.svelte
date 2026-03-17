@@ -2,6 +2,7 @@
 <script lang="ts">
 // @ts-nocheck
 import { goto } from "$app/navigation";
+import { resolveRoute } from "$app/paths";
 import ScreenReaderStatus from "$lib/components/ui/ScreenReaderStatus.svelte";
 import LottoBall from "$lib/modules/lotto/components/LottoBall.svelte";
 import ValueIncrementEffect from "$lib/modules/lotto/components/ValueIncrementEffect.svelte";
@@ -57,12 +58,8 @@ let {
 	},
 }: Props = $props();
 
-// Use the new composables for state management
-const ballValuesComposable = useBallValues({
-	initialRound,
-	// Use shorter cache duration for main page to ensure freshness
-	cacheDuration: forceClientRefresh ? 10000 : 30000, // 10s for main page, 30s for others
-});
+// Use the canonical composables for state management
+const ballValuesComposable = useBallValues();
 
 const connectionStatus = useConnectionStatus();
 
@@ -166,7 +163,11 @@ function handleBallGridKeydown(event: KeyboardEvent, ballIndex: number) {
 		maxItems: 45,
 		onActivate: (index) => {
 			const ballNumber = index + 1;
-			goto(`/n/${ballNumber}`);
+			void goto(
+				resolveRoute("/n/[index]", {
+					index: String(ballNumber),
+				}),
+			);
 		},
 		onEscape: () => {
 			focusedBallIndex = null;
@@ -196,15 +197,18 @@ function handleBallGridKeydown(event: KeyboardEvent, ballIndex: number) {
 // Initialize data using the new composable
 async function initializeData() {
 	if (initialRound) {
-		// Force refresh if it's the main page or specifically requested
-		const shouldForceRefresh = forceClientRefresh;
-		await ballValuesComposable.loadInitialData(initialRound, shouldForceRefresh);
+		ballValuesComposable.setTargetRound(initialRound);
+		await ballValuesComposable.loadInitialData(
+			initialRound,
+			forceClientRefresh,
+		);
 	}
 }
 
 // Public method to update the round
 export function updateRound(newRound: number) {
-	ballValuesComposable.loadInitialData(newRound);
+	ballValuesComposable.setTargetRound(newRound);
+	void ballValuesComposable.loadInitialData(newRound, true);
 }
 
 onMount(async () => {
@@ -216,6 +220,17 @@ onMount(async () => {
 
 	// Set up ball values subscription after initialization
 	unsubscribeBallValues = ballValuesComposable.subscribe();
+});
+
+$effect(() => {
+	const round = initialRound;
+	const shouldForceRefresh = forceClientRefresh;
+
+	ballValuesComposable.setTargetRound(round);
+
+	if (unsubscribeBallValues && round) {
+		void ballValuesComposable.loadInitialData(round, shouldForceRefresh);
+	}
 });
 
 // Clean up on component unmount
@@ -329,9 +344,9 @@ onDestroy(() => {
 			{@const isUpdated = ballValuesComposable.recentlyUpdated[ball.id] || false}
 			{@const hasData = ballValuesComposable.totalScans > 0}
 			{#if enableNavigation}
-				<a 
-					href="/n/{ball.id}" 
-					class="ball-grid-item {hasData ? '' : 'opacity-75'}"
+					<a
+						href={resolveRoute("/n/[index]", { index: String(ball.id) })}
+						class="ball-grid-item {hasData ? '' : 'opacity-75'}"
 					aria-label="로또 번호 {ball.id}번 상세 정보 보기. 현재 {ball.value}회 스캔됨"
 					tabindex="0"
 					role="gridcell"
@@ -401,9 +416,9 @@ onDestroy(() => {
 	{/if}
 	
 	<div class="grid grid-cols-5 sm:grid-cols-5 md:grid-cols-5 lg:grid-cols-5 p-0 py-4 sm:p-4 gap-2 sm:gap-3 md:gap-4">
-		{#each Array(45) as _}
-			<div class="skeleton aspect-square w-full min-h-20 rounded-full"></div>
-		{/each}
+			{#each Array.from({ length: 45 }, (_, index) => index) as skeleton (skeleton)}
+				<div class="skeleton aspect-square w-full min-h-20 rounded-full"></div>
+			{/each}
 	</div>
 {/if}
 

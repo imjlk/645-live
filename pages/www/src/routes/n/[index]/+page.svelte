@@ -1,13 +1,14 @@
 <script lang="ts">
 import { goto } from "$app/navigation";
+import { resolveRoute } from "$app/paths";
 import { page } from "$app/stores";
 import LottoBall from "$lib/modules/lotto/components/LottoBall.svelte";
 import ValueIncrementEffect from "$lib/modules/lotto/components/ValueIncrementEffect.svelte";
 import {
 	type LottoDrawScanCount,
 	getScanDataSafely,
-	subscribeToScanCountUpdates,
-} from "$lib/stores/streamStore";
+	trailbaseClient,
+} from "$lib/trailbase/client";
 import { calculateDisplayRound } from "$lib/utils/lotto-api";
 import { onDestroy, onMount } from "svelte";
 import { MetaTags } from "svelte-meta-tags";
@@ -21,59 +22,93 @@ const ballNumber = $derived(Number($page.params.index));
 // Reactive states for real-time updates
 let ballValue = $state(0);
 let isUpdated = $state(false);
+let updateTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
 // 전역 스트림 구독 해제 함수
 let unsubscribeStream: (() => void) | null = null;
 
-onMount(async () => {
-	const displayRound = calculateDisplayRound();
-	const scanData = await getScanDataSafely(displayRound);
-
-	if (scanData) {
-		const scanCountField =
-			`scan_count_${ballNumber}` as keyof LottoDrawScanCount;
-		const ballScanCount = Number(scanData[scanCountField]) || 0;
-		ballValue = ballScanCount;
-	} else {
+async function loadBallValue(round: number | null, number: number) {
+	if (!round) {
 		ballValue = 0;
+		return;
 	}
 
-	unsubscribeStream = subscribeToScanCountUpdates(
-		`ball-${ballNumber}`,
-		(scanData) => {
-			if (scanData.round === data.latestRound) {
-				const scanCountField =
-					`scan_count_${ballNumber}` as keyof LottoDrawScanCount;
-				const newScanCount = Number(scanData[scanCountField]) || 0;
+	const scanData = await getScanDataSafely(round);
+	if (!scanData) {
+		ballValue = 0;
+		return;
+	}
 
-				if (newScanCount > ballValue) {
-					isUpdated = true;
-					setTimeout(() => {
-						isUpdated = false;
-					}, 1000);
-				}
-				ballValue = newScanCount;
+	const scanCountField = `scan_count_${number}` as keyof LottoDrawScanCount;
+	ballValue = Number(scanData[scanCountField]) || 0;
+}
+
+function getDisplayRound(): number {
+	return data.displayRound ?? calculateDisplayRound();
+}
+
+onMount(async () => {
+	const displayRound = getDisplayRound();
+	await loadBallValue(displayRound, ballNumber);
+
+	unsubscribeStream = trailbaseClient.subscribe("ball-page", (scanData) => {
+		if (scanData.round !== getDisplayRound()) {
+			return;
+		}
+
+		const scanCountField =
+			`scan_count_${ballNumber}` as keyof LottoDrawScanCount;
+		const nextBallValue = Number(scanData[scanCountField]) || 0;
+
+		if (nextBallValue > ballValue) {
+			isUpdated = true;
+			if (updateTimeoutId) {
+				clearTimeout(updateTimeoutId);
 			}
-		},
-	);
+			updateTimeoutId = setTimeout(() => {
+				isUpdated = false;
+				updateTimeoutId = null;
+			}, 1000);
+		}
+
+		ballValue = nextBallValue;
+	});
+});
+
+$effect(() => {
+	const latestRound = getDisplayRound();
+	const currentBallNumber = ballNumber;
+
+	void loadBallValue(latestRound, currentBallNumber);
 });
 
 onDestroy(() => {
 	if (unsubscribeStream) {
 		unsubscribeStream();
 	}
+	if (updateTimeoutId) {
+		clearTimeout(updateTimeoutId);
+	}
 });
 
 // Navigation functions
 const goToPrevious = () => {
 	if (ballNumber > 1) {
-		goto(`/n/${ballNumber - 1}`);
+		void goto(
+			resolveRoute("/n/[index]", {
+				index: String(ballNumber - 1),
+			}),
+		);
 	}
 };
 
 const goToNext = () => {
 	if (ballNumber < 45) {
-		goto(`/n/${ballNumber + 1}`);
+		void goto(
+			resolveRoute("/n/[index]", {
+				index: String(ballNumber + 1),
+			}),
+		);
 	}
 };
 
@@ -282,7 +317,7 @@ const getColorClass = (color: string | undefined) => {
 							<span class="text-rose-600">🤝</span> 최고 궁합 번호
 						</h3>
 						<div class="space-y-3">
-							{#each data.topPairs as pair}
+								{#each data.topPairs as pair (pair.otherNumber)}
 								<div class="flex items-center justify-between p-3 rounded-md bg-white dark:bg-gray-800 border border-rose-200 dark:border-gray-600">
 									<div class="flex items-center gap-3">
 										<div class="w-8 h-8 flex items-center justify-center rounded-full {getColorClass(pair.otherNumberDetails?.color)} text-sm font-bold">{pair.otherNumber}</div>
@@ -301,7 +336,7 @@ const getColorClass = (color: string | undefined) => {
 							<span class="text-slate-600">💔</span> 최저 궁합 번호
 						</h3>
 						<div class="space-y-3">
-							{#each data.bottomPairs as pair}
+								{#each data.bottomPairs as pair (pair.otherNumber)}
 								<div class="flex items-center justify-between p-3 rounded-md bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-600">
 									<div class="flex items-center gap-3">
 										<div class="w-8 h-8 flex items-center justify-center rounded-full {getColorClass(pair.otherNumberDetails?.color)} text-sm font-bold">{pair.otherNumber}</div>
@@ -322,7 +357,7 @@ const getColorClass = (color: string | undefined) => {
 						<span class="text-amber-600">📈</span> 최근 스캔 현황
 					</h3>
 					<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
-						{#each data.historicalScanData as scanData}
+							{#each data.historicalScanData as scanData (scanData.round)}
 							<div class="text-center p-3 bg-white dark:bg-gray-800 rounded-lg border border-amber-200 dark:border-gray-600">
 								<div class="text-lg font-bold text-amber-600 dark:text-amber-400">{scanData.scanCount.toLocaleString()}</div>
 								<div class="text-xs text-gray-600 dark:text-gray-400">{scanData.round}회차</div>
@@ -337,9 +372,9 @@ const getColorClass = (color: string | undefined) => {
 	<!-- 하단 네비게이션 -->
 	<div class="mt-8 text-center space-y-4">
 		<div class="flex flex-wrap justify-center gap-4">
-			<a href="/stats/numbers" class="btn btn-outline btn-primary">전체 번호 통계</a>
-			<a href="/generator" class="btn btn-outline btn-secondary">번호 생성기</a>
-			<a href="/" class="btn btn-outline">홈으로</a>
+				<a href={resolveRoute("/stats/numbers", {})} class="btn btn-outline btn-primary">전체 번호 통계</a>
+				<a href={resolveRoute("/generator", {})} class="btn btn-outline btn-secondary">번호 생성기</a>
+				<a href={resolveRoute("/", {})} class="btn btn-outline">홈으로</a>
 		</div>
 		<div class="flex justify-center gap-2">
 			{#if ballNumber > 1}

@@ -1,5 +1,5 @@
 export interface LottoGameData {
-	round: number;
+	round?: number;
 	numbers: number[];
 }
 
@@ -241,7 +241,6 @@ export function parseLottoQR(qrData: string): LottoGameData[] | null {
 function parseParameterFormat(qrData: string): LottoGameData[] | null {
 	try {
 		const games: LottoGameData[] = [];
-		const round = 1; // 기본값
 
 		// 게임 개수 찾기
 		const gameCountMatch = qrData.match(/g=(\d+)/);
@@ -261,7 +260,7 @@ function parseParameterFormat(qrData: string): LottoGameData[] | null {
 					.map((n) => Number.parseInt(n.trim(), 10))
 					.filter((n) => n >= 1 && n <= 45);
 				if (numbers.length === 6) {
-					games.push({ round, numbers: numbers.sort((a, b) => a - b) });
+					games.push({ numbers: numbers.sort((a, b) => a - b) });
 				}
 			}
 		}
@@ -303,7 +302,6 @@ function parseSimpleNumberString(qrData: string): LottoGameData[] | null {
 
 				if (numbers.length === 6) {
 					games.push({
-						round: 1, // 기본값
 						numbers: numbers.sort((a, b) => a - b),
 					});
 				}
