@@ -337,8 +337,8 @@ describe('TrailBaseAdapter', () => {
 			const result2 = await adapter.findOne('lotto_draw_scan_counts', 1234);
 			expect(result2).toEqual(mockRecord);
 
-			// API should still be called (our cache implementation is internal)
-			expect(mockApi.read).toHaveBeenCalledTimes(2);
+			// The second read should be served from the adapter cache.
+			expect(mockApi.read).toHaveBeenCalledTimes(1);
 		});
 
 		it('should invalidate cache after updates', async () => {

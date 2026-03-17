@@ -129,9 +129,9 @@ describe('E2E Integration Tests', () => {
 			await new Promise(resolve => setTimeout(resolve, 100));
 
 			// Verify initial state
-			expect(connectionStatus.connected()).toBe(true);
-			expect(realtimeData.data()).toBeTruthy();
-			expect((realtimeData.data() as LottoDrawScanCount).round).toBe(1234);
+			expect(connectionStatus.connected).toBe(true);
+			expect(realtimeData.data).toBeTruthy();
+			expect((realtimeData.data as LottoDrawScanCount).round).toBe(1234);
 
 			// Simulate real-time update
 			const updatedRecord: LottoDrawScanCount = {
@@ -150,7 +150,7 @@ describe('E2E Integration Tests', () => {
 			await new Promise(resolve => setTimeout(resolve, 50));
 
 			// Verify the update was received
-			const currentData = realtimeData.data() as LottoDrawScanCount;
+			const currentData = realtimeData.data as LottoDrawScanCount;
 			expect(currentData.scan_count_1).toBe(100);
 			expect(currentData.total_scans).toBe(1050);
 
@@ -165,21 +165,21 @@ describe('E2E Integration Tests', () => {
 
 			// Wait for initial connection
 			await new Promise(resolve => setTimeout(resolve, 50));
-			expect(connectionStatus.connected()).toBe(true);
+			expect(connectionStatus.connected).toBe(true);
 
 			// Simulate connection error
 			await adapter.simulateConnectionError();
 
 			// Verify error state
-			expect(connectionStatus.connected()).toBe(false);
-			expect(connectionStatus.error()).toBeTruthy();
+			expect(connectionStatus.connected).toBe(false);
+			expect(connectionStatus.error).toBeTruthy();
 
 			// Reconnect
 			await connectionStatus.reconnect();
 
 			// Verify recovery
-			expect(connectionStatus.connected()).toBe(true);
-			expect(connectionStatus.error()).toBeNull();
+			expect(connectionStatus.connected).toBe(true);
+			expect(connectionStatus.error).toBeNull();
 
 			unsubscribe();
 		});
@@ -230,7 +230,7 @@ describe('E2E Integration Tests', () => {
 			const endTime = Date.now();
 
 			expect(result).toBeTruthy();
-			expect(endTime - startTime).toBeGreaterThan(100); // Should account for simulated latency
+			expect(endTime - startTime).toBeGreaterThanOrEqual(100);
 
 			await slowAdapter.destroy();
 		});

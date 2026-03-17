@@ -327,11 +327,6 @@ export function useCachedData<T extends BaseRecord = BaseRecord>(
 
 	let refreshTimeoutId: number | null = null;
 
-	const isStale = $derived.by(() => {
-		if (!lastFetched) return true;
-		return Date.now() - lastFetched.getTime() > staleTime;
-	});
-
 	const refetch = async () => {
 		if (loading) return;
 
@@ -394,7 +389,11 @@ export function useCachedData<T extends BaseRecord = BaseRecord>(
 			return error;
 		},
 		get isStale() {
-			return isStale;
+			if (!lastFetched) {
+				return true;
+			}
+
+			return Date.now() - lastFetched.getTime() > staleTime;
 		},
 		get lastFetched() {
 			return lastFetched;

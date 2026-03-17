@@ -183,11 +183,7 @@ export class TrailBaseAdapter<
 		}
 
 		// Start stream if this is the first subscriber and we're connected
-		if (
-			this.subscribers.size === 1 &&
-			this.isInitialized &&
-			!this.connectionState.connected
-		) {
+		if (this.subscribers.size === 1 && this.isInitialized && !this.stream) {
 			this.startStream().catch((error) => {
 				console.error("Failed to start stream:", error);
 			});
@@ -206,11 +202,7 @@ export class TrailBaseAdapter<
 	}
 
 	private async startStream(): Promise<void> {
-		if (
-			!this.api ||
-			this.connectionState.connecting ||
-			this.connectionState.connected
-		) {
+		if (!this.api || this.connectionState.connecting || this.stream) {
 			return;
 		}
 

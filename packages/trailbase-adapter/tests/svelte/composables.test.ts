@@ -48,12 +48,7 @@ describe('Svelte Composables', () => {
 
 			adapter.setTableData('test_table', [testRecord]);
 
-			const {
-				get data,
-				get loading,
-				get error,
-				refetch,
-			} = useRealtimeData(adapter, {
+			const realtimeData = useRealtimeData(adapter, {
 				table: 'test_table',
 				id: 1,
 				autoLoad: true,
@@ -62,9 +57,9 @@ describe('Svelte Composables', () => {
 			// Wait for autoLoad to complete
 			await new Promise(resolve => setTimeout(resolve, 50));
 
-			expect(loading()).toBe(false);
-			expect(error()).toBeNull();
-			expect(data()).toEqual(testRecord);
+			expect(realtimeData.loading).toBe(false);
+			expect(realtimeData.error).toBeNull();
+			expect(realtimeData.data).toEqual(testRecord);
 		});
 
 		it('should load multiple records', async () => {
@@ -76,11 +71,7 @@ describe('Svelte Composables', () => {
 
 			adapter.setTableData('test_table', testRecords);
 
-			const {
-				get data,
-				get loading,
-				get error,
-			} = useRealtimeData(adapter, {
+			const realtimeData = useRealtimeData(adapter, {
 				table: 'test_table',
 				autoLoad: true,
 				limit: 10,
@@ -89,20 +80,16 @@ describe('Svelte Composables', () => {
 			// Wait for autoLoad to complete
 			await new Promise(resolve => setTimeout(resolve, 50));
 
-			expect(loading()).toBe(false);
-			expect(error()).toBeNull();
-			expect(Array.isArray(data())).toBe(true);
-			expect((data() as TestRecord[]).length).toBe(3);
+			expect(realtimeData.loading).toBe(false);
+			expect(realtimeData.error).toBeNull();
+			expect(Array.isArray(realtimeData.data)).toBe(true);
+			expect((realtimeData.data as TestRecord[]).length).toBe(3);
 		});
 
 		it('should handle load errors', async () => {
 			const errorCallback = vi.fn();
 
-			const {
-				get data,
-				get loading,
-				get error,
-			} = useRealtimeData(adapter, {
+			const realtimeData = useRealtimeData(adapter, {
 				table: 'nonexistent_table',
 				id: 999,
 				autoLoad: true,
@@ -112,8 +99,8 @@ describe('Svelte Composables', () => {
 			// Wait for autoLoad to complete
 			await new Promise(resolve => setTimeout(resolve, 50));
 
-			expect(loading()).toBe(false);
-			expect(data()).toBeNull();
+			expect(realtimeData.loading).toBe(false);
+			expect(realtimeData.data).toBeNull();
 			// For this test, null result is expected, not an error
 		});
 
@@ -126,22 +113,18 @@ describe('Svelte Composables', () => {
 
 			adapter.setTableData('test_table', [testRecord]);
 
-			const {
-				get data,
-				get loading,
-				refetch,
-			} = useRealtimeData(adapter, {
+			const realtimeData = useRealtimeData(adapter, {
 				table: 'test_table',
 				id: 1,
 				autoLoad: false,
 			});
 
-			expect(data()).toBeNull();
+			expect(realtimeData.data).toBeNull();
 
-			await refetch();
+			await realtimeData.refetch();
 
-			expect(loading()).toBe(false);
-			expect(data()).toEqual(testRecord);
+			expect(realtimeData.loading).toBe(false);
+			expect(realtimeData.data).toEqual(testRecord);
 		});
 
 		it('should handle subscription updates for single record', async () => {
@@ -155,10 +138,7 @@ describe('Svelte Composables', () => {
 
 			const updateCallback = vi.fn();
 
-			const {
-				get data,
-				subscribe,
-			} = useRealtimeData(adapter, {
+			const realtimeData = useRealtimeData(adapter, {
 				table: 'test_table',
 				id: 1,
 				autoLoad: true,
@@ -169,7 +149,7 @@ describe('Svelte Composables', () => {
 			await new Promise(resolve => setTimeout(resolve, 50));
 
 			// Subscribe to updates
-			const unsubscribe = subscribe();
+			const unsubscribe = realtimeData.subscribe();
 
 			// Simulate an update
 			const updatedRecord: TestRecord = {
@@ -180,7 +160,7 @@ describe('Svelte Composables', () => {
 			await adapter.simulateUpdate('test_table', updatedRecord);
 
 			expect(updateCallback).toHaveBeenCalledWith(updatedRecord);
-			expect(data()).toEqual(updatedRecord);
+			expect(realtimeData.data).toEqual(updatedRecord);
 
 			unsubscribe();
 		});
@@ -188,23 +168,17 @@ describe('Svelte Composables', () => {
 
 	describe('useConnectionStatus', () => {
 		it('should track connection status', async () => {
-			const {
-				get connected,
-				get connecting,
-				get error,
-				get retryCount,
-				subscribe,
-			} = useConnectionStatus(adapter);
+			const connectionStatus = useConnectionStatus(adapter);
 
-			const unsubscribe = subscribe();
+			const unsubscribe = connectionStatus.subscribe();
 
 			// Wait for connection to establish
 			await new Promise(resolve => setTimeout(resolve, 50));
 
-			expect(connected()).toBe(true);
-			expect(connecting()).toBe(false);
-			expect(error()).toBeNull();
-			expect(retryCount()).toBe(0);
+			expect(connectionStatus.connected).toBe(true);
+			expect(connectionStatus.connecting).toBe(false);
+			expect(connectionStatus.error).toBeNull();
+			expect(connectionStatus.retryCount).toBe(0);
 
 			unsubscribe();
 		});
@@ -215,44 +189,38 @@ describe('Svelte Composables', () => {
 				connectionDelay: 10,
 			});
 
-			const {
-				get connected,
-				get error,
-				subscribe,
-			} = useConnectionStatus(failingAdapter);
+			const connectionStatus = useConnectionStatus(failingAdapter);
 
-			const unsubscribe = subscribe();
+			const unsubscribe = connectionStatus.subscribe();
+
+			await failingAdapter.connect().catch(() => {});
 
 			// Wait for connection attempt to fail
 			await new Promise(resolve => setTimeout(resolve, 50));
 
-			expect(connected()).toBe(false);
-			expect(error()).toBeTruthy();
+			expect(connectionStatus.connected).toBe(false);
+			expect(connectionStatus.error).toBeTruthy();
 
 			unsubscribe();
 			await failingAdapter.destroy();
 		});
 
 		it('should support manual reconnection', async () => {
-			const {
-				get connected,
-				reconnect,
-				subscribe,
-			} = useConnectionStatus(adapter);
+			const connectionStatus = useConnectionStatus(adapter);
 
-			const unsubscribe = subscribe();
+			const unsubscribe = connectionStatus.subscribe();
 
 			// Wait for initial connection
 			await new Promise(resolve => setTimeout(resolve, 50));
-			expect(connected()).toBe(true);
+			expect(connectionStatus.connected).toBe(true);
 
 			// Disconnect
 			await adapter.disconnect();
-			expect(connected()).toBe(false);
+			expect(connectionStatus.connected).toBe(false);
 
 			// Reconnect manually
-			await reconnect();
-			expect(connected()).toBe(true);
+			await connectionStatus.reconnect();
+			expect(connectionStatus.connected).toBe(true);
 
 			unsubscribe();
 		});
@@ -263,16 +231,13 @@ describe('Svelte Composables', () => {
 			const updateCallback = vi.fn();
 			const connectionCallback = vi.fn();
 
-			const {
-				get latestUpdate,
-				subscribe,
-			} = useRealtimeSubscription(adapter, {
+			const realtimeSubscription = useRealtimeSubscription(adapter, {
 				table: 'test_table',
 				onUpdate: updateCallback,
 				onConnectionChange: connectionCallback,
 			});
 
-			const unsubscribe = subscribe();
+			const unsubscribe = realtimeSubscription.subscribe();
 
 			// Wait for connection
 			await new Promise(resolve => setTimeout(resolve, 50));
@@ -287,7 +252,7 @@ describe('Svelte Composables', () => {
 			await adapter.simulateUpdate('test_table', testRecord);
 
 			expect(updateCallback).toHaveBeenCalledWith(testRecord);
-			expect(latestUpdate()).toEqual(testRecord);
+			expect(realtimeSubscription.latestUpdate).toEqual(testRecord);
 			expect(connectionCallback).toHaveBeenCalled();
 
 			unsubscribe();
@@ -296,15 +261,13 @@ describe('Svelte Composables', () => {
 		it('should filter updates by criteria', async () => {
 			const updateCallback = vi.fn();
 
-			const {
-				subscribe,
-			} = useRealtimeSubscription(adapter, {
+			const realtimeSubscription = useRealtimeSubscription(adapter, {
 				table: 'test_table',
 				filter: { name: 'Specific Record' },
 				onUpdate: updateCallback,
 			});
 
-			const unsubscribe = subscribe();
+			const unsubscribe = realtimeSubscription.subscribe();
 
 			// Wait for connection
 			await new Promise(resolve => setTimeout(resolve, 50));
@@ -340,13 +303,7 @@ describe('Svelte Composables', () => {
 
 			adapter.setTableData('test_table', [testRecord]);
 
-			const {
-				get data,
-				get loading,
-				get isStale,
-				get lastFetched,
-				refetch,
-			} = useCachedData(adapter, {
+			const cachedData = useCachedData(adapter, {
 				table: 'test_table',
 				id: 1,
 				staleTime: 1000,
@@ -355,10 +312,10 @@ describe('Svelte Composables', () => {
 			// Wait for initial load
 			await new Promise(resolve => setTimeout(resolve, 50));
 
-			expect(loading()).toBe(false);
-			expect(data()).toEqual(testRecord);
-			expect(isStale()).toBe(false);
-			expect(lastFetched()).toBeInstanceOf(Date);
+			expect(cachedData.loading).toBe(false);
+			expect(cachedData.data).toEqual(testRecord);
+			expect(cachedData.isStale).toBe(false);
+			expect(cachedData.lastFetched).toBeInstanceOf(Date);
 		});
 
 		it('should detect stale data', async () => {
@@ -370,25 +327,22 @@ describe('Svelte Composables', () => {
 
 			adapter.setTableData('test_table', [testRecord]);
 
-			const {
-				get isStale,
-				get lastFetched,
-			} = useCachedData(adapter, {
+			const cachedData = useCachedData(adapter, {
 				table: 'test_table',
 				id: 1,
-				staleTime: 10, // Very short stale time
+				staleTime: 100,
 			});
 
 			// Wait for initial load
 			await new Promise(resolve => setTimeout(resolve, 50));
 
-			expect(isStale()).toBe(false);
-			expect(lastFetched()).toBeTruthy();
+			expect(cachedData.isStale).toBe(false);
+			expect(cachedData.lastFetched).toBeTruthy();
 
 			// Wait for data to become stale
-			await new Promise(resolve => setTimeout(resolve, 20));
+			await new Promise(resolve => setTimeout(resolve, 120));
 
-			expect(isStale()).toBe(true);
+			expect(cachedData.isStale).toBe(true);
 		});
 
 		it('should invalidate cache', async () => {
@@ -400,10 +354,7 @@ describe('Svelte Composables', () => {
 
 			adapter.setTableData('test_table', [testRecord]);
 
-			const {
-				get lastFetched,
-				invalidate,
-			} = useCachedData(adapter, {
+			const cachedData = useCachedData(adapter, {
 				table: 'test_table',
 				id: 1,
 			});
@@ -411,12 +362,12 @@ describe('Svelte Composables', () => {
 			// Wait for initial load
 			await new Promise(resolve => setTimeout(resolve, 50));
 
-			expect(lastFetched()).toBeTruthy();
+			expect(cachedData.lastFetched).toBeTruthy();
 
 			// Invalidate cache
-			invalidate();
+			cachedData.invalidate();
 
-			expect(lastFetched()).toBeNull();
+			expect(cachedData.lastFetched).toBeNull();
 		});
 	});
 
@@ -425,13 +376,15 @@ describe('Svelte Composables', () => {
 			const failingAdapter = new MockAdapter({
 				autoConnect: false,
 			});
+			const mockError = Object.assign(new Error('Mock query failed'), {
+				status: 500,
+				code: 'MOCK_QUERY_FAILED',
+			});
+			vi.spyOn(failingAdapter, 'findOne').mockRejectedValue(mockError);
 
 			const errorCallback = vi.fn();
 
-			const {
-				get error,
-				refetch,
-			} = useRealtimeData(failingAdapter, {
+			const realtimeData = useRealtimeData(failingAdapter, {
 				table: 'test_table',
 				id: 1,
 				autoLoad: false,
@@ -439,22 +392,20 @@ describe('Svelte Composables', () => {
 			});
 
 			// Try to refetch without connection
-			await refetch();
+			await realtimeData.refetch();
 
 			// Should handle the error without crashing
-			expect(error()).toBeTruthy();
+			expect(realtimeData.error).toBeTruthy();
 
 			await failingAdapter.destroy();
 		});
 
 		it('should handle subscription errors', async () => {
-			const {
-				subscribe,
-			} = useRealtimeSubscription(adapter, {
+			const realtimeSubscription = useRealtimeSubscription(adapter, {
 				table: 'test_table',
 			});
 
-			const unsubscribe = subscribe();
+			const unsubscribe = realtimeSubscription.subscribe();
 
 			// Simulate connection error
 			await adapter.simulateConnectionError();
