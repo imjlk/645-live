@@ -1,5 +1,4 @@
 import { defineConfig } from "trailbase-wasm";
-import { query } from "trailbase-wasm/db";
 import {
 	HttpError,
 	HttpHandler,
@@ -10,6 +9,7 @@ import {
 import { JobHandler } from "trailbase-wasm/job";
 
 import { executeLottoUpdate, processScannedLottoData } from "./lotto-utils";
+import { query, transaction } from "./trailbase-compat";
 import { executeWinningStoreUpdate } from "./winning-store-utils";
 
 type ScheduledJob = {
@@ -182,20 +182,36 @@ async function heartbeatHandler(req: HttpRequest): Promise<HttpResponse> {
 	const now = new Date().toISOString();
 
 	try {
-		await query("DELETE FROM active_connections WHERE session_id = ?", [
-			session_id,
-		]);
-		await query(
-			`INSERT INTO active_connections (session_id, user_agent, connected_at, last_seen, page_path)
-       VALUES (?, ?, ?, ?, ?)`,
-			[
+		// Legacy deployments may still have the old cleanup trigger attached.
+		// Dropping it defensively avoids the write path hanging on active user updates.
+		try {
+			await query(
+				"DROP TRIGGER IF EXISTS trg_cleanup_inactive_connections",
+				[],
+			);
+		} catch (error) {
+			console.warn(
+				"Failed to drop trg_cleanup_inactive_connections trigger:",
+				error,
+			);
+		}
+
+		await transaction((tx) => {
+			tx.execute("DELETE FROM active_connections WHERE session_id = ?", [
 				session_id,
-				typeof user_agent === "string" ? user_agent : "Unknown",
-				now,
-				now,
-				typeof page_path === "string" ? page_path : "/",
-			],
-		);
+			]);
+			tx.execute(
+				`INSERT INTO active_connections (session_id, user_agent, connected_at, last_seen, page_path)
+       VALUES (?, ?, ?, ?, ?)`,
+				[
+					session_id,
+					typeof user_agent === "string" ? user_agent : "Unknown",
+					now,
+					now,
+					typeof page_path === "string" ? page_path : "/",
+				],
+			);
+		});
 
 		const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000).toISOString();
 		const activeConnections = await query(
@@ -246,9 +262,11 @@ async function disconnectHandler(req: HttpRequest): Promise<HttpResponse> {
 	}
 
 	try {
-		await query("DELETE FROM active_connections WHERE session_id = ?", [
-			session_id,
-		]);
+		await transaction((tx) => {
+			tx.execute("DELETE FROM active_connections WHERE session_id = ?", [
+				session_id,
+			]);
+		});
 
 		const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000).toISOString();
 		const activeConnections = await query(
