@@ -68,6 +68,7 @@ let qrDataInput: HTMLInputElement;
 
 // Scan status grid reference for round updates
 let scanStatusGrid = $state<ScanStatusGrid>();
+let historyModal = $state();
 let currentRound = $state(0); // QR 스캔 후에 실제 회차로 설정
 
 // ===== LOTTO WINNING CHECK UTILITIES =====
@@ -944,12 +945,39 @@ async function requestPermission() {
 
 <!-- Page Header -->
 <div class="w-full max-w-7xl mx-auto mt-4 min-sm:px-4 mb-8">
-	<h1 class="text-2xl lg:text-3xl font-bold text-base-content mb-2">
-		로또 QR 코드 스캔
-	</h1>
-	<p class="text-base-content/70 text-xs">
-		카메라로 QR 코드를 스캔하여 즉시 당첨 확인 및 번호 기록
-	</p>
+	<div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+		<div>
+			<h1 class="text-2xl lg:text-3xl font-bold text-base-content mb-2">
+				로또 QR 코드 스캔
+			</h1>
+			<p class="text-base-content/70 text-xs">
+				카메라로 QR 코드를 스캔하여 즉시 당첨 확인 및 번호 기록
+			</p>
+		</div>
+
+		<button
+			class="btn btn-outline btn-sm sm:btn-md gap-2 self-start sm:self-auto rounded-full border-base-300 bg-base-100/90 shadow-sm hover:shadow-md"
+			type="button"
+			onclick={() => historyModal?.openHistoryModal?.()}
+			aria-label="스캔 내역 모달 열기"
+		>
+			<svg
+				class="h-4 w-4"
+				fill="none"
+				stroke="currentColor"
+				viewBox="0 0 24 24"
+				aria-hidden="true"
+			>
+				<path
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					stroke-width="2"
+					d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 7h6m-6 4h6"
+				></path>
+			</svg>
+			<span>스캔 내역 보기</span>
+		</button>
+	</div>
 </div>
 
 <!-- Desktop: Two column layout, Mobile: Single column with QR scanner on top -->
@@ -1107,4 +1135,4 @@ async function requestPermission() {
 {/if}
 
 <!-- QR Scan History Component -->
-<QRScanHistory />
+<QRScanHistory bind:this={historyModal} />

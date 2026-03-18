@@ -43,6 +43,10 @@ function openHistory() {
 	showModal = true;
 }
 
+export function openHistoryModal() {
+	openHistory();
+}
+
 // Close modal
 function closeModal() {
 	showModal = false;
