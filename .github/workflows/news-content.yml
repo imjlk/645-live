@@ -31,6 +31,8 @@ on:
   schedule:
     # GitHub Actions cron uses UTC. 12:21 UTC = 21:21 KST every Saturday.
     - cron: "21 12 * * 6"
+    # Backup run after the later winning-store catch-up window. 13:21 UTC = 22:21 KST.
+    - cron: "21 13 * * 6"
 
 permissions:
   contents: write
