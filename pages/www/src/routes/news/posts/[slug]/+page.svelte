@@ -1,6 +1,14 @@
 <script lang="ts">
 	import NewsLayout from '../../../../content/news/+layout.svelte';
-	import { SITE_NAME, SITE_ORIGIN } from '$lib/seo/index.js';
+	import {
+		SITE_NAME,
+		SITE_ORIGIN,
+		createBreadcrumbSchema,
+		getCanonicalNewsOgUrl,
+		getSiteLogoUrl,
+		isAbsoluteHttpUrl,
+		toIsoDateTime,
+	} from '$lib/seo/index.js';
 
 	let { data } = $props();
 
@@ -10,23 +18,43 @@
 	);
 	const canonicalUrl = $derived(`${SITE_ORIGIN}/news/posts/${data.slug}`);
 	const imageUrl = $derived.by(() =>
-		data.meta?.thumbnail
-			? (String(data.meta.thumbnail).startsWith('http')
-				? data.meta.thumbnail
-				: `${SITE_ORIGIN}${data.meta.thumbnail}`)
-			: `${SITE_ORIGIN}/og/news/${data.slug}`,
+		typeof data.meta?.thumbnail === 'string' && isAbsoluteHttpUrl(data.meta.thumbnail)
+			? data.meta.thumbnail
+			: getCanonicalNewsOgUrl(data.slug, {
+				date: data.meta?.date,
+				updatedAt: data.meta?.updatedAt,
+			}),
 	);
 	const datePublished = $derived(data.meta?.date || undefined);
 	const dateModified = $derived(data.meta?.updatedAt || datePublished || undefined);
+	const datePublishedIso = $derived(toIsoDateTime(datePublished));
+	const dateModifiedIso = $derived(toIsoDateTime(dateModified));
+	const isGeneratedOgImage = $derived(imageUrl.startsWith(`${SITE_ORIGIN}/og/news/`));
+	const breadcrumbSchema = $derived(
+		createBreadcrumbSchema([
+			{ name: '홈', path: '/' },
+			{ name: '로또 뉴스', path: '/news' },
+			{ name: postTitle, path: `/news/posts/${encodeURIComponent(data.slug)}` },
+		]),
+	);
 	const articleJsonLd = $derived.by(() => ({
 		'@context': 'https://schema.org',
 		'@type': 'NewsArticle',
 		headline: postTitle,
 		description,
-		datePublished,
-		dateModified,
+		datePublished: datePublishedIso,
+		dateModified: dateModifiedIso,
+		articleSection: data.meta?.category || undefined,
 		mainEntityOfPage: canonicalUrl,
-		image: [imageUrl],
+		thumbnailUrl: imageUrl,
+		image: [
+			{
+				'@type': 'ImageObject',
+				url: imageUrl,
+				width: 1200,
+				height: 630
+			}
+		],
 		keywords: Array.isArray(data.meta?.tags)
 			? data.meta.tags.join(', ')
 			: undefined,
@@ -39,7 +67,7 @@
 			name: SITE_NAME,
 			logo: {
 				'@type': 'ImageObject',
-				url: `${SITE_ORIGIN}/favicon.png`
+				url: getSiteLogoUrl()
 			}
 		}
 	}));
@@ -56,12 +84,19 @@
 	<meta property="og:description" content={description} />
 	<meta property="og:url" content={canonicalUrl} />
 	<meta property="og:image" content={imageUrl} />
-	<meta property="og:site_name" content={SITE_NAME} />
-	{#if datePublished}
-		<meta property="article:published_time" content={datePublished} />
+	<meta property="og:image:secure_url" content={imageUrl} />
+	{#if isGeneratedOgImage}
+		<meta property="og:image:type" content="image/png" />
+		<meta property="og:image:width" content="1200" />
+		<meta property="og:image:height" content="630" />
 	{/if}
-	{#if dateModified}
-		<meta property="article:modified_time" content={dateModified} />
+	<meta property="og:image:alt" content={postTitle} />
+	<meta property="og:site_name" content={SITE_NAME} />
+	{#if datePublishedIso}
+		<meta property="article:published_time" content={datePublishedIso} />
+	{/if}
+	{#if dateModifiedIso}
+		<meta property="article:modified_time" content={dateModifiedIso} />
 	{/if}
 	<meta name="robots" content="index,follow,max-image-preview:large" />
 
@@ -69,9 +104,17 @@
 	<meta name="twitter:title" content={postTitle} />
 	<meta name="twitter:description" content={description} />
 	<meta name="twitter:image" content={imageUrl} />
+	<meta name="twitter:image:alt" content={postTitle} />
+	{#if Array.isArray(data.meta?.tags) && data.meta.tags.length > 0}
+		<meta name="news_keywords" content={data.meta.tags.join(', ')} />
+	{/if}
+	<link rel="preload" as="image" href={imageUrl} />
 
 	<script type="application/ld+json">
 		{JSON.stringify(articleJsonLd)}
+	</script>
+	<script type="application/ld+json">
+		{JSON.stringify(breadcrumbSchema)}
 	</script>
 </svelte:head>
 
@@ -81,8 +124,8 @@
 			{#if data.meta?.category}
 				<span class="badge badge-primary badge-outline">{data.meta.category}</span>
 			{/if}
-			{#if datePublished}
-				<time datetime={datePublished}>발행일 {datePublished}</time>
+			{#if datePublishedIso}
+				<time datetime={datePublishedIso}>발행일 {datePublished}</time>
 			{/if}
 			{#if data.meta?.author}
 				<span>작성 {data.meta.author}</span>
@@ -99,6 +142,17 @@
 			</div>
 		{/if}
 	</header>
+
+	<figure class="not-prose mb-8 overflow-hidden rounded-2xl border border-base-300 bg-base-100 shadow-sm">
+		<img
+			src={imageUrl}
+			alt={postTitle}
+			class="aspect-[1200/630] w-full object-cover"
+			loading="eager"
+			decoding="async"
+			fetchpriority="high"
+		/>
+	</figure>
 
 	<Content />
 </NewsLayout>

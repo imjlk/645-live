@@ -31,7 +31,9 @@ const CACHE_STRATEGIES = {
 		"/generator",
 		"/qr-scan",
 		"/_app/",
-		"/favicon.ico",
+		"/assets/icons/icon.svg",
+		"/assets/icons/icon-192.png",
+		"/apple-touch-icon.png",
 		"/app.css",
 		"/manifest.json",
 	],
@@ -622,8 +624,8 @@ self.addEventListener("push", (event) => {
 	let notificationData = {
 		title: "645.live",
 		body: "새로운 소식이 있습니다!",
-		icon: "/favicon.ico",
-		badge: "/favicon.ico",
+		icon: "/assets/icons/icon-192.png",
+		badge: "/assets/icons/icon-192.png",
 		data: { url: "/" },
 	};
 
@@ -645,7 +647,7 @@ self.addEventListener("push", (event) => {
 			{
 				action: "open",
 				title: "열기",
-				icon: "/favicon.ico",
+				icon: "/assets/icons/icon-192.png",
 			},
 			{
 				action: "close",

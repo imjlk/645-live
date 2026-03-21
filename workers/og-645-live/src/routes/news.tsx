@@ -149,6 +149,10 @@ export const handleNews = async (c: Context) => {
 		const width = parseIntWithRange(url.searchParams.get("width"), DEFAULT_WIDTH, 800, 2400);
 		const height = parseIntWithRange(url.searchParams.get("height"), DEFAULT_HEIGHT, 418, 1260);
 		const format = (url.searchParams.get("format") as "png" | "svg") || "png";
+		const cacheControl =
+			format === "png"
+				? "public, max-age=31536000, immutable"
+				: "no-store";
 
 		const layout = "news";
 		const contentType = format === "svg" ? "image/svg+xml" : "image/png";
@@ -156,7 +160,9 @@ export const handleNews = async (c: Context) => {
 
 		const customOptions = {
 			backgroundImage: url.searchParams.get("backgroundImage") || undefined,
-			logo: url.searchParams.get("logo") || "https://645.live/favicon.ico",
+			logo:
+				url.searchParams.get("logo") ||
+				"https://www.645.live/assets/icons/icon-192.png",
 			gradientBackground: {
 				type: "linear" as const,
 				colors: gradientColors,
@@ -185,8 +191,8 @@ export const handleNews = async (c: Context) => {
 				format,
 				headers: {
 					"Content-Type": contentType,
-					"Cache-Control":
-						"public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800",
+					"Cache-Control": cacheControl,
+					"X-OG-Source": "news-generated",
 				},
 			},
 		);

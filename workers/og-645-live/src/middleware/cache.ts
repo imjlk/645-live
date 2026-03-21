@@ -7,6 +7,34 @@ export interface CacheConfig {
 	keyPrefix: string;
 }
 
+const CACHE_NAME = "og-images";
+
+const buildCacheRequest = (cacheKey: string) =>
+	new Request(`https://og-cache.local/${cacheKey}`);
+
+const ensureOgHeaders = (
+	headers: Headers,
+	cacheKey: string,
+	defaultCacheControl: string,
+	defaultSource: string,
+) => {
+	if (!headers.get("Content-Type")) {
+		headers.set("Content-Type", "image/png");
+	}
+	if (!headers.get("Cache-Control")) {
+		headers.set("Cache-Control", defaultCacheControl);
+	}
+	if (!headers.get("ETag")) {
+		headers.set("ETag", `"${cacheKey}"`);
+	}
+	if (!headers.get("X-OG-Cache-Key")) {
+		headers.set("X-OG-Cache-Key", cacheKey);
+	}
+	if (!headers.get("X-OG-Source")) {
+		headers.set("X-OG-Source", defaultSource);
+	}
+};
+
 export const createCacheKey = async (
 	url: string,
 	prefix = "og-image",
@@ -50,18 +78,31 @@ export const getCacheConfig = (c: Context): CacheConfig => {
 
 export const getFromCache = async (
 	cacheKey: string,
-	request: Request,
 ): Promise<Response | null> => {
 	try {
-		const cache = await caches.open("og-images");
-		const cached = await cache.match(request);
+		const cache = await caches.open(CACHE_NAME);
+		const cached = await cache.match(buildCacheRequest(cacheKey));
 		if (cached) {
+			const headers = new Headers(cached.headers);
+			ensureOgHeaders(
+				headers,
+				cacheKey,
+				`public, max-age=86400`,
+				"cache",
+			);
+			headers.set("X-Cache", "HIT");
+
 			console.log(`Cache API hit: ${cacheKey}`, {
 				status: cached.status,
-				contentType: cached.headers.get("Content-Type"),
-				contentLength: cached.headers.get("Content-Length"),
+				contentType: headers.get("Content-Type"),
+				contentLength: headers.get("Content-Length"),
 			});
-			return cached;
+
+			return new Response(cached.body, {
+				status: cached.status,
+				statusText: cached.statusText,
+				headers,
+			});
 		}
 	} catch (error) {
 		console.warn("Cache API error:", error);
@@ -72,7 +113,6 @@ export const getFromCache = async (
 
 export const storeInCache = async (
 	cacheKey: string,
-	request: Request,
 	response: Response,
 	config: CacheConfig,
 ): Promise<void> => {
@@ -80,24 +120,22 @@ export const storeInCache = async (
 
 	try {
 		console.log(`🗄️ Storing in Cache API: ${cacheKey}`);
-		const cache = await caches.open("og-images");
+		const cache = await caches.open(CACHE_NAME);
 
-		// Clone the response with explicit headers to ensure they're preserved
 		const headers = new Headers(response.headers);
-
-		// Ensure critical headers are set
-		if (!headers.get("Content-Type")) {
-			headers.set("Content-Type", "image/png");
-		}
-		headers.set("Cache-Control", `public, max-age=${config.maxAge}`);
-		headers.set("X-Cache", "MISS");
+		ensureOgHeaders(
+			headers,
+			cacheKey,
+			`public, max-age=${config.maxAge}`,
+			"generated",
+		);
 
 		const cacheResponse = new Response(response.body, {
 			status: response.status,
 			statusText: response.statusText,
 			headers,
 		});
-		await cache.put(request, cacheResponse);
+		await cache.put(buildCacheRequest(cacheKey), cacheResponse);
 		console.log(`✅ Stored in Cache API: ${cacheKey}`, {
 			contentType: headers.get("Content-Type"),
 			contentLength: headers.get("Content-Length"),
@@ -126,7 +164,7 @@ export const cacheMiddleware = () => {
 		console.log(`🔍 Looking for cache key: ${cacheKey}`);
 
 		// Try to get from cache
-		const cachedResponse = await getFromCache(cacheKey, c.req.raw);
+		const cachedResponse = await getFromCache(cacheKey);
 		if (cachedResponse) {
 			console.log(`✅ Cache HIT! Returning cached response`, {
 				status: cachedResponse.status,
@@ -153,11 +191,19 @@ export const cacheMiddleware = () => {
 			c.res.status === 200 &&
 			c.res.headers.get("Content-Type")?.includes("image")
 		) {
+			ensureOgHeaders(
+				c.res.headers,
+				cacheKey,
+				`public, max-age=${config.maxAge}`,
+				"generated",
+			);
+			c.res.headers.set("X-Cache", "MISS");
+
 			// Clone the response before caching to avoid consuming the body
 			const responseToCache = c.res.clone();
 			console.log(`💾 Starting cache storage for: ${cacheKey}`);
 			// Fire and forget - don't await caching to avoid blocking the response
-			storeInCache(cacheKey, c.req.raw, responseToCache, config)
+			storeInCache(cacheKey, responseToCache, config)
 				.then(() => console.log(`✅ Cache storage completed for: ${cacheKey}`))
 				.catch((error) =>
 					console.warn(`❌ Cache storage failed for ${cacheKey}:`, error),

@@ -1,3 +1,5 @@
+import { dev } from "$app/environment";
+import { getNewsPostBySlug } from "$lib/server/news.js";
 import type { RequestHandler } from "./$types";
 
 // Category color themes
@@ -88,70 +90,127 @@ function generateEnhancedSVG(
 	</svg>`;
 }
 
+function createGenericFailureResponse() {
+	return new Response("OG service unavailable", {
+		status: 503,
+		headers: {
+			"Cache-Control": "no-store",
+		},
+	});
+}
+
+function createImageResponse(upstream: Response, fallbackContentType = "image/png") {
+	const headers = new Headers();
+
+	for (const name of [
+		"content-type",
+		"cache-control",
+		"etag",
+		"last-modified",
+		"x-og-cache-key",
+		"x-og-source",
+	]) {
+		const value = upstream.headers.get(name);
+		if (value) {
+			headers.set(name, value);
+		}
+	}
+
+	if (!headers.get("content-type")) {
+		headers.set("content-type", fallbackContentType);
+	}
+
+	return new Response(upstream.body, {
+		status: upstream.status,
+		headers,
+	});
+}
+
 export const GET: RequestHandler = async ({ platform, url, params }) => {
-	// OG 이미지를 위한 파라미터들
-	const title = url.searchParams.get("title") || `제${params.slug}회 로또 당첨 결과`;
-	const description = url.searchParams.get("description") || "로또 추첨 결과와 당첨점 분석";
-	const category = url.searchParams.get("category") || "로또분석";
-	const date = url.searchParams.get("date") || new Date().toISOString().split('T')[0];
+	const post = getNewsPostBySlug(params.slug);
+	const title =
+		url.searchParams.get("title") ||
+		post?.title ||
+		`제${params.slug.replace(/[^0-9]/g, "")}회 로또 당첨 결과`;
+	const description =
+		url.searchParams.get("description") ||
+		post?.description ||
+		"로또 추첨 결과와 당첨점 분석";
+	const category =
+		url.searchParams.get("category") || post?.category || "로또분석";
+	const date =
+		url.searchParams.get("date") ||
+		post?.updatedAt ||
+		post?.date ||
+		new Date().toISOString().split("T")[0];
 	const highlight = url.searchParams.get("highlight") || undefined;
-	const round = url.searchParams.get("round") || params.slug.replace(/[^0-9]/g, '');
+	const round =
+		url.searchParams.get("round") || params.slug.replace(/[^0-9]/g, "");
 	const theme = url.searchParams.get("theme") || "news";
 	const format = url.searchParams.get("format") || "png";
 
-	// Generate enhanced SVG for local development or as fallback
 	const generateFallbackSVG = () => {
 		const svg = generateEnhancedSVG(title, description, category, date, highlight);
 		return new Response(svg, {
 			headers: {
 				"Content-Type": "image/svg+xml",
-				"Cache-Control": "no-cache"
-			}
+				"Cache-Control": "no-store",
+			},
 		});
 	};
 
 	if (!platform?.env?.OG_645_LIVE) {
-		return generateFallbackSVG();
+		return dev ? generateFallbackSVG() : createGenericFailureResponse();
 	}
 
 	try {
-		// OG Worker에 전달할 URL 생성
 		const ogUrl = new URL(`https://worker/news/${params.slug}`);
-		
-		// 뉴스 기사용 OG 이미지 파라미터 설정
-		ogUrl.searchParams.set("title", title);
-		ogUrl.searchParams.set("description", description);
-		ogUrl.searchParams.set("category", category);
-		ogUrl.searchParams.set("theme", theme);
-		ogUrl.searchParams.set("format", format);
-		ogUrl.searchParams.set("layout", "news");
-		if (highlight) ogUrl.searchParams.set("highlight", highlight);
-		
-		// 로또 관련 파라미터
-		if (round) ogUrl.searchParams.set("round", round);
-		
-		// 추가 스타일 파라미터
-		ogUrl.searchParams.set("width", "1200");
-		ogUrl.searchParams.set("height", "630");
-		ogUrl.searchParams.set("logo", "https://645.live/favicon.ico");
+
+		for (const [key, value] of url.searchParams) {
+			ogUrl.searchParams.set(key, value);
+		}
+
+		if (!ogUrl.searchParams.has("title")) ogUrl.searchParams.set("title", title);
+		if (!ogUrl.searchParams.has("description")) {
+			ogUrl.searchParams.set("description", description);
+		}
+		if (!ogUrl.searchParams.has("category")) {
+			ogUrl.searchParams.set("category", category);
+		}
+		if (!ogUrl.searchParams.has("theme")) ogUrl.searchParams.set("theme", theme);
+		if (!ogUrl.searchParams.has("format")) ogUrl.searchParams.set("format", format);
+		if (!ogUrl.searchParams.has("layout")) ogUrl.searchParams.set("layout", "news");
+		if (!ogUrl.searchParams.has("date")) ogUrl.searchParams.set("date", date);
+		if (highlight && !ogUrl.searchParams.has("highlight")) {
+			ogUrl.searchParams.set("highlight", highlight);
+		}
+		if (round && !ogUrl.searchParams.has("round")) {
+			ogUrl.searchParams.set("round", round);
+		}
+		if (!ogUrl.searchParams.has("width")) ogUrl.searchParams.set("width", "1200");
+		if (!ogUrl.searchParams.has("height")) {
+			ogUrl.searchParams.set("height", "630");
+		}
+		if (!ogUrl.searchParams.has("logo")) {
+			ogUrl.searchParams.set(
+				"logo",
+				"https://www.645.live/assets/icons/icon-192.png",
+			);
+		}
 
 		const ogRequest = new Request(ogUrl.toString());
 		const response = await platform.env.OG_645_LIVE.fetch(ogRequest);
 
 		if (response.ok) {
-			return new Response(response.body, {
-				headers: {
-					"Content-Type":
-						response.headers.get("Content-Type") ||
-						(format === "svg" ? "image/svg+xml" : "image/png"),
-					"Cache-Control": "public, max-age=86400, s-maxage=86400",
-				},
-			});
+			return createImageResponse(
+				response,
+				format === "svg" ? "image/svg+xml" : "image/png",
+			);
 		}
 
-		return generateFallbackSVG();
+		return dev ? generateFallbackSVG() : createGenericFailureResponse();
 	} catch (error) {
 		console.error("Error calling OG Image Worker:", error);
-		return generateFallbackSVG();
+		return dev ? generateFallbackSVG() : createGenericFailureResponse();
 	}
 };

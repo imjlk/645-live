@@ -43,11 +43,25 @@ export function writeEnhancedSitemap() {
 				children.push(`    <priority>${escapeXml(entry.priority)}</priority>`);
 			}
 
+			if (entry.image) {
+				const imageChildren = [
+					`      <image:loc>${escapeXml(new URL(entry.image, ORIGIN).toString())}</image:loc>`,
+				];
+				if (entry.imageTitle) {
+					imageChildren.push(
+						`      <image:title>${escapeXml(entry.imageTitle)}</image:title>`,
+					);
+				}
+				children.push(
+					`    <image:image>\n${imageChildren.join("\n")}\n    </image:image>`,
+				);
+			}
+
 			return `  <url>\n${children.join("\n")}\n  </url>`;
 		})
 		.join("\n");
 
-	const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urlNodes}\n</urlset>\n`;
+	const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">\n${urlNodes}\n</urlset>\n`;
 	fs.writeFileSync(SITEMAP_PATH, xml, "utf8");
 }
 

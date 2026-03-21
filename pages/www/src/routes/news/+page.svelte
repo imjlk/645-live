@@ -1,6 +1,13 @@
 <script lang="ts">
 	// News index page - list all news articles
-	import { createCollectionPageSchema, createItemListSchema, absoluteUrl } from "$lib/seo/index.js";
+	import { resolve } from "$app/paths";
+	import {
+		createBreadcrumbSchema,
+		createCollectionPageSchema,
+		createItemListSchema,
+		createOrganizationSchema,
+		absoluteUrl
+	} from "$lib/seo/index.js";
 	import { JsonLd, MetaTags } from "svelte-meta-tags";
 
 	type NewsPost = {
@@ -60,12 +67,18 @@
 			})),
 		),
 	);
+	const breadcrumbSchema = $derived(
+		createBreadcrumbSchema([
+			{ name: '홈', path: '/' },
+			{ name: '로또 뉴스', path: currentPage > 1 ? `/news?page=${currentPage}` : '/news' }
+		]),
+	);
 
-	function hrefForPage(page: number) {
+	function hrefForPage(page: number): '/news' | `/news?${string}` {
 		return page <= 1 ? '/news' : `/news?page=${page}`;
 	}
 
-	function hrefForPost(slug: string) {
+	function hrefForPost(slug: string): `/news/posts/${string}` {
 		return `/news/posts/${encodeURIComponent(slug)}`;
 	}
 
@@ -96,12 +109,12 @@
 
 	function buildFeedItems(posts: NewsPost[], insertions: FeedInsertion[]): FeedItem[] {
 		const items: FeedItem[] = [];
-		const groupedInsertions = new Map<number, FeedInsertion[]>();
+		const groupedInsertions: Record<number, FeedInsertion[]> = {};
 
 		for (const insertion of insertions) {
-			const group = groupedInsertions.get(insertion.afterPostIndex) ?? [];
+			const group = groupedInsertions[insertion.afterPostIndex] ?? [];
 			group.push(insertion);
-			groupedInsertions.set(insertion.afterPostIndex, group);
+			groupedInsertions[insertion.afterPostIndex] = group;
 		}
 
 		for (let index = 0; index < posts.length; index += 1) {
@@ -114,7 +127,7 @@
 				post
 			});
 
-			const pendingInsertions = groupedInsertions.get(index);
+			const pendingInsertions = groupedInsertions[index];
 			if (!pendingInsertions) continue;
 
 			for (const insertion of pendingInsertions) {
@@ -176,6 +189,8 @@
 
 <JsonLd schema={collectionSchema} />
 <JsonLd schema={itemListSchema} />
+<JsonLd schema={breadcrumbSchema} />
+<JsonLd schema={createOrganizationSchema()} />
 
 <div class="space-y-8">
 	<!-- Page Header -->
@@ -214,7 +229,7 @@
 							</div>
 							
 							<h2 class="card-title text-lg">
-								<a href={hrefForPost(item.post.slug)} class="hover:text-primary transition-colors">
+									<a href={resolve(hrefForPost(item.post.slug))} class="hover:text-primary transition-colors">
 									{item.post.title}
 								</a>
 							</h2>
@@ -222,7 +237,7 @@
 							<p class="text-base-content/80">{item.post.description}</p>
 							
 							<div class="card-actions justify-end">
-								<a href={hrefForPost(item.post.slug)} class="btn btn-primary btn-sm">
+									<a href={resolve(hrefForPost(item.post.slug))} class="btn btn-primary btn-sm">
 									기사 읽기
 								</a>
 							</div>
@@ -247,7 +262,7 @@
 				<p class="text-sm text-base-content/70">총 {totalPosts}개 기사 · {currentPage}/{totalPages}페이지</p>
 					<nav class="join" aria-label="뉴스 페이지네이션">
 					{#if pagination?.hasPrev && pagination?.prevPage}
-						<a href={hrefForPage(pagination.prevPage)} class="join-item btn btn-outline btn-sm">이전</a>
+							<a href={resolve(hrefForPage(pagination.prevPage))} class="join-item btn btn-outline btn-sm">이전</a>
 					{:else}
 						<button class="join-item btn btn-outline btn-sm btn-disabled" aria-disabled="true">이전</button>
 					{/if}
@@ -256,12 +271,12 @@
 						{#if page === currentPage}
 							<button class="join-item btn btn-primary btn-sm" aria-current="page">{page}</button>
 						{:else}
-							<a href={hrefForPage(page)} class="join-item btn btn-outline btn-sm">{page}</a>
+								<a href={resolve(hrefForPage(page))} class="join-item btn btn-outline btn-sm">{page}</a>
 						{/if}
 					{/each}
 
 					{#if pagination?.hasNext && pagination?.nextPage}
-						<a href={hrefForPage(pagination.nextPage)} class="join-item btn btn-outline btn-sm">다음</a>
+							<a href={resolve(hrefForPage(pagination.nextPage))} class="join-item btn btn-outline btn-sm">다음</a>
 					{:else}
 						<button class="join-item btn btn-outline btn-sm btn-disabled" aria-disabled="true">다음</button>
 					{/if}

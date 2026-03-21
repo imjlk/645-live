@@ -1,0 +1,72 @@
+<svg
+	xmlns="http://www.w3.org/2000/svg"
+	width="512"
+	height="512"
+	viewBox="0 0 512 512"
+	fill="none"
+>
+	<defs>
+		<linearGradient id="bg" x1="64" y1="56" x2="456" y2="456" gradientUnits="userSpaceOnUse">
+			<stop stop-color="#1D4ED8" />
+			<stop offset="1" stop-color="#0F172A" />
+		</linearGradient>
+		<linearGradient id="shine" x1="104" y1="92" x2="408" y2="388" gradientUnits="userSpaceOnUse">
+			<stop stop-color="#F8FAFC" stop-opacity="0.95" />
+			<stop offset="1" stop-color="#DBEAFE" stop-opacity="0.78" />
+		</linearGradient>
+	</defs>
+	<rect x="24" y="24" width="464" height="464" rx="112" fill="url(#bg)" />
+	<circle cx="152" cy="182" r="56" fill="url(#shine)" />
+	<circle cx="256" cy="182" r="56" fill="url(#shine)" />
+	<circle cx="360" cy="182" r="56" fill="url(#shine)" />
+	<text
+		x="152"
+		y="200"
+		text-anchor="middle"
+		font-family="Arial, sans-serif"
+		font-size="58"
+		font-weight="700"
+		fill="#0F172A"
+	>
+		6
+	</text>
+	<text
+		x="256"
+		y="200"
+		text-anchor="middle"
+		font-family="Arial, sans-serif"
+		font-size="58"
+		font-weight="700"
+		fill="#0F172A"
+	>
+		4
+	</text>
+	<text
+		x="360"
+		y="200"
+		text-anchor="middle"
+		font-family="Arial, sans-serif"
+		font-size="58"
+		font-weight="700"
+		fill="#0F172A"
+	>
+		5
+	</text>
+	<path
+		d="M128 324C128 286.444 158.444 256 196 256H316C353.556 256 384 286.444 384 324V332C384 369.556 353.556 400 316 400H196C158.444 400 128 369.556 128 332V324Z"
+		fill="#0F172A"
+		fill-opacity="0.26"
+	/>
+	<text
+		x="256"
+		y="348"
+		text-anchor="middle"
+		font-family="Arial, sans-serif"
+		font-size="72"
+		font-weight="700"
+		letter-spacing="8"
+		fill="#F8FAFC"
+	>
+		LIVE
+	</text>
+</svg>

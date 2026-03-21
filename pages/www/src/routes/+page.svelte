@@ -1,7 +1,13 @@
 <script lang="ts">
 import { browser } from "$app/environment";
 import ScanStatusGrid from "$lib/modules/lotto/components/ScanStatusGrid.svelte";
-import { SITE_NAME, SITE_ORIGIN } from "$lib/seo/index.js";
+import {
+	SITE_NAME,
+	SITE_ORIGIN,
+	createOrganizationSchema,
+	createWebSiteSchema,
+	getSiteLogoUrl,
+} from "$lib/seo/index.js";
 import { JsonLd, MetaTags } from "svelte-meta-tags";
 import { onMount } from "svelte";
 import type { PageData } from "./$types";
@@ -76,7 +82,11 @@ onMount(() => {
 		"publisher": {
 			"@type": "Organization",
 			"name": SITE_NAME,
-			"url": SITE_ORIGIN
+			"url": SITE_ORIGIN,
+			"logo": {
+				"@type": "ImageObject",
+				"url": getSiteLogoUrl()
+			}
 		},
 		"applicationCategory": "EntertainmentApplication",
 		"operatingSystem": "Web Browser",
@@ -87,6 +97,8 @@ onMount(() => {
 		}
 	}}
 />
+<JsonLd schema={createOrganizationSchema()} />
+<JsonLd schema={createWebSiteSchema()} />
 
 <ScanStatusGrid 
 	initialRound={data.displayRound || data.latestRound}

@@ -16,17 +16,30 @@ function readNewsFiles() {
 			const filePath = path.join(NEWS_ROOT, fileName);
 			const source = fs.readFileSync(filePath, "utf8");
 			const slug = fileName.replace(/\.mdx$/, "");
+			const title = source.match(/^title:\s*["']?([^"'\n]+)["']?/m)?.[1];
 			const date = source.match(/^date:\s*["']?([^"'\n]+)["']?/m)?.[1];
 			const updatedAt =
 				source.match(/^updatedAt:\s*["']?([^"'\n]+)["']?/m)?.[1] || undefined;
 
 			return {
 				slug,
+				title,
 				date,
 				updatedAt,
 				filePath,
 			};
 		});
+}
+
+function buildNewsOgPath(slug, updatedAt, date) {
+	const params = new URLSearchParams();
+	const version = updatedAt || date;
+	if (version) {
+		params.set("v", version);
+	}
+
+	const query = params.toString();
+	return query.length > 0 ? `/og/news/${slug}?${query}` : `/og/news/${slug}`;
 }
 
 function toYyyyMmDd(value) {
@@ -107,6 +120,8 @@ export function buildSitemapEntries() {
 		changefreq: "weekly",
 		priority: "0.75",
 		lastmod: toYyyyMmDd(item.updatedAt || item.date) || sourceFileLastMod(item.filePath),
+		image: buildNewsOgPath(item.slug, item.updatedAt, item.date),
+		imageTitle: item.title || undefined,
 	}));
 
 	const entries = [...staticEntries, ...recentEntries, ...numberEntries, ...liveNumberEntries, ...newsEntries]
@@ -120,6 +135,8 @@ export function buildSitemapEntries() {
 				changefreq: entry.changefreq,
 				priority: entry.priority,
 				lastmod: entry.lastmod || (sourcePath ? sourceFileLastMod(sourcePath) : undefined),
+				image: entry.image,
+				imageTitle: entry.imageTitle,
 			};
 		})
 		.filter((entry, index, all) => all.findIndex((candidate) => candidate.path === entry.path) === index);
