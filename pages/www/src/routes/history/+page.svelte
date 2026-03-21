@@ -3,7 +3,9 @@ import { goto } from "$app/navigation";
 import { page } from "$app/state";
 import SimpleBall from "$lib/components/SimpleBall.svelte";
 import type { BallNumber } from "$lib/modules/lotto/types";
+import { createCollectionPageSchema, absoluteUrl } from "$lib/seo/index.js";
 import LinkButton from "$lib/ui/LinkButton.svelte";
+import { JsonLd, MetaTags } from "svelte-meta-tags";
 import type { PageData } from "./$types";
 
 interface Props {
@@ -95,12 +97,31 @@ function formatDate(dateStr: string): string {
 function isWinningNumber(num: number): boolean {
 	return winningNumbers.includes(num);
 }
+
+const canonicalUrl = absoluteUrl("/history");
+const collectionSchema = createCollectionPageSchema({
+	path: "/history",
+	name: "로또 회차별 스캔 히스토리",
+	description: "회차별 로또 QR 스캔 통계와 당첨 번호 흐름을 확인하는 페이지",
+});
 </script>
 
-<svelte:head>
-	<title>로또 스캔 통계 - 회차별 히스토리 | 645.live</title>
-	<meta name="description" content="로또 번호 스캔 통계의 회차별 히스토리를 확인하세요." />
-</svelte:head>
+<MetaTags
+	title="로또 회차별 스캔 히스토리"
+	titleTemplate="%s | 645.live"
+	description="로또 회차별 QR 스캔 통계와 당첨 번호 흐름을 한눈에 확인하세요."
+	canonical={canonicalUrl}
+	robots="index,follow"
+	openGraph={{
+		type: "website",
+		url: canonicalUrl,
+		title: "로또 회차별 스캔 히스토리",
+		description: "로또 회차별 QR 스캔 통계와 당첨 번호 흐름을 한눈에 확인하세요.",
+		siteName: "645.live",
+	}}
+/>
+
+<JsonLd schema={collectionSchema} />
 
 <div class="container mx-auto max-sm:px-0 px-4 py-4 md:py-8 max-w-6xl">
 	{#if data.error}

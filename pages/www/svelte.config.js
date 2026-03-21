@@ -34,7 +34,11 @@ const config = {
 		normalizeMdsvexModuleScripts,
 	],
 	kit: {
-		adapter: adapter(),
+		adapter: adapter({
+			routes: {
+				exclude: ["<all>", "/sitemap.xml"],
+			},
+		}),
 		serviceWorker: {
 			register: process.env.NODE_ENV === "production",
 		},

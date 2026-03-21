@@ -1,6 +1,8 @@
 <script lang="ts">
 import { goto } from "$app/navigation";
 import { authClient } from "$lib/auth-client";
+import { absoluteUrl } from "$lib/seo/index.js";
+import { MetaTags } from "svelte-meta-tags";
 
 let formView: "email" | "otp" = $state("email");
 let email = $state("");
@@ -36,6 +38,14 @@ async function verifyOtp(event) {
 	}
 }
 </script>
+
+<MetaTags
+	title="로그인"
+	titleTemplate="%s | 645.live"
+	description="645.live 로그인 페이지"
+	canonical={absoluteUrl("/login")}
+	robots="noindex,nofollow"
+/>
 
 <div class="hero min-h-screen bg-base-200">
 	<div class="hero-content flex-col lg:flex-row-reverse">

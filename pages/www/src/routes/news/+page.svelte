@@ -1,6 +1,7 @@
 <script lang="ts">
 	// News index page - list all news articles
-	import { MetaTags } from "svelte-meta-tags";
+	import { createCollectionPageSchema, createItemListSchema, absoluteUrl } from "$lib/seo/index.js";
+	import { JsonLd, MetaTags } from "svelte-meta-tags";
 
 	type NewsPost = {
 		slug: string;
@@ -42,6 +43,23 @@
 	const canonicalUrl = $derived(currentPage > 1
 		? `https://www.645.live/news?page=${currentPage}`
 		: 'https://www.645.live/news');
+	const collectionSchema = $derived(
+		createCollectionPageSchema({
+			path: currentPage > 1 ? `/news?page=${currentPage}` : "/news",
+			name: currentPage > 1 ? `로또 뉴스 ${currentPage}페이지` : "로또 뉴스",
+			description: "최신 로또 당첨 결과 분석과 통계 소식 모음",
+		}),
+	);
+	const itemListSchema = $derived(
+		createItemListSchema(
+			currentPage > 1 ? `/news?page=${currentPage}` : "/news",
+			newsPosts.map((post, index) => ({
+				position: index + 1,
+				name: post.title,
+				url: absoluteUrl(hrefForPost(post.slug)),
+			})),
+		),
+	);
 
 	function hrefForPage(page: number) {
 		return page <= 1 ? '/news' : `/news?page=${page}`;
@@ -132,11 +150,32 @@
 	const feedItems = $derived(buildFeedItems(newsPosts, feedInsertions));
 </script>
 
+<svelte:head>
+	<link rel="alternate" type="application/rss+xml" title="645.live 로또 뉴스 RSS" href="/feed.xml" />
+</svelte:head>
+
 <MetaTags
 	title={pageTitle}
 	description="최신 로또 당첨 결과 분석과 통계 뉴스를 제공하는 전문 뉴스 사이트"
 	canonical={canonicalUrl}
+	robots="index,follow"
+	openGraph={{
+		type: "website",
+		url: canonicalUrl,
+		title: pageTitle,
+		description: "최신 로또 당첨 결과 분석과 통계 뉴스를 제공하는 전문 뉴스 사이트",
+		siteName: "645.live",
+	}}
+	twitter={{
+		cardType: "summary_large_image",
+		site: "@645live",
+		title: pageTitle,
+		description: "최신 로또 당첨 결과 분석과 통계 뉴스를 제공하는 전문 뉴스 사이트",
+	}}
 />
+
+<JsonLd schema={collectionSchema} />
+<JsonLd schema={itemListSchema} />
 
 <div class="space-y-8">
 	<!-- Page Header -->
@@ -184,7 +223,7 @@
 							
 							<div class="card-actions justify-end">
 								<a href={hrefForPost(item.post.slug)} class="btn btn-primary btn-sm">
-									읽기
+									기사 읽기
 								</a>
 							</div>
 						</div>

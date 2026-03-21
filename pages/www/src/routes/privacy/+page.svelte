@@ -1,5 +1,7 @@
 <script lang="ts">
 import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
+import { absoluteUrl } from "$lib/seo/index.js";
+import { MetaTags } from "svelte-meta-tags";
 
 // Breadcrumbs 데이터
 const breadcrumbItems = [
@@ -7,6 +9,14 @@ const breadcrumbItems = [
 	{ label: "개인정보 처리방침", current: true },
 ];
 </script>
+
+<MetaTags
+	title="개인정보 처리방침"
+	titleTemplate="%s | 645.live"
+	description="645.live 서비스의 개인정보 처리 기준과 이용자 권리를 안내합니다."
+	canonical={absoluteUrl("/privacy")}
+	robots="index,follow"
+/>
 
 <div class="p-6 space-y-6">
 	<!-- Breadcrumbs -->

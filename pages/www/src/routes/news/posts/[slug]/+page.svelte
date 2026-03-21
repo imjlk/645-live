@@ -1,29 +1,30 @@
 <script lang="ts">
 	import NewsLayout from '../../../../content/news/+layout.svelte';
+	import { SITE_NAME, SITE_ORIGIN } from '$lib/seo/index.js';
 
 	let { data } = $props();
 
-	const siteUrl = 'https://www.645.live';
 	const postTitle = $derived(data.meta?.title || '로또 분석 기사');
 	const description = $derived(
 		data.meta?.description || '로또 당첨 결과 분석 기사',
 	);
-	const canonicalUrl = $derived(`${siteUrl}/news/posts/${data.slug}`);
+	const canonicalUrl = $derived(`${SITE_ORIGIN}/news/posts/${data.slug}`);
 	const imageUrl = $derived.by(() =>
 		data.meta?.thumbnail
 			? (String(data.meta.thumbnail).startsWith('http')
 				? data.meta.thumbnail
-				: `${siteUrl}${data.meta.thumbnail}`)
-			: `${siteUrl}/og/news/${data.slug}`,
+				: `${SITE_ORIGIN}${data.meta.thumbnail}`)
+			: `${SITE_ORIGIN}/og/news/${data.slug}`,
 	);
 	const datePublished = $derived(data.meta?.date || undefined);
+	const dateModified = $derived(data.meta?.updatedAt || datePublished || undefined);
 	const articleJsonLd = $derived.by(() => ({
 		'@context': 'https://schema.org',
 		'@type': 'NewsArticle',
 		headline: postTitle,
 		description,
 		datePublished,
-		dateModified: datePublished,
+		dateModified,
 		mainEntityOfPage: canonicalUrl,
 		image: [imageUrl],
 		keywords: Array.isArray(data.meta?.tags)
@@ -35,10 +36,10 @@
 		},
 		publisher: {
 			'@type': 'Organization',
-			name: '645.live',
+			name: SITE_NAME,
 			logo: {
 				'@type': 'ImageObject',
-				url: `${siteUrl}/favicon.png`
+				url: `${SITE_ORIGIN}/favicon.png`
 			}
 		}
 	}));
@@ -55,9 +56,12 @@
 	<meta property="og:description" content={description} />
 	<meta property="og:url" content={canonicalUrl} />
 	<meta property="og:image" content={imageUrl} />
-	<meta property="og:site_name" content="645.live" />
+	<meta property="og:site_name" content={SITE_NAME} />
 	{#if datePublished}
 		<meta property="article:published_time" content={datePublished} />
+	{/if}
+	{#if dateModified}
+		<meta property="article:modified_time" content={dateModified} />
 	{/if}
 	<meta name="robots" content="index,follow,max-image-preview:large" />
 

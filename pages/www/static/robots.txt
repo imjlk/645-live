@@ -7,6 +7,9 @@ Allow: /stats/
 Allow: /generator
 Allow: /news/
 
+# Utility pages such as /login and /my are intentionally omitted from the sitemap
+# and controlled via page-level noindex directives.
+
 # Block admin or private areas if any exist
 Disallow: /api/
 Disallow: /news/sample
@@ -15,4 +18,4 @@ Disallow: /news/sample
 Sitemap: https://www.645.live/sitemap.xml
 Host: www.645.live
 
-#DaumWebMasterTool:33dbb43fef00c81a48beb2dd0c501bc847a5f4be59f4832dc1c0fb397b35f819:KcsOqVMWHqYO9oZPTDAtaw==
+#DaumWebMasterTool:33dbb43fef00c81a48beb2dd0c501bc847a5f4be59f4832dc1c0fb397b35f819:/xYOdmA6r0YL5ZCFTEhj1w==

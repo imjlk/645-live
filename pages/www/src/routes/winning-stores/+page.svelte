@@ -2,7 +2,9 @@
 import { goto } from "$app/navigation";
 import { page } from "$app/state";
 import { PUBLIC_TRAILBASE_URL } from "$env/static/public";
+import { createCollectionPageSchema, absoluteUrl } from "$lib/seo/index.js";
 import { calculateExpectedLatestRound } from "$lib/utils/lotto-common";
+import { JsonLd, MetaTags } from "svelte-meta-tags";
 import { initClient } from "trailbase";
 
 interface Props {
@@ -124,12 +126,31 @@ $effect(() => {
 		fetchWinningStores();
 	}
 });
+
+const canonicalUrl = absoluteUrl("/winning-stores");
+const collectionSchema = createCollectionPageSchema({
+	path: "/winning-stores",
+	name: "로또 당첨점 조회",
+	description: "회차별 로또 1등, 2등 당첨 판매점과 주소 정보를 확인하는 페이지",
+});
 </script>
 
-<svelte:head>
-	<title>로또 당첨점 조회 - 645.live</title>
-	<meta name="description" content="로또 당첨점 정보를 회차별로 조회할 수 있습니다." />
-</svelte:head>
+<MetaTags
+	title="로또 당첨점 조회"
+	titleTemplate="%s | 645.live"
+	description="회차별 로또 1등, 2등 당첨 판매점과 주소 정보를 확인하세요."
+	canonical={canonicalUrl}
+	robots="index,follow"
+	openGraph={{
+		type: "website",
+		url: canonicalUrl,
+		title: "로또 당첨점 조회",
+		description: "회차별 로또 1등, 2등 당첨 판매점과 주소 정보를 확인하세요.",
+		siteName: "645.live",
+	}}
+/>
+
+<JsonLd schema={collectionSchema} />
 
 <div class="container mx-auto px-4 py-8 max-sm:px-0">
 	<div class="mb-8">

@@ -1,5 +1,7 @@
 <script lang="ts">
 import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
+import { absoluteUrl } from "$lib/seo/index.js";
+import { MetaTags } from "svelte-meta-tags";
 
 // Breadcrumbs 데이터
 const breadcrumbItems = [
@@ -7,6 +9,14 @@ const breadcrumbItems = [
 	{ label: "내 645", current: true },
 ];
 </script>
+
+<MetaTags
+	title="내 645"
+	titleTemplate="%s | 645.live"
+	description="회원 전용 개인화 로또 기능 페이지"
+	canonical={absoluteUrl("/my")}
+	robots="noindex,nofollow"
+/>
 
 <div class="p-6 space-y-6">
 	<!-- Breadcrumbs -->

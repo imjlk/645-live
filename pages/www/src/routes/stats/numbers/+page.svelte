@@ -72,10 +72,6 @@ const getDeviationClass = (deviation: string) => {
 	}}
 	additionalMetaTags={[
 		{
-			name: "robots",
-			content: "index,follow"
-		},
-		{
 			name: "author", 
 			content: "645.live"
 		}

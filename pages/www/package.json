@@ -7,6 +7,7 @@
 		"dev": "vite dev --host 0.0.0.0",
 		"dev:bun": "bunx --bun vite dev",
 		"build": "bunx --bun vite build",
+		"postbuild": "node ../../scripts/seo/generate-sitemap.mjs",
 		"preview": "bun run build && wrangler pages dev",
 		"deploy": "bun run build && wrangler pages deploy",
 		"prepare": "svelte-kit sync || echo ''",
@@ -36,6 +37,7 @@
 		"mdsvex": "^0.12.7",
 		"svelte": "^5.53.12",
 		"svelte-check": "^4.4.5",
+		"svelte-sitemap": "^3.0.1",
 		"tailwindcss": "^4.2.1",
 		"trailbase": "^0.10.0",
 		"typescript": "^5.9.3",
@@ -52,7 +54,6 @@
 		"hono": "^4.12.8",
 		"nuqs-svelte": "^1.2.2",
 		"postgres": "^3.4.8",
-		"super-sitemap": "^1.0.7",
 		"svelte-meta-tags": "^4.5.0",
 		"svelte-sonner": "^1.1.0"
 	}

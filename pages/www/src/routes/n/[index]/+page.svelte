@@ -177,10 +177,6 @@ const getColorClass = (color: string | undefined) => {
 	}}
 	additionalMetaTags={[
 		{
-			name: "robots",
-			content: "index,follow"
-		},
-		{
 			name: "author",
 			content: "645.live"
 		},

@@ -1,5 +1,6 @@
 <script lang="ts">
 import { env } from "$env/dynamic/public";
+import { SITE_NAME, SITE_ORIGIN, absoluteUrl } from "$lib/seo/index.js";
 import { onMount } from "svelte";
 import { JsonLd, MetaTags } from "svelte-meta-tags";
 import { initClient } from "trailbase";
@@ -305,11 +306,11 @@ $effect(() => {
 	title="로또 번호 생성기"
 	titleTemplate="%s | 645.live"
 	description="🚀 통계 기반 로또번호 생성기! 당첨 확률을 높이는 다양한 필터를 적용하여 나만의 운명 번호를 만들어보세요."
-	canonical="https://www.645.live/generator"
+	canonical={absoluteUrl("/generator")}
 	keywords={['로또', '로또번호', '로또생성기', '로또번호생성기', '로또통계', '제외수']}
 	openGraph={{
 		type: 'website',
-		url: 'https://www.645.live/generator',
+		url: absoluteUrl("/generator"),
 		title: '통계 기반 로또 번호 생성기',
 		description: '🚀 통계 기반으로 당첨 확률을 높이는 나만의 로또 번호를 생성하세요!',
 		images: [
@@ -320,7 +321,7 @@ $effect(() => {
 				alt: '로또 번호 생성기 OG 이미지'
 			}
 		],
-		siteName: '645.live'
+		siteName: SITE_NAME
 	}}
 	twitter={{
 		cardType: 'summary_large_image',
@@ -334,13 +335,18 @@ $effect(() => {
 
 <JsonLd
 	schema={{
-		'@type': 'WebSite',
-		url: 'https://www.645.live/generator',
-		name: '로또 번호 생성기 | 645.live',
-		potentialAction: {
-			'@type': 'SearchAction',
-			target: 'https://www.645.live/search?q={search_term_string}',
-			'query-input': 'required name=search_term_string'
+		"@context": "https://schema.org",
+		"@type": "WebApplication",
+		name: `로또 번호 생성기 | ${SITE_NAME}`,
+		url: absoluteUrl("/generator"),
+		description: "통계 기반으로 로또 번호 조합을 생성하는 웹 도구",
+		applicationCategory: "UtilitiesApplication",
+		operatingSystem: "Web Browser",
+		isAccessibleForFree: true,
+		publisher: {
+			"@type": "Organization",
+			name: SITE_NAME,
+			url: SITE_ORIGIN
 		}
 	}}
 />
@@ -640,4 +646,3 @@ $effect(() => {
 			</div>
 		{/if}
 	</div>
-

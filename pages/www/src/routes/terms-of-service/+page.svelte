@@ -1,5 +1,7 @@
 <script lang="ts">
 import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
+import { absoluteUrl } from "$lib/seo/index.js";
+import { MetaTags } from "svelte-meta-tags";
 
 // Breadcrumbs 데이터
 const breadcrumbItems = [
@@ -7,6 +9,14 @@ const breadcrumbItems = [
 	{ label: "서비스 이용약관", current: true },
 ];
 </script>
+
+<MetaTags
+	title="서비스 이용약관"
+	titleTemplate="%s | 645.live"
+	description="645.live 서비스 이용 조건과 책임 범위를 안내합니다."
+	canonical={absoluteUrl("/terms-of-service")}
+	robots="index,follow"
+/>
 
 <div class="p-6 space-y-6">
 	<!-- Breadcrumbs -->

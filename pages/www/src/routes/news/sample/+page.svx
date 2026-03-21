@@ -47,6 +47,7 @@ clickbait_elements: {
 <svelte:head>
 	<title>🎯 제1150회 로또 28억 독점! 1명이 모든 걸 가져갔다 - 645.live</title>
 	<meta name="description" content="1인당 28억원, 세후 약 22억원 수령 예정" />
+	<meta name="robots" content="noindex,nofollow" />
 </svelte:head>
 
 # 🎯 제1150회 로또 28억 독점! 1명이 모든 걸 가져갔다
