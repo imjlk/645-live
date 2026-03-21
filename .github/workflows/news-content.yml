@@ -29,7 +29,8 @@ on:
           - "true"
           - "false"
   schedule:
-    - cron: "0 13 * * 6"
+    # GitHub Actions cron uses UTC. 12:21 UTC = 21:21 KST every Saturday.
+    - cron: "21 12 * * 6"
 
 permissions:
   contents: write
