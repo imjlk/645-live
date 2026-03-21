@@ -56,6 +56,48 @@ export function getCanonicalNewsOgUrl(
 	return absoluteUrl(getCanonicalNewsOgPath(slug, options));
 }
 
+type GenericOgOptions = {
+	title: string;
+	description?: string;
+	layout?: string;
+	theme?: "light" | "dark";
+	path?: string;
+	width?: number;
+	height?: number;
+	format?: "png" | "svg";
+	alt?: string;
+};
+
+export function getGenericOgPath(options: GenericOgOptions): string {
+	const params = new URLSearchParams();
+	params.set("title", encodeURIComponent(options.title));
+	if (options.description) {
+		params.set("description", encodeURIComponent(options.description));
+	}
+	params.set("layout", options.layout || "default");
+	params.set("theme", options.theme || "light");
+	params.set("format", options.format || "png");
+	if (options.width) params.set("width", String(options.width));
+	if (options.height) params.set("height", String(options.height));
+
+	const basePath = options.path || "/og";
+	return `${basePath}?${params.toString()}`;
+}
+
+export function getGenericOgUrl(options: GenericOgOptions): string {
+	return absoluteUrl(getGenericOgPath(options));
+}
+
+export function getGenericOgImage(options: GenericOgOptions) {
+	return {
+		url: getGenericOgUrl(options),
+		width: options.width || 1200,
+		height: options.height || 630,
+		alt: options.alt || options.title,
+		type: options.format === "svg" ? "image/svg+xml" : "image/png",
+	};
+}
+
 export function toIsoDateTime(value?: string): string | undefined {
 	if (!value) return undefined;
 	const trimmed = value.trim();

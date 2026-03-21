@@ -6,6 +6,7 @@ import {
 	SITE_ORIGIN,
 	createOrganizationSchema,
 	createWebSiteSchema,
+	getGenericOgImage,
 	getSiteLogoUrl,
 } from "$lib/seo/index.js";
 import { JsonLd, MetaTags } from "svelte-meta-tags";
@@ -13,6 +14,15 @@ import { onMount } from "svelte";
 import type { PageData } from "./$types";
 
 let { data }: { data: PageData } = $props();
+const pageTitle = "로또 6/45 실시간 스캔 현황 및 통계 분석";
+const pageDescription =
+	"로또 6/45 실시간 스캔 현황을 확인하세요. 번호별 선택 빈도와 통계 분석으로 다음 당첨번호 흐름을 빠르게 파악할 수 있습니다.";
+const ogImage = getGenericOgImage({
+	title: "로또 6/45 실시간 스캔 현황",
+	description: "번호별 실시간 스캔 현황과 통계 분석",
+	layout: "hero",
+	theme: "dark",
+});
 
 // Request cache cleanup on main page load for fresh data
 onMount(() => {
@@ -28,36 +38,28 @@ onMount(() => {
 </script>
 
 <MetaTags
-	title="645.live - 로또 6/45 실시간 스캔 현황 및 통계 분석"
-	description="로또 6/45 실시간 스캔 현황을 확인하세요. 번호별 선택 빈도와 통계 분석으로 다음 당첨번호를 예측해보세요."
+	title={`645.live - ${pageTitle}`}
+	description={pageDescription}
 	canonical={SITE_ORIGIN}
 	keywords={["로또 6/45", "로또 실시간", "로또 통계", "로또 분석", "로또 스캔", "로또 번호", "로또 당첨", "로또 생성기", "동행복권", "로또 확률", "로또 패턴", "로또 예측"]}
 	robots="index,follow"
 	openGraph={{
 		type: "website",
 		url: SITE_ORIGIN,
-		title: "로또 6/45 실시간 스캔 현황 및 통계 분석",
-		description: "로또 6/45 실시간 스캔 현황을 확인하세요. 번호별 선택 빈도와 통계 분석으로 다음 당첨번호를 예측해보세요.",
+		title: pageTitle,
+		description: pageDescription,
 		siteName: SITE_NAME,
 		locale: "ko_KR",
-		images: [
-			{
-				url: `https://www.645.live/og?title=${encodeURIComponent('로또 6/45 실시간 스캔 현황')}&description=${encodeURIComponent('번호별 실시간 스캔 현황')}&layout=hero&theme=dark`,
-				width: 1200,
-				height: 630,
-				alt: "로또 6/45 실시간 스캔 현황",
-				type: "image/svg+xml"
-			}
-		]
+		images: [ogImage]
 	}}
 	twitter={{
 		cardType: "summary_large_image",
 		site: "@645live",
 		creator: "@645live",
-		title: "로또 6/45 실시간 스캔 현황 및 통계 분석",
-		description: "로또 6/45 실시간 스캔 현황을 확인하세요. 번호별 선택 빈도와 통계 분석으로 다음 당첨번호를 예측해보세요.",
-		image: `https://www.645.live/og?title=${encodeURIComponent('로또 6/45 실시간 스캔 현황')}&description=${encodeURIComponent('번호별 실시간 스캔 현황')}&layout=hero&theme=dark`,
-		imageAlt: "로또 6/45 실시간 스캔 현황"
+		title: pageTitle,
+		description: pageDescription,
+		image: ogImage.url,
+		imageAlt: ogImage.alt
 	}}
 	additionalMetaTags={[
 		{

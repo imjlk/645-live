@@ -297,11 +297,123 @@ function analyzeRound(draw, stores) {
 	};
 }
 
-function pickTitle(analysis) {
+function formatRatio(value) {
+	return `${(safeNumber(value) * 100).toFixed(1).replace(/\.0$/, "")}%`;
+}
+
+function buildPreviousRoundContext(analysis, previousDraw) {
+	if (!previousDraw) return null;
+
+	const previousRound = safeInt(previousDraw.round);
+	if (!previousRound) return null;
+
+	const previousNumbers = getNumbers(previousDraw).sort((left, right) => left - right);
+	const repeatedNumbers = analysis.numbers.filter((number) =>
+		previousNumbers.includes(number),
+	);
+	const previousWinnerCount = safeInt(previousDraw.first_prize_winner_count);
+	const previousWinnerAmount = safeNumber(previousDraw.first_prize_amount);
+	const previousSales = safeNumber(previousDraw.total_sell_amount);
+
+	return {
+		previousRound,
+		previousNumbers,
+		repeatedNumbers,
+		previousWinnerCount,
+		previousWinnerAmount,
+		previousSales,
+		winnerDelta: analysis.winnerCount - previousWinnerCount,
+		amountDelta: analysis.winnerAmount - previousWinnerAmount,
+		salesDelta: analysis.totalSales - previousSales,
+	};
+}
+
+function getFallbackVariant(analysis) {
+	if (analysis.anomalies.includes("rollover")) return "rollover";
+	if (analysis.anomalies.includes("single_winner")) return "single_winner";
+	if (
+		analysis.anomalies.includes("few_winners") &&
+		analysis.anomalies.includes("high_payout")
+	) {
+		return "few_high_payout";
+	}
+	if (
+		analysis.anomalies.includes("region_concentration") &&
+		analysis.dominantRegion &&
+		analysis.dominantRatio >= 0.35
+	) {
+		return "region_concentration";
+	}
+	if (
+		analysis.consecutivePairs > 0 ||
+		analysis.anomalies.includes("all_odd_even") ||
+		analysis.anomalies.includes("number_band_concentration")
+	) {
+		return "pattern";
+	}
+	return "general";
+}
+
+function buildPatternSummary(analysis) {
+	const segments = [];
+
+	if (analysis.consecutivePairs > 0) {
+		segments.push(
+			analysis.consecutivePairs >= 2
+				? `연속번호 ${analysis.consecutivePairs}쌍`
+				: "연속번호 1쌍",
+		);
+	}
+
+	if (analysis.anomalies.includes("all_odd_even")) {
+		segments.push(analysis.oddCount === 6 ? "홀수 몰림" : "짝수 몰림");
+	}
+
+	if (analysis.lowCount >= 3) {
+		segments.push(`저번호 ${analysis.lowCount}개`);
+	}
+
+	if (analysis.highCount >= 3) {
+		segments.push(`고번호 ${analysis.highCount}개`);
+	}
+
+	if (segments.length === 0) {
+		segments.push(`홀짝 ${analysis.oddCount}:${analysis.evenCount}`);
+	}
+
+	return segments.join(", ");
+}
+
+function buildSelectionSummary(analysis) {
+	const parts = [];
+	if (analysis.autoCount > 0) parts.push(`자동 ${analysis.autoCount}곳`);
+	if (analysis.manualCount > 0) parts.push(`수동 ${analysis.manualCount}곳`);
+	if (analysis.semiCount > 0) parts.push(`반자동 ${analysis.semiCount}곳`);
+	return parts.join(", ");
+}
+
+function buildPreviousRoundSentence(previous) {
+	if (!previous) return "";
+
+	const repeatText =
+		previous.repeatedNumbers.length > 0
+			? `직전 ${previous.previousRound}회와 겹친 번호는 ${previous.repeatedNumbers.join(", ")} ${previous.repeatedNumbers.length}개`
+			: `직전 ${previous.previousRound}회와 겹친 번호는 없었고`;
+	const winnerDeltaText =
+		previous.winnerDelta === 0
+			? "1등 당첨자 수는 직전 회차와 같았습니다."
+			: previous.winnerDelta > 0
+				? `1등 당첨자는 직전보다 ${Math.abs(previous.winnerDelta)}명 늘었습니다.`
+				: `1등 당첨자는 직전보다 ${Math.abs(previous.winnerDelta)}명 줄었습니다.`;
+
+	return `${repeatText}, ${winnerDeltaText}`.replace(/\s+,/g, ",");
+}
+
+function pickTitle(analysis, variant) {
 	const round = analysis.round;
 	const joinedNumbers = analysis.numbers.join(", ");
 
-	if (analysis.anomalies.includes("rollover")) {
+	if (variant === "rollover") {
 		const expected =
 			analysis.accumulatedAmount > 0
 				? toEok(analysis.accumulatedAmount)
@@ -314,7 +426,7 @@ function pickTitle(analysis) {
 		};
 	}
 
-	if (analysis.anomalies.includes("single_winner")) {
+	if (variant === "single_winner") {
 		return {
 			title: `제${round}회 로또 1등 1명 단독 당첨, 수령 예상 ${toEok(analysis.winnerAmount)}`,
 			description: `제${round}회 로또에서 1등 단독 당첨이 나왔습니다. 번호 패턴과 당첨점 데이터를 함께 분석합니다.`,
@@ -323,10 +435,7 @@ function pickTitle(analysis) {
 		};
 	}
 
-	if (
-		analysis.anomalies.includes("few_winners") &&
-		analysis.anomalies.includes("high_payout")
-	) {
+	if (variant === "few_high_payout") {
 		return {
 			title: `제${round}회 로또 소수 당첨, 1인당 ${toEok(analysis.winnerAmount)} 고액 수령`,
 			description: `제${round}회 로또는 소수의 1등 당첨자에게 고액이 배분됐습니다. 회차 특이점을 빠르게 확인하세요.`,
@@ -334,18 +443,16 @@ function pickTitle(analysis) {
 		};
 	}
 
-	if (analysis.anomalies.includes("consecutive_numbers")) {
+	if (variant === "pattern") {
+		const patternSummary = buildPatternSummary(analysis);
 		return {
-			title: `제${round}회 로또 연속번호 패턴 포착, 당첨번호 ${joinedNumbers}`,
-			description: `제${round}회 로또 당첨번호에서 연속번호가 다수 확인됐습니다. 당첨점 분포와 함께 분석합니다.`,
-			angle: "연속번호 출현 비중이 높은 회차로 번호 패턴 분석 수요가 큽니다.",
+			title: `제${round}회 로또 패턴 포착, ${patternSummary}`,
+			description: `제${round}회 로또 번호 분포에서 눈에 띄는 패턴이 확인됐습니다. 당첨점 흐름과 함께 분석합니다.`,
+			angle: `번호 조합에서 ${patternSummary}이 확인된 회차로 통계 기반 비교 가치가 큽니다.`,
 		};
 	}
 
-	if (
-		analysis.anomalies.includes("region_concentration") &&
-		analysis.dominantRegion
-	) {
+	if (variant === "region_concentration" && analysis.dominantRegion) {
 		return {
 			title: `제${round}회 로또 ${analysis.dominantRegion.region} 당첨점 집중, 지역 편중 주목`,
 			description: `제${round}회 당첨점이 특정 지역에 집중됐습니다. 1등/2등 판매점 분포를 확인해보세요.`,
@@ -504,34 +611,173 @@ function normalizeRecommendedStats(recommendedStats, round) {
 	return result;
 }
 
-function fallbackPayload(draw, analysis) {
-	const titleData = pickTitle(analysis);
-	const round = analysis.round;
-	const tags = ["로또", `${round}회`, "당첨번호", "당첨점"];
-	if (analysis.anomalies.includes("rollover")) tags.push("이월");
-	if (analysis.anomalies.includes("single_winner")) tags.push("단독당첨");
+function buildFallbackTags(analysis, variant) {
+	const tags = ["로또", `${analysis.round}회`, "당첨번호", "당첨점"];
+	if (variant === "rollover") tags.push("이월");
+	if (variant === "single_winner") tags.push("단독당첨");
+	if (variant === "few_high_payout") tags.push("고액당첨");
+	if (variant === "pattern") tags.push("번호패턴");
+	if (variant === "region_concentration") tags.push("지역분석");
+	return tags.slice(0, 5);
+}
 
-	const bulletPoints = [
-		`1등 당첨자 수는 ${analysis.winnerCount}명이며 1인당 당첨금은 ${formatWon(analysis.winnerAmount)}입니다.`,
-		`홀수 ${analysis.oddCount}개, 짝수 ${analysis.evenCount}개로 구성됐습니다.`,
-		`고번호(40~45) ${analysis.highCount}개, 저번호(1~10) ${analysis.lowCount}개가 출현했습니다.`,
-		`당첨점은 총 ${analysis.storesCount}개 집계됐고 1등 판매점은 ${analysis.firstStoreCount}개입니다.`,
+function buildFallbackLead(draw, analysis, variant, previous) {
+	const firstParagraph = `제${analysis.round}회 로또 추첨 결과 1등 당첨자는 ${analysis.winnerCount}명으로 집계됐고, 1인당 당첨금은 ${formatWon(analysis.winnerAmount)}입니다. 당첨번호는 ${analysis.numbers.join(", ")}이며 보너스번호는 ${safeInt(draw.bonus_number)}입니다.`;
+
+	const sharedSecondParagraph = `이번 회차 당첨점은 총 ${analysis.storesCount}개로 집계됐고 1등 판매점은 ${analysis.firstStoreCount}개입니다. ${analysis.dominantRegion ? `${analysis.dominantRegion.region} 지역이 전체 당첨점의 ${formatRatio(analysis.dominantRatio)}를 차지하며 가장 큰 비중을 보였습니다.` : "지역별 분포는 수도권과 지방권이 비교적 고르게 나뉘었습니다."}`;
+
+	switch (variant) {
+		case "rollover":
+			return [
+				`제${analysis.round}회 로또는 1등 당첨자가 나오지 않아 다음 회차 이월 가능성이 커졌습니다. 누적 당첨금 기준으로 보면 다음 회차 기대 규모는 ${toEok(analysis.accumulatedAmount || analysis.winnerAmount)} 수준까지 거론될 수 있습니다.`,
+				sharedSecondParagraph,
+				buildPreviousRoundSentence(previous),
+			]
+				.filter(Boolean)
+				.join("\n\n");
+		case "single_winner":
+			return [
+				`제${analysis.round}회 로또는 1등 당첨자가 단 1명만 나오며 이번 회차 전체 관심이 단독 당첨자에게 집중됐습니다. 1인 수령액이 ${toEok(analysis.winnerAmount)} 수준까지 올라가면서 최근 회차 가운데도 눈에 띄는 고액 당첨 사례로 기록됐습니다.`,
+				`${sharedSecondParagraph} ${buildSelectionSummary(analysis) ? `선택 방식 기준으로는 ${buildSelectionSummary(analysis)} 흐름이 확인됩니다.` : ""}`.trim(),
+				buildPreviousRoundSentence(previous),
+			]
+				.filter(Boolean)
+				.join("\n\n");
+		case "few_high_payout":
+			return [
+				`제${analysis.round}회 로또는 1등 당첨자가 ${analysis.winnerCount}명에 그치며 1인당 당첨금이 ${toEok(analysis.winnerAmount)}까지 상승했습니다. 소수 당첨 구조가 만들어지면서 당첨번호 자체보다 고액 수령 배경에 더 큰 관심이 모이는 회차입니다.`,
+				`${sharedSecondParagraph} 총 판매액은 ${formatWon(analysis.totalSales)}로 집계돼 대기 수요가 충분했던 회차였음을 보여줍니다.`,
+				buildPreviousRoundSentence(previous),
+			]
+				.filter(Boolean)
+				.join("\n\n");
+		case "pattern":
+			return [
+				`${firstParagraph} 이번 조합에서는 ${buildPatternSummary(analysis)}이 한꺼번에 나타나며 일반적인 무작위 분포와는 다른 인상을 남겼습니다.`,
+				`${sharedSecondParagraph} 홀짝 비율은 ${analysis.oddCount}:${analysis.evenCount}, 저번호/고번호 분포는 ${analysis.lowCount}:${analysis.highCount}로 정리됩니다.`,
+				buildPreviousRoundSentence(previous),
+			]
+				.filter(Boolean)
+				.join("\n\n");
+		case "region_concentration":
+			return [
+				`${firstParagraph} 특히 ${analysis.dominantRegion.region} 지역이 당첨점 집계에서 두드러진 비중을 차지하며 이번 회차를 지역 분포 측면에서도 눈에 띄는 회차로 만들었습니다.`,
+				`${sharedSecondParagraph} 상위 주소 기준으로는 ${analysis.areaRows[0]?.area || "주요 상권"}가 가장 먼저 확인됩니다.`,
+				buildPreviousRoundSentence(previous),
+			]
+				.filter(Boolean)
+				.join("\n\n");
+		default:
+			return [
+				firstParagraph,
+				`${sharedSecondParagraph} 번호 구성은 홀짝 ${analysis.oddCount}:${analysis.evenCount}, 저번호/고번호 ${analysis.lowCount}:${analysis.highCount}로 정리됩니다.`,
+				buildPreviousRoundSentence(previous),
+			]
+				.filter(Boolean)
+				.join("\n\n");
+	}
+}
+
+function buildFallbackBulletPoints(draw, analysis, variant, previous) {
+	const points = [
+		analysis.winnerCount === 0
+			? `1등 당첨자는 나오지 않았고, 누적 당첨금은 ${formatWon(analysis.accumulatedAmount)} 수준으로 이월됐습니다.`
+			: `1등 당첨자 수는 ${analysis.winnerCount}명이며 1인당 당첨금은 ${formatWon(analysis.winnerAmount)}입니다.`,
+		`당첨번호는 ${analysis.numbers.join(", ")}이고 보너스번호는 ${safeInt(draw.bonus_number)}입니다.`,
+		`홀수 ${analysis.oddCount}개, 짝수 ${analysis.evenCount}개로 구성됐으며 저번호(1~10) ${analysis.lowCount}개, 고번호(40~45) ${analysis.highCount}개가 출현했습니다.`,
+		`당첨점은 총 ${analysis.storesCount}개 집계됐고 1등 판매점은 ${analysis.firstStoreCount}개, 2등 판매점은 ${analysis.secondStoreCount}개입니다.`,
 	];
+
+	if (buildSelectionSummary(analysis)) {
+		points.push(`1등 판매점 선택 방식 기준으로는 ${buildSelectionSummary(analysis)} 분포가 확인됩니다.`);
+	}
+
+	if (variant === "pattern") {
+		points.push(`번호 패턴 기준으로는 ${buildPatternSummary(analysis)}이 이번 회차에서 동시에 관측됐습니다.`);
+	}
+
+	if (analysis.dominantRegion) {
+		points.push(
+			`${analysis.dominantRegion.region} 지역이 전체 당첨점의 ${formatRatio(analysis.dominantRatio)}를 차지하며 가장 큰 비중을 보였습니다.`,
+		);
+	}
+
+	if (previous) {
+		points.push(buildPreviousRoundSentence(previous));
+	}
+
+	return points.slice(0, 6);
+}
+
+function buildFallbackInsight(analysis, variant, previous) {
+	const paragraphs = [];
+
+	switch (variant) {
+		case "single_winner":
+			paragraphs.push(
+				`단독 1등 회차는 구매자 입장에서 체감상 가장 강한 회차입니다. 이번처럼 1명에게 당첨금이 집중되면 번호 조합 자체보다 어떤 판매점과 어떤 선택 방식이 1등을 만들었는지에 시선이 쏠리게 됩니다. 같은 데이터라도 일반 회차보다 훨씬 강한 뉴스 가치가 생기는 이유입니다.`,
+			);
+			break;
+		case "few_high_payout":
+			paragraphs.push(
+				`소수 당첨과 고액 수령이 동시에 나타난 회차는 실제 체감 반응이 강합니다. 판매액이 적지 않았음에도 당첨자 수가 적게 나온 만큼, 많은 조합이 선택된 범용 패턴과 실제 당첨 조합 사이의 간극을 다시 확인하게 만드는 회차라고 볼 수 있습니다.`,
+			);
+			break;
+		case "pattern":
+			paragraphs.push(
+				`이번 회차에서 눈에 띈 부분은 번호 조합의 배열입니다. 연속번호, 홀짝, 번호대 분포처럼 많은 이용자가 조합 작성 때 의식하는 축이 동시에 드러나면 통계 페이지 간 교차 확인 가치가 커집니다. 특히 연속번호가 포함된 회차는 체감상 “피해야 할 조합” 인식과 실제 결과가 어긋나는 사례로 자주 회자됩니다.`,
+			);
+			break;
+		case "region_concentration":
+			paragraphs.push(
+				`지역 집중 회차는 번호 패턴보다 판매점 분포가 더 강한 관심 요소가 됩니다. 특정 광역권이나 생활권에서 당첨점이 몰려 보일 때는 실제로 판매량이 높았던 상권인지, 우연한 분포인지, 자동/수동 비중이 어떻게 갈렸는지를 함께 봐야 해석이 가능합니다.`,
+			);
+			break;
+		case "rollover":
+			paragraphs.push(
+				`이월 회차는 당첨자보다 다음 추첨으로 관심이 이동합니다. 이번 결과는 번호 자체의 평가보다 다음 회차 기대금이 어느 정도 커졌는지, 판매액이 어떻게 따라붙는지가 더 중요한 관전 포인트가 됩니다.`,
+			);
+			break;
+		default:
+			paragraphs.push(
+				`뚜렷한 이상치가 없는 회차일수록 오히려 기본 분포를 차분히 볼 가치가 있습니다. 당첨자 수, 판매점 수, 홀짝과 번호대 균형이 평균 범위에 가까우면 장기 통계에서 이번 회차가 어디쯤에 놓이는지 비교하기 좋은 기준점 역할을 하기 때문입니다.`,
+			);
+			break;
+	}
+
+	paragraphs.push(
+		analysis.areaRows.length > 0
+			? `주소 기반 집계 상위에는 ${analysis.areaRows[0].area} 항목이 먼저 나타납니다. 다만 단일 구역 집계는 판매점 밀도, 생활권 규모, 온라인 판매 포함 여부에 따라 체감이 달라질 수 있어 상위 지역과 주소권역을 함께 비교하는 접근이 필요합니다.`
+			: "이번 회차는 주소 기반 당첨점 집계가 아직 제한적이어서 지역 분포보다 번호 통계 중심 해석이 더 적절합니다.",
+	);
+
+	if (previous) {
+		paragraphs.push(
+			previous.repeatedNumbers.length > 0
+				? `직전 ${previous.previousRound}회와의 연결성도 확인됩니다. 겹친 번호 ${previous.repeatedNumbers.join(", ")}는 연속 회차 간 반복 출현을 추적할 때 참고 지점이 되며, 단순한 직감보다 실제 반복 빈도를 통계 페이지에서 다시 검증해볼 수 있습니다.`
+				: `직전 ${previous.previousRound}회와 번호 중복이 없었다는 점도 참고할 만합니다. 연속 회차 사이에 겹치는 번호가 적거나 없을 때는 개별 번호보다 조합 구조와 판매점 분포 차이를 함께 보는 편이 해석에 도움이 됩니다.`,
+		);
+	}
+
+	return paragraphs.join("\n\n");
+}
+
+function fallbackPayload(draw, analysis, previousDraw) {
+	const variant = getFallbackVariant(analysis);
+	const previous = buildPreviousRoundContext(analysis, previousDraw);
+	const titleData = pickTitle(analysis, variant);
 
 	return {
 		title: titleData.title,
 		description: titleData.description,
 		category: "로또분석",
-		tags: tags.slice(0, 5),
-		lead: titleData.angle,
-		bullet_points: bulletPoints,
-		insight:
-			analysis.anomalies.length > 0
-				? `이번 회차 특이점: ${analysis.anomalies.map((value) => `\`${value}\``).join(", ")}`
-				: "이번 회차는 뚜렷한 이상치 없이 평균적인 분포를 보였습니다.",
+		tags: buildFallbackTags(analysis, variant),
+		lead: buildFallbackLead(draw, analysis, variant, previous),
+		bullet_points: buildFallbackBulletPoints(draw, analysis, variant, previous),
+		insight: buildFallbackInsight(analysis, variant, previous),
 		caution_message:
 			"복권은 건전한 오락으로 즐겨주세요. 과도한 구매는 경제적 부담을 유발할 수 있습니다.",
-		recommended_stats: [],
+		recommended_stats: buildRecommendedStatsLinks(analysis, variant),
 	};
 }
 
@@ -1151,7 +1397,7 @@ function renderAreaRows(rows) {
 		.join("\n      ");
 }
 
-function buildRecommendedStatsLinks(analysis) {
+function buildRecommendedStatsLinks(analysis, variant = getFallbackVariant(analysis)) {
 	const links = [];
 
 	const push = (key, label, reason) => {
@@ -1184,7 +1430,25 @@ function buildRecommendedStatsLinks(analysis) {
 		"당첨번호 6개의 장기 출현 빈도와 누적 경향을 확인",
 	);
 
-	if (analysis.oddCount !== analysis.evenCount) {
+	if (variant === "single_winner" || variant === "few_high_payout") {
+		push(
+			"ac",
+			"AC값 통계",
+			"소수 고액 당첨 회차의 조합 복잡도가 장기 평균과 어떻게 다른지 확인",
+		);
+		push(
+			"pairs",
+			"번호 쌍 통계",
+			"실제 1등 조합에 가까운 번호 페어의 장기 동행 패턴을 확인",
+		);
+	}
+
+	if (variant === "pattern") {
+		push("pairs", "번호 쌍 통계", "함께 자주 나오는 번호 조합을 확인");
+		push("repeat", "연속 중복 통계", "연속/중복 출현 패턴의 최근 추세를 검증");
+	}
+
+	if (analysis.oddCount !== analysis.evenCount || analysis.anomalies.includes("all_odd_even")) {
 		push(
 			"odd_even",
 			"홀짝 분석",
@@ -1192,7 +1456,7 @@ function buildRecommendedStatsLinks(analysis) {
 		);
 	}
 
-	if (analysis.highCount >= 3 || analysis.lowCount >= 3) {
+	if (analysis.highCount >= 3 || analysis.lowCount >= 3 || variant === "pattern") {
 		push(
 			"high_low",
 			"고저번대 통계",
@@ -1201,19 +1465,24 @@ function buildRecommendedStatsLinks(analysis) {
 		push("sections", "구간별 분석", "번호대(1~10, 11~20...)별 분포 편중 확인");
 	}
 
-	if (
-		analysis.consecutivePairs > 0 ||
-		analysis.anomalies.includes("consecutive_numbers")
-	) {
-		push("repeat", "연속 중복 통계", "연속/중복 출현 패턴의 최근 추세를 검증");
-		push("pairs", "번호 쌍 통계", "함께 자주 나오는 번호 조합을 확인");
-	}
-
-	if (analysis.anomalies.includes("region_concentration")) {
+	if (analysis.anomalies.includes("region_concentration") || variant === "region_concentration") {
 		push(
 			"winning_stores",
 			"지역 집중 당첨점 상세",
 			"특정 지역 집중 현상이 실제 판매점 분포에서 어떻게 나타나는지 확인",
+		);
+		push(
+			"colors",
+			"색깔별 통계",
+			"집중된 번호대가 색상 구간 통계와 어떤 상관을 보이는지 확인",
+		);
+	}
+
+	if (variant === "general") {
+		push(
+			"ac",
+			"AC값 통계",
+			"이번 회차가 평균적인 조합 복잡도 범위에 있었는지 비교",
 		);
 	}
 
@@ -1238,7 +1507,7 @@ function renderMdx(draw, analysis, payload) {
 		payload.description,
 		"당첨번호·당첨금·지역분포·당첨점 통계 요약",
 	);
-	const thumbnail = `/og/news/lotto-${round}?title=${encodeURIComponent(finalTitle)}&description=${encodeURIComponent(finalDescription)}&round=${round}`;
+	const thumbnail = `/og/news/lotto-${round}?v=${encodeURIComponent(drawDate)}`;
 	const safeLead = sanitizeMdxBlock(payload.lead, "핵심 요약을 준비 중입니다.");
 	const safeInsight = sanitizeMdxBlock(
 		payload.insight,
@@ -1419,7 +1688,10 @@ async function main() {
 
 		const stores = await getWinningStores(round);
 		const analysis = analyzeRound(draw, stores);
-		const fallback = fallbackPayload(draw, analysis);
+		const previousDraw = drawRows.find(
+			(candidate) => safeInt(candidate.round) === round - 1,
+		);
+		const fallback = fallbackPayload(draw, analysis, previousDraw);
 		const payload = await generatePayloadWithAi(
 			draw,
 			stores,

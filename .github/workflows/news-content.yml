@@ -104,6 +104,17 @@ jobs:
           echo "changed=true" >> "$GITHUB_OUTPUT"
           echo "changed_news_files=${CHANGED_NEWS_FILES}" >> "$GITHUB_OUTPUT"
 
+      - name: Prewarm news pages and OG images
+        if: steps.commit_push.outputs.changed == 'true'
+        env:
+          SITE_BASE_URL: https://www.645.live
+          CHANGED_NEWS_FILES: ${{ steps.commit_push.outputs.changed_news_files }}
+          PREWARM_MAX_NEWS: ${{ vars.PREWARM_MAX_NEWS || '10' }}
+          PREWARM_TIMEOUT_MS: ${{ vars.PREWARM_TIMEOUT_MS || '15000' }}
+          PREWARM_RETRY_ROUNDS: ${{ vars.PREWARM_RETRY_ROUNDS || '8' }}
+          PREWARM_RETRY_DELAY_MS: ${{ vars.PREWARM_RETRY_DELAY_MS || '10000' }}
+        run: node scripts/seo/prewarm-news-assets.mjs
+
       - name: Submit sitemap/news URLs to search engines
         if: steps.commit_push.outputs.changed == 'true'
         env:

@@ -1,9 +1,16 @@
 <script lang="ts">
 import { goto } from "$app/navigation";
-import { page } from "$app/state";
+import { resolve } from "$app/paths";
 import SimpleBall from "$lib/components/SimpleBall.svelte";
 import type { BallNumber } from "$lib/modules/lotto/types";
-import { createCollectionPageSchema, absoluteUrl } from "$lib/seo/index.js";
+import {
+	createBreadcrumbSchema,
+	createCollectionPageSchema,
+	createOrganizationSchema,
+	createWebSiteSchema,
+	getGenericOgImage,
+	absoluteUrl
+} from "$lib/seo/index.js";
 import LinkButton from "$lib/ui/LinkButton.svelte";
 import { JsonLd, MetaTags } from "svelte-meta-tags";
 import type { PageData } from "./$types";
@@ -74,9 +81,8 @@ $effect(() => {
 
 // Handle round selection
 async function selectRound(round: number) {
-	const url = new URL(page.url);
-	url.searchParams.set("round", round.toString());
-	await goto(url.toString());
+	const target = `/history?round=${round}` as `/history?${string}`;
+	await goto(resolve(target));
 }
 
 // Format date string
@@ -104,24 +110,49 @@ const collectionSchema = createCollectionPageSchema({
 	name: "로또 회차별 스캔 히스토리",
 	description: "회차별 로또 QR 스캔 통계와 당첨 번호 흐름을 확인하는 페이지",
 });
+const breadcrumbSchema = createBreadcrumbSchema([
+	{ name: "홈", path: "/" },
+	{ name: "스캔 히스토리", path: "/history" },
+]);
+const pageTitle = "로또 회차별 스캔 히스토리";
+const pageDescription =
+	"회차별 로또 QR 스캔 통계와 당첨 번호 흐름을 한눈에 확인하세요.";
+const ogImage = getGenericOgImage({
+	title: "로또 회차별 스캔 히스토리",
+	description: "회차별 QR 스캔 통계와 당첨번호 흐름 확인",
+	layout: "blog",
+	theme: "dark",
+});
 </script>
 
 <MetaTags
-	title="로또 회차별 스캔 히스토리"
+	title={pageTitle}
 	titleTemplate="%s | 645.live"
-	description="로또 회차별 QR 스캔 통계와 당첨 번호 흐름을 한눈에 확인하세요."
+	description={pageDescription}
 	canonical={canonicalUrl}
 	robots="index,follow"
 	openGraph={{
 		type: "website",
 		url: canonicalUrl,
-		title: "로또 회차별 스캔 히스토리",
-		description: "로또 회차별 QR 스캔 통계와 당첨 번호 흐름을 한눈에 확인하세요.",
+		title: pageTitle,
+		description: pageDescription,
 		siteName: "645.live",
+		images: [ogImage],
+	}}
+	twitter={{
+		cardType: "summary_large_image",
+		site: "@645live",
+		title: pageTitle,
+		description: pageDescription,
+		image: ogImage.url,
+		imageAlt: ogImage.alt,
 	}}
 />
 
 <JsonLd schema={collectionSchema} />
+<JsonLd schema={breadcrumbSchema} />
+<JsonLd schema={createOrganizationSchema()} />
+<JsonLd schema={createWebSiteSchema()} />
 
 <div class="container mx-auto max-sm:px-0 px-4 py-4 md:py-8 max-w-6xl">
 	{#if data.error}
@@ -157,7 +188,7 @@ const collectionSchema = createCollectionPageSchema({
 							if (target) selectRound(Number(target.value));
 						}}
 					>
-						{#each data.availableRounds as round}
+						{#each data.availableRounds as round (round)}
 							<option value={round}>
 								{round}회차
 								{#if round === data.latestRound}(최신){/if}
@@ -204,7 +235,7 @@ const collectionSchema = createCollectionPageSchema({
 			<div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 md:p-6 mb-6 md:mb-8">
 				<h3 class="text-lg font-semibold text-base-content mb-4">당첨 번호</h3>
 				<div class="flex flex-wrap gap-2 md:gap-3 items-center justify-center md:justify-start">
-					{#each winningNumbers as num}
+						{#each winningNumbers as num (num)}
 						<SimpleBall number={num} isWinning={true} size="md" />
 					{/each}
 					<span class="text-base-content/70 mx-1 md:mx-2 text-sm md:text-base">보너스</span>
@@ -219,7 +250,7 @@ const collectionSchema = createCollectionPageSchema({
 			
 			{#if numbers.length > 0}
 				<div class="grid grid-cols-5 sm:grid-cols-6 md:grid-cols-9 lg:grid-cols-15 gap-2 md:gap-3">
-					{#each numbers as ball}
+						{#each numbers as ball (ball.id)}
 						<div class="relative flex flex-col items-center">
 							<SimpleBall 
 								number={ball.id} 

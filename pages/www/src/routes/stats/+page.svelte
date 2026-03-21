@@ -1,9 +1,48 @@
 <script lang="ts">
+import { resolve } from "$app/paths";
 import { ColorBadge, LottoBall, StatsCard } from "$lib/components/stats";
+import {
+	createBreadcrumbSchema,
+	createCollectionPageSchema,
+	createOrganizationSchema,
+	createWebSiteSchema,
+	getGenericOgImage,
+} from "$lib/seo/index.js";
 import { JsonLd, MetaTags } from "svelte-meta-tags";
 import type { PageData } from "./$types";
 
 let { data }: { data: PageData } = $props();
+const pageTitle = "로또 6/45 통계 분석 | 번호별 출현 빈도와 패턴 분석";
+const topNumberSummary = $derived(
+	data.topNumberStats[0] ?? {
+		number: "-",
+		draw_count: 0,
+	},
+);
+const pageDescription = $derived(
+	`🎯 로또 당첨 패턴 완전분석! 전체 ${data.totalRounds}회차 빅데이터로 승률을 높이는 통계의 비밀을 공개합니다.`,
+);
+const statsOgDescription = $derived(
+	`전체 ${data.totalRounds}회차 데이터 기반 종합 통계 분석 | 최다출현: ${topNumberSummary.number}번 ${topNumberSummary.draw_count}회`,
+);
+const ogImage = $derived(
+	getGenericOgImage({
+		title: "로또 6/45 통계 분석",
+		description: statsOgDescription,
+		layout: "blog",
+		theme: "dark",
+	}),
+);
+const collectionSchema = createCollectionPageSchema({
+	path: "/stats",
+	name: "로또 6/45 통계 분석",
+	description:
+		"번호별 출현 빈도, 홀짝, 구간, 색상 등 로또 통계를 종합 분석하는 페이지",
+});
+const breadcrumbSchema = createBreadcrumbSchema([
+	{ name: "홈", path: "/" },
+	{ name: "로또 통계", path: "/stats" },
+]);
 
 // 통계 카테고리 정의
 const statsCategories = [
@@ -65,9 +104,9 @@ const statsCategories = [
 </script>
 
 <MetaTags
-	title="로또 6/45 통계 분석 | 번호별 출현 빈도와 패턴 분석"
+	title={pageTitle}
 	titleTemplate="%s | 645.live"
-	description={`🎯 로또 당첨 패턴 완전분석! 전체 ${data.totalRounds}회차 빅데이터로 어떤 번호가 가장 자주 나올까요? 승률을 높이는 통계의 비밀을 공개합니다.`}
+	description={pageDescription}
 	canonical="https://www.645.live/stats"
 	keywords={["로또통계", "로또분석", "로또당첨번호", "번호별통계", "로또예측", "번호분석", "홀짝분석", "로또패턴", "6/45통계", "로또번호분석"]}
 	robots="index,follow"
@@ -105,40 +144,26 @@ const statsCategories = [
 	openGraph={{
 		type: 'website',
 		url: 'https://www.645.live/stats',
-		title: '로또 6/45 통계 분석 | 번호별 출현 빈도와 패턴 분석',
-		description: `🎯 로또 당첨 패턴 완전분석! 전체 ${data.totalRounds}회차 빅데이터로 승률을 높이는 통계의 비밀을 공개합니다.`,
+		title: pageTitle,
+		description: pageDescription,
 		locale: 'ko_KR',
-		images: [{
-			url: `https://www.645.live/og?${new URLSearchParams({
-				title: encodeURIComponent('로또 6/45 통계 분석'),
-				description: encodeURIComponent(`전체 ${data.totalRounds}회차 데이터 기반 종합 통계 분석 | 최다출현: ${data.topNumberStats[0]?.number}번 ${data.topNumberStats[0]?.draw_count}회`),
-				layout: 'blog',
-				theme: 'dark',
-				format: 'svg'
-			}).toString()}`,
-			width: 1200,
-			height: 630,
-			alt: '로또 6/45 통계 분석',
-			type: 'image/svg+xml'
-		}],
+		images: [ogImage],
 		siteName: '645.live'
 	}}
 	twitter={{
 		cardType: 'summary_large_image',
 		site: '@645live',
-		title: '로또 6/45 통계 분석',
-		description: '🎯 로또 당첨 패턴 완전분석! 빅데이터로 승률을 높이는 통계의 비밀을 공개합니다.',
-		image: `https://www.645.live/og?${new URLSearchParams({
-			title: encodeURIComponent('로또 6/45 통계 분석'),
-			description: encodeURIComponent(`전체 ${data.totalRounds}회차 데이터 기반 종합 통계 분석`),
-			layout: 'blog',
-			theme: 'dark',
-			format: 'svg'
-		}).toString()}`,
-		imageAlt: '로또 6/45 통계 분석'
+		title: pageTitle,
+		description: pageDescription,
+		image: ogImage.url,
+		imageAlt: ogImage.alt
 	}}
 />
 
+<JsonLd schema={collectionSchema} />
+<JsonLd schema={breadcrumbSchema} />
+<JsonLd schema={createOrganizationSchema()} />
+<JsonLd schema={createWebSiteSchema()} />
 <JsonLd
 	schema={{
 		'@type': 'Dataset',
@@ -158,10 +183,10 @@ const statsCategories = [
 		},
 		variableMeasured: [
 			{
-				'@type': 'PropertyValue',
-				name: '번호별 출현 빈도',
-				value: `${data.topNumberStats[0]?.number}번 최다 ${data.topNumberStats[0]?.draw_count}회`
-			},
+					'@type': 'PropertyValue',
+					name: '번호별 출현 빈도',
+					value: `${topNumberSummary.number}번 최다 ${topNumberSummary.draw_count}회`
+				},
 			{
 				'@type': 'PropertyValue',
 				name: '전체 회차 수',
@@ -189,8 +214,8 @@ const statsCategories = [
 
 	<!-- 통계 카테고리 네비게이션 -->
 	<nav class="mb-8">
-		<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-			{#each statsCategories as category}
+			<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+				{#each statsCategories as category (category.href)}
 				<StatsCard 
 					href={category.href}
 					icon={category.icon}
@@ -213,7 +238,7 @@ const statsCategories = [
 				<div>
 					<h3 class="font-semibold text-success mb-2">최다 출현 번호</h3>
 					<div class="space-y-2">
-						{#each data.topNumberStats.slice(0, 5) as stat}
+							{#each data.topNumberStats.slice(0, 5) as stat (`top-${stat.number}`)}
 							<div class="flex justify-between items-center">
 								<LottoBall 
 									number={stat.number} 
@@ -228,7 +253,7 @@ const statsCategories = [
 				<div>
 					<h3 class="font-semibold text-error mb-2">최소 출현 번호</h3>
 					<div class="space-y-2">
-						{#each data.bottomNumberStats.slice(0, 5) as stat}
+					{#each data.bottomNumberStats.slice(0, 5) as stat (`bottom-${stat.number}`)}
 							<div class="flex justify-between items-center">
 								<LottoBall 
 									number={stat.number} 
@@ -242,7 +267,7 @@ const statsCategories = [
 				</div>
 			</div>
 			<div class="mt-4 text-center">
-				<a href="/stats/numbers" class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 text-sm">
+					<a href={resolve("/stats/numbers")} class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 text-sm">
 					전체 번호 통계 보기 →
 				</a>
 			</div>
@@ -255,7 +280,7 @@ const statsCategories = [
 				최근 홀짝 분포
 			</h2>
 			<div class="space-y-3">
-				{#each data.recentOddEvenStats.slice(0, 5) as stat}
+					{#each data.recentOddEvenStats.slice(0, 5) as stat (stat.round)}
 					<div class="flex items-center justify-between">
 						<span class="text-sm text-base-content/70">{stat.round}회차</span>
 						<div class="flex items-center space-x-2">
@@ -270,7 +295,7 @@ const statsCategories = [
 				{/each}
 			</div>
 			<div class="mt-4 text-center">
-				<a href="/stats/odd-even" class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 text-sm">
+					<a href={resolve("/stats/odd-even")} class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 text-sm">
 					홀짝 분석 상세 보기 →
 				</a>
 			</div>
@@ -283,7 +308,7 @@ const statsCategories = [
 				최근 색깔 분포
 			</h2>
 			<div class="space-y-3">
-				{#each data.recentColorStats.slice(0, 5) as stat}
+					{#each data.recentColorStats.slice(0, 5) as stat (stat.round)}
 					<div class="flex items-center justify-between">
 						<span class="text-sm text-base-content/70">{stat.round}회차</span>
 						<div class="flex items-center space-x-1">
@@ -297,7 +322,7 @@ const statsCategories = [
 				{/each}
 			</div>
 			<div class="mt-4 text-center">
-				<a href="/stats/colors" class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 text-sm">
+					<a href={resolve("/stats/colors")} class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 text-sm">
 					색깔별 통계 상세 보기 →
 				</a>
 			</div>
@@ -310,7 +335,7 @@ const statsCategories = [
 				최다 동반 출현 번호 쌍
 			</h2>
 			<div class="space-y-3">
-				{#each data.topPairStats.slice(0, 5) as stat}
+					{#each data.topPairStats.slice(0, 5) as stat (`${stat.number_a}-${stat.number_b}`)}
 					<div class="flex items-center justify-between">
 						<div class="flex items-center space-x-2">
 							<LottoBall 
@@ -332,7 +357,7 @@ const statsCategories = [
 				{/each}
 			</div>
 			<div class="mt-4 text-center">
-				<a href="/stats/pairs" class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 text-sm">
+					<a href={resolve("/stats/pairs")} class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 text-sm">
 					번호 쌍 통계 상세 보기 →
 				</a>
 			</div>

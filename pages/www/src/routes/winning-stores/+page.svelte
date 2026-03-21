@@ -1,8 +1,16 @@
 <script lang="ts">
 import { goto } from "$app/navigation";
+import { resolve } from "$app/paths";
 import { page } from "$app/state";
 import { PUBLIC_TRAILBASE_URL } from "$env/static/public";
-import { createCollectionPageSchema, absoluteUrl } from "$lib/seo/index.js";
+import {
+	createBreadcrumbSchema,
+	createCollectionPageSchema,
+	createOrganizationSchema,
+	createWebSiteSchema,
+	getGenericOgImage,
+	absoluteUrl
+} from "$lib/seo/index.js";
 import { calculateExpectedLatestRound } from "$lib/utils/lotto-common";
 import { JsonLd, MetaTags } from "svelte-meta-tags";
 import { initClient } from "trailbase";
@@ -105,9 +113,11 @@ async function fetchWinningStores() {
 }
 
 function updateUrl(newRound: number) {
-	const url = new URL(page.url);
-	url.searchParams.set("round", newRound.toString());
-	goto(url.pathname + url.search, { replaceState: true, noScroll: true });
+	const target = `/winning-stores?round=${newRound}` as `/winning-stores?${string}`;
+	goto(resolve(target), {
+		replaceState: true,
+		noScroll: true,
+	});
 }
 
 function handleRoundChange(event: Event) {
@@ -133,24 +143,49 @@ const collectionSchema = createCollectionPageSchema({
 	name: "로또 당첨점 조회",
 	description: "회차별 로또 1등, 2등 당첨 판매점과 주소 정보를 확인하는 페이지",
 });
+const breadcrumbSchema = createBreadcrumbSchema([
+	{ name: "홈", path: "/" },
+	{ name: "당첨점 조회", path: "/winning-stores" },
+]);
+const pageTitle = "로또 당첨점 조회";
+const pageDescription =
+	"회차별 로또 1등, 2등 당첨 판매점과 주소 정보를 확인하세요.";
+const ogImage = getGenericOgImage({
+	title: "로또 당첨점 조회",
+	description: "회차별 1등·2등 당첨 판매점과 지역 분포 확인",
+	layout: "blog",
+	theme: "dark",
+});
 </script>
 
 <MetaTags
-	title="로또 당첨점 조회"
+	title={pageTitle}
 	titleTemplate="%s | 645.live"
-	description="회차별 로또 1등, 2등 당첨 판매점과 주소 정보를 확인하세요."
+	description={pageDescription}
 	canonical={canonicalUrl}
 	robots="index,follow"
 	openGraph={{
 		type: "website",
 		url: canonicalUrl,
-		title: "로또 당첨점 조회",
-		description: "회차별 로또 1등, 2등 당첨 판매점과 주소 정보를 확인하세요.",
+		title: pageTitle,
+		description: pageDescription,
 		siteName: "645.live",
+		images: [ogImage],
+	}}
+	twitter={{
+		cardType: "summary_large_image",
+		site: "@645live",
+		title: pageTitle,
+		description: pageDescription,
+		image: ogImage.url,
+		imageAlt: ogImage.alt,
 	}}
 />
 
 <JsonLd schema={collectionSchema} />
+<JsonLd schema={breadcrumbSchema} />
+<JsonLd schema={createOrganizationSchema()} />
+<JsonLd schema={createWebSiteSchema()} />
 
 <div class="container mx-auto px-4 py-8 max-sm:px-0">
 	<div class="mb-8">
