@@ -408,13 +408,17 @@ async function transaction(f) {
   await rustyscript.async_functions.transaction_begin();
   const tx = new Transaction();
   try {
-    const r = f(tx);
+    const r = await f(tx);
     if (!tx.finalized) {
-      rustyscript.functions.transaction_rollback();
+      rustyscript.functions.transaction_commit();
+      tx.finalized = true;
     }
     return r;
   } catch (e) {
-    rustyscript.functions.transaction_rollback();
+    if (!tx.finalized) {
+      rustyscript.functions.transaction_rollback();
+      tx.finalized = true;
+    }
     throw e;
   }
 }

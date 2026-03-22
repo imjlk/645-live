@@ -2,13 +2,17 @@ import { executeLottoUpdate, processScannedLottoData } from "../lotto-utils.ts";
 import {
 	addCronCallback,
 	addRoute,
+	execute,
 	jsonHandler,
 	query,
-	transaction,
 } from "../trailbase.js";
 import { executeWinningStoreUpdate } from "../winning-store-utils.ts";
 
 console.log("Adding routes...");
+
+const ACTIVE_USER_SESSIONS_TABLE = "active_user_sessions";
+const ACTIVE_USER_WINDOW_MS = 2 * 60 * 1000;
+let activeUserSessionsTableReady = false;
 
 const scheduledJobs = [
 	{
@@ -85,6 +89,85 @@ function registerScheduledJob(
 	});
 }
 
+async function ensureActiveUserSessionsTable() {
+	if (activeUserSessionsTableReady) {
+		return;
+	}
+
+	await execute(
+		`CREATE TABLE IF NOT EXISTS ${ACTIVE_USER_SESSIONS_TABLE} (
+			session_id TEXT PRIMARY KEY,
+			user_agent TEXT,
+			connected_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			last_seen TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			page_path TEXT
+		) STRICT`,
+		[],
+	);
+	await execute(
+		`CREATE INDEX IF NOT EXISTS idx_${ACTIVE_USER_SESSIONS_TABLE}_last_seen
+		 ON ${ACTIVE_USER_SESSIONS_TABLE}(last_seen)`,
+		[],
+	);
+	await execute(
+		`CREATE INDEX IF NOT EXISTS idx_${ACTIVE_USER_SESSIONS_TABLE}_connected_at
+		 ON ${ACTIVE_USER_SESSIONS_TABLE}(connected_at)`,
+		[],
+	);
+
+	activeUserSessionsTableReady = true;
+}
+
+function getActiveUserCutoffIso() {
+	return new Date(Date.now() - ACTIVE_USER_WINDOW_MS).toISOString();
+}
+
+function extractCountFromRows(rows: unknown): number {
+	if (!Array.isArray(rows) || rows.length === 0) return 0;
+
+	const row = rows[0] as unknown;
+	if (Array.isArray(row)) {
+		const count = Number(row[0]);
+		return Number.isFinite(count) ? count : 0;
+	}
+
+	if (row && typeof row === "object") {
+		const rowObj = row as Record<string, unknown>;
+		const value = rowObj.count ?? rowObj["COUNT(*)"] ?? rowObj["0"];
+		const count = Number(value);
+		return Number.isFinite(count) ? count : 0;
+	}
+
+	return 0;
+}
+
+async function pruneInactiveSessions(cutoffIso: string) {
+	await execute(
+		`DELETE FROM ${ACTIVE_USER_SESSIONS_TABLE} WHERE last_seen <= ?`,
+		[cutoffIso],
+	);
+}
+
+async function countActiveSessions(cutoffIso: string) {
+	const rows = await query(
+		`SELECT COUNT(*) as count FROM ${ACTIVE_USER_SESSIONS_TABLE} WHERE last_seen > ?`,
+		[cutoffIso],
+	);
+	return extractCountFromRows(rows);
+}
+
+async function updateActiveUserStats(currentCount: number, updatedAt: string) {
+	await execute(
+		`INSERT INTO active_users_stats (id, current_count, peak_count, updated_at) 
+		 VALUES (1, ?, ?, ?)
+		 ON CONFLICT(id) DO UPDATE SET 
+			 current_count = excluded.current_count,
+			 peak_count = MAX(active_users_stats.peak_count, excluded.peak_count),
+			 updated_at = excluded.updated_at`,
+		[currentCount, currentCount, updatedAt],
+	);
+}
+
 addRoute(
 	"POST",
 	"/scanned",
@@ -108,7 +191,7 @@ addRoute(
 		if (typeof req.body === "string") {
 			try {
 				parsedBody = JSON.parse(req.body) as Record<string, unknown>;
-			} catch (error) {
+			} catch (_error) {
 				console.log("[Heartbeat] JSON parse error:", error);
 				return { error: "Invalid JSON format" };
 			}
@@ -131,108 +214,27 @@ addRoute(
 		const now = new Date().toISOString();
 
 		try {
-			// 트리거 강제 삭제 (문제 해결)
-			try {
-				await query(
-					"DROP TRIGGER IF EXISTS trg_cleanup_inactive_connections",
-					[],
-				);
-				console.log("[Heartbeat] Trigger forcefully removed");
-			} catch (triggerError) {
-				console.log("[Heartbeat] Trigger removal failed:", triggerError);
-			}
-
-			console.log("[Heartbeat] Executing database transaction...");
-			await transaction(async (tx) => {
-				// UPSERT 쿼리를 사용하여 중복 제약 조건 문제 해결
-				console.log("[Heartbeat] Inserting/updating connection record...");
-				console.log(
-					"[Heartbeat] INSERT params:",
-					JSON.stringify([
-						session_id,
-						user_agent || "Unknown",
-						now,
-						now,
-						page_path || "/",
-					]),
-				);
-				// 기존 세션 삭제 후 새로 INSERT (UPSERT 대신)
-				tx.execute("DELETE FROM active_connections WHERE session_id = ?", [
-					session_id,
-				]);
-				tx.execute(
-					`INSERT INTO active_connections (session_id, user_agent, connected_at, last_seen, page_path) 
-					 VALUES (?, ?, ?, ?, ?)`,
-					[session_id, user_agent || "Unknown", now, now, page_path || "/"],
-				);
-				console.log("[Heartbeat] Connection record updated successfully");
-			});
-			console.log("[Heartbeat] Transaction completed successfully");
-
-			// INSERT 직후 확인: 방금 삽입한 레코드가 실제로 있는지 체크
-			const verifyInsert = await query(
-				"SELECT * FROM active_connections WHERE session_id = ?",
-				[session_id],
-			);
-			console.log(
-				"[Heartbeat] Verify insert result:",
-				JSON.stringify(verifyInsert),
+			await ensureActiveUserSessionsTable();
+			await execute(
+				`INSERT INTO ${ACTIVE_USER_SESSIONS_TABLE} (session_id, user_agent, connected_at, last_seen, page_path) 
+				 VALUES (?, ?, ?, ?, ?)
+				 ON CONFLICT(session_id) DO UPDATE SET
+					 user_agent = excluded.user_agent,
+					 last_seen = excluded.last_seen,
+					 page_path = excluded.page_path`,
+				[session_id, user_agent || "Unknown", now, now, page_path || "/"],
 			);
 
-			// 전체 테이블 내용도 확인
-			const allConnections = await query(
-				"SELECT COUNT(*) as total FROM active_connections",
-				[],
-			);
-			console.log(
-				"[Heartbeat] Total connections in table:",
-				JSON.stringify(allConnections),
-			);
-
-			// 실제 저장된 모든 레코드 확인
-			const allRecords = await query("SELECT * FROM active_connections", []);
-			console.log(
-				"[Heartbeat] All records in table:",
-				JSON.stringify(allRecords),
-			);
-
-			// 현재 활성 연결 수 조회 (2분 이내 업데이트된 연결)
-			const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000).toISOString();
-			console.log(
-				"[Heartbeat] Querying active connections since:",
-				twoMinutesAgo,
-			);
-
-			// SQLite에서 ISO 문자열 직접 비교 (datetime 함수 없이)
-			const activeConnections = await query(
-				"SELECT COUNT(*) as count FROM active_connections WHERE last_seen > ?",
-				[twoMinutesAgo],
-			);
-			console.log("[Heartbeat] Raw query result:", activeConnections);
-
-			const activeCount =
-				Array.isArray(activeConnections) && activeConnections.length > 0
-					? ((activeConnections[0] as unknown as Record<string, unknown>)
-							?.count as number) || 0
-					: 0;
-
-			// 단순화: 하트비트를 보낸다는 것 자체가 활성 사용자가 있다는 의미
-			const finalCount = Math.max(1, activeCount); // 최소 1명의 활성 사용자
+			const cutoffIso = getActiveUserCutoffIso();
+			await pruneInactiveSessions(cutoffIso);
+			const activeCount = await countActiveSessions(cutoffIso);
+			const finalCount = Math.max(1, activeCount);
 
 			console.log(
 				`[Heartbeat] Active connections count: ${activeCount}, final count: ${finalCount}`,
 			);
 
-			// active_users_stats 테이블 UPSERT (브로드캐스트 트리거)
-			await query(
-				`INSERT INTO active_users_stats (id, current_count, peak_count, updated_at) 
-				 VALUES (1, ?, ?, ?)
-				 ON CONFLICT(id) DO UPDATE SET 
-					 current_count = excluded.current_count,
-					 peak_count = MAX(active_users_stats.peak_count, excluded.peak_count),
-					 updated_at = excluded.updated_at`,
-				[finalCount, finalCount, now],
-			);
+			await updateActiveUserStats(finalCount, now);
 
 			console.log(
 				`[Heartbeat] Updated active_users_stats: current=${finalCount}`,
@@ -266,7 +268,7 @@ addRoute(
 		if (typeof req.body === "string") {
 			try {
 				parsedBody = JSON.parse(req.body) as Record<string, unknown>;
-			} catch (error) {
+			} catch (_error) {
 				return { error: "Invalid JSON format" };
 			}
 		} else {
@@ -280,36 +282,17 @@ addRoute(
 		}
 
 		try {
-			// active_connections 테이블에서 세션 제거
-			await query("DELETE FROM active_connections WHERE session_id = ?", [
-				session_id,
-			]);
-
-			// 현재 활성 연결 수 조회
-			const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000).toISOString();
-			const activeConnections = await query(
-				"SELECT COUNT(*) as count FROM active_connections WHERE last_seen > ?",
-				[twoMinutesAgo],
+			await ensureActiveUserSessionsTable();
+			await execute(
+				`DELETE FROM ${ACTIVE_USER_SESSIONS_TABLE} WHERE session_id = ?`,
+				[session_id],
 			);
-
-			const activeCount =
-				Array.isArray(activeConnections) && activeConnections.length > 0
-					? ((activeConnections[0] as unknown as Record<string, unknown>)
-							?.count as number) || 0
-					: 0;
-
-			const finalCount = Math.max(0, activeCount); // Allow 0 users for debugging
-
-			// active_users_stats 테이블 UPSERT (브로드캐스트 트리거)
+			const cutoffIso = getActiveUserCutoffIso();
+			await pruneInactiveSessions(cutoffIso);
+			const activeCount = await countActiveSessions(cutoffIso);
+			const finalCount = Math.max(0, activeCount);
 			const now = new Date().toISOString();
-			await query(
-				`INSERT INTO active_users_stats (id, current_count, peak_count, updated_at) 
-				 VALUES (1, ?, 1, ?)
-				 ON CONFLICT(id) DO UPDATE SET 
-					 current_count = excluded.current_count,
-					 updated_at = excluded.updated_at`,
-				[finalCount, now],
-			);
+			await updateActiveUserStats(finalCount, now);
 
 			return { success: true, active_count: finalCount };
 		} catch (error) {
@@ -327,10 +310,10 @@ addRoute(
 	"/connection/debug",
 	jsonHandler(async () => {
 		try {
-			// 현재 활성 연결 수 조회 (2분 이내)
-			const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000).toISOString();
+			await ensureActiveUserSessionsTable();
+			const twoMinutesAgo = getActiveUserCutoffIso();
 			const activeConnections = await query(
-				"SELECT * FROM active_connections WHERE last_seen > ? ORDER BY last_seen DESC",
+				`SELECT * FROM ${ACTIVE_USER_SESSIONS_TABLE} WHERE last_seen > ? ORDER BY last_seen DESC`,
 				[twoMinutesAgo],
 			);
 
@@ -342,7 +325,7 @@ addRoute(
 
 			// 전체 연결 기록 (최근 10개)
 			const recentConnections = await query(
-				"SELECT * FROM active_connections ORDER BY last_seen DESC LIMIT 10",
+				`SELECT * FROM ${ACTIVE_USER_SESSIONS_TABLE} ORDER BY last_seen DESC LIMIT 10`,
 				[],
 			);
 

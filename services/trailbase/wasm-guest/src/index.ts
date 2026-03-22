@@ -9,7 +9,7 @@ import {
 import { JobHandler } from "trailbase-wasm/job";
 
 import { executeLottoUpdate, processScannedLottoData } from "./lotto-utils";
-import { query, transaction } from "./trailbase-compat";
+import { execute, query } from "./trailbase-compat";
 import { executeWinningStoreUpdate } from "./winning-store-utils";
 
 type ScheduledJob = {
@@ -17,6 +17,10 @@ type ScheduledJob = {
 	schedule: string;
 	runner: () => Promise<void>;
 };
+
+const ACTIVE_USER_SESSIONS_TABLE = "active_user_sessions";
+const ACTIVE_USER_WINDOW_MS = 2 * 60 * 1000;
+let activeUserSessionsTableReady = false;
 
 // TrailBase cron runs in UTC. Comments below document the intended KST wall-clock.
 const scheduledJobs: ScheduledJob[] = [
@@ -141,6 +145,70 @@ function jsonWithStatus(
 	);
 }
 
+async function ensureActiveUserSessionsTable(): Promise<void> {
+	if (activeUserSessionsTableReady) {
+		return;
+	}
+
+	await execute(
+		`CREATE TABLE IF NOT EXISTS ${ACTIVE_USER_SESSIONS_TABLE} (
+      session_id TEXT PRIMARY KEY,
+      user_agent TEXT,
+      connected_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      last_seen TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      page_path TEXT
+    ) STRICT`,
+		[],
+	);
+	await execute(
+		`CREATE INDEX IF NOT EXISTS idx_${ACTIVE_USER_SESSIONS_TABLE}_last_seen
+     ON ${ACTIVE_USER_SESSIONS_TABLE}(last_seen)`,
+		[],
+	);
+	await execute(
+		`CREATE INDEX IF NOT EXISTS idx_${ACTIVE_USER_SESSIONS_TABLE}_connected_at
+     ON ${ACTIVE_USER_SESSIONS_TABLE}(connected_at)`,
+		[],
+	);
+
+	activeUserSessionsTableReady = true;
+}
+
+function getActiveUserCutoffIso(): string {
+	return new Date(Date.now() - ACTIVE_USER_WINDOW_MS).toISOString();
+}
+
+async function pruneInactiveSessions(cutoffIso: string): Promise<void> {
+	await execute(
+		`DELETE FROM ${ACTIVE_USER_SESSIONS_TABLE} WHERE last_seen <= ?`,
+		[cutoffIso],
+	);
+}
+
+async function countActiveSessions(cutoffIso: string): Promise<number> {
+	const activeConnections = await query(
+		`SELECT COUNT(*) as count FROM ${ACTIVE_USER_SESSIONS_TABLE} WHERE last_seen > ?`,
+		[cutoffIso],
+	);
+
+	return extractCountFromRows(activeConnections);
+}
+
+async function updateActiveUserStats(
+	currentCount: number,
+	updatedAt = new Date().toISOString(),
+): Promise<void> {
+	await execute(
+		`INSERT INTO active_users_stats (id, current_count, peak_count, updated_at)
+     VALUES (1, ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET
+       current_count = excluded.current_count,
+       peak_count = MAX(active_users_stats.peak_count, excluded.peak_count),
+       updated_at = excluded.updated_at`,
+		[currentCount, currentCount, updatedAt],
+	);
+}
+
 async function scannedHandler(req: HttpRequest): Promise<HttpResponse> {
 	try {
 		const parsedBody = req.json() ?? {};
@@ -182,55 +250,27 @@ async function heartbeatHandler(req: HttpRequest): Promise<HttpResponse> {
 	const now = new Date().toISOString();
 
 	try {
-		// Legacy deployments may still have the old cleanup trigger attached.
-		// Dropping it defensively avoids the write path hanging on active user updates.
-		try {
-			await query(
-				"DROP TRIGGER IF EXISTS trg_cleanup_inactive_connections",
-				[],
-			);
-		} catch (error) {
-			console.warn(
-				"Failed to drop trg_cleanup_inactive_connections trigger:",
-				error,
-			);
-		}
-
-		await transaction((tx) => {
-			tx.execute("DELETE FROM active_connections WHERE session_id = ?", [
+		await ensureActiveUserSessionsTable();
+		await execute(
+			`INSERT INTO ${ACTIVE_USER_SESSIONS_TABLE} (session_id, user_agent, connected_at, last_seen, page_path)
+       VALUES (?, ?, ?, ?, ?)
+       ON CONFLICT(session_id) DO UPDATE SET
+         user_agent = excluded.user_agent,
+         last_seen = excluded.last_seen,
+         page_path = excluded.page_path`,
+			[
 				session_id,
-			]);
-			tx.execute(
-				`INSERT INTO active_connections (session_id, user_agent, connected_at, last_seen, page_path)
-       VALUES (?, ?, ?, ?, ?)`,
-				[
-					session_id,
-					typeof user_agent === "string" ? user_agent : "Unknown",
-					now,
-					now,
-					typeof page_path === "string" ? page_path : "/",
-				],
-			);
-		});
-
-		const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000).toISOString();
-		const activeConnections = await query(
-			"SELECT COUNT(*) as count FROM active_connections WHERE last_seen > ?",
-			[twoMinutesAgo],
+				typeof user_agent === "string" ? user_agent : "Unknown",
+				now,
+				now,
+				typeof page_path === "string" ? page_path : "/",
+			],
 		);
-
-		const activeCount = extractCountFromRows(activeConnections);
+		const cutoffIso = getActiveUserCutoffIso();
+		await pruneInactiveSessions(cutoffIso);
+		const activeCount = await countActiveSessions(cutoffIso);
 		const finalCount = Math.max(1, activeCount);
-
-		await query(
-			`INSERT INTO active_users_stats (id, current_count, peak_count, updated_at)
-       VALUES (1, ?, ?, ?)
-       ON CONFLICT(id) DO UPDATE SET
-         current_count = excluded.current_count,
-         peak_count = MAX(active_users_stats.peak_count, excluded.peak_count),
-         updated_at = excluded.updated_at`,
-			[finalCount, finalCount, now],
-		);
+		await updateActiveUserStats(finalCount, now);
 
 		return HttpResponse.json({
 			success: true,
@@ -262,30 +302,18 @@ async function disconnectHandler(req: HttpRequest): Promise<HttpResponse> {
 	}
 
 	try {
-		await transaction((tx) => {
-			tx.execute("DELETE FROM active_connections WHERE session_id = ?", [
-				session_id,
-			]);
-		});
-
-		const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000).toISOString();
-		const activeConnections = await query(
-			"SELECT COUNT(*) as count FROM active_connections WHERE last_seen > ?",
-			[twoMinutesAgo],
+		await ensureActiveUserSessionsTable();
+		await execute(
+			`DELETE FROM ${ACTIVE_USER_SESSIONS_TABLE} WHERE session_id = ?`,
+			[session_id],
 		);
-
-		const activeCount = extractCountFromRows(activeConnections);
+		const cutoffIso = getActiveUserCutoffIso();
+		await pruneInactiveSessions(cutoffIso);
+		const activeCount = await countActiveSessions(cutoffIso);
 		const finalCount = Math.max(0, activeCount);
 
 		const now = new Date().toISOString();
-		await query(
-			`INSERT INTO active_users_stats (id, current_count, peak_count, updated_at)
-       VALUES (1, ?, 1, ?)
-       ON CONFLICT(id) DO UPDATE SET
-         current_count = excluded.current_count,
-         updated_at = excluded.updated_at`,
-			[finalCount, now],
-		);
+		await updateActiveUserStats(finalCount, now);
 
 		return HttpResponse.json({ success: true, active_count: finalCount });
 	} catch (error) {
@@ -296,9 +324,10 @@ async function disconnectHandler(req: HttpRequest): Promise<HttpResponse> {
 
 async function debugHandler(): Promise<HttpResponse> {
 	try {
-		const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000).toISOString();
+		await ensureActiveUserSessionsTable();
+		const twoMinutesAgo = getActiveUserCutoffIso();
 		const activeConnections = await query(
-			"SELECT * FROM active_connections WHERE last_seen > ? ORDER BY last_seen DESC",
+			`SELECT * FROM ${ACTIVE_USER_SESSIONS_TABLE} WHERE last_seen > ? ORDER BY last_seen DESC`,
 			[twoMinutesAgo],
 		);
 
@@ -308,7 +337,7 @@ async function debugHandler(): Promise<HttpResponse> {
 		);
 
 		const recentConnections = await query(
-			"SELECT * FROM active_connections ORDER BY last_seen DESC LIMIT 10",
+			`SELECT * FROM ${ACTIVE_USER_SESSIONS_TABLE} ORDER BY last_seen DESC LIMIT 10`,
 			[],
 		);
 
@@ -334,29 +363,12 @@ async function debugHandler(): Promise<HttpResponse> {
 
 async function cleanupInactiveConnections(): Promise<void> {
 	try {
-		await query(
-			"DELETE FROM active_connections WHERE datetime(last_seen) < datetime('now', '-5 minutes')",
-			[],
-		);
-
-		const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000).toISOString();
-		const activeConnections = await query(
-			"SELECT COUNT(*) as count FROM active_connections WHERE last_seen > ?",
-			[twoMinutesAgo],
-		);
-
-		const activeCount = Math.max(0, extractCountFromRows(activeConnections));
+		await ensureActiveUserSessionsTable();
+		const cutoffIso = getActiveUserCutoffIso();
+		await pruneInactiveSessions(cutoffIso);
+		const activeCount = Math.max(0, await countActiveSessions(cutoffIso));
 		const now = new Date().toISOString();
-
-		await query(
-			`INSERT INTO active_users_stats (id, current_count, peak_count, updated_at)
-       VALUES (1, ?, ?, ?)
-       ON CONFLICT(id) DO UPDATE SET
-         current_count = excluded.current_count,
-         peak_count = MAX(active_users_stats.peak_count, excluded.peak_count),
-         updated_at = excluded.updated_at`,
-			[activeCount, activeCount, now],
-		);
+		await updateActiveUserStats(activeCount, now);
 	} catch (error) {
 		console.error("Error in connection cleanup job:", error);
 	}

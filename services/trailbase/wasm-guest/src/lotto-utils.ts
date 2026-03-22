@@ -2,7 +2,7 @@
  * 로또 관련 유틸리티 함수들
  */
 
-import { HttpError, StatusCodes, query, transaction } from "./trailbase-compat";
+import { HttpError, query, StatusCodes, transaction } from "./trailbase-compat";
 
 // 로또 API 응답 타입
 export type LottoApiResponse = {
@@ -857,7 +857,7 @@ export async function processScannedLottoData(req: { body: unknown }) {
 		if (typeof req.body === "string") {
 			try {
 				parsedBody = JSON.parse(req.body);
-			} catch (parseError) {
+			} catch (_parseError) {
 				console.error("JSON parse error");
 				throw new HttpError(StatusCodes.BAD_REQUEST, "Invalid JSON format");
 			}
@@ -925,9 +925,9 @@ export async function processScannedLottoData(req: { body: unknown }) {
 		}
 
 		// 트랜잭션 시작
-		await transaction(async () => {
+		await transaction(async (tx) => {
 			// 현재 회차의 스캔 카운트 레코드 조회
-			const existingRecord = await query(
+			const existingRecord = await tx.query(
 				`
 				SELECT * FROM lotto_draw_scan_counts 
 				WHERE round = ?
@@ -972,7 +972,7 @@ export async function processScannedLottoData(req: { body: unknown }) {
 						WHERE round = ?
 					`;
 
-					await query(updateQuery, updateValues);
+					tx.execute(updateQuery, updateValues);
 				}
 			} else {
 				// 새 레코드 생성
@@ -1000,7 +1000,7 @@ export async function processScannedLottoData(req: { body: unknown }) {
 					VALUES (${placeholders.join(", ")})
 				`;
 
-				await query(insertQuery, values);
+				tx.execute(insertQuery, values);
 			}
 		});
 
