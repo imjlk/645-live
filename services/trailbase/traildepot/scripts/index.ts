@@ -12,6 +12,7 @@ console.log("Adding routes...");
 
 const ACTIVE_USER_SESSIONS_TABLE = "active_user_sessions";
 const ACTIVE_USER_WINDOW_MS = 12 * 60 * 1000;
+const DISCONNECT_GRACE_MS = 15 * 1000;
 const CONNECTION_CLEANUP_SCHEDULE = "0 */5 * * * *";
 const CONNECTION_DIAGNOSTICS_MARKER = "active-user-sessions-v2";
 const CONNECTION_BOOT_ID = `legacy-${Date.now()}`;
@@ -156,6 +157,12 @@ async function listConnectionObjects() {
 
 function getActiveUserCutoffIso() {
 	return new Date(Date.now() - ACTIVE_USER_WINDOW_MS).toISOString();
+}
+
+function getSoftDisconnectLastSeenIso(nowMs = Date.now()) {
+	return new Date(
+		nowMs - ACTIVE_USER_WINDOW_MS + DISCONNECT_GRACE_MS,
+	).toISOString();
 }
 
 function extractCountFromRows(rows: unknown): number {
@@ -330,8 +337,10 @@ addRoute(
 				return unavailable;
 			}
 			await execute(
-				`DELETE FROM ${ACTIVE_USER_SESSIONS_TABLE} WHERE session_id = ?`,
-				[session_id],
+				`UPDATE ${ACTIVE_USER_SESSIONS_TABLE}
+				 SET last_seen = ?
+				 WHERE session_id = ?`,
+				[getSoftDisconnectLastSeenIso(), session_id],
 			);
 			const cutoffIso = getActiveUserCutoffIso();
 			const activeCount = await countActiveSessions(cutoffIso);
@@ -476,6 +485,7 @@ addRoute(
 				request_seq: requestSeq,
 				session_strategy: ACTIVE_USER_SESSIONS_TABLE,
 				active_user_window_ms: ACTIVE_USER_WINDOW_MS,
+				disconnect_grace_ms: DISCONNECT_GRACE_MS,
 				active_user_sessions_table_ready: activeUserSessionsTableReady,
 				current_time: new Date().toISOString(),
 				cutoff_time: cutoffIso,
