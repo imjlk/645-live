@@ -32,6 +32,37 @@ run_step() {
   return 0
 }
 
+sync_traildepot_static_assets() {
+  src_dir="/app/traildepot-image"
+  dst_dir="/app/traildepot"
+
+  [ -d "$src_dir" ] || return 0
+
+  mkdir -p "$dst_dir" "$dst_dir/data" "$dst_dir/backups" "$dst_dir/uploads" "$dst_dir/secrets"
+
+  for path in \
+    config.textproto \
+    metadata.textproto \
+    PROMPT.md \
+    import-draw-results.ts \
+    import-top-store.ts \
+    lotto-utils.ts \
+    winning-store-utils.ts \
+    trailbase.d.ts \
+    trailbase.js \
+    migrations \
+    scripts \
+    wasm
+  do
+    if [ -e "$src_dir/$path" ]; then
+      rm -rf "$dst_dir/$path"
+      cp -R "$src_dir/$path" "$dst_dir/$path"
+    fi
+  done
+}
+
+sync_traildepot_static_assets
+
 if is_true "${BACKFILL_ON_STARTUP:-true}"; then
   cd /app/traildepot
 

@@ -16,13 +16,14 @@ FROM trailbase/trailbase:${TRAILBASE_VERSION} AS runtime
 
 WORKDIR /app
 
-COPY --chown=trailbase traildepot /app/traildepot
+COPY --chown=trailbase traildepot /app/traildepot-image
 COPY entrypoint.sh /app/entrypoint.sh
 
 USER root
-RUN mkdir -p /app/traildepot/wasm
+RUN rm -rf /app/traildepot-image/data /app/traildepot-image/backups /app/traildepot-image/uploads \
+  && mkdir -p /app/traildepot/wasm
 COPY --from=backfill-runtime /usr/local/bin/bun /usr/local/bin/bun
-COPY --from=wasm-builder /build/wasm-guest/dist/component.wasm /app/traildepot/wasm/component.wasm
+COPY --from=wasm-builder /build/wasm-guest/dist/component.wasm /app/traildepot-image/wasm/component.wasm
 
 RUN chmod +x /app/entrypoint.sh \
   && apk add --no-cache libstdc++ libgcc \
