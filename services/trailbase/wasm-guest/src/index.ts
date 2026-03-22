@@ -19,7 +19,8 @@ type ScheduledJob = {
 };
 
 const ACTIVE_USER_SESSIONS_TABLE = "active_user_sessions";
-const ACTIVE_USER_WINDOW_MS = 2 * 60 * 1000;
+const ACTIVE_USER_WINDOW_MS = 12 * 60 * 1000;
+const CONNECTION_CLEANUP_SCHEDULE = "0 */5 * * * *";
 const CONNECTION_DIAGNOSTICS_MARKER = "active-user-sessions-v2";
 const CONNECTION_BOOT_ID = `wasm-${Date.now()}`;
 const CONNECTION_BOOTED_AT = new Date().toISOString();
@@ -511,8 +512,12 @@ export default defineConfig({
 	],
 	jobHandlers: [
 		...scheduledJobs.map((job) => createScheduledJob(job)),
-		JobHandler.minutely("Connection Cleanup", async () => {
-			await cleanupInactiveConnections();
-		}),
+		new JobHandler(
+			"Connection Cleanup",
+			CONNECTION_CLEANUP_SCHEDULE,
+			async () => {
+				await cleanupInactiveConnections();
+			},
+		),
 	],
 });

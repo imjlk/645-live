@@ -18,8 +18,11 @@ import type { ConnectionState } from "./types";
 
 const GLOBAL_CONNECTION_ID = "global-connection";
 const ACTIVE_USERS_SUBSCRIPTION_ID = "global-active-users";
-const HEARTBEAT_INTERVAL_MS = 30_000;
-const SESSION_STORAGE_KEY = "trailbase-active-session-id";
+const HEARTBEAT_INTERVAL_MS = 5 * 60 * 1000;
+const ACTIVE_USER_WINDOW_MS = 12 * 60 * 1000;
+const SHARED_SESSION_STORAGE_KEY = "trailbase-active-session-id";
+const TAB_ID_STORAGE_KEY = "trailbase-active-tab-id";
+const TAB_REGISTRY_STORAGE_KEY = "trailbase-active-tab-registry";
 
 let globalConnectionState = $state<ConnectionState>({
 	connected: false,
@@ -45,6 +48,108 @@ let heartbeatInterval: ReturnType<typeof setInterval> | null = null;
 let currentSessionId: string | null = null;
 let unloadHandlerRegistered = false;
 let autoInitialized = false;
+let disconnectRequested = false;
+
+function readSharedSessionId(): string | null {
+	if (!browser) return null;
+
+	try {
+		return localStorage.getItem(SHARED_SESSION_STORAGE_KEY);
+	} catch {
+		return null;
+	}
+}
+
+function writeSharedSessionId(sessionId: string): void {
+	if (!browser) return;
+
+	try {
+		localStorage.setItem(SHARED_SESSION_STORAGE_KEY, sessionId);
+	} catch {
+		// Ignore storage failures and keep the in-memory session.
+	}
+}
+
+function getCurrentTabId(): string | null {
+	if (!browser) return null;
+
+	try {
+		let tabId = sessionStorage.getItem(TAB_ID_STORAGE_KEY);
+		if (!tabId) {
+			tabId = `tab_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+			sessionStorage.setItem(TAB_ID_STORAGE_KEY, tabId);
+		}
+		return tabId;
+	} catch {
+		return null;
+	}
+}
+
+function readTabRegistry(): Record<string, number> {
+	if (!browser) return {};
+
+	try {
+		const raw = localStorage.getItem(TAB_REGISTRY_STORAGE_KEY);
+		if (!raw) {
+			return {};
+		}
+
+		const parsed = JSON.parse(raw) as Record<string, number>;
+		return parsed && typeof parsed === "object" ? parsed : {};
+	} catch {
+		return {};
+	}
+}
+
+function writeTabRegistry(registry: Record<string, number>): void {
+	if (!browser) return;
+
+	try {
+		if (Object.keys(registry).length === 0) {
+			localStorage.removeItem(TAB_REGISTRY_STORAGE_KEY);
+			return;
+		}
+
+		localStorage.setItem(TAB_REGISTRY_STORAGE_KEY, JSON.stringify(registry));
+	} catch {
+		// Ignore storage failures and fall back to disconnect semantics.
+	}
+}
+
+function pruneTabRegistry(
+	registry: Record<string, number>,
+	now = Date.now(),
+): Record<string, number> {
+	return Object.fromEntries(
+		Object.entries(registry).filter(
+			([, lastSeenAt]) =>
+				typeof lastSeenAt === "number" &&
+				now - lastSeenAt <= ACTIVE_USER_WINDOW_MS,
+		),
+	);
+}
+
+function registerCurrentTab(): void {
+	const tabId = getCurrentTabId();
+	if (!tabId) return;
+
+	const registry = pruneTabRegistry(readTabRegistry());
+	registry[tabId] = Date.now();
+	writeTabRegistry(registry);
+}
+
+function unregisterCurrentTab(): boolean {
+	const tabId = getCurrentTabId();
+	if (!tabId) {
+		return true;
+	}
+
+	const registry = pruneTabRegistry(readTabRegistry());
+	delete registry[tabId];
+	writeTabRegistry(registry);
+
+	return Object.keys(registry).length === 0;
+}
 
 function getTrailbaseBaseUrl(): string {
 	return getTrailbaseBrowserBaseUrl();
@@ -91,7 +196,7 @@ async function refreshActiveUsers(): Promise<void> {
 
 function ensureSessionId(): string {
 	if (browser && !currentSessionId) {
-		const persistedSessionId = sessionStorage.getItem(SESSION_STORAGE_KEY);
+		const persistedSessionId = readSharedSessionId();
 		if (persistedSessionId) {
 			currentSessionId = persistedSessionId;
 		}
@@ -99,10 +204,10 @@ function ensureSessionId(): string {
 
 	if (!currentSessionId) {
 		currentSessionId = `session_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
-		if (browser) {
-			sessionStorage.setItem(SESSION_STORAGE_KEY, currentSessionId);
-		}
+		writeSharedSessionId(currentSessionId);
 	}
+
+	registerCurrentTab();
 	return currentSessionId;
 }
 
@@ -149,6 +254,14 @@ async function sendHeartbeat(): Promise<void> {
 
 async function disconnectSession(): Promise<void> {
 	if (!currentSessionId) return;
+	if (disconnectRequested) return;
+
+	const shouldDisconnect = !browser || unregisterCurrentTab();
+	if (!shouldDisconnect) {
+		return;
+	}
+
+	disconnectRequested = true;
 
 	try {
 		if (typeof navigator.sendBeacon === "function" && browser) {
@@ -249,6 +362,7 @@ export async function initializeGlobalConnection(): Promise<void> {
 
 	initializationPromise = (async () => {
 		try {
+			disconnectRequested = false;
 			if (!connectionStateUnsubscribe) {
 				connectionStateUnsubscribe = trailbaseClient.subscribeToConnectionState(
 					GLOBAL_CONNECTION_ID,

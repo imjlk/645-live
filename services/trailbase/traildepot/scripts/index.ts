@@ -11,7 +11,8 @@ import { executeWinningStoreUpdate } from "../winning-store-utils.ts";
 console.log("Adding routes...");
 
 const ACTIVE_USER_SESSIONS_TABLE = "active_user_sessions";
-const ACTIVE_USER_WINDOW_MS = 2 * 60 * 1000;
+const ACTIVE_USER_WINDOW_MS = 12 * 60 * 1000;
+const CONNECTION_CLEANUP_SCHEDULE = "0 */5 * * * *";
 const CONNECTION_DIAGNOSTICS_MARKER = "active-user-sessions-v2";
 const CONNECTION_BOOT_ID = `legacy-${Date.now()}`;
 const CONNECTION_BOOTED_AT = new Date().toISOString();
@@ -74,6 +75,11 @@ const scheduledJobs = [
 		schedule: "0 15 0 * * *",
 		runner: executeWinningStoreUpdate,
 	}, // Daily 09:15 KST
+	{
+		name: "Connection Cleanup",
+		schedule: CONNECTION_CLEANUP_SCHEDULE,
+		runner: cleanupInactiveConnections,
+	},
 ];
 
 function registerScheduledJob(
@@ -177,6 +183,31 @@ async function countActiveSessions(cutoffIso: string) {
 		[cutoffIso],
 	);
 	return extractCountFromRows(rows);
+}
+
+async function pruneInactiveSessions(cutoffIso: string) {
+	await execute(
+		`DELETE FROM ${ACTIVE_USER_SESSIONS_TABLE} WHERE last_seen <= ?`,
+		[cutoffIso],
+	);
+}
+
+async function cleanupInactiveConnections() {
+	try {
+		const available = await ensureActiveUserSessionsTable();
+		if (!available) {
+			console.error(
+				`Skipping connection cleanup because ${ACTIVE_USER_SESSIONS_TABLE} is unavailable`,
+			);
+			return;
+		}
+
+		const cutoffIso = getActiveUserCutoffIso();
+		await pruneInactiveSessions(cutoffIso);
+		await countActiveSessions(cutoffIso);
+	} catch (error) {
+		console.error("Error in connection cleanup job:", error);
+	}
 }
 
 addRoute(
