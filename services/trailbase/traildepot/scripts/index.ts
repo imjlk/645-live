@@ -13,7 +13,15 @@ console.log("Adding routes...");
 const ACTIVE_USER_SESSIONS_TABLE = "active_user_sessions";
 const ACTIVE_USER_WINDOW_MS = 2 * 60 * 1000;
 const CONNECTION_DIAGNOSTICS_MARKER = "active-user-sessions-v2";
+const CONNECTION_BOOT_ID = `legacy-${Date.now()}`;
+const CONNECTION_BOOTED_AT = new Date().toISOString();
 let activeUserSessionsTableReady = false;
+let connectionRequestSeq = 0;
+
+function nextConnectionRequestSeq() {
+	connectionRequestSeq += 1;
+	return connectionRequestSeq;
+}
 
 const scheduledJobs = [
 	{
@@ -186,6 +194,7 @@ addRoute(
 	"POST",
 	"/connection/heartbeat",
 	jsonHandler(async (req) => {
+		const requestSeq = nextConnectionRequestSeq();
 		console.log("[Heartbeat] Raw request body:", req.body);
 		console.log("[Heartbeat] Request body type:", typeof req.body);
 
@@ -243,6 +252,9 @@ addRoute(
 				success: true,
 				active_count: finalCount, // 이제 최소 1이 됨
 				session_id,
+				boot_id: CONNECTION_BOOT_ID,
+				booted_at: CONNECTION_BOOTED_AT,
+				request_seq: requestSeq,
 			};
 		} catch (error) {
 			console.error("Error in connection heartbeat:", error);
@@ -262,6 +274,7 @@ addRoute(
 	"POST",
 	"/connection/disconnect",
 	jsonHandler(async (req) => {
+		const requestSeq = nextConnectionRequestSeq();
 		// JSON 문자열인 경우 파싱
 		let parsedBody: Record<string, unknown>;
 		if (typeof req.body === "string") {
@@ -293,7 +306,13 @@ addRoute(
 			const activeCount = await countActiveSessions(cutoffIso);
 			const finalCount = Math.max(0, activeCount);
 
-			return { success: true, active_count: finalCount };
+			return {
+				success: true,
+				active_count: finalCount,
+				boot_id: CONNECTION_BOOT_ID,
+				booted_at: CONNECTION_BOOTED_AT,
+				request_seq: requestSeq,
+			};
 		} catch (error) {
 			console.error("Error in connection disconnect:", error);
 			return { error: "Internal server error" };
@@ -307,6 +326,7 @@ addRoute(
 	"GET",
 	"/connection/status",
 	jsonHandler(async () => {
+		const requestSeq = nextConnectionRequestSeq();
 		try {
 			const unavailable = await ensureActiveUserSessionsOrFail();
 			if (unavailable) {
@@ -323,6 +343,9 @@ addRoute(
 				current_count: activeCount,
 				peak_count: activeCount,
 				updated_at: new Date().toISOString(),
+				boot_id: CONNECTION_BOOT_ID,
+				booted_at: CONNECTION_BOOTED_AT,
+				request_seq: requestSeq,
 			};
 		} catch (error) {
 			console.error("Error in connection status endpoint:", error);
@@ -342,6 +365,7 @@ addRoute(
 	"GET",
 	"/connection/debug",
 	jsonHandler(async () => {
+		const requestSeq = nextConnectionRequestSeq();
 		try {
 			const unavailable = await ensureActiveUserSessionsOrFail();
 			if (unavailable) {
@@ -367,6 +391,7 @@ addRoute(
 
 			return {
 				success: true,
+				marker: CONNECTION_DIAGNOSTICS_MARKER,
 				current_time: new Date().toISOString(),
 				two_minutes_ago: twoMinutesAgo,
 				active_connections: activeConnections,
@@ -375,6 +400,9 @@ addRoute(
 				active_count: Array.isArray(activeConnections)
 					? activeConnections.length
 					: 0,
+				boot_id: CONNECTION_BOOT_ID,
+				booted_at: CONNECTION_BOOTED_AT,
+				request_seq: requestSeq,
 			};
 		} catch (error) {
 			console.error("Error in debug endpoint:", error);
@@ -389,6 +417,7 @@ addRoute(
 	"GET",
 	"/connection/diagnostics",
 	jsonHandler(async () => {
+		const requestSeq = nextConnectionRequestSeq();
 		try {
 			const available = await ensureActiveUserSessionsTable();
 			const cutoffIso = getActiveUserCutoffIso();
@@ -411,6 +440,9 @@ addRoute(
 				success: available,
 				marker: CONNECTION_DIAGNOSTICS_MARKER,
 				handler: "legacy-script",
+				boot_id: CONNECTION_BOOT_ID,
+				booted_at: CONNECTION_BOOTED_AT,
+				request_seq: requestSeq,
 				session_strategy: ACTIVE_USER_SESSIONS_TABLE,
 				active_user_window_ms: ACTIVE_USER_WINDOW_MS,
 				active_user_sessions_table_ready: activeUserSessionsTableReady,

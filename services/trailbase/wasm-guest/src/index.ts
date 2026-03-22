@@ -21,7 +21,15 @@ type ScheduledJob = {
 const ACTIVE_USER_SESSIONS_TABLE = "active_user_sessions";
 const ACTIVE_USER_WINDOW_MS = 2 * 60 * 1000;
 const CONNECTION_DIAGNOSTICS_MARKER = "active-user-sessions-v2";
+const CONNECTION_BOOT_ID = `wasm-${Date.now()}`;
+const CONNECTION_BOOTED_AT = new Date().toISOString();
 let activeUserSessionsTableReady = false;
+let connectionRequestSeq = 0;
+
+function nextConnectionRequestSeq(): number {
+	connectionRequestSeq += 1;
+	return connectionRequestSeq;
+}
 
 // TrailBase cron runs in UTC. Comments below document the intended KST wall-clock.
 const scheduledJobs: ScheduledJob[] = [
@@ -242,6 +250,7 @@ async function scannedHandler(req: HttpRequest): Promise<HttpResponse> {
 }
 
 async function heartbeatHandler(req: HttpRequest): Promise<HttpResponse> {
+	const requestSeq = nextConnectionRequestSeq();
 	let parsedBody: Record<string, unknown>;
 
 	try {
@@ -288,6 +297,9 @@ async function heartbeatHandler(req: HttpRequest): Promise<HttpResponse> {
 			success: true,
 			active_count: finalCount,
 			session_id,
+			boot_id: CONNECTION_BOOT_ID,
+			booted_at: CONNECTION_BOOTED_AT,
+			request_seq: requestSeq,
 		});
 	} catch (error) {
 		console.error("Error in connection heartbeat:", error);
@@ -299,6 +311,7 @@ async function heartbeatHandler(req: HttpRequest): Promise<HttpResponse> {
 }
 
 async function disconnectHandler(req: HttpRequest): Promise<HttpResponse> {
+	const requestSeq = nextConnectionRequestSeq();
 	let parsedBody: Record<string, unknown>;
 
 	try {
@@ -326,7 +339,13 @@ async function disconnectHandler(req: HttpRequest): Promise<HttpResponse> {
 		const activeCount = await countActiveSessions(cutoffIso);
 		const finalCount = Math.max(0, activeCount);
 
-		return HttpResponse.json({ success: true, active_count: finalCount });
+		return HttpResponse.json({
+			success: true,
+			active_count: finalCount,
+			boot_id: CONNECTION_BOOT_ID,
+			booted_at: CONNECTION_BOOTED_AT,
+			request_seq: requestSeq,
+		});
 	} catch (error) {
 		console.error("Error in connection disconnect:", error);
 		return HttpResponse.json({ error: "Internal server error" });
@@ -334,6 +353,7 @@ async function disconnectHandler(req: HttpRequest): Promise<HttpResponse> {
 }
 
 async function statusHandler(): Promise<HttpResponse> {
+	const requestSeq = nextConnectionRequestSeq();
 	try {
 		const unavailable = await ensureActiveUserSessionsOrFail();
 		if (unavailable) {
@@ -350,6 +370,9 @@ async function statusHandler(): Promise<HttpResponse> {
 			current_count: activeCount,
 			peak_count: activeCount,
 			updated_at: new Date().toISOString(),
+			boot_id: CONNECTION_BOOT_ID,
+			booted_at: CONNECTION_BOOTED_AT,
+			request_seq: requestSeq,
 		});
 	} catch (error) {
 		console.error("Error in connection status endpoint:", error);
@@ -362,6 +385,7 @@ async function statusHandler(): Promise<HttpResponse> {
 }
 
 async function debugHandler(): Promise<HttpResponse> {
+	const requestSeq = nextConnectionRequestSeq();
 	try {
 		const unavailable = await ensureActiveUserSessionsOrFail();
 		if (unavailable) {
@@ -385,6 +409,7 @@ async function debugHandler(): Promise<HttpResponse> {
 
 		return HttpResponse.json({
 			success: true,
+			marker: CONNECTION_DIAGNOSTICS_MARKER,
 			current_time: new Date().toISOString(),
 			two_minutes_ago: twoMinutesAgo,
 			active_connections: activeConnections,
@@ -393,6 +418,9 @@ async function debugHandler(): Promise<HttpResponse> {
 			active_count: Array.isArray(activeConnections)
 				? activeConnections.length
 				: 0,
+			boot_id: CONNECTION_BOOT_ID,
+			booted_at: CONNECTION_BOOTED_AT,
+			request_seq: requestSeq,
 		});
 	} catch (error) {
 		console.error("Error in debug endpoint:", error);
@@ -421,6 +449,7 @@ async function cleanupInactiveConnections(): Promise<void> {
 }
 
 async function diagnosticsHandler(): Promise<HttpResponse> {
+	const requestSeq = nextConnectionRequestSeq();
 	try {
 		const available = await ensureActiveUserSessionsTable();
 		const cutoffIso = getActiveUserCutoffIso();
@@ -443,6 +472,9 @@ async function diagnosticsHandler(): Promise<HttpResponse> {
 			success: available,
 			marker: CONNECTION_DIAGNOSTICS_MARKER,
 			handler: "wasm-guest",
+			boot_id: CONNECTION_BOOT_ID,
+			booted_at: CONNECTION_BOOTED_AT,
+			request_seq: requestSeq,
 			session_strategy: ACTIVE_USER_SESSIONS_TABLE,
 			active_user_window_ms: ACTIVE_USER_WINDOW_MS,
 			active_user_sessions_table_ready: activeUserSessionsTableReady,
