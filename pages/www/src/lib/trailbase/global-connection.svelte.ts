@@ -372,8 +372,6 @@ export async function initializeGlobalConnection(): Promise<void> {
 				);
 			}
 
-			await trailbaseClient.retainConnection(GLOBAL_CONNECTION_ID);
-
 			if (!activeUsersUnsubscribe) {
 				activeUsersUnsubscribe = activeUsersClient.subscribe(
 					ACTIVE_USERS_SUBSCRIPTION_ID,
@@ -383,10 +381,11 @@ export async function initializeGlobalConnection(): Promise<void> {
 				);
 			}
 
-			await refreshActiveUsers();
 			registerUnloadHandlers();
 			await sendHeartbeat();
+			await refreshActiveUsers();
 			startHeartbeat();
+			await trailbaseClient.retainConnection(GLOBAL_CONNECTION_ID);
 
 			applyConnectionState(trailbaseClient.getConnectionState());
 			isInitialized = true;
