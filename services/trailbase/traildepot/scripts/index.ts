@@ -92,31 +92,52 @@ function registerScheduledJob(
 
 async function ensureActiveUserSessionsTable() {
 	if (activeUserSessionsTableReady) {
-		return;
+		return true;
 	}
 
-	await execute(
-		`CREATE TABLE IF NOT EXISTS ${ACTIVE_USER_SESSIONS_TABLE} (
-			session_id TEXT PRIMARY KEY,
-			user_agent TEXT,
-			connected_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-			last_seen TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-			page_path TEXT
-		) STRICT`,
-		[],
+	const rows = await query(
+		`SELECT COUNT(*) as count
+		 FROM sqlite_master
+		 WHERE type = 'table' AND name = ?`,
+		[ACTIVE_USER_SESSIONS_TABLE],
 	);
-	await execute(
-		`CREATE INDEX IF NOT EXISTS idx_${ACTIVE_USER_SESSIONS_TABLE}_last_seen
-		 ON ${ACTIVE_USER_SESSIONS_TABLE}(last_seen)`,
-		[],
-	);
-	await execute(
-		`CREATE INDEX IF NOT EXISTS idx_${ACTIVE_USER_SESSIONS_TABLE}_connected_at
-		 ON ${ACTIVE_USER_SESSIONS_TABLE}(connected_at)`,
-		[],
-	);
+	const exists = extractCountFromRows(rows) > 0;
+	if (exists) {
+		activeUserSessionsTableReady = true;
+	}
 
-	activeUserSessionsTableReady = true;
+	return exists;
+}
+
+async function ensureActiveUserSessionsOrFail() {
+	const available = await ensureActiveUserSessionsTable();
+	if (!available) {
+		console.error(
+			`Missing required table for active user tracking: ${ACTIVE_USER_SESSIONS_TABLE}`,
+		);
+		return {
+			success: false,
+			error: `${ACTIVE_USER_SESSIONS_TABLE} table is unavailable`,
+			marker: CONNECTION_DIAGNOSTICS_MARKER,
+		};
+	}
+
+	return null;
+}
+
+async function listConnectionObjects() {
+	return query(
+		`SELECT name, type
+		 FROM sqlite_master
+		 WHERE name IN (?, ?, ?, ?)
+		 ORDER BY type, name`,
+		[
+			ACTIVE_USER_SESSIONS_TABLE,
+			"active_connections",
+			"active_users_stats",
+			"trg_cleanup_inactive_connections",
+		],
+	);
 }
 
 function getActiveUserCutoffIso() {
@@ -215,7 +236,10 @@ addRoute(
 		const now = new Date().toISOString();
 
 		try {
-			await ensureActiveUserSessionsTable();
+			const unavailable = await ensureActiveUserSessionsOrFail();
+			if (unavailable) {
+				return unavailable;
+			}
 			await execute(
 				`INSERT INTO ${ACTIVE_USER_SESSIONS_TABLE} (session_id, user_agent, connected_at, last_seen, page_path) 
 				 VALUES (?, ?, ?, ?, ?)
@@ -283,7 +307,10 @@ addRoute(
 		}
 
 		try {
-			await ensureActiveUserSessionsTable();
+			const unavailable = await ensureActiveUserSessionsOrFail();
+			if (unavailable) {
+				return unavailable;
+			}
 			await execute(
 				`DELETE FROM ${ACTIVE_USER_SESSIONS_TABLE} WHERE session_id = ?`,
 				[session_id],
@@ -311,7 +338,10 @@ addRoute(
 	"/connection/debug",
 	jsonHandler(async () => {
 		try {
-			await ensureActiveUserSessionsTable();
+			const unavailable = await ensureActiveUserSessionsOrFail();
+			if (unavailable) {
+				return unavailable;
+			}
 			const twoMinutesAgo = getActiveUserCutoffIso();
 			const activeConnections = await query(
 				`SELECT * FROM ${ACTIVE_USER_SESSIONS_TABLE} WHERE last_seen > ? ORDER BY last_seen DESC`,
@@ -355,34 +385,25 @@ addRoute(
 	"/connection/diagnostics",
 	jsonHandler(async () => {
 		try {
-			await ensureActiveUserSessionsTable();
+			const available = await ensureActiveUserSessionsTable();
 			const cutoffIso = getActiveUserCutoffIso();
-			const activeCount = await countActiveSessions(cutoffIso);
-			const tableChecks = await query(
-				`SELECT name, type
-				 FROM sqlite_master
-				 WHERE name IN (?, ?, ?, ?)
-				 ORDER BY type, name`,
-				[
-					ACTIVE_USER_SESSIONS_TABLE,
-					"active_connections",
-					"active_users_stats",
-					"trg_cleanup_inactive_connections",
-				],
-			);
+			const activeCount = available ? await countActiveSessions(cutoffIso) : 0;
+			const tableChecks = await listConnectionObjects();
 			const activeUserStats = await query(
 				"SELECT * FROM active_users_stats ORDER BY id DESC LIMIT 1",
 				[],
 			);
-			const recentSessions = await query(
-				`SELECT * FROM ${ACTIVE_USER_SESSIONS_TABLE}
+			const recentSessions = available
+				? await query(
+						`SELECT * FROM ${ACTIVE_USER_SESSIONS_TABLE}
 				 ORDER BY last_seen DESC
 				 LIMIT 5`,
-				[],
-			);
+						[],
+					)
+				: [];
 
 			return {
-				success: true,
+				success: available,
 				marker: CONNECTION_DIAGNOSTICS_MARKER,
 				handler: "legacy-script",
 				session_strategy: ACTIVE_USER_SESSIONS_TABLE,
@@ -394,6 +415,9 @@ addRoute(
 				table_checks: tableChecks,
 				active_user_stats: activeUserStats,
 				recent_sessions: recentSessions,
+				error: available
+					? null
+					: `${ACTIVE_USER_SESSIONS_TABLE} table is unavailable`,
 			};
 		} catch (error) {
 			console.error("Error in diagnostics endpoint:", error);
