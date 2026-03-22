@@ -19,6 +19,7 @@ import type { ConnectionState } from "./types";
 const GLOBAL_CONNECTION_ID = "global-connection";
 const ACTIVE_USERS_SUBSCRIPTION_ID = "global-active-users";
 const HEARTBEAT_INTERVAL_MS = 30_000;
+const SESSION_STORAGE_KEY = "trailbase-active-session-id";
 
 let globalConnectionState = $state<ConnectionState>({
 	connected: false,
@@ -89,8 +90,18 @@ async function refreshActiveUsers(): Promise<void> {
 }
 
 function ensureSessionId(): string {
+	if (browser && !currentSessionId) {
+		const persistedSessionId = sessionStorage.getItem(SESSION_STORAGE_KEY);
+		if (persistedSessionId) {
+			currentSessionId = persistedSessionId;
+		}
+	}
+
 	if (!currentSessionId) {
 		currentSessionId = `session_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+		if (browser) {
+			sessionStorage.setItem(SESSION_STORAGE_KEY, currentSessionId);
+		}
 	}
 	return currentSessionId;
 }

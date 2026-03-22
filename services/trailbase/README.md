@@ -20,6 +20,12 @@ bun run trail
 
 이 명령은 `services/trailbase/traildepot`을 컨테이너에 마운트해서 실행합니다.
 
+기본 startup backfill 동작:
+
+- 추첨 결과 backfill은 DB 최신 회차 이후의 신규 회차만 가져옵니다.
+- 당첨점 backfill은 최근 범위를 확인하되, 이미 데이터가 있는 회차는 건너뜁니다.
+- 당첨점을 강제로 다시 수집하려면 `bun services/trailbase/traildepot/import-top-store.ts latest-range 10 --refresh` 같은 방식으로 실행합니다.
+
 ## WASM guest 개발
 
 ```bash
