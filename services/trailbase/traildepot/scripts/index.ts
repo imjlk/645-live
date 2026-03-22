@@ -178,18 +178,6 @@ async function countActiveSessions(cutoffIso: string) {
 	return extractCountFromRows(rows);
 }
 
-async function updateActiveUserStats(currentCount: number, updatedAt: string) {
-	await execute(
-		`INSERT INTO active_users_stats (id, current_count, peak_count, updated_at) 
-		 VALUES (1, ?, ?, ?)
-		 ON CONFLICT(id) DO UPDATE SET 
-			 current_count = excluded.current_count,
-			 peak_count = MAX(active_users_stats.peak_count, excluded.peak_count),
-			 updated_at = excluded.updated_at`,
-		[currentCount, currentCount, updatedAt],
-	);
-}
-
 addRoute(
 	"POST",
 	"/scanned",
@@ -259,12 +247,6 @@ addRoute(
 				`[Heartbeat] Active connections count: ${activeCount}, final count: ${finalCount}`,
 			);
 
-			await updateActiveUserStats(finalCount, now);
-
-			console.log(
-				`[Heartbeat] Updated active_users_stats: current=${finalCount}`,
-			);
-
 			return {
 				success: true,
 				active_count: finalCount, // 이제 최소 1이 됨
@@ -319,8 +301,6 @@ addRoute(
 			await pruneInactiveSessions(cutoffIso);
 			const activeCount = await countActiveSessions(cutoffIso);
 			const finalCount = Math.max(0, activeCount);
-			const now = new Date().toISOString();
-			await updateActiveUserStats(finalCount, now);
 
 			return { success: true, active_count: finalCount };
 		} catch (error) {
@@ -331,6 +311,41 @@ addRoute(
 );
 
 console.log("POST /connection/disconnect route registered");
+
+addRoute(
+	"GET",
+	"/connection/status",
+	jsonHandler(async () => {
+		try {
+			const unavailable = await ensureActiveUserSessionsOrFail();
+			if (unavailable) {
+				return unavailable;
+			}
+
+			const cutoffIso = getActiveUserCutoffIso();
+			await pruneInactiveSessions(cutoffIso);
+			const activeCount = await countActiveSessions(cutoffIso);
+
+			return {
+				success: true,
+				marker: CONNECTION_DIAGNOSTICS_MARKER,
+				handler: "legacy-script",
+				current_count: activeCount,
+				peak_count: activeCount,
+				updated_at: new Date().toISOString(),
+			};
+		} catch (error) {
+			console.error("Error in connection status endpoint:", error);
+			return {
+				success: false,
+				error: "Internal server error",
+				marker: CONNECTION_DIAGNOSTICS_MARKER,
+			};
+		}
+	}),
+);
+
+console.log("GET /connection/status route registered");
 
 // 디버깅용 연결 상태 조회 라우트
 addRoute(

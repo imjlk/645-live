@@ -114,6 +114,11 @@ record_apis: [{
   acl_world: [READ]
   enable_subscriptions: true
 }, {
+  name: "active_user_sessions"
+  table_name: "active_user_sessions"
+  acl_world: [READ]
+  enable_subscriptions: true
+}, {
   name: "lotto_winning_stores"
   table_name: "lotto_winning_stores"
   acl_world: [READ]

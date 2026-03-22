@@ -1,14 +1,14 @@
 /**
- * Active Users TrailBase client (단순화된 구조)
- * 기존 trailbaseClient 패턴을 활용하여 active_users_stats 테이블 구독
+ * Active users client
+ * - Subscribes to active_user_sessions changes
+ * - Recomputes the active user count from the session table
  */
 
-import { browser } from "$app/environment";
 import type { Client, Event as TrailbaseEvent } from "trailbase";
+import { browser } from "$app/environment";
 import { getTrailbaseBrowserBaseUrl } from "./browser-base";
 import { shouldSuppressStreamError } from "./stream-errors";
 
-// 활성 유저 통계 타입
 export type ActiveUsersStats = {
 	id: number;
 	current_count: number;
@@ -16,10 +16,20 @@ export type ActiveUsersStats = {
 	updated_at: string;
 };
 
-// 구독자 콜백 타입
+type ActiveUserSession = {
+	id: number;
+	session_id: string;
+	user_agent?: string | null;
+	connected_at: string;
+	last_seen: string;
+	page_path?: string | null;
+};
+
 type ActiveUsersCallback = (stats: ActiveUsersStats) => void;
 
-const RETRY_DELAY_MS = 2000;
+const ACTIVE_USER_WINDOW_MS = 2 * 60 * 1000;
+const RETRY_DELAY_MS = 2_000;
+const INITIAL_FETCH_LIMIT = 200;
 
 class ActiveUsersClient {
 	private static instance: ActiveUsersClient | null = null;
@@ -31,12 +41,13 @@ class ActiveUsersClient {
 
 	private isInitialized = false;
 	private initializationPromise: Promise<void> | null = null;
-
 	private subscribers = new Map<string, ActiveUsersCallback>();
 	private connected = false;
 	private connecting = false;
-	private retryTimeoutId: number | null = null;
 	private stopping = false;
+	private retryTimeoutId: number | null = null;
+	private peakCount = 0;
+	private latestStats: ActiveUsersStats | null = null;
 
 	private constructor() {
 		if (!browser) return;
@@ -55,23 +66,78 @@ class ActiveUsersClient {
 
 		try {
 			const { initClient } = await import("trailbase");
-			const url = getTrailbaseBrowserBaseUrl();
-
-			this.client = initClient(url);
-			this.api = this.client.records("active_users_stats");
+			this.client = initClient(getTrailbaseBrowserBaseUrl());
+			this.api = this.client.records("active_user_sessions");
 			this.isInitialized = true;
 
-			// Start stream if there are waiting subscribers
 			if (this.subscribers.size > 0) {
+				await this.refreshSnapshot();
 				void this.startStream();
 			}
 		} catch (error) {
-			console.error("❌ Failed to initialize ActiveUsersClient:", error);
+			console.error("Failed to initialize ActiveUsersClient:", error);
+		}
+	}
+
+	private getCutoffIso(): string {
+		return new Date(Date.now() - ACTIVE_USER_WINDOW_MS).toISOString();
+	}
+
+	private buildStats(sessions: ActiveUserSession[]): ActiveUsersStats {
+		const cutoffIso = this.getCutoffIso();
+		const currentCount = sessions.filter(
+			(session) => session.last_seen > cutoffIso,
+		).length;
+		this.peakCount = Math.max(this.peakCount, currentCount);
+
+		return {
+			id: 1,
+			current_count: currentCount,
+			peak_count: this.peakCount,
+			updated_at: new Date().toISOString(),
+		};
+	}
+
+	private notifySubscribers(stats: ActiveUsersStats): void {
+		for (const callback of this.subscribers.values()) {
+			try {
+				callback(stats);
+			} catch (error) {
+				console.warn("Active users callback error:", error);
+			}
+		}
+	}
+
+	private async refreshSnapshot(): Promise<ActiveUsersStats | null> {
+		await this.initializationPromise;
+		if (!this.api) {
+			return null;
+		}
+
+		try {
+			const response = await this.api.list({
+				order: ["-last_seen"],
+				pagination: { limit: INITIAL_FETCH_LIMIT },
+			});
+			const stats = this.buildStats(
+				response.records as unknown as ActiveUserSession[],
+			);
+			this.latestStats = stats;
+			this.notifySubscribers(stats);
+			return stats;
+		} catch (error) {
+			console.warn("Failed to refresh active user sessions snapshot:", error);
+			return this.latestStats;
 		}
 	}
 
 	private async startStream(): Promise<void> {
-		if (!this.api || this.connecting || this.connected) {
+		if (
+			!this.api ||
+			this.connecting ||
+			this.connected ||
+			this.subscribers.size === 0
+		) {
 			return;
 		}
 
@@ -79,14 +145,11 @@ class ActiveUsersClient {
 		this.stopping = false;
 
 		try {
-			this.stream = await this.api.subscribe("*");
-
-			if (this.stream) {
-				this.reader = this.stream.getReader();
-				this.connected = true;
-				this.connecting = false;
-				void this.readStreamData();
-			}
+			this.stream = await this.api.subscribeAll();
+			this.reader = this.stream.getReader();
+			this.connected = true;
+			this.connecting = false;
+			void this.readStreamData();
 		} catch (error) {
 			if (
 				!shouldSuppressStreamError(
@@ -94,7 +157,7 @@ class ActiveUsersClient {
 					this.stopping || this.subscribers.size === 0,
 				)
 			) {
-				console.error("❌ Active users stream connection failed:", error);
+				console.error("Active user sessions stream connection failed:", error);
 			}
 			this.connected = false;
 			this.connecting = false;
@@ -102,7 +165,9 @@ class ActiveUsersClient {
 	}
 
 	private async readStreamData(): Promise<void> {
-		if (!this.reader) return;
+		if (!this.reader) {
+			return;
+		}
 
 		let shouldRetry = false;
 
@@ -115,24 +180,15 @@ class ActiveUsersClient {
 					break;
 				}
 
-				let stats: ActiveUsersStats | null = null;
-				if (value && "Insert" in value) {
-					stats = value.Insert as ActiveUsersStats;
-				} else if (value && "Update" in value) {
-					stats = value.Update as ActiveUsersStats;
-				} else if (value && "Error" in value) {
+				if (value && "Error" in value) {
 					throw new Error(value.Error);
 				}
 
-				if (stats) {
-					// Notify all subscribers
-					for (const callback of this.subscribers.values()) {
-						try {
-							callback(stats);
-						} catch (err) {
-							console.warn("Active users callback error:", err);
-						}
-					}
+				if (
+					value &&
+					("Insert" in value || "Update" in value || "Delete" in value)
+				) {
+					await this.refreshSnapshot();
 				}
 			}
 		} catch (error) {
@@ -142,7 +198,7 @@ class ActiveUsersClient {
 					this.stopping || this.subscribers.size === 0,
 				)
 			) {
-				console.error("❌ Active users stream read error:", error);
+				console.error("Active user sessions stream read error:", error);
 			}
 			shouldRetry = this.subscribers.size > 0;
 		}
@@ -167,11 +223,12 @@ class ActiveUsersClient {
 	private async reconnect(): Promise<void> {
 		try {
 			await this.cleanup();
+			await this.refreshSnapshot();
 			if (this.subscribers.size > 0) {
 				await this.startStream();
 			}
 		} catch (error) {
-			console.error("❌ Failed to reconnect ActiveUsers:", error);
+			console.error("Failed to reconnect active user sessions stream:", error);
 		}
 	}
 
@@ -201,22 +258,25 @@ class ActiveUsersClient {
 		this.stream = null;
 	}
 
-	// Public API
 	subscribe(id: string, callback: ActiveUsersCallback): () => void {
 		this.subscribers.set(id, callback);
 		this.stopping = false;
 
-		// Start stream if this is the first subscriber and client is ready
-		if (this.subscribers.size === 1 && !this.connected && !this.connecting) {
-			if (!this.isInitialized) {
-				// Wait for initialization
-				this.initializationPromise?.then(() => {
-					if (!this.connected && !this.connecting) {
-						this.startStream();
-					}
-				});
-			} else {
-				this.startStream();
+		if (this.latestStats) {
+			callback(this.latestStats);
+		}
+
+		if (!this.isInitialized) {
+			void this.initializationPromise?.then(async () => {
+				await this.refreshSnapshot();
+				if (!this.connected && !this.connecting) {
+					await this.startStream();
+				}
+			});
+		} else {
+			void this.refreshSnapshot();
+			if (!this.connected && !this.connecting) {
+				void this.startStream();
 			}
 		}
 
@@ -224,49 +284,22 @@ class ActiveUsersClient {
 			this.subscribers.delete(id);
 			if (this.subscribers.size === 0) {
 				this.stopping = true;
+				setTimeout(() => {
+					if (this.subscribers.size === 0) {
+						void this.cleanup();
+					}
+				}, 100);
 			}
-
-			// Cleanup if no subscribers left
-			setTimeout(() => {
-				if (this.subscribers.size === 0) {
-					void this.cleanup();
-				}
-			}, 100);
 		};
 	}
 
 	async getCurrentStats(): Promise<ActiveUsersStats | null> {
-		try {
-			await this.initializationPromise;
-
-			if (!this.api) {
-				return null;
-			}
-
-			const response = await this.api.list({
-				order: ["-id"],
-				pagination: { limit: 1 },
-			});
-
-			if (response.records.length > 0) {
-				return response.records[0] as unknown as ActiveUsersStats;
-			}
-
-			return null;
-		} catch (error) {
-			console.error("Failed to get current active users stats:", error);
-			return null;
-		}
+		return this.refreshSnapshot();
 	}
 }
 
-// Export singleton instance and convenience functions
 export const activeUsersClient = ActiveUsersClient.getInstance();
 
-export const subscribeToActiveUsers = (
-	id: string,
-	callback: ActiveUsersCallback,
-) => activeUsersClient.subscribe(id, callback);
-
-export const getCurrentActiveUsersStats = () =>
-	activeUsersClient.getCurrentStats();
+export async function getCurrentActiveUsersStats(): Promise<ActiveUsersStats | null> {
+	return activeUsersClient.getCurrentStats();
+}

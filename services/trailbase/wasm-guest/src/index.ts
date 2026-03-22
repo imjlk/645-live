@@ -220,21 +220,6 @@ async function countActiveSessions(cutoffIso: string): Promise<number> {
 	return extractCountFromRows(activeConnections);
 }
 
-async function updateActiveUserStats(
-	currentCount: number,
-	updatedAt = new Date().toISOString(),
-): Promise<void> {
-	await execute(
-		`INSERT INTO active_users_stats (id, current_count, peak_count, updated_at)
-     VALUES (1, ?, ?, ?)
-     ON CONFLICT(id) DO UPDATE SET
-       current_count = excluded.current_count,
-       peak_count = MAX(active_users_stats.peak_count, excluded.peak_count),
-       updated_at = excluded.updated_at`,
-		[currentCount, currentCount, updatedAt],
-	);
-}
-
 async function scannedHandler(req: HttpRequest): Promise<HttpResponse> {
 	try {
 		const parsedBody = req.json() ?? {};
@@ -299,7 +284,6 @@ async function heartbeatHandler(req: HttpRequest): Promise<HttpResponse> {
 		await pruneInactiveSessions(cutoffIso);
 		const activeCount = await countActiveSessions(cutoffIso);
 		const finalCount = Math.max(1, activeCount);
-		await updateActiveUserStats(finalCount, now);
 
 		return HttpResponse.json({
 			success: true,
@@ -344,13 +328,39 @@ async function disconnectHandler(req: HttpRequest): Promise<HttpResponse> {
 		const activeCount = await countActiveSessions(cutoffIso);
 		const finalCount = Math.max(0, activeCount);
 
-		const now = new Date().toISOString();
-		await updateActiveUserStats(finalCount, now);
-
 		return HttpResponse.json({ success: true, active_count: finalCount });
 	} catch (error) {
 		console.error("Error in connection disconnect:", error);
 		return HttpResponse.json({ error: "Internal server error" });
+	}
+}
+
+async function statusHandler(): Promise<HttpResponse> {
+	try {
+		const unavailable = await ensureActiveUserSessionsOrFail();
+		if (unavailable) {
+			return unavailable;
+		}
+
+		const cutoffIso = getActiveUserCutoffIso();
+		await pruneInactiveSessions(cutoffIso);
+		const activeCount = await countActiveSessions(cutoffIso);
+
+		return HttpResponse.json({
+			success: true,
+			marker: CONNECTION_DIAGNOSTICS_MARKER,
+			handler: "wasm-guest",
+			current_count: activeCount,
+			peak_count: activeCount,
+			updated_at: new Date().toISOString(),
+		});
+	} catch (error) {
+		console.error("Error in connection status endpoint:", error);
+		return jsonWithStatus(StatusCode.INTERNAL_SERVER_ERROR, {
+			success: false,
+			error: "Internal server error",
+			marker: CONNECTION_DIAGNOSTICS_MARKER,
+		});
 	}
 }
 
@@ -407,9 +417,7 @@ async function cleanupInactiveConnections(): Promise<void> {
 		}
 		const cutoffIso = getActiveUserCutoffIso();
 		await pruneInactiveSessions(cutoffIso);
-		const activeCount = Math.max(0, await countActiveSessions(cutoffIso));
-		const now = new Date().toISOString();
-		await updateActiveUserStats(activeCount, now);
+		await countActiveSessions(cutoffIso);
 	} catch (error) {
 		console.error("Error in connection cleanup job:", error);
 	}
@@ -469,6 +477,7 @@ export default defineConfig({
 		HttpHandler.post("/connection/heartbeat", heartbeatHandler),
 		HttpHandler.post("/connection/disconnect", disconnectHandler),
 		HttpHandler.get("/connection/debug", debugHandler),
+		HttpHandler.get("/connection/status", statusHandler),
 		HttpHandler.get("/connection/diagnostics", diagnosticsHandler),
 	],
 	jobHandlers: [
