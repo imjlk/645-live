@@ -12,6 +12,7 @@ console.log("Adding routes...");
 
 const ACTIVE_USER_SESSIONS_TABLE = "active_user_sessions";
 const ACTIVE_USER_WINDOW_MS = 2 * 60 * 1000;
+const CONNECTION_DIAGNOSTICS_MARKER = "active-user-sessions-v2";
 let activeUserSessionsTableReady = false;
 
 const scheduledJobs = [
@@ -192,7 +193,7 @@ addRoute(
 			try {
 				parsedBody = JSON.parse(req.body) as Record<string, unknown>;
 			} catch (_error) {
-				console.log("[Heartbeat] JSON parse error:", error);
+				console.log("[Heartbeat] JSON parse error");
 				return { error: "Invalid JSON format" };
 			}
 		} else {
@@ -348,6 +349,66 @@ addRoute(
 );
 
 console.log("GET /connection/debug route registered");
+
+addRoute(
+	"GET",
+	"/connection/diagnostics",
+	jsonHandler(async () => {
+		try {
+			await ensureActiveUserSessionsTable();
+			const cutoffIso = getActiveUserCutoffIso();
+			const activeCount = await countActiveSessions(cutoffIso);
+			const tableChecks = await query(
+				`SELECT name, type
+				 FROM sqlite_master
+				 WHERE name IN (?, ?, ?, ?)
+				 ORDER BY type, name`,
+				[
+					ACTIVE_USER_SESSIONS_TABLE,
+					"active_connections",
+					"active_users_stats",
+					"trg_cleanup_inactive_connections",
+				],
+			);
+			const activeUserStats = await query(
+				"SELECT * FROM active_users_stats ORDER BY id DESC LIMIT 1",
+				[],
+			);
+			const recentSessions = await query(
+				`SELECT * FROM ${ACTIVE_USER_SESSIONS_TABLE}
+				 ORDER BY last_seen DESC
+				 LIMIT 5`,
+				[],
+			);
+
+			return {
+				success: true,
+				marker: CONNECTION_DIAGNOSTICS_MARKER,
+				handler: "legacy-script",
+				session_strategy: ACTIVE_USER_SESSIONS_TABLE,
+				active_user_window_ms: ACTIVE_USER_WINDOW_MS,
+				active_user_sessions_table_ready: activeUserSessionsTableReady,
+				current_time: new Date().toISOString(),
+				cutoff_time: cutoffIso,
+				active_count: activeCount,
+				table_checks: tableChecks,
+				active_user_stats: activeUserStats,
+				recent_sessions: recentSessions,
+			};
+		} catch (error) {
+			console.error("Error in diagnostics endpoint:", error);
+			return {
+				success: false,
+				marker: CONNECTION_DIAGNOSTICS_MARKER,
+				handler: "legacy-script",
+				error: "Internal server error",
+				details: String(error),
+			};
+		}
+	}),
+);
+
+console.log("GET /connection/diagnostics route registered");
 
 for (const job of scheduledJobs) {
 	registerScheduledJob(job.name, job.schedule, job.runner);

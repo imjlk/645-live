@@ -20,6 +20,7 @@ type ScheduledJob = {
 
 const ACTIVE_USER_SESSIONS_TABLE = "active_user_sessions";
 const ACTIVE_USER_WINDOW_MS = 2 * 60 * 1000;
+const CONNECTION_DIAGNOSTICS_MARKER = "active-user-sessions-v2";
 let activeUserSessionsTableReady = false;
 
 // TrailBase cron runs in UTC. Comments below document the intended KST wall-clock.
@@ -374,12 +375,68 @@ async function cleanupInactiveConnections(): Promise<void> {
 	}
 }
 
+async function diagnosticsHandler(): Promise<HttpResponse> {
+	try {
+		await ensureActiveUserSessionsTable();
+
+		const cutoffIso = getActiveUserCutoffIso();
+		const activeCount = await countActiveSessions(cutoffIso);
+		const tableChecks = await query(
+			`SELECT name, type
+       FROM sqlite_master
+       WHERE name IN (?, ?, ?, ?)
+       ORDER BY type, name`,
+			[
+				ACTIVE_USER_SESSIONS_TABLE,
+				"active_connections",
+				"active_users_stats",
+				"trg_cleanup_inactive_connections",
+			],
+		);
+		const activeUserStats = await query(
+			"SELECT * FROM active_users_stats ORDER BY id DESC LIMIT 1",
+			[],
+		);
+		const recentSessions = await query(
+			`SELECT * FROM ${ACTIVE_USER_SESSIONS_TABLE}
+       ORDER BY last_seen DESC
+       LIMIT 5`,
+			[],
+		);
+
+		return HttpResponse.json({
+			success: true,
+			marker: CONNECTION_DIAGNOSTICS_MARKER,
+			handler: "wasm-guest",
+			session_strategy: ACTIVE_USER_SESSIONS_TABLE,
+			active_user_window_ms: ACTIVE_USER_WINDOW_MS,
+			active_user_sessions_table_ready: activeUserSessionsTableReady,
+			current_time: new Date().toISOString(),
+			cutoff_time: cutoffIso,
+			active_count: activeCount,
+			table_checks: tableChecks,
+			active_user_stats: activeUserStats,
+			recent_sessions: recentSessions,
+		});
+	} catch (error) {
+		console.error("Error in diagnostics endpoint:", error);
+		return HttpResponse.json({
+			success: false,
+			marker: CONNECTION_DIAGNOSTICS_MARKER,
+			handler: "wasm-guest",
+			error: "Internal server error",
+			details: String(error),
+		});
+	}
+}
+
 export default defineConfig({
 	httpHandlers: [
 		HttpHandler.post("/scanned", scannedHandler),
 		HttpHandler.post("/connection/heartbeat", heartbeatHandler),
 		HttpHandler.post("/connection/disconnect", disconnectHandler),
 		HttpHandler.get("/connection/debug", debugHandler),
+		HttpHandler.get("/connection/diagnostics", diagnosticsHandler),
 	],
 	jobHandlers: [
 		...scheduledJobs.map((job) => createScheduledJob(job)),
