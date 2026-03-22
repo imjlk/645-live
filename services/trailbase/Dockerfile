@@ -1,4 +1,4 @@
-ARG TRAILBASE_VERSION=0.24.0
+ARG TRAILBASE_VERSION=0.25.1
 
 FROM node:22-bookworm-slim AS wasm-builder
 

@@ -32,6 +32,25 @@ run_step() {
   return 0
 }
 
+detect_cpu_count() {
+  if command -v nproc >/dev/null 2>&1; then
+    nproc
+    return 0
+  fi
+
+  if command -v getconf >/dev/null 2>&1; then
+    getconf _NPROCESSORS_ONLN
+    return 0
+  fi
+
+  if command -v sysctl >/dev/null 2>&1; then
+    sysctl -n hw.ncpu
+    return 0
+  fi
+
+  echo "unknown"
+}
+
 sync_traildepot_static_assets() {
   src_dir="/app/traildepot-image"
   dst_dir="/app/traildepot"
@@ -110,5 +129,11 @@ for origin in $cors_allowed_origins; do
   fi
 done
 IFS="$old_ifs"
+
+log "entrypoint active: yes"
+log "runtime_threads_env=${RUNTIME_THREADS:-8}"
+log "cors_allowed_origins=${cors_allowed_origins}"
+log "detected_cpu_count=$(detect_cpu_count)"
+log "exec_args=$*"
 
 exec "$@"
