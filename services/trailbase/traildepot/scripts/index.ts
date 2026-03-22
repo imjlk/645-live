@@ -163,13 +163,6 @@ function extractCountFromRows(rows: unknown): number {
 	return 0;
 }
 
-async function pruneInactiveSessions(cutoffIso: string) {
-	await execute(
-		`DELETE FROM ${ACTIVE_USER_SESSIONS_TABLE} WHERE last_seen <= ?`,
-		[cutoffIso],
-	);
-}
-
 async function countActiveSessions(cutoffIso: string) {
 	const rows = await query(
 		`SELECT COUNT(*) as count FROM ${ACTIVE_USER_SESSIONS_TABLE} WHERE last_seen > ?`,
@@ -239,7 +232,6 @@ addRoute(
 			);
 
 			const cutoffIso = getActiveUserCutoffIso();
-			await pruneInactiveSessions(cutoffIso);
 			const activeCount = await countActiveSessions(cutoffIso);
 			const finalCount = Math.max(1, activeCount);
 
@@ -298,7 +290,6 @@ addRoute(
 				[session_id],
 			);
 			const cutoffIso = getActiveUserCutoffIso();
-			await pruneInactiveSessions(cutoffIso);
 			const activeCount = await countActiveSessions(cutoffIso);
 			const finalCount = Math.max(0, activeCount);
 
@@ -323,7 +314,6 @@ addRoute(
 			}
 
 			const cutoffIso = getActiveUserCutoffIso();
-			await pruneInactiveSessions(cutoffIso);
 			const activeCount = await countActiveSessions(cutoffIso);
 
 			return {

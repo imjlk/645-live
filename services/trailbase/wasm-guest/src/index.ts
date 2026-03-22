@@ -281,7 +281,6 @@ async function heartbeatHandler(req: HttpRequest): Promise<HttpResponse> {
 			],
 		);
 		const cutoffIso = getActiveUserCutoffIso();
-		await pruneInactiveSessions(cutoffIso);
 		const activeCount = await countActiveSessions(cutoffIso);
 		const finalCount = Math.max(1, activeCount);
 
@@ -324,7 +323,6 @@ async function disconnectHandler(req: HttpRequest): Promise<HttpResponse> {
 			[session_id],
 		);
 		const cutoffIso = getActiveUserCutoffIso();
-		await pruneInactiveSessions(cutoffIso);
 		const activeCount = await countActiveSessions(cutoffIso);
 		const finalCount = Math.max(0, activeCount);
 
@@ -343,7 +341,6 @@ async function statusHandler(): Promise<HttpResponse> {
 		}
 
 		const cutoffIso = getActiveUserCutoffIso();
-		await pruneInactiveSessions(cutoffIso);
 		const activeCount = await countActiveSessions(cutoffIso);
 
 		return HttpResponse.json({
