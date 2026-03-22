@@ -36,7 +36,7 @@ ENV CORS_ALLOWED_ORIGINS="https://www.645.live,https://645.live" \
     BACKFILL_STORES="true" \
     BACKFILL_STORE_LATEST_ROUNDS="10" \
     BACKFILL_STRICT="false" \
-    RUNTIME_THREADS="8"
+    RUNTIME_THREADS="1"
 
 EXPOSE 4000
 ENTRYPOINT ["tini", "--"]

@@ -16,4 +16,4 @@ services:
       - BACKFILL_STORES=true
       - BACKFILL_STORE_LATEST_ROUNDS=10
       - BACKFILL_STRICT=false
-      - RUNTIME_THREADS=8
+      - RUNTIME_THREADS=1
