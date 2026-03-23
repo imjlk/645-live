@@ -1,4 +1,8 @@
-import { executeLottoUpdate, processScannedLottoData } from "../lotto-utils.ts";
+import {
+	ensureCurrentSellingRoundScanCountRow,
+	executeLottoUpdate,
+	processScannedLottoData,
+} from "../lotto-utils.ts";
 import {
 	addCronCallback,
 	addRoute,
@@ -26,6 +30,11 @@ function nextConnectionRequestSeq() {
 }
 
 const scheduledJobs = [
+	{
+		name: "Lotto Scan Round Initializer",
+		schedule: "0 0 15 * * 7",
+		runner: initializeCurrentSellingRoundScanCount,
+	}, // Sun 00:00 KST (Sat 15:00 UTC)
 	{
 		name: "Lotto Weekly Updater",
 		schedule: "0 40 11 * * 7",
@@ -82,6 +91,15 @@ const scheduledJobs = [
 		runner: cleanupInactiveConnections,
 	},
 ];
+
+async function initializeCurrentSellingRoundScanCount() {
+	const result = await ensureCurrentSellingRoundScanCountRow();
+	console.log(
+		`[${new Date().toISOString()}] ${
+			result.created ? "🆕" : "ℹ️"
+		} scan-count row ${result.created ? "prepared" : "already exists"} for round ${result.round}`,
+	);
+}
 
 function registerScheduledJob(
 	name: string,

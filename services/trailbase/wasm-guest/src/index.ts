@@ -8,7 +8,11 @@ import {
 } from "trailbase-wasm/http";
 import { JobHandler } from "trailbase-wasm/job";
 
-import { executeLottoUpdate, processScannedLottoData } from "./lotto-utils";
+import {
+	ensureCurrentSellingRoundScanCountRow,
+	executeLottoUpdate,
+	processScannedLottoData,
+} from "./lotto-utils";
 import { execute, query } from "./trailbase-compat";
 import { executeWinningStoreUpdate } from "./winning-store-utils";
 
@@ -35,6 +39,11 @@ function nextConnectionRequestSeq(): number {
 
 // TrailBase cron runs in UTC. Comments below document the intended KST wall-clock.
 const scheduledJobs: ScheduledJob[] = [
+	{
+		name: "Lotto Scan Round Initializer",
+		schedule: "0 0 15 * * 7",
+		runner: initializeCurrentSellingRoundScanCount,
+	}, // Sun 00:00 KST (Sat 15:00 UTC)
 	{
 		name: "Lotto Weekly Updater",
 		schedule: "0 40 11 * * 7",
@@ -86,6 +95,15 @@ const scheduledJobs: ScheduledJob[] = [
 		runner: executeWinningStoreUpdate,
 	}, // Daily 09:15 KST
 ];
+
+async function initializeCurrentSellingRoundScanCount(): Promise<void> {
+	const result = await ensureCurrentSellingRoundScanCountRow();
+	console.info(
+		`[${new Date().toISOString()}] ${
+			result.created ? "🆕" : "ℹ️"
+		} scan-count row ${result.created ? "prepared" : "already exists"} for round ${result.round}`,
+	);
+}
 
 function createScheduledJob(job: ScheduledJob): JobHandler {
 	return new JobHandler(job.name, job.schedule, async () => {

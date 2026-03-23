@@ -31,6 +31,8 @@ interface Props {
 	latestPopulatedRound?: number | null;
 	// Preview round to show while the latest round is still empty
 	fallbackPreviewRound?: number | null;
+	// Whether to temporarily show the latest populated round instead of the headline round
+	allowFallbackPreview?: boolean;
 	// Whether to show navigation to individual number pages
 	enableNavigation?: boolean;
 	// Whether to show the header with round info
@@ -59,6 +61,7 @@ let {
 	latestRoundHasScanData = true,
 	latestPopulatedRound = null,
 	fallbackPreviewRound = null,
+	allowFallbackPreview = true,
 	enableNavigation = true,
 	showHeader = true,
 	forceClientRefresh = false,
@@ -85,6 +88,7 @@ let numbers = $derived<BallNumber[]>(
 );
 let headerRound = $derived(headlineRound ?? initialRound ?? latestRound ?? null);
 let isFallbackPreviewVisible = $derived(
+	allowFallbackPreview &&
 	showingFallbackPreview &&
 	!!fallbackPreviewRound &&
 	ballValuesComposable.currentRound === fallbackPreviewRound,
@@ -223,6 +227,7 @@ async function initializeData() {
 		);
 
 		if (
+			allowFallbackPreview &&
 			!latestRoundHasScanData &&
 			fallbackPreviewRound &&
 			fallbackPreviewRound !== initialRound &&
@@ -267,6 +272,7 @@ $effect(() => {
 
 $effect(() => {
 	if (
+		allowFallbackPreview &&
 		showingFallbackPreview &&
 		initialRound &&
 		ballValuesComposable.currentRound === initialRound &&

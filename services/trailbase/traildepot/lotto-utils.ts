@@ -2,7 +2,13 @@
  * 로또 관련 유틸리티 함수들
  */
 
-import { HttpError, query, StatusCodes, transaction } from "./trailbase.js";
+import {
+	execute,
+	HttpError,
+	query,
+	StatusCodes,
+	transaction,
+} from "./trailbase.js";
 
 // 로또 API 응답 타입
 export type LottoApiResponse = {
@@ -99,6 +105,44 @@ export function calculateExpectedLatestRound(): number {
 
 	// 예상 회차 (1회 + 경과한 주 수)
 	return 1 + weeksDiff;
+}
+
+export function calculateCurrentSellingRound(): number {
+	const firstDrawDate = new Date("2002-12-07");
+	const utcNow = new Date();
+	const koreaTime = new Date(utcNow.getTime() + 9 * 60 * 60 * 1000);
+	const timeDiff = koreaTime.getTime() - firstDrawDate.getTime();
+	const weeksDiff = Math.floor(timeDiff / (1000 * 60 * 60 * 24 * 7));
+	const dayOfWeek = koreaTime.getDay();
+
+	let expectedRound = 1 + weeksDiff;
+
+	if (dayOfWeek === 0) {
+		expectedRound += 1;
+	} else if (dayOfWeek >= 1 && dayOfWeek < 6) {
+		expectedRound += 1;
+	}
+
+	return expectedRound;
+}
+
+export async function ensureCurrentSellingRoundScanCountRow(): Promise<{
+	round: number;
+	created: boolean;
+}> {
+	const round = calculateCurrentSellingRound();
+	const changes = await execute(
+		`
+		INSERT OR IGNORE INTO lotto_draw_scan_counts (round, updated_at)
+		VALUES (?, CURRENT_TIMESTAMP)
+	`,
+		[round],
+	);
+
+	return {
+		round,
+		created: changes > 0,
+	};
 }
 
 /**
@@ -882,9 +926,11 @@ export async function processScannedLottoData(req: { body: unknown }) {
 		if (gameWithRound?.round) {
 			currentRound = gameWithRound.round;
 		} else {
-			// 게임 데이터에 회차가 없으면 DB에서 최신 회차 조회
-			const latestRoundFromDB = await getLatestLottoRoundFromDB();
-			currentRound = latestRoundFromDB;
+			// 회차를 알 수 없는 스캔은 현재 판매 중인 회차에 적재
+			currentRound = calculateCurrentSellingRound();
+			console.log(
+				`ℹ️ 스캔 데이터에 회차 정보가 없어 현재 판매 회차 ${currentRound}를 사용합니다.`,
+			);
 		}
 
 		// 최종 회차 검증

@@ -2,7 +2,13 @@
  * 로또 관련 유틸리티 함수들
  */
 
-import { HttpError, query, StatusCodes, transaction } from "./trailbase-compat";
+import {
+	execute,
+	HttpError,
+	query,
+	StatusCodes,
+	transaction,
+} from "./trailbase-compat";
 
 // 로또 API 응답 타입
 export type LottoApiResponse = {
@@ -112,17 +118,35 @@ export function calculateCurrentSellingRound(): number {
 	const timeDiff = koreaTime.getTime() - firstDrawDate.getTime();
 	const weeksDiff = Math.floor(timeDiff / (1000 * 60 * 60 * 24 * 7));
 	const dayOfWeek = koreaTime.getDay();
-	const hour = koreaTime.getHours();
 
 	let expectedRound = 1 + weeksDiff;
 
-	if (dayOfWeek === 0 && hour >= 6) {
+	if (dayOfWeek === 0) {
 		expectedRound += 1;
 	} else if (dayOfWeek >= 1 && dayOfWeek < 6) {
 		expectedRound += 1;
 	}
 
 	return expectedRound;
+}
+
+export async function ensureCurrentSellingRoundScanCountRow(): Promise<{
+	round: number;
+	created: boolean;
+}> {
+	const round = calculateCurrentSellingRound();
+	const changes = await execute(
+		`
+		INSERT OR IGNORE INTO lotto_draw_scan_counts (round, updated_at)
+		VALUES (?, CURRENT_TIMESTAMP)
+	`,
+		[round],
+	);
+
+	return {
+		round,
+		created: changes > 0,
+	};
 }
 
 /**

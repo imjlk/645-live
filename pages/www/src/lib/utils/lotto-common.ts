@@ -38,19 +38,15 @@ export function calculateExpectedLatestRound(): number {
 	const weeksDiff = Math.floor(timeDiff / (1000 * 60 * 60 * 24 * 7));
 
 	const dayOfWeek = koreaTime.getDay(); // 0=일요일, 6=토요일
-	const hour = koreaTime.getHours();
 
 	// 기본 예상 회차 (1회 + 경과한 주 수)
 	let expectedRound = 1 + weeksDiff;
 
-	// 일요일 오전 6시 이전이면 아직 당첨번호가 발표되지 않았지만,
-	// 로또 구매는 다음 회차를 위한 것이므로 현재 회차 그대로 유지
-	// 일요일 오전 6시 이후부터는 다음 회차로 진행
-	// 월요일~토요일은 항상 다음 회차
-	if (dayOfWeek === 0 && hour >= 6) {
+	// 일요일 0시부터 새 판매 회차로 전환합니다.
+	// 월요일~금요일은 항상 다음 회차를 판매 중입니다.
+	if (dayOfWeek === 0) {
 		expectedRound += 1;
 	} else if (dayOfWeek >= 1 && dayOfWeek < 6) {
-		// 월요일~금요일
 		expectedRound += 1;
 	}
 
