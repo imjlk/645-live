@@ -1,6 +1,6 @@
 /// <reference types="./worker-configuration" />
 import type { DrizzleClient } from "$lib/db";
-import type { BetterAuth } from "./auth";
+import type { BetterAuth } from "$lib/auth";
 
 // See https://svelte.dev/docs/kit/types#app.d.ts
 // for information about these interfaces
@@ -13,7 +13,7 @@ declare global {
 		}
 		interface Locals {
 			db: DrizzleClient;
-			auth: BetterAuth;
+			auth?: BetterAuth;
 		}
 	}
 }

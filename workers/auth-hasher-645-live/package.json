@@ -1,0 +1,23 @@
+{
+	"name": "@645/auth-hasher-645-live",
+	"version": "0.0.1",
+	"type": "module",
+	"main": "./src/index.ts",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"scripts": {
+		"dev": "wrangler dev",
+		"deploy": "wrangler deploy --minify",
+		"check": "bunx tsc --noEmit",
+		"cf-typegen": "wrangler types src/worker-configuration.d.ts"
+	},
+	"dependencies": {
+		"better-auth": "^1.5.5",
+		"hono": "catalog:"
+	},
+	"devDependencies": {
+		"typescript": "^5.9.3",
+		"wrangler": "catalog:"
+	}
+}

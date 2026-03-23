@@ -4,17 +4,24 @@
 	"compatibility_date": "2025-05-30",
 	"pages_build_output_dir": "./.svelte-kit/cloudflare",
 	"compatibility_flags": ["nodejs_compat"],
+	"vars": {
+		"BETTER_AUTH_URL": "http://127.0.0.1:5173"
+	},
 	"hyperdrive": [
 		{
 			"id": "2be539b030974221bf20fce59a31c459",
 			"binding": "HYPERDRIVE",
-			"localConnectionString": "postgres://root:mysecretpassword@localhost:5432/local"
+			"localConnectionString": "postgres://root:mysecretpassword@localhost:50101/local"
 		}
 	],
 	"services": [
 		{
 			"binding": "OG_645_LIVE",
 			"service": "og-645-live"
+		},
+		{
+			"binding": "AUTH_HASHER",
+			"service": "auth-hasher-645-live"
 		}
 	]
 }

@@ -1,0 +1,12 @@
+{
+	"$schema": "../../node_modules/wrangler/config-schema.json",
+	"name": "auth-hasher-645-live",
+	"main": "src/index.ts",
+	"compatibility_date": "2025-07-20",
+	"compatibility_flags": ["nodejs_compat"],
+	"observability": {
+		"logs": {
+			"enabled": true
+		}
+	}
+}

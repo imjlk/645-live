@@ -29,7 +29,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 		const databaseUrl = getDatabaseUrl(event);
 		event.locals.db = createDrizzleClient(databaseUrl);
 
-		const auth = createAuth(event.locals.db);
+		const auth = createAuth(event.locals.db, event);
 		event.locals.auth = auth;
 
 		return await svelteKitHandler({ event, resolve, auth, building });

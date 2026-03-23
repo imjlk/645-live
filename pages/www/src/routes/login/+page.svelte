@@ -1,42 +1,22 @@
 <script lang="ts">
-import { goto } from "$app/navigation";
-import { authClient } from "$lib/auth-client";
+import { resolve } from "$app/paths";
 import { absoluteUrl } from "$lib/seo/index.js";
 import { MetaTags } from "svelte-meta-tags";
+type PageData = {
+	nextPath: string;
+};
 
-let formView: "email" | "otp" = $state("email");
-let email = $state("");
-let otp = $state("");
-let errorMessage = $state("");
+type ActionForm = {
+	mode?: "signIn" | "signUp";
+	formError?: string;
+	values?: {
+		name?: string;
+		email?: string;
+	};
+};
 
-//@ts-ignore
-async function sendOtp(event) {
-	event.preventDefault();
-	const { data, error } = await authClient.emailOtp.sendVerificationOtp({
-		email: email,
-		type: "sign-in",
-	});
-
-	if (data?.success) {
-		formView = "otp";
-	} else {
-		errorMessage = error?.message || "An unknown error occurred";
-	}
-}
-
-//@ts-ignore
-async function verifyOtp(event) {
-	event.preventDefault();
-	const { data, error } = await authClient.signIn.emailOtp({
-		email: email,
-		otp: otp,
-	});
-	if (data?.user) {
-		goto("/", { invalidateAll: true });
-	} else {
-		errorMessage = error?.message || "An unknown error occurred";
-	}
-}
+let { data, form }: { data: PageData; form?: ActionForm } = $props();
+let mode = $state<"signIn" | "signUp">("signIn");
 </script>
 
 <MetaTags
@@ -49,47 +29,97 @@ async function verifyOtp(event) {
 
 <div class="hero min-h-screen bg-base-200">
 	<div class="hero-content flex-col lg:flex-row-reverse">
+		<div class="max-w-lg space-y-4 text-center lg:text-left">
+			<h1 class="text-4xl font-bold text-base-content">내 645를 시작하세요</h1>
+			<p class="text-base-content/70">
+				로그인하면 앞으로 개인화 스캔 내역과 회원 전용 기능이 이 계정에 연결됩니다. 지금 단계에서는 세션과 보호된 API를 먼저 엽니다.
+			</p>
+		</div>
 		<div class="card shrink-0 w-full max-w-sm shadow-2xl bg-base-100">
 			<div class="card-body">
-				<h1 class="text-3xl font-bold">Login</h1>
-				<p class="text-sm text-base-content/70 mb-4">Login with a one-time password. We'll email you a code.</p>
+				<div class="tabs tabs-boxed mb-4">
+					<button
+						type="button"
+						class="tab {mode === 'signIn' ? 'tab-active' : ''}"
+						onclick={() => {
+							mode = "signIn";
+						}}
+					>
+						로그인
+					</button>
+					<button
+						type="button"
+						class="tab {mode === 'signUp' ? 'tab-active' : ''}"
+						onclick={() => {
+							mode = "signUp";
+						}}
+					>
+						회원가입
+					</button>
+				</div>
 
-				{#if formView === "email"}
-				<form onsubmit={sendOtp}>
+				{#if mode === "signIn"}
+				<form method="POST" action="?/signIn" class="space-y-4">
+					<input type="hidden" name="next" value={data.nextPath} />
 					<div class="form-control">
 						<label class="label" for="email">
 							<span class="label-text">Email</span>
 						</label>
-						<input type="email" bind:value={email} name="email" class="input input-bordered" required />
+						<input type="email" name="email" value={form?.values?.email ?? ""} class="input input-bordered" required />
 					</div>
+					<div class="form-control">
+						<label class="label" for="password">
+							<span class="label-text">비밀번호</span>
+						</label>
+						<input type="password" name="password" class="input input-bordered" minlength="8" required />
+					</div>
+					{#if form?.formError}
+					<div class="alert alert-error">
+						<span>{form.formError}</span>
+					</div>
+					{/if}
 					<div class="form-control mt-6">
 						<button type="submit" class="btn btn-primary">
-							Send me a login code
+							이메일로 로그인
 						</button>
 					</div>
 				</form>
-				{:else if formView === "otp"}
-				<form onsubmit={verifyOtp}>
+				{:else}
+				<form method="POST" action="?/signUp" class="space-y-4">
+					<input type="hidden" name="next" value={data.nextPath} />
 					<div class="form-control">
-						<label class="label" for="otp">
-							<span class="label-text">Enter the code we sent you</span>
+						<label class="label" for="name">
+							<span class="label-text">이름</span>
 						</label>
-						<input type="text" autocomplete="one-time-code" minlength="6" maxlength="6" bind:value={otp} name="otp" class="input input-bordered text-center tracking-widest" required />
+						<input type="text" name="name" value={form?.values?.name ?? ""} class="input input-bordered" required />
 					</div>
+					<div class="form-control">
+						<label class="label" for="signup-email">
+							<span class="label-text">Email</span>
+						</label>
+						<input type="email" id="signup-email" name="email" value={form?.values?.email ?? ""} class="input input-bordered" required />
+					</div>
+					<div class="form-control">
+						<label class="label" for="signup-password">
+							<span class="label-text">비밀번호</span>
+						</label>
+						<input type="password" id="signup-password" name="password" class="input input-bordered" minlength="8" required />
+					</div>
+					{#if form?.formError}
+					<div class="alert alert-error">
+						<span>{form.formError}</span>
+					</div>
+					{/if}
 					<div class="form-control mt-6">
-						<button type="submit" class="btn btn-primary">Login</button>
-					</div>
-					<div class="form-control mt-2">
-						<button type="button" onclick={()=> formView = "email"} class="btn btn-ghost btn-sm">Cancel</button>
+						<button type="submit" class="btn btn-primary">회원가입 후 계속하기</button>
 					</div>
 				</form>
 				{/if}
 
-				{#if errorMessage}
-				<div class="alert alert-error mt-4">
-					<span>{errorMessage}</span>
-				</div>
-				{/if}
+				<p class="mt-4 text-xs text-base-content/60">
+					계정을 만들면 이후 <code>/my</code> 보호 페이지와 typed API 세션 컨텍스트가 함께 활성화됩니다.
+				</p>
+				<a class="link link-primary mt-2 inline-flex" href={resolve("/")}>홈으로 돌아가기</a>
 			</div>
 		</div>
 	</div>

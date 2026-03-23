@@ -84,6 +84,8 @@ function shouldBypassCaching(request: Request): boolean {
 	return (
 		url.pathname.startsWith("/api/records/v1/") ||
 		url.pathname.startsWith("/api/auth/v1/") ||
+		url.pathname.startsWith("/auth/") ||
+		url.pathname.startsWith("/rpc/") ||
 		url.pathname.startsWith("/connection/")
 	);
 }

@@ -1,0 +1,21 @@
+{
+	"name": "@645/shared",
+	"version": "0.1.0",
+	"type": "module",
+	"main": "./src/index.ts",
+	"types": "./src/index.ts",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"scripts": {
+		"check": "bunx tsc --noEmit"
+	},
+	"dependencies": {
+		"@orpc/contract": "^1.13.5",
+		"@standard-schema/spec": "^1.1.0",
+		"typia": "^12.0.1"
+	},
+	"devDependencies": {
+		"typescript": "^5.9.3"
+	}
+}

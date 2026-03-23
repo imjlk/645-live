@@ -17,7 +17,7 @@ SvelteKit 기반 메인 웹 애플리케이션입니다.
 bun install
 cp pages/www/.env.example pages/www/.env
 
-# Postgres
+# Postgres 18 (localhost:50101)
 bun run www db:start
 
 # TrailBase 백엔드
@@ -51,6 +51,7 @@ DB 관련:
 기본 샘플은 `pages/www/.env.example`:
 
 - `DATABASE_URL`: 로컬 Drizzle 연결 문자열
+- 기본 로컬 DB는 `postgres://root:mysecretpassword@localhost:50101/local`
 - `HYPERDRIVE_PROXY`: 원격/프록시 DB 연결 문자열
 - `BETTER_AUTH_SECRET`
 - `BETTER_AUTH_URL`

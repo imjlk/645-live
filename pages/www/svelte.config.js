@@ -39,6 +39,10 @@ const config = {
 				exclude: ["<all>", "/sitemap.xml"],
 			},
 		}),
+		alias: {
+			"@645/shared": "../../packages/shared/src/index.ts",
+			"@645/api": "../../packages/api/src/index.ts",
+		},
 		serviceWorker: {
 			register: process.env.NODE_ENV === "production",
 		},

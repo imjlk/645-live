@@ -15,7 +15,7 @@ import { initializeGlobalConnection } from "$lib/trailbase/global-connection.sve
 import { NuqsAdapter } from "nuqs-svelte/adapters/svelte-kit";
 import { onMount } from "svelte";
 
-let { children } = $props();
+let { data, children } = $props();
 import { preparePageTransition } from "$lib/layout/page-transition";
 import { initPWAPerformanceMonitor } from "$lib/utils/pwa-performance";
 
@@ -124,7 +124,7 @@ onMount(async () => {
 
 <NuqsAdapter>
 	<div class="min-h-dvh flex flex-col max-w-7xl mx-auto pb-20 sm:pb-0">
-		<Header />
+		<Header session={data.session} />
 
 		<div class="flex flex-1 items-center gap-4 px-0 flex-col sm:flex-row sm:items-stretch my-4 mx-3 xl:mx-0">
 			<NavigationMenu />
