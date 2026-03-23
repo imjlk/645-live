@@ -6,6 +6,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..");
 const WEB_ROOT = path.join(REPO_ROOT, "pages", "www");
 const NEWS_ROOT = path.join(WEB_ROOT, "src", "content", "news");
+const NEWS_OG_CACHE_BUSTER = "2026-03-24-1";
 
 function readNewsFiles() {
 	return fs
@@ -36,6 +37,7 @@ function readNewsFiles() {
 
 function buildNewsOgPath(slug, updatedAt, publishedAt, date) {
 	const params = new URLSearchParams();
+	params.set("rev", NEWS_OG_CACHE_BUSTER);
 	const version = updatedAt || publishedAt || date;
 	if (version) {
 		params.set("v", version);

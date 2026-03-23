@@ -2088,12 +2088,13 @@ function renderMdx(draw, analysis, payload, metadata = {}) {
 	const drawDate = formatDate(draw.draw_date);
 	const publishedAt = metadata.publishedAt || `${drawDate}T21:21:00+09:00`;
 	const updatedAt = metadata.updatedAt || publishedAt;
+	const ogCacheBuster = "2026-03-24-1";
 	const finalTitle = normalizeLine(payload.title, `제${round}회 로또 분석`);
 	const finalDescription = normalizeLine(
 		payload.description,
 		"당첨번호·당첨금·지역분포·당첨점 통계 요약",
 	);
-	const thumbnail = `/og/news/lotto-${round}?v=${encodeURIComponent(updatedAt || publishedAt || drawDate)}`;
+	const thumbnail = `/og/news/lotto-${round}?rev=${encodeURIComponent(ogCacheBuster)}&v=${encodeURIComponent(updatedAt || publishedAt || drawDate)}`;
 	const safeLead = sanitizeMdxBlock(payload.lead, "핵심 요약을 준비 중입니다.");
 	const safeInsight = sanitizeMdxBlock(
 		payload.insight,
