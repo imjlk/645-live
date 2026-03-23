@@ -92,6 +92,11 @@ if is_true "${BACKFILL_ON_STARTUP:-true}"; then
         bun run import-draw-results.ts latest "${rounds}"
     fi
 
+    if is_true "${BACKFILL_STATS_RECONCILE:-true}"; then
+      run_step "reconcile lotto derived stats" \
+        bun run scripts/reconcile-lotto-stats.ts
+    fi
+
     if is_true "${BACKFILL_STORES:-true}"; then
       store_rounds="${BACKFILL_STORE_LATEST_ROUNDS:-0}"
       case "$store_rounds" in

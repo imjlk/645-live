@@ -421,7 +421,7 @@ const guideSection = [
 				번호 생성하기
 			</LinkButton>
 			<LinkButton href="/stats" class="btn btn-outline btn-sm">
-				통계 보기
+				전체 로또 통계 허브 보기
 			</LinkButton>
 		</div>
 	</div>
@@ -431,7 +431,7 @@ const guideSection = [
 		<div class="card-body p-4 sm:p-6">
 			<h2 class="card-title text-lg sm:text-xl mb-4">📑 목차</h2>
 			<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-				{#each guideSection as section}
+				{#each guideSection as section (section.id)}
 					<a 
 						href="#{section.id}" 
 						class="block p-3 sm:p-4 bg-base-200 hover:bg-base-300 rounded-lg transition-colors duration-200"
@@ -447,7 +447,7 @@ const guideSection = [
 	</div>
 
 	<!-- 주요 가이드 섹션들 -->
-	{#each guideSection as section}
+	{#each guideSection as section (section.id)}
 		<section id={section.id} class="card bg-base-100 shadow-sm">
 			<div class="card-body p-4 sm:p-6">
 				<h2 class="card-title text-lg sm:text-xl text-primary mb-4 sm:mb-6">
@@ -455,7 +455,7 @@ const guideSection = [
 				</h2>
 				
 				<div class="space-y-4 sm:space-y-6">
-					{#each section.items as item}
+					{#each section.items as item (item.title)}
 						<div class="border-l-4 border-primary/30 pl-4 sm:pl-6">
 							<h3 class="font-semibold text-base sm:text-lg text-secondary mb-2 sm:mb-3">
 								{item.title}
@@ -475,17 +475,29 @@ const guideSection = [
 		<div class="card-body p-4 sm:p-6">
 			<h2 class="card-title text-lg sm:text-xl mb-4">🔗 바로가기</h2>
 			<div class="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-				<LinkButton href="/history" class="btn btn-outline w-full justify-start">
-					📈 당첨번호 히스토리
+				<LinkButton href="/stats" class="btn btn-outline w-full justify-start">
+					📊 최근 로또 당첨 번호 패턴 분석 바로 보기
 				</LinkButton>
 				<LinkButton href="/stats/numbers" class="btn btn-outline w-full justify-start">
-					🔢 번호별 통계
+					🔢 자주 나온 번호 통계 보기
+				</LinkButton>
+				<LinkButton href="/stats" class="btn btn-outline w-full justify-start">
+					⚖️ 홀짝·고저·연속번호 패턴 함께 보기
+				</LinkButton>
+				<LinkButton href="/qr-scan" class="btn btn-outline w-full justify-start">
+					📱 QR 스캔 흐름과 당첨 패턴 비교하기
+				</LinkButton>
+				<LinkButton href="/history" class="btn btn-outline w-full justify-start">
+					📈 당첨번호 히스토리
 				</LinkButton>
 				<LinkButton href="/winning-stores" class="btn btn-outline w-full justify-start">
 					🏪 당첨점 조회
 				</LinkButton>
 				<LinkButton href="/stats/colors" class="btn btn-outline w-full justify-start">
-					🎨 색상별 분석
+					🎨 최근 로또 색상 분포 자세히 보기
+				</LinkButton>
+				<LinkButton href="/stats/ac" class="btn btn-outline w-full justify-start">
+					🧮 최근 AC값 패턴 자세히 보기
 				</LinkButton>
 			</div>
 		</div>
@@ -499,7 +511,7 @@ const guideSection = [
 			</h2>
 			
 			<div class="space-y-4">
-				{#each faqData as faq, index}
+				{#each faqData as faq, index (faq.question)}
 					<div class="collapse collapse-arrow bg-base-200" data-faq-item={index}>
 						<input type="radio" name="faq-accordion" id="faq-{index}" />
 						<label for="faq-{index}" class="collapse-title text-base sm:text-lg font-medium cursor-pointer">

@@ -2,6 +2,7 @@
 import {
 	GuideSection,
 	LottoBall,
+	StatsFreshnessNotice,
 	StatsSummary,
 	StatsTable,
 } from "$lib/components/stats";
@@ -106,6 +107,8 @@ const getDeviationClass = (deviation: string) => {
 			(최신: {data.latestRound}회차)
 		</p>
 	</div>
+
+	<StatsFreshnessNotice freshness={data.freshness} />
 
 	<!-- 요약 통계 -->
 	<StatsSummary

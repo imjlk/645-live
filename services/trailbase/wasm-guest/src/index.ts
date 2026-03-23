@@ -13,6 +13,7 @@ import {
 	executeLottoUpdate,
 	processScannedLottoData,
 } from "./lotto-utils";
+import { executeLottoStatsReconcile } from "./lotto-stats-reconcile";
 import { execute, query } from "./trailbase-compat";
 import { executeWinningStoreUpdate } from "./winning-store-utils";
 
@@ -69,6 +70,31 @@ const scheduledJobs: ScheduledJob[] = [
 		schedule: "0 5 0 * * *",
 		runner: executeLottoUpdate,
 	}, // Daily 09:05 KST
+	{
+		name: "Lotto Stats Weekly Reconcile 1",
+		schedule: "0 50 11 * * 7",
+		runner: executeLottoStatsReconcile,
+	}, // Sat 20:50 KST
+	{
+		name: "Lotto Stats Weekly Reconcile 2",
+		schedule: "0 20 12 * * 7",
+		runner: executeLottoStatsReconcile,
+	}, // Sat 21:20 KST
+	{
+		name: "Lotto Stats Weekly Reconcile 3",
+		schedule: "0 10 13 * * 7",
+		runner: executeLottoStatsReconcile,
+	}, // Sat 22:10 KST
+	{
+		name: "Lotto Stats Weekly Reconcile 4",
+		schedule: "0 10 14 * * 7",
+		runner: executeLottoStatsReconcile,
+	}, // Sat 23:10 KST
+	{
+		name: "Lotto Stats Daily Reconcile",
+		schedule: "0 25 0 * * *",
+		runner: executeLottoStatsReconcile,
+	}, // Daily 09:25 KST
 	{
 		name: "Lotto Store Weekly Updater",
 		schedule: "0 0 12 * * 7",

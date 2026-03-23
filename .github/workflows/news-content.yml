@@ -107,7 +107,7 @@ jobs:
       - name: Prewarm news pages and OG images
         if: steps.commit_push.outputs.changed == 'true'
         env:
-          SITE_BASE_URL: https://www.645.live
+          SITE_BASE_URL: https://645.live
           CHANGED_NEWS_FILES: ${{ steps.commit_push.outputs.changed_news_files }}
           PREWARM_MAX_NEWS: ${{ vars.PREWARM_MAX_NEWS || '10' }}
           PREWARM_TIMEOUT_MS: ${{ vars.PREWARM_TIMEOUT_MS || '15000' }}
@@ -118,8 +118,8 @@ jobs:
       - name: Submit sitemap/news URLs to search engines
         if: steps.commit_push.outputs.changed == 'true'
         env:
-          SITE_BASE_URL: https://www.645.live
-          INDEXNOW_HOST: www.645.live
+          SITE_BASE_URL: https://645.live
+          INDEXNOW_HOST: 645.live
           INDEXNOW_KEY: ${{ secrets.INDEXNOW_KEY }}
           INDEXNOW_KEY_LOCATION: ${{ vars.INDEXNOW_KEY_LOCATION }}
           INDEXNOW_ENDPOINT: ${{ vars.INDEXNOW_ENDPOINT }}

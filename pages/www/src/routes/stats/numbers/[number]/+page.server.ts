@@ -1,4 +1,5 @@
 import { PUBLIC_TRAILBASE_URL } from "$env/static/public";
+import { getSingleStatsFreshness } from "$lib/trailbase/stats-freshness";
 import { initClient } from "trailbase";
 import type { PageServerLoad } from "./$types";
 
@@ -24,17 +25,27 @@ export const load: PageServerLoad = async ({ params }) => {
 		}
 
 		// 전체 회차 수 조회
-		const totalRoundsResponse = await client
-			.records("lotto_draw_results")
-			.list({
+		const [totalRoundsResponse, freshness] = await Promise.all([
+			client.records("lotto_draw_results").list({
 				order: ["-round"],
 				pagination: { limit: 1 },
-			});
+			}),
+			getSingleStatsFreshness({
+				tableName: "lotto_number_stats",
+				sourceLabel: "번호별 통계",
+				orderField: "last_draw_round",
+				roundField: "last_draw_round",
+			}),
+		]);
 
-		const totalRounds =
+		const latestRoundRecord =
 			totalRoundsResponse.records.length > 0
-				? (totalRoundsResponse.records[0] as { round: number }).round
-				: 0;
+				? (totalRoundsResponse.records[0] as {
+						round: number;
+						draw_date?: string;
+					})
+				: null;
+		const totalRounds = latestRoundRecord?.round ?? 0;
 
 		// 번호별 기본 통계 조회
 		const numberStatsResponse = await client
@@ -215,6 +226,7 @@ export const load: PageServerLoad = async ({ params }) => {
 			recentDraws,
 			totalRounds,
 			totalAppearances: numberStats.draw_count + numberStats.bonus_count,
+			freshness,
 		};
 	} catch (error) {
 		console.error("번호별 상세 데이터 로드 오류:", error);

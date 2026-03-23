@@ -1,106 +1,165 @@
 <script lang="ts">
-import { resolve } from "$app/paths";
-import { ColorBadge, LottoBall, StatsCard } from "$lib/components/stats";
-import {
-	createBreadcrumbSchema,
-	createCollectionPageSchema,
-	createOrganizationSchema,
-	createWebSiteSchema,
-	getGenericOgImage,
-} from "$lib/seo/index.js";
-import { JsonLd, MetaTags } from "svelte-meta-tags";
-import type { PageData } from "./$types";
+	import { resolve } from "$app/paths";
+	import {
+		ColorBadge,
+		LottoBall,
+		StatsCard,
+		StatsFreshnessNotice,
+	} from "$lib/components/stats";
+	import {
+		createBreadcrumbSchema,
+		createCollectionPageSchema,
+		createOrganizationSchema,
+		createWebSiteSchema,
+		getGenericOgImage,
+	} from "$lib/seo/index.js";
+	import { JsonLd, MetaTags } from "svelte-meta-tags";
+	import type { PageData } from "./$types";
 
-let { data }: { data: PageData } = $props();
-const pageTitle = "로또 6/45 통계 분석 | 번호별 출현 빈도와 패턴 분석";
-const topNumberSummary = $derived(
-	data.topNumberStats[0] ?? {
-		number: "-",
-		draw_count: 0,
-	},
-);
-const pageDescription = $derived(
-	`🎯 로또 당첨 패턴 완전분석! 전체 ${data.totalRounds}회차 빅데이터로 승률을 높이는 통계의 비밀을 공개합니다.`,
-);
-const statsOgDescription = $derived(
-	`전체 ${data.totalRounds}회차 데이터 기반 종합 통계 분석 | 최다출현: ${topNumberSummary.number}번 ${topNumberSummary.draw_count}회`,
-);
-const ogImage = $derived(
-	getGenericOgImage({
-		title: "로또 6/45 통계 분석",
-		description: statsOgDescription,
-		layout: "blog",
-		theme: "dark",
-	}),
-);
-const collectionSchema = createCollectionPageSchema({
-	path: "/stats",
-	name: "로또 6/45 통계 분석",
-	description:
-		"번호별 출현 빈도, 홀짝, 구간, 색상 등 로또 통계를 종합 분석하는 페이지",
-});
-const breadcrumbSchema = createBreadcrumbSchema([
-	{ name: "홈", path: "/" },
-	{ name: "로또 통계", path: "/stats" },
-]);
+	let { data }: { data: PageData } = $props();
 
-// 통계 카테고리 정의
-const statsCategories = [
-	{
-		href: "/stats/numbers",
-		icon: "🔢",
-		title: "번호별 통계",
-		description: "출현 빈도",
-	},
-	{
-		href: "/stats/odd-even",
-		icon: "⚖️",
-		title: "홀짝 분석",
-		description: "홀수/짝수 분포",
-	},
-	{
-		href: "/stats/colors",
-		icon: "🎨",
-		title: "색깔별 통계",
-		description: "공 색상 분포",
-	},
-	{
-		href: "/stats/sections",
-		icon: "📊",
-		title: "구간별 분석",
-		description: "번호 구간 분포",
-	},
-	{
-		href: "/stats/high-low",
-		icon: "📈",
-		title: "고저번대",
-		description: "고번대/저번대",
-	},
-	{
-		href: "/stats/pairs",
-		icon: "👥",
-		title: "번호 쌍",
-		description: "동반 출현",
-	},
-	{
-		href: "/stats/repeat",
-		icon: "🔄",
-		title: "연속 중복",
-		description: "회차간 중복",
-	},
-	{
-		href: "/stats/unit-digit",
-		icon: "🔟",
-		title: "끝수 분석",
-		description: "끝자리 분포",
-	},
-	{
-		href: "/stats/ac",
-		icon: "📊",
-		title: "AC값",
-		description: "산술 복잡도",
-	},
-];
+	const pageTitle = "로또 6/45 통계 분석 | 번호별 출현 빈도와 패턴 분석";
+	const pageDescription =
+		"최근 로또 당첨 번호 패턴, 번호별 출현 빈도, 홀짝·고저·색상·번호쌍·AC값 통계를 한곳에서 비교하는 645.live 대표 통계 허브입니다.";
+	const topNumberSummary = $derived(
+		data.topNumberStats[0] ?? {
+			number: "-",
+			draw_count: 0,
+		},
+	);
+	const ogImage = $derived(
+		getGenericOgImage({
+			title: "로또 6/45 통계 분석",
+			description: `최근 로또 당첨 번호 패턴부터 번호별 출현 빈도까지 전체 ${data.totalRounds}회차 통계를 한곳에서 확인하세요.`,
+			layout: "blog",
+			theme: "dark",
+		}),
+	);
+
+	const timestampFormatter = new Intl.DateTimeFormat("ko-KR", {
+		dateStyle: "medium",
+		timeStyle: "short",
+		timeZone: "Asia/Seoul",
+	});
+
+	const formattedUpdatedAt = $derived(
+		data.freshness.lastUpdatedAt
+			? timestampFormatter.format(new Date(data.freshness.lastUpdatedAt))
+			: "",
+	);
+
+	const collectionSchema = createCollectionPageSchema({
+		path: "/stats",
+		name: "로또 6/45 통계 분석",
+		description:
+			"번호별 출현 빈도, 홀짝, 고저, 색상, 번호쌍, AC값까지 로또 통계를 종합 분석하는 페이지",
+	});
+	const breadcrumbSchema = createBreadcrumbSchema([
+		{ name: "홈", path: "/" },
+		{ name: "로또 통계", path: "/stats" },
+	]);
+
+	const faqItems = [
+		{
+			question: "최근 로또 당첨 번호 패턴은 어떻게 해석하면 되나요?",
+			answer:
+				"최근 로또 당첨 번호 패턴은 극단적으로 한쪽에 치우친 조합이 있는지, 홀짝과 고저가 비교적 균형에 가까운 조합이 더 자주 나타나는 흐름이 보이는지 참고해서 보실 수 있습니다. 다만 최근 10회처럼 짧은 구간에서는 일시적인 쏠림이 생길 수 있어, 최근 10회·50회·100회와 전체 회차를 함께 보는 것이 좋습니다.",
+		},
+		{
+			question: "최근 자주 나온 번호가 다음 회차에도 유리한가요?",
+			answer:
+				"자주 나온 번호는 최근 흐름을 이해하는 데는 도움이 되지만, 다음 회차 당첨을 보장하지는 않습니다. 번호별 출현 빈도는 참고 지표로 보고, 최근 패턴과 전체 통계를 함께 비교하는 방식이 더 적절합니다.",
+		},
+		{
+			question: "홀짝 분석과 고저 분석은 어떻게 다른가요?",
+			answer:
+				"홀짝 분석은 당첨번호 6개 중 홀수와 짝수의 비율을 보는 통계이고, 고저 분석은 낮은 번호 구간과 높은 번호 구간의 분포를 보는 통계입니다. 두 지표를 함께 보면 최근 회차가 균형형인지 편중형인지 더 쉽게 파악할 수 있습니다.",
+		},
+		{
+			question: "최근 10회와 최근 100회 분석 결과가 다른 이유는 무엇인가요?",
+			answer:
+				"최근 10회는 단기 흐름을 보여주고, 최근 100회는 더 넓은 범위의 평균적인 패턴을 보여줍니다. 짧은 구간은 변동성이 크기 때문에, 단기 분석과 장기 분석을 함께 비교해야 현재 흐름을 더 정확하게 이해할 수 있습니다.",
+		},
+		{
+			question: "QR 스캔 인기 번호와 실제 당첨번호 패턴은 같은 의미인가요?",
+			answer:
+				"아닙니다. QR 스캔 인기 번호는 사람들이 실제로 많이 선택한 번호 흐름을 보여주고, 당첨번호 패턴은 추첨 결과로 나온 번호의 흐름을 보여줍니다. 두 데이터는 서로 다른 성격이므로 함께 볼 때 더 해석 가치가 높습니다.",
+		},
+		{
+			question: "통계로 로또 번호를 예측할 수 있나요?",
+			answer:
+				"통계는 과거 데이터를 정리해 흐름을 이해하는 데 도움을 주지만, 특정 번호나 조합의 당첨을 보장하지는 않습니다. 이 페이지의 통계는 참고용으로 활용하는 것이 가장 적절합니다.",
+		},
+	];
+
+	const faqSchema = {
+		"@type": "FAQPage",
+		mainEntity: faqItems.map((item) => ({
+			"@type": "Question",
+			name: item.question,
+			acceptedAnswer: {
+				"@type": "Answer",
+				text: item.answer,
+			},
+		})),
+	};
+
+	const statsCategories = [
+		{
+			href: "/stats/numbers",
+			icon: "🔢",
+			title: "번호별 통계",
+			description: "자주 나온 번호와 적게 나온 번호 전체 보기",
+		},
+		{
+			href: "/stats/odd-even",
+			icon: "⚖️",
+			title: "홀짝 분석",
+			description: "최근 로또 홀짝 패턴 자세히 보기",
+		},
+		{
+			href: "/stats/colors",
+			icon: "🎨",
+			title: "색상 분포",
+			description: "최근 로또 색상 분포 자세히 보기",
+		},
+		{
+			href: "/stats/sections",
+			icon: "📊",
+			title: "구간별 분석",
+			description: "번호 구간별 분포 자세히 보기",
+		},
+		{
+			href: "/stats/high-low",
+			icon: "📈",
+			title: "고저 패턴",
+			description: "최근 로또 고저 패턴 자세히 보기",
+		},
+		{
+			href: "/stats/pairs",
+			icon: "👥",
+			title: "번호 쌍",
+			description: "함께 자주 나온 번호쌍 보기",
+		},
+		{
+			href: "/stats/repeat",
+			icon: "🔄",
+			title: "연속·중복",
+			description: "연속번호와 회차 간 중복 패턴 보기",
+		},
+		{
+			href: "/stats/unit-digit",
+			icon: "🔟",
+			title: "끝수 분석",
+			description: "끝수 분포 통계 보기",
+		},
+		{
+			href: "/stats/ac",
+			icon: "🧮",
+			title: "AC값",
+			description: "최근 AC값 패턴 자세히 보기",
+		},
+	];
 </script>
 
 <MetaTags
@@ -108,55 +167,29 @@ const statsCategories = [
 	titleTemplate="%s | 645.live"
 	description={pageDescription}
 	canonical="https://645.live/stats"
-	keywords={["로또통계", "로또분석", "로또당첨번호", "번호별통계", "로또예측", "번호분석", "홀짝분석", "로또패턴", "6/45통계", "로또번호분석"]}
+	keywords={["로또통계", "로또분석", "로또당첨번호", "번호별통계", "홀짝분석", "고저분석", "로또패턴", "AC값", "로또허브"]}
 	robots="index,follow"
 	additionalRobotsProps={{
 		maxSnippet: 320,
-		maxImagePreview: 'large',
-		maxVideoPreview: 60
+		maxImagePreview: "large",
+		maxVideoPreview: 60,
 	}}
-	additionalMetaTags={[
-		{
-			name: 'application-name',
-			content: '645.live'
-		},
-		{
-			name: 'theme-color',
-			content: '#3B82F6'
-		},
-		{
-			name: 'format-detection',
-			content: 'telephone=no'
-		},
-		{
-			name: 'author',
-			content: '645.live'
-		},
-		{
-			name: 'generator',
-			content: 'SvelteKit'
-		},
-		{
-			property: 'article:publisher',
-			content: 'https://645.live'
-		}
-	]}
 	openGraph={{
-		type: 'website',
-		url: 'https://645.live/stats',
+		type: "website",
+		url: "https://645.live/stats",
 		title: pageTitle,
 		description: pageDescription,
-		locale: 'ko_KR',
+		locale: "ko_KR",
 		images: [ogImage],
-		siteName: '645.live'
+		siteName: "645.live",
 	}}
 	twitter={{
-		cardType: 'summary_large_image',
-		site: '@645live',
+		cardType: "summary_large_image",
+		site: "@645live",
 		title: pageTitle,
 		description: pageDescription,
 		image: ogImage.url,
-		imageAlt: ogImage.alt
+		imageAlt: ogImage.alt,
 	}}
 />
 
@@ -164,59 +197,64 @@ const statsCategories = [
 <JsonLd schema={breadcrumbSchema} />
 <JsonLd schema={createOrganizationSchema()} />
 <JsonLd schema={createWebSiteSchema()} />
-<JsonLd
-	schema={{
-		'@type': 'Dataset',
-		name: '로또 6/45 통계 분석 데이터',
-		description: `로또 6/45 당첨번호 통계 및 분석 데이터입니다. 전체 ${data.totalRounds}회차 데이터를 기반으로 번호별 출현 빈도, 홀짝 분포, 색깔별 통계, 구간별 분석 등을 제공합니다.`,
-		url: 'https://645.live/stats',
-		license: 'https://645.live/terms-of-service',
-		isAccessibleForFree: true,
-		creator: {
-			'@type': 'Organization',
-			name: '645.live'
-		},
-		temporalCoverage: `전체 ${data.totalRounds}회차 (2002년 12월 ~ 현재)`,
-		spatial: {
-			'@type': 'Country',
-			name: '대한민국'
-		},
-		variableMeasured: [
-			{
-					'@type': 'PropertyValue',
-					name: '번호별 출현 빈도',
-					value: `${topNumberSummary.number}번 최다 ${topNumberSummary.draw_count}회`
-				},
-			{
-				'@type': 'PropertyValue',
-				name: '전체 회차 수',
-				value: data.totalRounds
-			},
-			{
-				'@type': 'PropertyValue',
-				name: '최신 회차',
-				value: data.latestRound
-			}
-		]
-	}}
-/>
+<JsonLd schema={faqSchema} />
 
 <div class="container mx-auto px-4 py-8 max-sm:px-0">
-	<header class="mb-8">
-		<h1 class="text-3xl font-bold text-base-content mb-2">로또 6/45 통계 분석</h1>
+	<header class="space-y-3">
+		<h1 class="text-3xl font-bold text-base-content">로또 6/45 통계 분석</h1>
 		<p class="text-base-content/70">
 			총 <span class="font-semibold text-primary">{data.totalRounds}</span>회차 데이터를 기반으로 한 통계 분석
 			{#if data.latestRound > 0}
 				(최신: {data.latestRound}회차, {data.latestDrawDate})
 			{/if}
 		</p>
+		<StatsFreshnessNotice freshness={data.freshness} />
 	</header>
 
-	<!-- 통계 카테고리 네비게이션 -->
-	<nav class="mb-8">
-			<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-				{#each statsCategories as category (category.href)}
-				<StatsCard 
+	<section class="mt-8 rounded-2xl border border-base-300 bg-base-100 p-6 shadow-sm">
+		<h2 class="text-2xl font-bold text-base-content">최근 로또 당첨 번호 패턴 분석 요약</h2>
+		<div class="mt-4 space-y-3 text-sm leading-7 text-base-content/80 sm:text-base">
+			<p>
+				최근 로또 당첨 번호 패턴을 보면, 완전히 한쪽으로 치우친 조합보다
+				<strong class="text-base-content"> 홀짝, 고저, 구간 분포가 비교적 균형에 가까운 조합</strong>이 더 자주 나타나는 흐름을 확인할 수 있습니다.
+				다만 짧은 구간에서는 일시적인 쏠림이 자주 발생하므로, 최근 10회·50회·100회와 전체 회차를 함께 비교해서 보는 것이 좋습니다.
+			</p>
+			<p>
+				이 페이지는 <strong class="text-base-content">번호별 출현 빈도, 홀짝 분포, 색상 분포, 구간 분포, 고저 분포, 번호쌍, 연속번호, 끝수, AC값</strong>을 한곳에서 비교할 수 있는 로또 통계 허브입니다.
+				전체 흐름과 최근 흐름을 함께 확인해, 어떤 번호와 조합이 자주 보였는지 빠르게 파악할 수 있도록 정리했습니다.
+			</p>
+		</div>
+		<p class="mt-4 rounded-xl bg-warning/10 px-4 py-3 text-sm text-base-content/80">
+			통계는 과거 데이터를 정리한 참고 정보이며, 특정 번호의 당첨을 보장하지 않습니다.
+		</p>
+	</section>
+
+	<section class="mt-6 rounded-2xl border border-base-300 bg-base-100 p-6 shadow-sm">
+		<h3 class="text-xl font-bold text-base-content">최근 흐름 빠르게 보기</h3>
+		<div class="mt-4 grid gap-3 sm:grid-cols-2">
+			<div class="rounded-xl bg-base-200/80 p-4 text-sm text-base-content/80">
+				<p class="font-semibold text-base-content">최근 10회</p>
+				<p class="mt-2 leading-6">{data.summarySnapshots.recent10}</p>
+			</div>
+			<div class="rounded-xl bg-base-200/80 p-4 text-sm text-base-content/80">
+				<p class="font-semibold text-base-content">최근 50회</p>
+				<p class="mt-2 leading-6">{data.summarySnapshots.recent50}</p>
+			</div>
+			<div class="rounded-xl bg-base-200/80 p-4 text-sm text-base-content/80">
+				<p class="font-semibold text-base-content">최근 100회</p>
+				<p class="mt-2 leading-6">{data.summarySnapshots.recent100}</p>
+			</div>
+			<div class="rounded-xl bg-base-200/80 p-4 text-sm text-base-content/80">
+				<p class="font-semibold text-base-content">전체 {data.totalRounds}회차</p>
+				<p class="mt-2 leading-6">{data.summarySnapshots.overall}</p>
+			</div>
+		</div>
+	</section>
+
+	<nav class="mt-8">
+		<div class="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
+			{#each statsCategories as category (category.href)}
+				<StatsCard
 					href={category.href}
 					icon={category.icon}
 					title={category.title}
@@ -226,40 +264,33 @@ const statsCategories = [
 		</div>
 	</nav>
 
-	<!-- 주요 통계 요약 -->
-	<div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-		<!-- 번호별 통계 요약 -->
-		<section class="bg-base-100 rounded-lg shadow-md p-6">
-			<h2 class="text-xl font-bold mb-4 flex items-center">
-				<span class="text-2xl mr-2">🔢</span>
+	<div class="mt-8 grid grid-cols-1 gap-6 md:grid-cols-2">
+		<section class="rounded-2xl bg-base-100 p-6 shadow-md">
+			<h2 class="flex items-center text-xl font-bold">
+				<span class="mr-2 text-2xl">🔢</span>
 				번호별 출현 빈도
 			</h2>
-			<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+			<p class="mt-2 text-sm leading-6 text-base-content/70">
+				자주 나온 번호와 상대적으로 적게 나온 번호를 함께 보면 전체 회차 기준선과 최근 선택 편차를 빠르게 파악할 수 있습니다.
+			</p>
+			<div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
 				<div>
-					<h3 class="font-semibold text-success mb-2">최다 출현 번호</h3>
+					<h3 class="mb-2 font-semibold text-success">최다 출현 번호</h3>
 					<div class="space-y-2">
-							{#each data.topNumberStats.slice(0, 5) as stat (`top-${stat.number}`)}
-							<div class="flex justify-between items-center">
-								<LottoBall 
-									number={stat.number} 
-									href="/stats/numbers/{stat.number}"
-									interactive={true}
-								/>
+						{#each data.topNumberStats.slice(0, 5) as stat (`top-${stat.number}`)}
+							<div class="flex items-center justify-between">
+								<LottoBall number={stat.number} href="/stats/numbers/{stat.number}" interactive={true} />
 								<span class="text-sm text-base-content/70">{stat.draw_count}회</span>
 							</div>
 						{/each}
 					</div>
 				</div>
 				<div>
-					<h3 class="font-semibold text-error mb-2">최소 출현 번호</h3>
+					<h3 class="mb-2 font-semibold text-error">최소 출현 번호</h3>
 					<div class="space-y-2">
-					{#each data.bottomNumberStats.slice(0, 5) as stat (`bottom-${stat.number}`)}
-							<div class="flex justify-between items-center">
-								<LottoBall 
-									number={stat.number} 
-									href="/stats/numbers/{stat.number}"
-									interactive={true}
-								/>
+						{#each data.bottomNumberStats.slice(0, 5) as stat (`bottom-${stat.number}`)}
+							<div class="flex items-center justify-between">
+								<LottoBall number={stat.number} href="/stats/numbers/{stat.number}" interactive={true} />
 								<span class="text-sm text-base-content/70">{stat.draw_count}회</span>
 							</div>
 						{/each}
@@ -267,27 +298,29 @@ const statsCategories = [
 				</div>
 			</div>
 			<div class="mt-4 text-center">
-					<a href={resolve("/stats/numbers")} class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 text-sm">
-					전체 번호 통계 보기 →
+				<a href={resolve("/stats/numbers")} class="text-sm font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
+					자주 나온 번호와 적게 나온 번호 전체 보기
 				</a>
 			</div>
 		</section>
 
-		<!-- 홀짝 분석 요약 -->
-		<section class="bg-base-100 rounded-lg shadow-md p-6">
-			<h2 class="text-xl font-bold mb-4 flex items-center">
-				<span class="text-2xl mr-2">⚖️</span>
+		<section class="rounded-2xl bg-base-100 p-6 shadow-md">
+			<h2 class="flex items-center text-xl font-bold">
+				<span class="mr-2 text-2xl">⚖️</span>
 				최근 홀짝 분포
 			</h2>
-			<div class="space-y-3">
-					{#each data.recentOddEvenStats.slice(0, 5) as stat (stat.round)}
+			<p class="mt-2 text-sm leading-6 text-base-content/70">
+				최근 회차의 홀짝 비율은 균형형인지 편중형인지 빠르게 보여주며, 단기 흐름과 장기 평균을 비교할 때 기준점이 됩니다.
+			</p>
+			<div class="mt-4 space-y-3">
+				{#each data.recentOddEvenStats.slice(0, 5) as stat (stat.round)}
 					<div class="flex items-center justify-between">
 						<span class="text-sm text-base-content/70">{stat.round}회차</span>
 						<div class="flex items-center space-x-2">
-							<span class="text-xs bg-blue-500/20 text-blue-600 dark:text-blue-400 px-2 py-1 rounded">
+							<span class="rounded bg-blue-500/20 px-2 py-1 text-xs text-blue-600 dark:text-blue-400">
 								홀수 {stat.odd_count}개
 							</span>
-							<span class="text-xs bg-red-500/20 text-red-600 dark:text-red-400 px-2 py-1 rounded">
+							<span class="rounded bg-red-500/20 px-2 py-1 text-xs text-red-600 dark:text-red-400">
 								짝수 {stat.even_count}개
 							</span>
 						</div>
@@ -295,20 +328,22 @@ const statsCategories = [
 				{/each}
 			</div>
 			<div class="mt-4 text-center">
-					<a href={resolve("/stats/odd-even")} class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 text-sm">
-					홀짝 분석 상세 보기 →
+				<a href={resolve("/stats/odd-even")} class="text-sm font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
+					최근 로또 홀짝 패턴 자세히 보기
 				</a>
 			</div>
 		</section>
 
-		<!-- 색깔별 통계 요약 -->
-		<section class="bg-base-100 rounded-lg shadow-md p-6">
-			<h2 class="text-xl font-bold mb-4 flex items-center">
-				<span class="text-2xl mr-2">🎨</span>
-				최근 색깔 분포
+		<section class="rounded-2xl bg-base-100 p-6 shadow-md">
+			<h2 class="flex items-center text-xl font-bold">
+				<span class="mr-2 text-2xl">🎨</span>
+				최근 색상 분포
 			</h2>
-			<div class="space-y-3">
-					{#each data.recentColorStats.slice(0, 5) as stat (stat.round)}
+			<p class="mt-2 text-sm leading-6 text-base-content/70">
+				색상 분포는 번호가 어느 구간대에 고르게 퍼졌는지 보여주는 빠른 요약으로, 최근 회차의 조합 다양성을 읽는 데 도움이 됩니다.
+			</p>
+			<div class="mt-4 space-y-3">
+				{#each data.recentColorStats.slice(0, 5) as stat (stat.round)}
 					<div class="flex items-center justify-between">
 						<span class="text-sm text-base-content/70">{stat.round}회차</span>
 						<div class="flex items-center space-x-1">
@@ -322,74 +357,80 @@ const statsCategories = [
 				{/each}
 			</div>
 			<div class="mt-4 text-center">
-					<a href={resolve("/stats/colors")} class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 text-sm">
-					색깔별 통계 상세 보기 →
+				<a href={resolve("/stats/colors")} class="text-sm font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
+					최근 로또 색상 분포 자세히 보기
 				</a>
 			</div>
 		</section>
 
-		<!-- 번호 쌍 통계 요약 -->
-		<section class="bg-base-100 rounded-lg shadow-md p-6">
-			<h2 class="text-xl font-bold mb-4 flex items-center">
-				<span class="text-2xl mr-2">👥</span>
-				최다 동반 출현 번호 쌍
+		<section class="rounded-2xl bg-base-100 p-6 shadow-md">
+			<h2 class="flex items-center text-xl font-bold">
+				<span class="mr-2 text-2xl">👥</span>
+				최다 동반 출현 번호쌍
 			</h2>
-			<div class="space-y-3">
-					{#each data.topPairStats.slice(0, 5) as stat (`${stat.number_a}-${stat.number_b}`)}
+			<p class="mt-2 text-sm leading-6 text-base-content/70">
+				함께 자주 나온 번호쌍은 번호별 단일 출현 빈도와 다른 관점의 결합 패턴을 보여주며, 전체 조합 흐름을 읽는 보조 지표가 됩니다.
+			</p>
+			<div class="mt-4 space-y-3">
+				{#each data.topPairStats.slice(0, 5) as stat (`${stat.number_a}-${stat.number_b}`)}
 					<div class="flex items-center justify-between">
 						<div class="flex items-center space-x-2">
-							<LottoBall 
-								number={stat.number_a}
-								href="/stats/numbers/{stat.number_a}"
-								size="small" 
-								interactive={true}
-							/>
+							<LottoBall number={stat.number_a} href="/stats/numbers/{stat.number_a}" size="small" interactive={true} />
 							<span class="text-base-content/40">+</span>
-							<LottoBall 
-								number={stat.number_b}
-								href="/stats/numbers/{stat.number_b}"
-								size="small" 
-								interactive={true}
-							/>
+							<LottoBall number={stat.number_b} href="/stats/numbers/{stat.number_b}" size="small" interactive={true} />
 						</div>
 						<span class="text-sm text-base-content/70">{stat.pair_count}회</span>
 					</div>
 				{/each}
 			</div>
 			<div class="mt-4 text-center">
-					<a href={resolve("/stats/pairs")} class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 text-sm">
-					번호 쌍 통계 상세 보기 →
+				<a href={resolve("/stats/pairs")} class="text-sm font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
+					함께 자주 나온 번호쌍 보기
 				</a>
 			</div>
 		</section>
 	</div>
 
-	<!-- 통계 활용 가이드 -->
-	<section class="bg-base-200 rounded-lg p-6">
-		<h2 class="text-xl font-bold mb-4 text-base-content">📚 통계 활용 가이드</h2>
-		<div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+	<section class="mt-8 rounded-2xl bg-base-200 p-6">
+		<h2 class="text-xl font-bold text-base-content">통계를 볼 때 함께 확인하면 좋은 기준</h2>
+		<div class="mt-4 grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
 			<div>
-				<h3 class="font-semibold mb-2 text-base-content">통계 분석 방법</h3>
+				<h3 class="mb-2 font-semibold text-base-content">비교 방법</h3>
 				<ul class="space-y-1 text-base-content/70">
-					<li>• 번호별 출현 빈도를 통한 패턴 분석</li>
-					<li>• 홀짝 비율의 균형성 확인</li>
-					<li>• 색깔별 분포의 다양성 검토</li>
-					<li>• 구간별 분포의 편중성 파악</li>
+					<li>최근 10회는 단기 흐름, 최근 50회와 100회는 더 넓은 평균 흐름을 보여줍니다.</li>
+					<li>번호별 출현 빈도는 홀짝·고저·구간·AC값과 함께 볼 때 해석 가치가 커집니다.</li>
+					<li>QR 스캔 흐름과 실제 당첨 패턴은 의미가 다르므로 함께 비교하는 편이 좋습니다.</li>
 				</ul>
 			</div>
 			<div>
-				<h3 class="font-semibold mb-2 text-base-content">주의사항</h3>
+				<h3 class="mb-2 font-semibold text-base-content">주의할 점</h3>
 				<ul class="space-y-1 text-base-content/70">
-					<li>• 과거 데이터는 미래 결과를 보장하지 않음</li>
-					<li>• 모든 번호는 동일한 확률로 추첨됨</li>
-					<li>• 통계는 참고용으로만 활용</li>
-					<li>• 책임감 있는 구매 권장</li>
+					<li>과거 통계는 참고용이며 다음 회차 결과를 보장하지 않습니다.</li>
+					<li>짧은 구간은 일시적인 쏠림이 크므로 전체 회차 기준과 함께 봐야 합니다.</li>
+					<li>최신 회차 반영 중일 때는 하위 통계가 잠시 갱신 중으로 표시될 수 있습니다.</li>
 				</ul>
 			</div>
 		</div>
 	</section>
-</div>
 
-<style>
-	/* Removed unused styles - using components instead */
-</style>
+	<section class="mt-8 rounded-2xl border border-base-300 bg-base-100 p-6 shadow-sm">
+		<h2 class="text-2xl font-bold text-base-content">자주 묻는 질문</h2>
+		<div class="mt-5 space-y-4">
+			{#each faqItems as item (item.question)}
+				<div class="rounded-xl bg-base-200/70 p-4">
+					<h3 class="text-base font-semibold text-base-content">{item.question}</h3>
+					<p class="mt-2 text-sm leading-6 text-base-content/75">{item.answer}</p>
+				</div>
+			{/each}
+		</div>
+	</section>
+
+	<footer class="mt-8 text-sm text-base-content/60">
+		{#if formattedUpdatedAt}
+			최종 업데이트: {formattedUpdatedAt}
+		{/if}
+		{#if topNumberSummary.number !== "-"}
+			<span class="ml-2">최다 출현 번호: {topNumberSummary.number}번 {topNumberSummary.draw_count}회</span>
+		{/if}
+	</footer>
+</div>

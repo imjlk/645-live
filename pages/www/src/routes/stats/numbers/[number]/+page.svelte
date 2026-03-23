@@ -1,6 +1,7 @@
 <script lang="ts">
 import { goto } from "$app/navigation";
 import { resolveRoute } from "$app/paths";
+import { StatsFreshnessNotice } from "$lib/components/stats";
 import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
 import LinkButton from "$lib/ui/LinkButton.svelte";
 import { JsonLd, MetaTags } from "svelte-meta-tags";
@@ -228,6 +229,8 @@ const breadcrumbItems = [
 		</div>
 	</div>
 
+	<StatsFreshnessNotice freshness={data.freshness} />
+
 	<!-- 번호 분석 변경 -->
 	<div class="card bg-base-100 shadow-sm">
 		<div class="card-body p-3 sm:p-4">
@@ -372,12 +375,12 @@ const breadcrumbItems = [
 						</tr>
 					</thead>
 					<tbody>
-						{#each data.recentDraws as draw}
+						{#each data.recentDraws as draw (draw.round)}
 							<tr>
 								<td class="sticky left-0 bg-base-100 font-semibold text-xs sm:text-sm">{draw.round}회</td>
 								<td>
 									<div class="flex gap-1 flex-wrap">
-										{#each draw.numbers.sort((a, b) => a - b) as num}
+										{#each draw.numbers.sort((a, b) => a - b) as num (num)}
 											<span class="w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs font-bold {num === data.selectedNumber ? 'bg-primary text-primary-content' : 'bg-base-300 text-base-content'}">
 												{num}
 											</span>

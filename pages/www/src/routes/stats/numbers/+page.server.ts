@@ -3,6 +3,7 @@ import {
 	getNumberStats,
 	statsClient,
 } from "$lib/trailbase/stats";
+import { getSingleStatsFreshness } from "$lib/trailbase/stats-freshness";
 import type { PageServerLoad } from "./$types";
 
 // 페이지 옵션 설정 - SSR 사용으로 변경 (실시간 데이터 반영)
@@ -11,12 +12,19 @@ export const prerender = false;
 export const load: PageServerLoad = async () => {
 	try {
 		// 최신 회차 정보와 번호별 통계를 병렬로 가져오기
-		const [latestRoundInfo, numberStats, numberDetails] = await Promise.all([
+		const [latestRoundInfo, numberStats, numberDetails, freshness] =
+			await Promise.all([
 			getLatestRoundInfo(),
 			getNumberStats("desc", 45),
 			statsClient.records("lotto_number_details").list({
 				order: ["number"],
 				pagination: { limit: 45 },
+			}),
+			getSingleStatsFreshness({
+				tableName: "lotto_number_stats",
+				sourceLabel: "번호별 통계",
+				orderField: "last_draw_round",
+				roundField: "last_draw_round",
 			}),
 		]);
 
@@ -66,6 +74,7 @@ export const load: PageServerLoad = async () => {
 			latestRound,
 			mostFrequentNumber,
 			leastFrequentNumber,
+			freshness,
 		};
 	} catch (error) {
 		console.error("번호별 통계 데이터 로드 실패:", error);
@@ -75,6 +84,14 @@ export const load: PageServerLoad = async () => {
 			latestRound: 0,
 			mostFrequentNumber: null,
 			leastFrequentNumber: null,
+			freshness: {
+				latestRound: 0,
+				latestDrawDate: "",
+				analysisRound: 0,
+				isStale: false,
+				lastUpdatedAt: null,
+				sourceLabel: "번호별 통계",
+			},
 		};
 	}
 };

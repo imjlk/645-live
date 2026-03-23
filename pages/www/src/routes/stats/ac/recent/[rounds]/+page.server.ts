@@ -1,4 +1,5 @@
 import { getRecentACAnalysis } from "$lib/trailbase/stats";
+import { getSingleStatsFreshness } from "$lib/trailbase/stats-freshness";
 import { error } from "@sveltejs/kit";
 import type { PageServerLoad } from "./$types";
 
@@ -16,7 +17,13 @@ export const load: PageServerLoad = async ({ params }) => {
 			throw error(400, "잘못된 회차 파라미터입니다.");
 		}
 
-		const result = await getRecentACAnalysis(selectedRounds);
+		const [result, freshness] = await Promise.all([
+			getRecentACAnalysis(selectedRounds),
+			getSingleStatsFreshness({
+				tableName: "lotto_draw_ac_stats",
+				sourceLabel: "AC 통계",
+			}),
+		]);
 
 		if (!result.validRounds) {
 			throw error(
@@ -31,6 +38,7 @@ export const load: PageServerLoad = async ({ params }) => {
 			totalRounds: result.totalRounds,
 			totalRecords: result.records.length,
 			recentStats: result.records.slice(0, 10),
+			freshness,
 		};
 	} catch (err) {
 		console.error("최근 ac 통계 데이터 로드 실패:", err);

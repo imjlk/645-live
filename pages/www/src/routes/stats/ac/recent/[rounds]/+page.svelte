@@ -4,6 +4,7 @@
 import { goto } from "$app/navigation";
 import { resolveRoute } from "$app/paths";
 import { page } from "$app/state";
+import { StatsFreshnessNotice } from "$lib/components/stats";
 import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
 import LinkButton from "$lib/ui/LinkButton.svelte";
 import { JsonLd, MetaTags } from "svelte-meta-tags";
@@ -101,7 +102,7 @@ const breadcrumbItems = [
 	{ label: "홈", href: "/" },
 	{ label: "통계", href: "/stats" },
 	{ label: "AC값", href: "/stats/ac" },
-	{ label: "최근 회차 분석", current: true },
+	{ label: "최근 AC 트렌드", current: true },
 ];
 </script>
 
@@ -235,9 +236,11 @@ const breadcrumbItems = [
 	<!-- Breadcrumbs -->
 	<Breadcrumbs items={breadcrumbItems} />
 
+	<StatsFreshnessNotice freshness={data.freshness} />
+
 	<!-- 페이지 헤더 -->
 	<div class="text-center space-y-2">
-		<h1 class="text-2xl sm:text-3xl font-bold text-primary">로또 6/45 AC값 상세 분석</h1>
+		<h1 class="text-2xl sm:text-3xl font-bold text-primary">로또 6/45 최근 {data.selectedRounds}회차 AC값 분석</h1>
 		<p class="text-sm sm:text-base text-base-content/70 px-2">
 			최근 <strong class="text-primary">{data.selectedRounds}회차</strong>의 <strong>AC값(Arithmetic Complexity)</strong> 분포와 패턴을 상세히 분석합니다.<br class="hidden sm:block" />
 			평균 AC값 <strong class="text-secondary">{data.acStats.summary.avgAC.toFixed(2)}</strong>, 범위 <strong class="text-accent">{data.acStats.summary.minAC}~{data.acStats.summary.maxAC}</strong>의 복잡도 분석을 통해 
@@ -336,7 +339,7 @@ const breadcrumbItems = [
 					<tbody>
 						{#each Object.entries(data.acStats.summary.distribution)
 							.filter(([_, count]) => count > 0)
-							.sort(([a], [b]) => Number(a) - Number(b)) as [ac, count]}
+							.sort(([a], [b]) => Number(a) - Number(b)) as [ac, count] (ac)}
 							<tr>
 								<td class="sticky left-0 bg-base-100 z-10 font-semibold text-xs sm:text-sm">{ac}</td>
 								<td class="text-center text-xs sm:text-sm">{count}회</td>
@@ -373,7 +376,7 @@ const breadcrumbItems = [
 						</tr>
 					</thead>
 					<tbody>
-						{#each data.acStats.records as record}
+						{#each data.acStats.records as record (record.round)}
 							<tr>
 								<td class="sticky left-0 bg-base-100 z-10 font-semibold text-xs sm:text-sm">{record.round}회</td>
 								<td class="text-sm sm:text-lg font-bold text-primary text-center">{record.ac_value}</td>

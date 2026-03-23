@@ -13,6 +13,7 @@ const client = initClient(PUBLIC_TRAILBASE_URL || "http://localhost:4000");
 export interface LatestRoundInfo {
 	round: number;
 	draw_date: string;
+	updated_at?: string;
 }
 
 export interface NumberStat {
@@ -99,6 +100,7 @@ export async function getLatestRoundInfo(): Promise<LatestRoundInfo | null> {
 			return {
 				round: latest.round,
 				draw_date: latest.draw_date,
+				updated_at: latest.updated_at,
 			};
 		}
 		return null;
@@ -1838,8 +1840,8 @@ export async function getACAnalysis(): Promise<{
 		});
 
 		// Complexity rates
-		const lowComplexityCount = acValues.filter((ac) => ac <= 10).length;
-		const highComplexityCount = acValues.filter((ac) => ac >= 20).length;
+		const lowComplexityCount = acValues.filter((ac) => ac <= 5).length;
+		const highComplexityCount = acValues.filter((ac) => ac >= 11).length;
 		const lowComplexityRate = (
 			(lowComplexityCount / totalRecords) *
 			100

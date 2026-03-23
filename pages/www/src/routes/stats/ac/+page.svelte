@@ -1,6 +1,8 @@
 <script lang="ts">
 import { goto } from "$app/navigation";
+import { resolveRoute } from "$app/paths";
 import { page } from "$app/state";
+import { StatsFreshnessNotice } from "$lib/components/stats";
 import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
 import LinkButton from "$lib/ui/LinkButton.svelte";
 import { JsonLd, MetaTags } from "svelte-meta-tags";
@@ -33,7 +35,11 @@ const navigateToAnalysis = async () => {
 	if (validateInput(inputStr)) {
 		const rounds = Number(inputStr);
 		try {
-			await goto(`/stats/ac/recent/${rounds}`);
+			await goto(
+				resolveRoute("/stats/ac/recent/[rounds]", {
+					rounds: String(rounds),
+				}),
+			);
 		} catch (error) {
 			console.error("Navigation error:", error);
 			alert("페이지 이동 중 오류가 발생했습니다.");
@@ -214,10 +220,12 @@ const breadcrumbItems = [
 		</div>
 	</div>
 
-	<!-- 최근 회차 분석 -->
+	<StatsFreshnessNotice freshness={data.freshness} />
+
+	<!-- 최근 회차 AC 트렌드 -->
 	<div class="card bg-base-100 shadow-sm">
 		<div class="card-body p-4">
-			<h2 class="card-title text-lg">최근 회차 분석</h2>
+			<h2 class="card-title text-lg">최근 회차 AC 트렌드 보기</h2>
 			<div class="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
 				<div class="flex flex-col sm:flex-row sm:items-center gap-2">
 					<label for="rounds-input" class="text-sm font-medium">최근:</label>
@@ -240,7 +248,7 @@ const breadcrumbItems = [
 					onclick={navigateToAnalysis}
 					class="btn btn-primary btn-sm w-full sm:w-auto"
 				>
-					상세 분석
+					최근 AC 트렌드 보기
 				</button>
 			</div>
 			<p class="text-sm text-base-content/60">
@@ -282,7 +290,7 @@ const breadcrumbItems = [
 			<h2 class="card-title">AC값 복잡도 분포</h2>
 			
 			<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mt-4">
-				{#each Object.entries(data.acRangeDistribution) as [range, count]}
+				{#each Object.entries(data.acRangeDistribution) as [range, count] (range)}
 					{@const totalAnalyzed = Object.values(data.acRangeDistribution).reduce((sum, val) => sum + val, 0)}
 					{@const percentage = totalAnalyzed > 0 ? ((count / totalAnalyzed) * 100).toFixed(1) : "0.0"}
 					{@const [min] = range.split('-').map(Number)}
@@ -302,12 +310,12 @@ const breadcrumbItems = [
 				<h3 class="font-semibold mb-2">복잡도 분석</h3>
 				<div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
 					<div>
-						<span class="font-medium text-primary">낮은 복잡도 (0-6):</span>
+						<span class="font-medium text-primary">낮은 복잡도 (0-5):</span>
 						<span class="ml-2">{data.lowComplexityRate}%</span>
 						<p class="text-xs text-base-content/60 mt-1">단순한 패턴, 연속성이 높은 번호 조합</p>
 					</div>
 					<div>
-						<span class="font-medium text-secondary">높은 복잡도 (10-15):</span>
+						<span class="font-medium text-secondary">높은 복잡도 (11+):</span>
 						<span class="ml-2">{data.highComplexityRate}%</span>
 						<p class="text-xs text-base-content/60 mt-1">복잡한 패턴, 분산도가 높은 번호 조합</p>
 					</div>
@@ -333,7 +341,7 @@ const breadcrumbItems = [
 						</tr>
 					</thead>
 					<tbody>
-						{#each data.recentStats as stat}
+						{#each data.recentStats as stat (stat.round)}
 							<tr>
 								<td class="font-semibold sticky left-0 bg-base-100 z-10 text-xs sm:text-sm">{stat.round}회</td>
 								<td class="text-center text-xs sm:text-sm font-bold text-primary">{stat.ac_value}</td>
@@ -372,7 +380,7 @@ const breadcrumbItems = [
 					<tbody>
 						{#each Object.entries(data.acDistribution)
 							.filter(([_, count]) => count > 0)
-							.sort((a, b) => Number(a[0]) - Number(b[0])) as [acValue, count]}
+							.sort((a, b) => Number(a[0]) - Number(b[0])) as [acValue, count] (acValue)}
 							{@const totalDistributed = Object.values(data.acDistribution).reduce((sum, val) => sum + val, 0)}
 							{@const percentage = totalDistributed > 0 ? ((count / totalDistributed) * 100).toFixed(1) : "0.0"}
 							<tr>
@@ -406,7 +414,7 @@ const breadcrumbItems = [
 				
 				<div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
 					<div class="bg-primary/5 p-4 rounded-lg">
-						<h3 class="font-semibold text-primary mb-3 text-lg">🔸 낮은 AC값 (0-6)</h3>
+						<h3 class="font-semibold text-primary mb-3 text-lg">🔸 낮은 AC값 (0-5)</h3>
 						<h4 class="font-medium mb-2">특징:</h4>
 						<ul class="list-disc list-inside space-y-1 text-base-content/70 mb-3">
 							<li><strong>연속 번호 多</strong> (예: 1,2,3,4,5,6)</li>
@@ -419,7 +427,7 @@ const breadcrumbItems = [
 					</div>
 					
 					<div class="bg-secondary/5 p-4 rounded-lg">
-						<h3 class="font-semibold text-secondary mb-3 text-lg">🔹 높은 AC값 (10-15)</h3>
+						<h3 class="font-semibold text-secondary mb-3 text-lg">🔹 높은 AC값 (11+)</h3>
 						<h4 class="font-medium mb-2">특징:</h4>
 						<ul class="list-disc list-inside space-y-1 text-base-content/70 mb-3">
 							<li><strong>번호 고른 분산</strong> - 1~45 전체 범위</li>

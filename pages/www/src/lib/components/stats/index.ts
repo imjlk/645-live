@@ -6,3 +6,4 @@ export { default as StatsSummary } from "./StatsSummary.svelte";
 export { default as RecentAnalysisInput } from "./RecentAnalysisInput.svelte";
 export { default as StatsTable } from "./StatsTable.svelte";
 export { default as GuideSection } from "./GuideSection.svelte";
+export { default as StatsFreshnessNotice } from "./StatsFreshnessNotice.svelte";
