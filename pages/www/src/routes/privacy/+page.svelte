@@ -1,4 +1,5 @@
 <script lang="ts">
+import { resolve } from "$app/paths";
 import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
 import { absoluteUrl } from "$lib/seo/index.js";
 import { MetaTags } from "svelte-meta-tags";
@@ -91,7 +92,7 @@ const breadcrumbItems = [
 
 				<h2>10. 문의</h2>
 				<p>
-					개인정보 처리와 관련한 문의는 서비스 내 운영 채널을 통해 접수할 수 있습니다.
+					개인정보 처리와 관련한 문의는 <a href={resolve("/about")}>소개 페이지</a>에 안내된 공개 운영 채널을 통해 접수할 수 있습니다.
 				</p>
 			</div>
 		</div>

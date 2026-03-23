@@ -2,6 +2,11 @@ export const SITE_ORIGIN = "https://www.645.live";
 export const SITE_NAME = "645.live";
 export const SITE_TWITTER = "@645live";
 export const SITE_LOGO_PATH = "/assets/icons/icon-512.png";
+export const SITE_GITHUB = "https://github.com/imjlk/645-live";
+export const AUTO_NEWS_AUTHOR_PATH = "/authors/645-live-auto-news";
+export const ABOUT_PATH = "/about";
+export const EDITORIAL_POLICY_PATH = "/editorial-policy";
+export const DATA_SOURCES_PATH = "/data-sources";
 
 export function absoluteUrl(path: string): string {
 	return new URL(path, SITE_ORIGIN).toString();
@@ -9,6 +14,10 @@ export function absoluteUrl(path: string): string {
 
 export function getSiteLogoUrl(): string {
 	return absoluteUrl(SITE_LOGO_PATH);
+}
+
+export function getAutoNewsAuthorUrl(): string {
+	return absoluteUrl(AUTO_NEWS_AUTHOR_PATH);
 }
 
 export function isAbsoluteHttpUrl(value: string): boolean {

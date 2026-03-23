@@ -1,9 +1,14 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import NewsLayout from '../../../../content/news/+layout.svelte';
 	import {
+		AUTO_NEWS_AUTHOR_PATH,
+		DATA_SOURCES_PATH,
+		EDITORIAL_POLICY_PATH,
 		SITE_NAME,
 		SITE_ORIGIN,
 		createBreadcrumbSchema,
+		getAutoNewsAuthorUrl,
 		getCanonicalNewsOgUrl,
 		getSiteLogoUrl,
 		isAbsoluteHttpUrl,
@@ -29,7 +34,11 @@
 	const dateModified = $derived(data.meta?.updatedAt || datePublished || undefined);
 	const datePublishedIso = $derived(toIsoDateTime(datePublished));
 	const dateModifiedIso = $derived(toIsoDateTime(dateModified));
+	const datePublishedLabel = $derived(datePublished ?? undefined);
+	const dateModifiedLabel = $derived(dateModified ?? undefined);
 	const isGeneratedOgImage = $derived(imageUrl.startsWith(`${SITE_ORIGIN}/og/news/`));
+	const authorName = $derived(data.meta?.author || '645.live 자동뉴스');
+	const authorUrl = $derived(getAutoNewsAuthorUrl());
 	const breadcrumbSchema = $derived(
 		createBreadcrumbSchema([
 			{ name: '홈', path: '/' },
@@ -60,7 +69,8 @@
 			: undefined,
 		author: {
 			'@type': 'Organization',
-			name: data.meta?.author || '645.live'
+			name: authorName,
+			url: authorUrl
 		},
 		publisher: {
 			'@type': 'Organization',
@@ -124,15 +134,30 @@
 			{#if data.meta?.category}
 				<span class="badge badge-primary badge-outline">{data.meta.category}</span>
 			{/if}
-			{#if datePublishedIso}
-				<time datetime={datePublishedIso}>발행일 {datePublished}</time>
+			{#if datePublishedIso && datePublishedLabel}
+				<time datetime={datePublishedIso}>발행 {datePublishedLabel}</time>
 			{/if}
-			{#if data.meta?.author}
-				<span>작성 {data.meta.author}</span>
+			{#if dateModifiedIso && dateModifiedLabel && dateModifiedIso !== datePublishedIso}
+				<time datetime={dateModifiedIso}>수정 {dateModifiedLabel}</time>
+			{/if}
+			{#if authorName}
+				<span>
+					작성
+					<a class="link link-primary" href={resolve(AUTO_NEWS_AUTHOR_PATH)}>{authorName}</a>
+				</span>
 			{/if}
 		</div>
 
 		<h1 class="mt-3 text-3xl font-bold leading-tight text-base-content">{postTitle}</h1>
+		<p class="mt-3 max-w-3xl text-base text-base-content/75">{description}</p>
+
+		<div class="mt-4 rounded-xl border border-base-300 bg-base-200/60 p-4 text-sm text-base-content/75">
+			이 기사는 동행복권 공식 발표와 645.live 내부 스캔 데이터를 바탕으로 자동 생성되었습니다.
+			<a class="link link-primary ml-1" href={resolve(EDITORIAL_POLICY_PATH)}>편집 원칙</a>
+			와
+			<a class="link link-primary ml-1" href={resolve(DATA_SOURCES_PATH)}>데이터 출처</a>
+			를 함께 확인할 수 있습니다.
+		</div>
 
 		{#if Array.isArray(data.meta?.tags) && data.meta.tags.length > 0}
 			<div class="mt-4 flex flex-wrap gap-2">

@@ -2,6 +2,9 @@
 	// News index page - list all news articles
 	import { resolve } from "$app/paths";
 	import {
+		AUTO_NEWS_AUTHOR_PATH,
+		DATA_SOURCES_PATH,
+		EDITORIAL_POLICY_PATH,
 		createBreadcrumbSchema,
 		createCollectionPageSchema,
 		createItemListSchema,
@@ -54,7 +57,7 @@
 		createCollectionPageSchema({
 			path: currentPage > 1 ? `/news?page=${currentPage}` : "/news",
 			name: currentPage > 1 ? `로또 뉴스 ${currentPage}페이지` : "로또 뉴스",
-			description: "최신 로또 당첨 결과 분석과 통계 소식 모음",
+			description: "공식 발표와 645.live 자체 스캔 데이터를 함께 보는 최신 로또 뉴스 모음",
 		}),
 	);
 	const itemListSchema = $derived(
@@ -169,21 +172,21 @@
 
 <MetaTags
 	title={pageTitle}
-	description="최신 로또 당첨 결과 분석과 통계 뉴스를 제공하는 전문 뉴스 사이트"
+	description="공식 발표와 645.live 자체 스캔 데이터를 함께 보는 최신 로또 당첨 결과 분석 뉴스"
 	canonical={canonicalUrl}
 	robots="index,follow"
 	openGraph={{
 		type: "website",
 		url: canonicalUrl,
 		title: pageTitle,
-		description: "최신 로또 당첨 결과 분석과 통계 뉴스를 제공하는 전문 뉴스 사이트",
+		description: "공식 발표와 645.live 자체 스캔 데이터를 함께 보는 최신 로또 당첨 결과 분석 뉴스",
 		siteName: "645.live",
 	}}
 	twitter={{
 		cardType: "summary_large_image",
 		site: "@645live",
 		title: pageTitle,
-		description: "최신 로또 당첨 결과 분석과 통계 뉴스를 제공하는 전문 뉴스 사이트",
+		description: "공식 발표와 645.live 자체 스캔 데이터를 함께 보는 최신 로또 당첨 결과 분석 뉴스",
 	}}
 />
 
@@ -196,7 +199,12 @@
 	<!-- Page Header -->
 	<div class="text-center">
 		<h1 class="text-3xl font-bold text-base-content">📰 로또 뉴스</h1>
-		<p class="text-base-content/70 mt-2">최신 로또 당첨 결과 분석과 통계 소식</p>
+		<p class="text-base-content/70 mt-2">공식 발표와 645.live 자체 스캔 데이터를 함께 보는 최신 회차 해설</p>
+		<div class="mt-4 flex flex-wrap justify-center gap-3 text-sm">
+			<a class="link link-primary" href={resolve(EDITORIAL_POLICY_PATH)}>편집 원칙 보기</a>
+			<a class="link link-primary" href={resolve(DATA_SOURCES_PATH)}>데이터 출처 보기</a>
+			<a class="link link-primary" href={resolve(AUTO_NEWS_AUTHOR_PATH)}>645.live 자동뉴스 소개</a>
+		</div>
 	</div>
 
 	{#if newsPosts.length === 0}
@@ -237,8 +245,12 @@
 							<p class="text-base-content/80">{item.post.description}</p>
 							
 							<div class="card-actions justify-end">
-									<a href={resolve(hrefForPost(item.post.slug))} class="btn btn-primary btn-sm">
-									기사 읽기
+									<a
+										href={resolve(hrefForPost(item.post.slug))}
+										class="btn btn-primary btn-sm"
+										aria-label={`${item.post.title} 상세 분석 보기`}
+									>
+									{item.post.category} 상세 분석 보기
 								</a>
 							</div>
 						</div>
