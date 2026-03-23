@@ -62,22 +62,44 @@ function normalizeLimit(limit?: number): number {
 export function createMyScansService(db: DrizzleClient) {
 	return {
 		async getSummary(userId: string): Promise<MyScanSummary> {
-			const now = new Date();
-			const [row] = await db
+			const rows = await db
 				.select({
-					totalTickets: sql<number>`count(*)`,
-					pendingResults: sql<number>`count(*) filter (where ${memberScan.resultStatus} in ('unreleased', 'unknown') and (${memberScan.claimDeadlineAt} is null or ${memberScan.claimDeadlineAt} > ${now}))`,
-					winningTickets: sql<number>`count(*) filter (where ${memberScan.resultStatus} = 'winner' and (${memberScan.claimDeadlineAt} is null or ${memberScan.claimDeadlineAt} > ${now}))`,
-					lastScannedAt: sql<Date | null>`max(${memberScan.updatedAt})`,
+					resultStatus: memberScan.resultStatus,
+					claimDeadlineAt: memberScan.claimDeadlineAt,
+					updatedAt: memberScan.updatedAt,
 				})
 				.from(memberScan)
-				.where(eq(memberScan.userId, userId));
+				.where(eq(memberScan.userId, userId))
+				.orderBy(desc(memberScan.updatedAt));
+
+			let pendingResults = 0;
+			let winningTickets = 0;
+
+			for (const row of rows) {
+				const isExpired =
+					row.claimDeadlineAt && isClaimExpired(row.claimDeadlineAt);
+
+				if (isExpired) {
+					continue;
+				}
+
+				if (
+					row.resultStatus === "unreleased" ||
+					row.resultStatus === "unknown"
+				) {
+					pendingResults += 1;
+				}
+
+				if (row.resultStatus === "winner") {
+					winningTickets += 1;
+				}
+			}
 
 			return {
-				totalTickets: Number(row?.totalTickets ?? 0),
-				pendingResults: Number(row?.pendingResults ?? 0),
-				winningTickets: Number(row?.winningTickets ?? 0),
-				lastScannedAt: toIsoString(row?.lastScannedAt ?? null),
+				totalTickets: rows.length,
+				pendingResults,
+				winningTickets,
+				lastScannedAt: toIsoString(rows[0]?.updatedAt ?? null),
 			};
 		},
 
