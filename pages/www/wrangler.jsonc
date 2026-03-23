@@ -9,7 +9,7 @@
 	},
 	"hyperdrive": [
 		{
-			"id": "2be539b030974221bf20fce59a31c459",
+			"id": "d1baf1d31eb047d58ae2c9f27928fc79",
 			"binding": "HYPERDRIVE",
 			"localConnectionString": "postgres://root:mysecretpassword@localhost:50101/local"
 		}
