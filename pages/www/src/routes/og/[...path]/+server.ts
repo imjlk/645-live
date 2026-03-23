@@ -35,7 +35,10 @@ function createUnavailableResponse() {
 	});
 }
 
-function createImageResponse(upstream: Response, fallbackContentType = "image/png") {
+async function createImageResponse(
+	upstream: Response,
+	fallbackContentType = "image/png",
+) {
 	const headers = new Headers();
 
 	for (const name of [
@@ -56,7 +59,10 @@ function createImageResponse(upstream: Response, fallbackContentType = "image/pn
 		headers.set("content-type", fallbackContentType);
 	}
 
-	return new Response(upstream.body, {
+	const body = await upstream.arrayBuffer();
+	headers.set("content-length", String(body.byteLength));
+
+	return new Response(body, {
 		status: upstream.status,
 		headers,
 	});
@@ -98,7 +104,7 @@ export const GET: RequestHandler = async ({ platform, url, params }) => {
 		const response = await platform.env.OG_645_LIVE.fetch(ogRequest);
 
 		if (response.ok) {
-			return createImageResponse(
+			return await createImageResponse(
 				response,
 				format === "svg" ? "image/svg+xml" : "image/png",
 			);
