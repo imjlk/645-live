@@ -59,6 +59,7 @@ DB 관련:
 - 기본 로컬 DB는 `postgres://root:mysecretpassword@localhost:50101/local`
 - `HYPERDRIVE_PROXY`: 앱 런타임(Hyperdrive) 연결 문자열
 - `DATABASE_SSL_MODE`: 원격 direct Postgres 마이그레이션용 SSL 모드 (`verify-full` 권장)
+- `DATABASE_SSL_CA_CERT`: 원격 direct Postgres 마이그레이션용 PEM 본문 (선택)
 - `DATABASE_SSL_CA_CERT_PATH`: 원격 direct Postgres 마이그레이션용 CA cert 경로
 - `BETTER_AUTH_SECRET`
 - `BETTER_AUTH_URL`
@@ -82,6 +83,9 @@ DATABASE_SSL_MODE='verify-full' \
 DATABASE_SSL_CA_CERT_PATH='/absolute/path/to/db-ca.crt' \
 bun run www db:migrate:remote
 ```
+
+- `DATABASE_SSL_CA_CERT`를 설정하면 파일 마운트 없이 PEM 본문으로도 실행할 수 있습니다.
+- `Dockerfile.migrate`는 시스템 CA bundle이 필요한 경우를 위해 `ca-certificates` 패키지를 포함합니다.
 
 - schema 변경이 있는 릴리스는 `db:migrate:remote` 성공을 먼저 확인한 뒤 Pages 배포를 확인합니다.
 - `db:push`는 로컬 개발 보조용으로만 사용하고, 운영 기준은 `drizzle/*.sql` migration 적용입니다.

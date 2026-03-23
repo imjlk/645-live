@@ -13,16 +13,27 @@ const sslMode =
 	process.env.DATABASE_SSL_MODE ??
 	parsedUrl.searchParams.get("sslmode") ??
 	undefined;
+const sslCaCert =
+	process.env.DATABASE_SSL_CA_CERT?.trim().length
+		? process.env.DATABASE_SSL_CA_CERT
+		: undefined;
 const sslCaCertPath =
 	process.env.DATABASE_SSL_CA_CERT_PATH ??
 	parsedUrl.searchParams.get("sslrootcert") ??
 	undefined;
 
-if (sslCaCertPath && !existsSync(sslCaCertPath)) {
+if (!sslCaCert && sslCaCertPath && !existsSync(sslCaCertPath)) {
 	throw new Error(`DATABASE_SSL_CA_CERT_PATH does not exist: ${sslCaCertPath}`);
 }
 
 const sslConfig = (() => {
+	if (sslCaCert) {
+		return {
+			ca: sslCaCert,
+			rejectUnauthorized: true,
+		};
+	}
+
 	if (sslCaCertPath) {
 		return {
 			ca: readFileSync(sslCaCertPath, "utf8"),
