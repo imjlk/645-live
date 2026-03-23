@@ -12,7 +12,7 @@ declare global {
 			ctx: ExecutionContext;
 		}
 		interface Locals {
-			db: DrizzleClient;
+			db?: DrizzleClient;
 			auth?: BetterAuth;
 		}
 	}

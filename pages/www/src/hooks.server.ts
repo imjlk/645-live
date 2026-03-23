@@ -2,6 +2,7 @@ import { building } from "$app/environment";
 import { env } from "$env/dynamic/private";
 import { createAuth } from "$lib/auth"; // path to your auth file
 import { createDrizzleClient } from "$lib/db";
+import type { DrizzleClient } from "$lib/db";
 import type { Handle } from "@sveltejs/kit";
 import { svelteKitHandler } from "better-auth/svelte-kit";
 
@@ -35,10 +36,8 @@ export const handle: Handle = async ({ event, resolve }) => {
 		return await svelteKitHandler({ event, resolve, auth, building });
 	} catch (error) {
 		console.error("Database connection failed:", error);
-		// 개발 환경에서는 에러를 던지지 않고 계속 진행
-		if (process.env.NODE_ENV === "development") {
-			return resolve(event);
-		}
-		throw error;
+		(event.locals as { db?: DrizzleClient }).db = undefined;
+		event.locals.auth = undefined;
+		return resolve(event);
 	}
 };

@@ -48,6 +48,16 @@ export const executeAuthJsonAction = async <T>(
 	path: string,
 	body?: Record<string, unknown>,
 ): Promise<{ data: T | null; response: Response }> => {
+	if (!event.locals.db) {
+		return {
+			data: null,
+			response: Response.json(
+				{ message: "Authentication is temporarily unavailable" },
+				{ status: 503 },
+			),
+		};
+	}
+
 	const headers = new Headers({
 		"content-type": "application/json",
 	});
