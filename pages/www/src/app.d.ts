@@ -14,6 +14,7 @@ declare global {
 		interface Locals {
 			db?: DrizzleClient;
 			auth?: BetterAuth;
+			dbBootstrapError?: string;
 		}
 	}
 }

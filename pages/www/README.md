@@ -17,7 +17,7 @@ SvelteKit 기반 메인 웹 애플리케이션입니다.
 bun install
 cp pages/www/.env.example pages/www/.env
 
-# Postgres 18 (localhost:50101)
+# Postgres 17 (localhost:50101)
 bun run www db:start
 
 # TrailBase 백엔드
@@ -41,10 +41,15 @@ bun run www dev
 DB 관련:
 
 - `bun run www db:start`
+- `bun run www db:stop`
+- `bun run www db:logs`
 - `bun run www db:push`
 - `bun run www db:generate`
 - `bun run www db:migrate`
+- `bun run www db:migrate:local`
+- `bun run www db:migrate:remote`
 - `bun run www db:studio`
+- `bun run www db:studio:remote`
 
 ## 환경 변수
 
@@ -52,7 +57,9 @@ DB 관련:
 
 - `DATABASE_URL`: 로컬 Drizzle 연결 문자열
 - 기본 로컬 DB는 `postgres://root:mysecretpassword@localhost:50101/local`
-- `HYPERDRIVE_PROXY`: 원격/프록시 DB 연결 문자열
+- `HYPERDRIVE_PROXY`: 앱 런타임(Hyperdrive) 연결 문자열
+- `DATABASE_SSL_MODE`: 원격 direct Postgres 마이그레이션용 SSL 모드 (`verify-full` 권장)
+- `DATABASE_SSL_CA_CERT_PATH`: 원격 direct Postgres 마이그레이션용 CA cert 경로
 - `BETTER_AUTH_SECRET`
 - `BETTER_AUTH_URL`
 - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`
@@ -61,6 +68,23 @@ DB 관련:
 - `TRAILBASE_URL`: 서버 측 TrailBase URL
 - `PUBLIC_TRAILBASE_URL`: 클라이언트 측 TrailBase URL
 - `TRAILBASE_BASIC_AUTH` (선택)
+
+## 프로덕션 마이그레이션 원칙
+
+- Pages 앱 런타임은 `HYPERDRIVE`로 DB를 읽습니다.
+- 프로덕션 Drizzle 마이그레이션은 `Hyperdrive`로 하지 않습니다.
+- 원격 마이그레이션은 direct origin Postgres `DATABASE_URL` 기준으로만 실행합니다.
+- 추천 실행 방식:
+
+```bash
+DATABASE_URL='postgresql://user:pass@host:5432/db' \
+DATABASE_SSL_MODE='verify-full' \
+DATABASE_SSL_CA_CERT_PATH='/absolute/path/to/db-ca.crt' \
+bun run www db:migrate:remote
+```
+
+- schema 변경이 있는 릴리스는 `db:migrate:remote` 성공을 먼저 확인한 뒤 Pages 배포를 확인합니다.
+- `db:push`는 로컬 개발 보조용으로만 사용하고, 운영 기준은 `drizzle/*.sql` migration 적용입니다.
 
 ## 디렉터리 포인트
 
