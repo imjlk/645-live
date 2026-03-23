@@ -160,9 +160,7 @@ export const handleNews = async (c: Context) => {
 
 		const customOptions = {
 			backgroundImage: url.searchParams.get("backgroundImage") || undefined,
-			logo:
-				url.searchParams.get("logo") ||
-				"https://645.live/assets/icons/icon-192.png",
+			logo: url.searchParams.get("logo") || undefined,
 			gradientBackground: {
 				type: "linear" as const,
 				colors: gradientColors,

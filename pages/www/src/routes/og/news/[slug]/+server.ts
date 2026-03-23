@@ -192,13 +192,6 @@ export const GET: RequestHandler = async ({ platform, url, params }) => {
 		if (!ogUrl.searchParams.has("height")) {
 			ogUrl.searchParams.set("height", "630");
 		}
-		if (!ogUrl.searchParams.has("logo")) {
-			ogUrl.searchParams.set(
-				"logo",
-				"https://645.live/assets/icons/icon-192.png",
-			);
-		}
-
 		const ogRequest = new Request(ogUrl.toString());
 		const response = await platform.env.OG_645_LIVE.fetch(ogRequest);
 

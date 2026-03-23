@@ -15,6 +15,7 @@
 		formatVisibleDateTime,
 		toIsoDateTime,
 	} from '$lib/seo/index.js';
+	import { JsonLd } from 'svelte-meta-tags';
 
 	let { data } = $props();
 
@@ -121,14 +122,10 @@
 		<meta name="news_keywords" content={data.meta.tags.join(', ')} />
 	{/if}
 	<link rel="preload" as="image" href={imageUrl} />
-
-	<script type="application/ld+json">
-		{JSON.stringify(articleJsonLd)}
-	</script>
-	<script type="application/ld+json">
-		{JSON.stringify(breadcrumbSchema)}
-	</script>
 </svelte:head>
+
+<JsonLd schema={articleJsonLd} />
+<JsonLd schema={breadcrumbSchema} />
 
 <NewsLayout>
 	<header class="not-prose mb-8 rounded-xl border border-base-300 bg-base-100 p-6">
