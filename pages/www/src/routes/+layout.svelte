@@ -29,15 +29,32 @@ preparePageTransition();
 let availableRounds = $state<number[]>([]);
 
 let currentPath = $derived(page.url.pathname);
+const FORCE_SW_RESET_PARAM = "sw-reset";
 
-async function resetDevServiceWorkers(): Promise<boolean> {
-	if (!browser || !import.meta.env.DEV || !("serviceWorker" in navigator)) {
+async function resetServiceWorkersIfNeeded(): Promise<boolean> {
+	if (!browser || !("serviceWorker" in navigator)) {
 		return false;
 	}
 
+	const forceReset = page.url.searchParams.has(FORCE_SW_RESET_PARAM);
+	const shouldReset = import.meta.env.DEV || forceReset;
+
+	if (!shouldReset) {
+		return false;
+	}
+
+	const resetKey = forceReset ? "prod-sw-reset" : "dev-sw-reset";
 	const registrations = await navigator.serviceWorker.getRegistrations();
-	if (registrations.length === 0) {
-		sessionStorage.removeItem("dev-sw-reset");
+	const cacheNames = "caches" in window ? await caches.keys() : [];
+	const hasResetTargets = registrations.length > 0 || cacheNames.length > 0;
+
+	if (!hasResetTargets) {
+		sessionStorage.removeItem(resetKey);
+		if (forceReset) {
+			const nextUrl = new URL(window.location.href);
+			nextUrl.searchParams.delete(FORCE_SW_RESET_PARAM);
+			window.history.replaceState({}, "", nextUrl);
+		}
 		return false;
 	}
 
@@ -45,21 +62,21 @@ async function resetDevServiceWorkers(): Promise<boolean> {
 		registrations.map((registration) => registration.unregister()),
 	);
 
-	if ("caches" in window) {
-		const cacheNames = await caches.keys();
-		await Promise.all(cacheNames.map((cacheName) => caches.delete(cacheName)));
+	await Promise.all(cacheNames.map((cacheName) => caches.delete(cacheName)));
+
+	if (forceReset) {
+		const nextUrl = new URL(window.location.href);
+		nextUrl.searchParams.delete(FORCE_SW_RESET_PARAM);
+		window.history.replaceState({}, "", nextUrl);
 	}
 
-	if (navigator.serviceWorker.controller) {
-		if (sessionStorage.getItem("dev-sw-reset") !== "done") {
-			sessionStorage.setItem("dev-sw-reset", "done");
-			window.location.reload();
-			return true;
-		}
-	} else {
-		sessionStorage.removeItem("dev-sw-reset");
+	if (sessionStorage.getItem(resetKey) !== "done") {
+		sessionStorage.setItem(resetKey, "done");
+		window.location.reload();
+		return true;
 	}
 
+	sessionStorage.removeItem(resetKey);
 	return false;
 }
 
@@ -67,7 +84,7 @@ onMount(() => {
 	const unregisterMemberScanSync = registerMemberScanSyncLifecycle();
 
 	void (async () => {
-		if (await resetDevServiceWorkers()) {
+		if (await resetServiceWorkersIfNeeded()) {
 			return;
 		}
 

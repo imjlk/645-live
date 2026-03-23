@@ -15,7 +15,7 @@ interface FetchEvent extends Event {
 
 declare const self: ServiceWorkerGlobalScope;
 
-const CACHE_VERSION = "v1.1.0"; // Updated for better real-time data handling
+const CACHE_VERSION = "v1.1.1"; // Force refresh after stale news/OG cache fixes
 const CACHE_NAMES = {
 	static: `static-${CACHE_VERSION}`,
 	dynamic: `dynamic-${CACHE_VERSION}`,
