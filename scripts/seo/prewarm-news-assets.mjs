@@ -6,7 +6,7 @@ const REPO_ROOT = process.cwd();
 const NEWS_DIR = path.join(REPO_ROOT, "pages/www/src/content/news");
 
 const SITE_BASE_URL = normalizeBaseUrl(
-	process.env.SITE_BASE_URL || "https://www.645.live",
+	process.env.SITE_BASE_URL || "https://645.live",
 );
 const CHANGED_NEWS_FILES = parseCsv(process.env.CHANGED_NEWS_FILES || "");
 const PREWARM_MAX_NEWS = safePositiveInt(process.env.PREWARM_MAX_NEWS, 10);
@@ -21,7 +21,7 @@ const PREWARM_RETRY_DELAY_MS = safePositiveInt(
 );
 const PREWARM_USER_AGENT =
 	process.env.PREWARM_USER_AGENT ||
-	"Mozilla/5.0 (compatible; 645live-prewarm/1.0; +https://www.645.live)";
+	"Mozilla/5.0 (compatible; 645live-prewarm/1.0; +https://645.live)";
 
 function normalizeBaseUrl(raw) {
 	try {
@@ -29,7 +29,7 @@ function normalizeBaseUrl(raw) {
 		url.pathname = "";
 		return url.toString().replace(/\/+$/, "");
 	} catch {
-		return "https://www.645.live";
+		return "https://645.live";
 	}
 }
 

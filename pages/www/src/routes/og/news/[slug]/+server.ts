@@ -195,7 +195,7 @@ export const GET: RequestHandler = async ({ platform, url, params }) => {
 		if (!ogUrl.searchParams.has("logo")) {
 			ogUrl.searchParams.set(
 				"logo",
-				"https://www.645.live/assets/icons/icon-192.png",
+				"https://645.live/assets/icons/icon-192.png",
 			);
 		}
 

@@ -131,7 +131,7 @@ const sortedPatterns = $derived(
 	title="로또 6/45 구간별 분석 통계 | 구간별 번호 분포 분석"
 	titleTemplate="%s | 645.live"
 	description={`로또 6/45 구간별 번호 분포를 분석합니다 (최근 ${data.selectedRounds}회차). 1구간(1-10), 2구간(11-20), 3구간(21-30), 4구간(31-40), 5구간(41-45)의 분포 패턴과 균형성을 제공합니다.`}
-	canonical={`https://www.645.live/stats/sections/recent/${data.selectedRounds}`}
+	canonical={`https://645.live/stats/sections/recent/${data.selectedRounds}`}
 	keywords={["로또", "구간별분석", "번호분포", "로또통계", "구간패턴", "번호균형", "로또예측", "6/45통계", "구간별통계", "번호구간분석"]}
 	robots="index,follow"
 	additionalRobotsProps={{
@@ -162,21 +162,21 @@ const sortedPatterns = $derived(
 		},
 		{
 			property: 'article:publisher',
-			content: 'https://www.645.live'
+			content: 'https://645.live'
 		}
 	]}
 	openGraph={{
 		type: 'article',
-		url: `https://www.645.live/stats/sections/recent/${data.selectedRounds}`,
+		url: `https://645.live/stats/sections/recent/${data.selectedRounds}`,
 		title: `로또 6/45 구간별 분석 통계 | 번호 분포 패턴 (최근 ${data.selectedRounds}회차)`,
 		description: `로또 6/45 구간별 번호 분포를 분석합니다 (최근 ${data.selectedRounds}회차). 1구간부터 5구간까지의 균형성과 분포 패턴을 제공합니다.`,
 		locale: 'ko_KR',
 		images: [{
-			url: 'https://www.645.live/images/lotto-section-stats.png',
+			url: 'https://645.live/images/lotto-section-stats.png',
 			width: 1200,
 			height: 630,
 			alt: '로또 6/45 구간별 분석 통계',
-			secureUrl: 'https://www.645.live/images/lotto-section-stats.png',
+			secureUrl: 'https://645.live/images/lotto-section-stats.png',
 			type: 'image/png'
 		}],
 		siteName: '645.live',
@@ -192,7 +192,7 @@ const sortedPatterns = $derived(
 		site: '@645live',
 		title: `로또 6/45 구간별 분석 통계 (최근 ${data.selectedRounds}회차)`,
 		description: '구간별 번호 분포 분석으로 로또 번호 균형성을 파악하세요.',
-		image: 'https://www.645.live/images/lotto-section-stats.png',
+		image: 'https://645.live/images/lotto-section-stats.png',
 		imageAlt: '로또 6/45 구간별 분석 통계'
 	}}
 />
@@ -202,7 +202,7 @@ const sortedPatterns = $derived(
 		'@type': 'Dataset',
 		name: `로또 6/45 구간별 분석 통계 (최근 ${data.selectedRounds}회차)`,
 		description: `로또 6/45 구간별 번호 분포를 분석한 통계 데이터입니다 (최근 ${data.selectedRounds}회차).`,
-		url: `https://www.645.live/stats/sections/recent/${data.selectedRounds}`,
+		url: `https://645.live/stats/sections/recent/${data.selectedRounds}`,
 		creator: {
 			'@type': 'Organization',
 			name: '645.live'

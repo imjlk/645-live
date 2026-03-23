@@ -2,7 +2,7 @@ import type { OptionsSvelteSitemap } from "svelte-sitemap";
 import { buildSitemapEntries } from "../../scripts/seo/sitemap-routes.mjs";
 
 const config: OptionsSvelteSitemap = {
-	domain: "https://www.645.live",
+	domain: "https://645.live",
 	outDir: ".svelte-kit/cloudflare",
 	attribution: false,
 	ignore: ["404.html"],

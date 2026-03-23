@@ -77,7 +77,7 @@ const breadcrumbItems = [
 	title="로또 6/45 색상 분석 통계 | 번호 구간별 색상 패턴 분석"
 	titleTemplate="%s | 645.live"
 	description="로또 6/45 전체 {data.totalRounds}회차 색상별 분포와 패턴을 분석합니다. 번호 구간별 색상(노랑, 파랑, 빨강, 회색, 초록) 조합과 출현 빈도를 제공합니다."
-	canonical="https://www.645.live/stats/colors"
+	canonical="https://645.live/stats/colors"
 	keywords={["로또색상분석", "번호구간분석", "로또통계분석", "색상패턴분석", "로또예측", "색상조합분석", "로또데이터분석", "6/45통계"]}
 	robots="index,follow"
 	additionalRobotsProps={{
@@ -108,21 +108,21 @@ const breadcrumbItems = [
 		},
 		{
 			property: 'article:publisher',
-			content: 'https://www.645.live'
+			content: 'https://645.live'
 		}
 	]}
 	openGraph={{
 		type: 'article',
-		url: 'https://www.645.live/stats/colors',
+		url: 'https://645.live/stats/colors',
 		title: `로또 6/45 색상 분석 통계 | 전체 ${data.totalRounds}회차 데이터`,
 		description: `로또 6/45 당첨번호의 색상별 분포와 패턴을 분석합니다. 최빈 색상 ${colorInfo[data.mostFrequentColor[0] as keyof typeof colorInfo]?.name}, 평균 ${data.mostFrequentColor[1]}개 등 상세한 통계 정보를 확인하세요.`,
 		locale: 'ko_KR',
 		images: [{
-			url: 'https://www.645.live/images/lotto-color-stats.png',
+			url: 'https://645.live/images/lotto-color-stats.png',
 			width: 1200,
 			height: 630,
 			alt: '로또 6/45 색상 분석 통계',
-			secureUrl: 'https://www.645.live/images/lotto-color-stats.png',
+			secureUrl: 'https://645.live/images/lotto-color-stats.png',
 			type: 'image/png'
 		}],
 		siteName: '645.live',
@@ -138,7 +138,7 @@ const breadcrumbItems = [
 		site: '@645live',
 		title: '로또 6/45 색상 분석 통계',
 		description: `전체 ${data.totalRounds}회차 색상 패턴 분석 - 최빈 ${colorInfo[data.mostFrequentColor[0] as keyof typeof colorInfo]?.name}, 평균 ${data.mostFrequentColor[1]}개`,
-		image: 'https://www.645.live/images/lotto-color-stats.png',
+		image: 'https://645.live/images/lotto-color-stats.png',
 		imageAlt: '로또 6/45 색상 분석 통계'
 	}}
 />
@@ -148,7 +148,7 @@ const breadcrumbItems = [
 		'@type': 'Dataset',
 		name: '로또 6/45 색상 분석 통계 데이터',
 		description: `로또 6/45 당첨번호의 색상별 분포와 패턴 분석 데이터. 전체 ${data.totalRounds}회차의 색상 분포와 패턴을 분석합니다.`,
-		url: 'https://www.645.live/stats/colors',
+		url: 'https://645.live/stats/colors',
 		creator: {
 			'@type': 'Organization',
 			name: '645.live'
@@ -160,7 +160,7 @@ const breadcrumbItems = [
 		},
 		distribution: {
 			'@type': 'DataDownload',
-			contentUrl: 'https://www.645.live/stats/colors',
+			contentUrl: 'https://645.live/stats/colors',
 			encodingFormat: 'text/html'
 		},
 		variableMeasured: [

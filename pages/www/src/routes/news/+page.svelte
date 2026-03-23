@@ -53,8 +53,8 @@
 	const totalPosts = $derived(pagination?.totalPosts ?? newsPosts.length);
 	const pageTitle = $derived(currentPage > 1 ? `로또 뉴스 - ${currentPage}페이지 - 645.live` : '로또 뉴스 - 645.live');
 	const canonicalUrl = $derived(currentPage > 1
-		? `https://www.645.live/news?page=${currentPage}`
-		: 'https://www.645.live/news');
+		? `https://645.live/news?page=${currentPage}`
+		: 'https://645.live/news');
 	const collectionSchema = $derived(
 		createCollectionPageSchema({
 			path: currentPage > 1 ? `/news?page=${currentPage}` : "/news",

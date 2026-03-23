@@ -69,7 +69,7 @@ const faqMainEntity = Array.from(
 			faq.question.trim(),
 			{
 				'@type': 'Question',
-				'@id': `https://www.645.live/guide#faq-q${index + 1}`,
+				'@id': `https://645.live/guide#faq-q${index + 1}`,
 				name: faq.question.trim(),
 				acceptedAnswer: {
 					'@type': 'Answer',
@@ -257,7 +257,7 @@ const guideSection = [
 	title="로또 6/45 완전 가이드 | 초보자를 위한 로또 이용법 - 645.live"
 	titleTemplate="%s"
 	description="로또 6/45 초보자 완전 가이드! 게임 방법부터 당첨확률, 구매법, 당첨금 수령, 세금까지 모든 정보를 쉽게 설명. 로또 초보자 필수 정보 제공."
-	canonical="https://www.645.live/guide"
+	canonical="https://645.live/guide"
 	keywords={["로또가이드", "로또 6/45 방법", "로또 구매법", "로또 당첨확률", "로또 초보자 가이드", "로또 이용법", "로또 당첨금 수령", "로또 세금", "복권 가이드", "로또 통계", "로또 예상번호", "로또 분석", "로또 팁", "로또 전략", "로또 용어", "로또 상금", "로또 예측", "로또 개념", "로또 기본법", "로또 FAQ"]}
 	robots="index,follow"
 	additionalRobotsProps={{
@@ -288,17 +288,17 @@ const guideSection = [
 		},
 		{
 			property: 'article:publisher',
-			content: 'https://www.645.live'
+			content: 'https://645.live'
 		}
 	]}
 	openGraph={{
 		type: 'article',
-		url: 'https://www.645.live/guide',
+		url: 'https://645.live/guide',
 		title: '로또 6/45 완전 가이드 | 초보자를 위한 로또 이용법',
 		description: '로또 6/45 초보자를 위한 완전 가이드. 게임 방법부터 당첨금 수령까지 모든 정보를 제공합니다.',
 		locale: 'ko_KR',
 		images: [{
-			url: `https://www.645.live/og?title=${encodeURIComponent('로또 6/45 완전 가이드')}&description=${encodeURIComponent('초보자를 위한 로또 이용법 - 게임방법, 확률, 구매팁, 당첨수령까지')}&layout=hero&theme=dark`,
+			url: `https://645.live/og?title=${encodeURIComponent('로또 6/45 완전 가이드')}&description=${encodeURIComponent('초보자를 위한 로또 이용법 - 게임방법, 확률, 구매팁, 당첨수령까지')}&layout=hero&theme=dark`,
 			width: 1200,
 			height: 630,
 			alt: '로또 6/45 완전 가이드',
@@ -317,7 +317,7 @@ const guideSection = [
 		site: '@645live',
 		title: '로또 6/45 완전 가이드',
 		description: '초보자를 위한 로또 이용법 - 게임방법부터 당첨금 수령까지',
-		image: `https://www.645.live/og?title=${encodeURIComponent('로또 6/45 완전 가이드')}&description=${encodeURIComponent('초보자를 위한 로또 이용법')}&layout=hero&theme=dark`,
+		image: `https://645.live/og?title=${encodeURIComponent('로또 6/45 완전 가이드')}&description=${encodeURIComponent('초보자를 위한 로또 이용법')}&layout=hero&theme=dark`,
 		imageAlt: '로또 6/45 완전 가이드'
 	}}
 />
@@ -327,7 +327,7 @@ const guideSection = [
 		'@type': 'Article',
 		headline: '로또 6/45 완전 가이드 | 초보자를 위한 로또 이용법',
 		description: '로또 6/45 초보자를 위한 완전 가이드. 게임 방법, 당첨 확률, 구매 방법, 당첨금 수령까지 모든 정보를 한 곳에서 확인하세요.',
-		url: 'https://www.645.live/guide',
+		url: 'https://645.live/guide',
 		datePublished: '2024-01-01T00:00:00.000Z',
 		dateModified: new Date().toISOString(),
 		author: {
@@ -337,11 +337,11 @@ const guideSection = [
 		publisher: {
 			'@type': 'Organization',
 			name: '645.live',
-			url: 'https://www.645.live'
+			url: 'https://645.live'
 		},
 		mainEntityOfPage: {
 			'@type': 'WebPage',
-			'@id': 'https://www.645.live/guide'
+			'@id': 'https://645.live/guide'
 		},
 		articleSection: '로또 가이드',
 		keywords: ['로또', '가이드', '초보자', '6/45', '복권', '당첨확률', '구매방법'],
@@ -357,7 +357,7 @@ const guideSection = [
 <JsonLd
 	schema={{
 		'@type': 'FAQPage',
-		'@id': 'https://www.645.live/guide#faq',
+		'@id': 'https://645.live/guide#faq',
 		mainEntity: faqMainEntity
 	}}
 />
@@ -368,7 +368,7 @@ const guideSection = [
 		'@type': 'HowTo',
 		name: '로또 6/45 이용 방법',
 		description: '로또 6/45를 처음 시작하는 분들을 위한 단계별 가이드',
-		image: `https://www.645.live/og?title=로또%206/45%20완전%20가이드&layout=hero&theme=dark`,
+		image: `https://645.live/og?title=로또%206/45%20완전%20가이드&layout=hero&theme=dark`,
 		totalTime: 'PT10M',
 		estimatedCost: {
 			'@type': 'MonetaryAmount',

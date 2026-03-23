@@ -128,7 +128,7 @@ const sortedRepeatCounts = $derived(
 	title="로또 6/45 연속번호 중복 분석 통계 | 회차간 중복 패턴 분석"
 	titleTemplate="%s | 645.live"
 	description={`로또 6/45 연속 회차 간 중복 번호 패턴을 분석합니다 (최근 ${data.selectedRounds}회차). 이전 회차와의 번호 중복 빈도와 연속성 트렌드를 제공합니다.`}
-	canonical={`https://www.645.live/stats/repeat/recent/${data.selectedRounds}`}
+	canonical={`https://645.live/stats/repeat/recent/${data.selectedRounds}`}
 	keywords={["로또", "연속번호", "중복번호", "로또통계", "번호패턴", "연속성분석", "로또예측", "6/45통계", "로또연속성", "번호중복분석"]}
 	robots="index,follow"
 	additionalRobotsProps={{
@@ -159,21 +159,21 @@ const sortedRepeatCounts = $derived(
 		},
 		{
 			property: 'article:publisher',
-			content: 'https://www.645.live'
+			content: 'https://645.live'
 		}
 	]}
 	openGraph={{
 		type: 'article',
-		url: `https://www.645.live/stats/repeat/recent/${data.selectedRounds}`,
+		url: `https://645.live/stats/repeat/recent/${data.selectedRounds}`,
 		title: `로또 6/45 연속번호 중복 분석 통계 | 회차간 중복 패턴 (최근 ${data.selectedRounds}회차)`,
 		description: `로또 6/45 연속 회차 간 중복 번호 패턴을 분석합니다 (최근 ${data.selectedRounds}회차). 이전 회차와의 번호 중복 빈도와 연속성 트렌드를 제공합니다.`,
 		locale: 'ko_KR',
 		images: [{
-			url: 'https://www.645.live/images/lotto-repeat-stats.png',
+			url: 'https://645.live/images/lotto-repeat-stats.png',
 			width: 1200,
 			height: 630,
 			alt: '로또 6/45 연속번호 중복 분석 통계',
-			secureUrl: 'https://www.645.live/images/lotto-repeat-stats.png',
+			secureUrl: 'https://645.live/images/lotto-repeat-stats.png',
 			type: 'image/png'
 		}],
 		siteName: '645.live',
@@ -189,7 +189,7 @@ const sortedRepeatCounts = $derived(
 		site: '@645live',
 		title: `로또 6/45 연속번호 중복 분석 통계 (최근 ${data.selectedRounds}회차)`,
 		description: '회차간 중복 패턴 분석으로 로또 번호 연속성을 파악하세요.',
-		image: 'https://www.645.live/images/lotto-repeat-stats.png',
+		image: 'https://645.live/images/lotto-repeat-stats.png',
 		imageAlt: '로또 6/45 연속번호 중복 분석 통계'
 	}}
 />
@@ -199,7 +199,7 @@ const sortedRepeatCounts = $derived(
 		'@type': 'Dataset',
 		name: `로또 6/45 연속번호 중복 분석 통계 (최근 ${data.selectedRounds}회차)`,
 		description: `로또 6/45 연속 회차 간 중복 번호 패턴을 분석한 통계 데이터입니다 (최근 ${data.selectedRounds}회차).`,
-		url: `https://www.645.live/stats/repeat/recent/${data.selectedRounds}`,
+		url: `https://645.live/stats/repeat/recent/${data.selectedRounds}`,
 		creator: {
 			'@type': 'Organization',
 			name: '645.live'

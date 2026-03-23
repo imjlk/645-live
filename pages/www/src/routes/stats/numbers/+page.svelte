@@ -45,17 +45,17 @@ const getDeviationClass = (deviation: string) => {
 	title="로또 6/45 번호별 출현 통계"
 	titleTemplate="%s | 645.live"
 	description="📊 로또 6/45 전 번호 완전분석! 1번부터 45번까지 출현 빈도, 색깔별 분포, 구간별 분석으로 당첨 패턴을 찾아보세요!"
-	canonical="https://www.645.live/stats/numbers"
+	canonical="https://645.live/stats/numbers"
 	keywords={["로또번호통계", "로또번호분석", "로또출현빈도", "로또색깔분석", "번호별통계", "로또패턴분석"]}
 	openGraph={{
 		type: "article",
-		url: "https://www.645.live/stats/numbers",
+		url: "https://645.live/stats/numbers",
 		title: "로또 6/45 번호별 출현 통계",
 		description: `📊 전 번호 완전분석! 총 ${data.totalRounds}회차 데이터로 당첨 패턴 발견하기`,
 		siteName: "645.live",
 		locale: "ko_KR",
 		images: [{
-			url: `https://www.645.live/og?title=${encodeURIComponent('로또 6/45 번호별 출현 통계')}&description=${encodeURIComponent(`총 ${data.totalRounds}회차 데이터 분석 - 최다 ${Math.max(...data.numberStats.map(s => s.draw_count))}회 - 최소 ${Math.min(...data.numberStats.map(s => s.draw_count))}회`)}&layout=blog&theme=light`,
+			url: `https://645.live/og?title=${encodeURIComponent('로또 6/45 번호별 출현 통계')}&description=${encodeURIComponent(`총 ${data.totalRounds}회차 데이터 분석 - 최다 ${Math.max(...data.numberStats.map(s => s.draw_count))}회 - 최소 ${Math.min(...data.numberStats.map(s => s.draw_count))}회`)}&layout=blog&theme=light`,
 			width: 1200,
 			height: 630,
 			alt: "로또 6/45 번호별 출현 통계",
@@ -67,7 +67,7 @@ const getDeviationClass = (deviation: string) => {
 		site: "@645live",
 		title: "로또 6/45 번호별 출현 통계",
 		description: `📊 전 번호 완전분석! 총 ${data.totalRounds}회차 데이터로 당첨 패턴 발견하기`,
-		image: `https://www.645.live/og?title=${encodeURIComponent('로또 6/45 번호별 출현 통계')}&description=${encodeURIComponent(`총 ${data.totalRounds}회차 데이터 분석 - 최다 ${Math.max(...data.numberStats.map(s => s.draw_count))}회 - 최소 ${Math.min(...data.numberStats.map(s => s.draw_count))}회`)}&layout=blog&theme=light`,
+		image: `https://645.live/og?title=${encodeURIComponent('로또 6/45 번호별 출현 통계')}&description=${encodeURIComponent(`총 ${data.totalRounds}회차 데이터 분석 - 최다 ${Math.max(...data.numberStats.map(s => s.draw_count))}회 - 최소 ${Math.min(...data.numberStats.map(s => s.draw_count))}회`)}&layout=blog&theme=light`,
 		imageAlt: "로또 6/45 번호별 출현 통계"
 	}}
 	additionalMetaTags={[
@@ -84,7 +84,7 @@ const getDeviationClass = (deviation: string) => {
 		"@type": "Dataset",
 		name: "로또 6/45 번호별 출현 통계",
 		description: "로또 6/45 각 번호의 출현 빈도, 색깔별 분포, 구간별 분석 데이터",
-		url: "https://www.645.live/stats/numbers",
+		url: "https://645.live/stats/numbers",
 		keywords: ["로또번호통계", "로또번호분석", "로또출현빈도", "로또색깔분석"],
 		temporalCoverage: "2002-12-07/..",
 		creator: {

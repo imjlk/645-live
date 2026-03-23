@@ -162,7 +162,7 @@ export const handleNews = async (c: Context) => {
 			backgroundImage: url.searchParams.get("backgroundImage") || undefined,
 			logo:
 				url.searchParams.get("logo") ||
-				"https://www.645.live/assets/icons/icon-192.png",
+				"https://645.live/assets/icons/icon-192.png",
 			gradientBackground: {
 				type: "linear" as const,
 				colors: gradientColors,

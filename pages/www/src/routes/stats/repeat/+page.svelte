@@ -105,7 +105,7 @@ const handleKeydown = (event: KeyboardEvent) => {
 	title="로또 6/45 연속번호 분석 통계 | 회차간 중복 패턴 분석"
 	titleTemplate="%s | 645.live"
 	description="로또 6/45 연속 회차 간 중복 번호 패턴을 분석합니다. 이전 회차와의 번호 중복 빈도와 연속성 트렌드를 제공합니다."
-	canonical="https://www.645.live/stats/repeat"
+	canonical="https://645.live/stats/repeat"
 	keywords={["로또", "연속번호", "중복번호", "로또통계", "번호패턴", "연속성분석", "로또예측", "6/45통계", "로또연속성", "번호중복분석"]}
 	robots="index,follow"
 	additionalRobotsProps={{
@@ -136,17 +136,17 @@ const handleKeydown = (event: KeyboardEvent) => {
 		},
 		{
 			property: 'article:publisher',
-			content: 'https://www.645.live'
+			content: 'https://645.live'
 		}
 	]}
 	openGraph={{
 		type: 'article',
-		url: 'https://www.645.live/stats/repeat',
+		url: 'https://645.live/stats/repeat',
 		title: '로또 6/45 연속번호 분석 통계 | 회차간 중복 패턴',
 		description: '로또 6/45 연속 회차 간 중복 번호 패턴을 분석합니다. 이전 회차와의 번호 중복 빈도와 연속성 트렌드를 제공합니다.',
 		locale: 'ko_KR',
 		images: [{
-			url: `https://www.645.live/og?${new URLSearchParams({
+			url: `https://645.live/og?${new URLSearchParams({
 				title: encodeURIComponent('로또 6/45 연속번호 분석'),
 				description: encodeURIComponent(`평균 중복: ${data.averageRepeatCount}개 | 최대 중복: ${data.maxRepeatCount}개 | 중복없음: ${data.zeroRepeatRate}%`),
 				layout: 'minimal',
@@ -171,7 +171,7 @@ const handleKeydown = (event: KeyboardEvent) => {
 		site: '@645live',
 		title: '로또 6/45 연속번호 분석 통계',
 		description: '회차간 중복 패턴 분석으로 로또 번호 연속성을 파악하세요.',
-		image: `https://www.645.live/og?${new URLSearchParams({
+		image: `https://645.live/og?${new URLSearchParams({
 			title: encodeURIComponent('로또 6/45 연속번호 분석'),
 			description: encodeURIComponent(`평균 중복 ${data.averageRepeatCount}개 | 중복없음 ${data.zeroRepeatRate}%`),
 			layout: 'minimal',
@@ -187,7 +187,7 @@ const handleKeydown = (event: KeyboardEvent) => {
 		'@type': 'Dataset',
 		name: '로또 6/45 연속번호 분석 통계',
 		description: '로또 6/45 연속 회차 간 중복 번호 패턴을 분석한 통계 데이터입니다.',
-		url: 'https://www.645.live/stats/repeat',
+		url: 'https://645.live/stats/repeat',
 		creator: {
 			'@type': 'Organization',
 			name: '645.live'

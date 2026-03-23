@@ -88,7 +88,7 @@ const breadcrumbItems = [
 	title={`로또 번호 ${data.selectedNumber}번 상세 분석 | 출현 빈도 및 패턴 분석`}
 	titleTemplate="%s | 645.live"
 	description={`로또 6/45 번호 ${data.selectedNumber}번 상세 분석. 총 ${data.numberStats.draw_count}회 출현, 출현율 ${data.numberStats.averageFrequency}%. 최근 당첨 이력과 패턴을 분석합니다.`}
-	canonical={`https://www.645.live/stats/numbers/${data.selectedNumber}`}
+	canonical={`https://645.live/stats/numbers/${data.selectedNumber}`}
 	keywords={[`로또 ${data.selectedNumber}번`, "번호분석", "출현빈도", "당첨패턴", "로또통계", "번호별통계", "6/45통계", "번호예측"]}
 	robots="index,follow"
 	additionalRobotsProps={{
@@ -119,17 +119,17 @@ const breadcrumbItems = [
 		},
 		{
 			property: 'article:publisher',
-			content: 'https://www.645.live'
+			content: 'https://645.live'
 		}
 	]}
 	openGraph={{
 		type: 'article',
-		url: `https://www.645.live/stats/numbers/${data.selectedNumber}`,
+		url: `https://645.live/stats/numbers/${data.selectedNumber}`,
 		title: `로또 번호 ${data.selectedNumber}번 상세 분석 | 출현 빈도 ${data.numberStats.averageFrequency}%`,
 		description: `로또 6/45 번호 ${data.selectedNumber}번 상세 분석 - 총 ${data.numberStats.draw_count}회 출현, 보너스 ${data.numberStats.bonus_count}회. 최근 당첨 이력과 패턴 분석.`,
 		locale: 'ko_KR',
 		images: [{
-			url: `https://www.645.live/og?${new URLSearchParams({
+			url: `https://645.live/og?${new URLSearchParams({
 				title: encodeURIComponent(`${data.selectedNumber}번 상세 분석`),
 				description: encodeURIComponent(`출현 ${data.numberStats.draw_count}회 (${data.numberStats.averageFrequency}%) | 보너스 ${data.numberStats.bonus_count}회 | ${colorDetail?.name || data.numberStats.color}색 | 편차 ${data.numberStats.deviation}`),
 				layout: 'minimal',
@@ -154,7 +154,7 @@ const breadcrumbItems = [
 		site: '@645live',
 		title: `로또 번호 ${data.selectedNumber}번 분석`,
 		description: `출현 ${data.numberStats.draw_count}회 (${data.numberStats.averageFrequency}%) | 보너스 ${data.numberStats.bonus_count}회`,
-		image: `https://www.645.live/og?${new URLSearchParams({
+		image: `https://645.live/og?${new URLSearchParams({
 			title: encodeURIComponent(`로또 ${data.selectedNumber}번 분석`),
 			description: encodeURIComponent(`출현 ${data.numberStats.draw_count}회 | 출현률 ${data.numberStats.averageFrequency}%`),
 			layout: 'minimal',
@@ -170,7 +170,7 @@ const breadcrumbItems = [
 		'@type': 'Dataset',
 		name: `로또 번호 ${data.selectedNumber}번 분석 데이터`,
 		description: `로또 6/45 번호 ${data.selectedNumber}번의 상세 분석 데이터. 출현 빈도 ${data.numberStats.averageFrequency}%, 총 ${data.numberStats.draw_count}회 출현 및 최근 당첨 이력을 포함합니다.`,
-		url: `https://www.645.live/stats/numbers/${data.selectedNumber}`,
+		url: `https://645.live/stats/numbers/${data.selectedNumber}`,
 		creator: {
 			'@type': 'Organization',
 			name: '645.live'

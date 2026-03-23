@@ -799,17 +799,17 @@ async function requestPermission() {
 <MetaTags
 	title="로또 QR 코드 스캔 - 당첨 확인 및 번호 기록"
 	description="📱 로또 QR 스캔으로 즉시 당첨 확인! 카메라만 갖다대면 당첨여부가 바로 나와요. 번호 기록까지 자동으로!"
-	canonical="https://www.645.live/qr-scan"
+	canonical="https://645.live/qr-scan"
 	keywords={["로또QR스캔", "로또당첨확인", "로또스캔", "QR코드스캔", "로또번호확인", "당첨조회", "로또체크", "645스캔"]}
 	openGraph={{
 		title: "로또 QR 코드 스캔 - 당첨 확인",
 		description: "📱 로또 QR 스캔으로 즉시 당첨 확인! 카메라만 갖다대면 당첨여부가 바로 나와요.",
-		url: "https://www.645.live/qr-scan",
+		url: "https://645.live/qr-scan",
 		type: "website",
 		siteName: "645.live",
 		images: [
 			{
-				url: `https://www.645.live/og?title=${encodeURIComponent('로또 QR 스캔')}&description=${encodeURIComponent('즉시 당첨 확인')}`,
+				url: `https://645.live/og?title=${encodeURIComponent('로또 QR 스캔')}&description=${encodeURIComponent('즉시 당첨 확인')}`,
 				width: 1200,
 				height: 630,
 				alt: "로또 QR 코드 스캔"
@@ -820,7 +820,7 @@ async function requestPermission() {
 		cardType: "summary_large_image",
 		title: "로또 QR 코드 스캔 - 당첨 확인",
 		description: "📱 로또 QR 스캔으로 즉시 당첨 확인! 카메라만 갖다대면 당첨여부가 바로 나와요.",
-		image: `https://www.645.live/og?title=${encodeURIComponent('로또 QR 스캔')}&description=${encodeURIComponent('즉시 당첨 확인')}`,
+		image: `https://645.live/og?title=${encodeURIComponent('로또 QR 스캔')}&description=${encodeURIComponent('즉시 당첨 확인')}`,
 		imageAlt: "로또 QR 코드 스캔"
 	}}
 	additionalMetaTags={[

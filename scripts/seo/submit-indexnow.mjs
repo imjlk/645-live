@@ -6,7 +6,7 @@ import process from 'node:process';
 const REPO_ROOT = process.cwd();
 const NEWS_DIR = path.join(REPO_ROOT, 'pages/www/src/content/news');
 
-const SITE_BASE_URL = normalizeBaseUrl(process.env.SITE_BASE_URL || 'https://www.645.live');
+const SITE_BASE_URL = normalizeBaseUrl(process.env.SITE_BASE_URL || 'https://645.live');
 const CHANGED_NEWS_FILES = parseCsv(process.env.CHANGED_NEWS_FILES || '');
 
 const INDEXNOW_ENDPOINT = (process.env.INDEXNOW_ENDPOINT || 'https://api.indexnow.org/indexnow').replace(/\/+$/, '');
@@ -49,7 +49,7 @@ function normalizeBaseUrl(raw) {
 		url.pathname = '';
 		return url.toString().replace(/\/+$/, '');
 	} catch {
-		return 'https://www.645.live';
+		return 'https://645.live';
 	}
 }
 

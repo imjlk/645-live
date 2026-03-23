@@ -7,7 +7,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..");
 const WEB_ROOT = path.join(REPO_ROOT, "pages", "www");
 const SITEMAP_PATH = path.join(WEB_ROOT, ".svelte-kit", "cloudflare", "sitemap.xml");
-const ORIGIN = "https://www.645.live";
+const ORIGIN = "https://645.live";
 
 function escapeXml(value) {
 	return String(value)

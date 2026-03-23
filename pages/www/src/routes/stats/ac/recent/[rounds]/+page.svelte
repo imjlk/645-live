@@ -109,7 +109,7 @@ const breadcrumbItems = [
 	title={`로또 6/45 AC값 분석 (최근 ${data.selectedRounds}회차) | 산술적 복잡도 상세 분석`}
 	titleTemplate="%s | 645.live"
 	description={`로또 6/45 최근 ${data.selectedRounds}회차 AC값 상세 분석. 평균 AC값 ${data.acStats.summary.avgAC.toFixed(2)}, 분포 패턴 및 복잡도 분석을 통한 당첨번호 예측 정보 제공.`}
-	canonical={`https://www.645.live/stats/ac/recent/${data.selectedRounds}`}
+	canonical={`https://645.live/stats/ac/recent/${data.selectedRounds}`}
 	keywords={[`로또 ${data.selectedRounds}회차`, "AC값 분석", "산술적복잡도", "당첨번호패턴", "로또통계", "복잡도분석", "6/45통계", "번호예측"]}
 	robots="index,follow"
 	additionalRobotsProps={{
@@ -140,17 +140,17 @@ const breadcrumbItems = [
 		},
 		{
 			property: 'article:publisher',
-			content: 'https://www.645.live'
+			content: 'https://645.live'
 		}
 	]}
 	openGraph={{
 		type: 'article',
-		url: `https://www.645.live/stats/ac/recent/${data.selectedRounds}`,
+		url: `https://645.live/stats/ac/recent/${data.selectedRounds}`,
 		title: `로또 6/45 AC값 분석 (최근 ${data.selectedRounds}회차) | 상세 통계`,
 		description: `최근 ${data.selectedRounds}회차 AC값 상세 분석 - 평균 ${data.acStats.summary.avgAC.toFixed(2)}, 최대 ${data.acStats.summary.maxAC}, 최소 ${data.acStats.summary.minAC}`,
 		locale: 'ko_KR',
 		images: [{
-			url: `https://www.645.live/og?${new URLSearchParams({
+			url: `https://645.live/og?${new URLSearchParams({
 				title: encodeURIComponent(`AC값 분석 (최근 ${data.selectedRounds}회차)`),
 				description: encodeURIComponent(`평균 ${data.acStats.summary.avgAC.toFixed(2)} | 최대 ${data.acStats.summary.maxAC} | 최소 ${data.acStats.summary.minAC} | 총 ${data.acStats.summary.totalDraws}회 분석`),
 				layout: 'minimal',
@@ -175,7 +175,7 @@ const breadcrumbItems = [
 		site: '@645live',
 		title: `로또 6/45 AC값 ${data.selectedRounds}회차 분석`,
 		description: `평균 AC값 ${data.acStats.summary.avgAC.toFixed(2)} | 최대 ${data.acStats.summary.maxAC} | 최소 ${data.acStats.summary.minAC}`,
-		image: `https://www.645.live/og?${new URLSearchParams({
+		image: `https://645.live/og?${new URLSearchParams({
 			title: encodeURIComponent(`AC값 분석 (${data.selectedRounds}회차)`),
 			description: encodeURIComponent(`평균 ${data.acStats.summary.avgAC.toFixed(2)} | 범위 ${data.acStats.summary.minAC}-${data.acStats.summary.maxAC}`),
 			layout: 'minimal',
@@ -191,7 +191,7 @@ const breadcrumbItems = [
 		'@type': 'Dataset',
 		name: `로또 6/45 AC값 ${data.selectedRounds}회차 분석 데이터`,
 		description: `로또 6/45 최근 ${data.selectedRounds}회차의 산술적 복잡도(AC값) 상세 분석 데이터. 평균 AC값 ${data.acStats.summary.avgAC.toFixed(2)}, 분포 패턴 및 통계 정보를 제공합니다.`,
-		url: `https://www.645.live/stats/ac/recent/${data.selectedRounds}`,
+		url: `https://645.live/stats/ac/recent/${data.selectedRounds}`,
 		creator: {
 			'@type': 'Organization',
 			name: '645.live'

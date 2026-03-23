@@ -1,4 +1,4 @@
-export const SITE_ORIGIN = "https://www.645.live";
+export const SITE_ORIGIN = "https://645.live";
 export const SITE_NAME = "645.live";
 export const SITE_TWITTER = "@645live";
 export const SITE_LOGO_PATH = "/assets/icons/icon-512.png";

@@ -107,7 +107,7 @@ const statsCategories = [
 	title={pageTitle}
 	titleTemplate="%s | 645.live"
 	description={pageDescription}
-	canonical="https://www.645.live/stats"
+	canonical="https://645.live/stats"
 	keywords={["로또통계", "로또분석", "로또당첨번호", "번호별통계", "로또예측", "번호분석", "홀짝분석", "로또패턴", "6/45통계", "로또번호분석"]}
 	robots="index,follow"
 	additionalRobotsProps={{
@@ -138,12 +138,12 @@ const statsCategories = [
 		},
 		{
 			property: 'article:publisher',
-			content: 'https://www.645.live'
+			content: 'https://645.live'
 		}
 	]}
 	openGraph={{
 		type: 'website',
-		url: 'https://www.645.live/stats',
+		url: 'https://645.live/stats',
 		title: pageTitle,
 		description: pageDescription,
 		locale: 'ko_KR',
@@ -169,8 +169,8 @@ const statsCategories = [
 		'@type': 'Dataset',
 		name: '로또 6/45 통계 분석 데이터',
 		description: `로또 6/45 당첨번호 통계 및 분석 데이터입니다. 전체 ${data.totalRounds}회차 데이터를 기반으로 번호별 출현 빈도, 홀짝 분포, 색깔별 통계, 구간별 분석 등을 제공합니다.`,
-		url: 'https://www.645.live/stats',
-		license: 'https://www.645.live/terms-of-service',
+		url: 'https://645.live/stats',
+		license: 'https://645.live/terms-of-service',
 		isAccessibleForFree: true,
 		creator: {
 			'@type': 'Organization',

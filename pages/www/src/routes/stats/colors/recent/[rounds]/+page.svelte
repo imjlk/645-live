@@ -123,7 +123,7 @@ const breadcrumbItems = [
 	title={`로또 6/45 색상 분석 (최근 ${data.selectedRounds}회차) | 색상 구간별 상세 분석`}
 	titleTemplate="%s | 645.live"
 	description={`로또 6/45 최근 ${data.selectedRounds}회차 색상 구간별 상세 분석. 노랑 평균 ${data.colorStats.summary.colorAverages.yellow}개, 파랑 평균 ${data.colorStats.summary.colorAverages.blue}개 등 색상 분포 패턴 및 복잡도 분석을 통한 당첨번호 예측 정보 제공.`}
-	canonical={`https://www.645.live/stats/colors/recent/${data.selectedRounds}`}
+	canonical={`https://645.live/stats/colors/recent/${data.selectedRounds}`}
 	keywords={[`로또 ${data.selectedRounds}회차`, "색상분석", "구간별분석", "색상패턴", "로또통계", "색상분포", "6/45통계", "번호예측"]}
 	robots="index,follow"
 	additionalRobotsProps={{
@@ -154,17 +154,17 @@ const breadcrumbItems = [
 		},
 		{
 			property: 'article:publisher',
-			content: 'https://www.645.live'
+			content: 'https://645.live'
 		}
 	]}
 	openGraph={{
 		type: 'article',
-		url: `https://www.645.live/stats/colors/recent/${data.selectedRounds}`,
+		url: `https://645.live/stats/colors/recent/${data.selectedRounds}`,
 		title: `로또 6/45 색상 분석 (최근 ${data.selectedRounds}회차) | 상세 통계`,
 		description: `최근 ${data.selectedRounds}회차 색상 분석 - 노랑 ${data.colorStats.summary.colorAverages.yellow}개, 파랑 ${data.colorStats.summary.colorAverages.blue}개, 빨강 ${data.colorStats.summary.colorAverages.red}개`,
 		locale: 'ko_KR',
 		images: [{
-			url: `https://www.645.live/og?${new URLSearchParams({
+			url: `https://645.live/og?${new URLSearchParams({
 				title: encodeURIComponent(`색상 분석 (최근 ${data.selectedRounds}회차)`),
 				description: encodeURIComponent(`노랑 ${data.colorStats.summary.colorAverages.yellow}개 | 파랑 ${data.colorStats.summary.colorAverages.blue}개 | 빨강 ${data.colorStats.summary.colorAverages.red}개 | 회색 ${data.colorStats.summary.colorAverages.grey}개 | 초록 ${data.colorStats.summary.colorAverages.green}개`),
 				layout: 'minimal',
@@ -189,7 +189,7 @@ const breadcrumbItems = [
 		site: '@645live',
 		title: `로또 6/45 색상 분석 ${data.selectedRounds}회차 분석`,
 		description: `최근 ${data.selectedRounds}회차 색상 분석 - 노랑 ${data.colorStats.summary.colorAverages.yellow}개, 파랑 ${data.colorStats.summary.colorAverages.blue}개, 빨강 ${data.colorStats.summary.colorAverages.red}개`,
-		image: `https://www.645.live/og?${new URLSearchParams({
+		image: `https://645.live/og?${new URLSearchParams({
 			title: encodeURIComponent(`색상 분석 (${data.selectedRounds}회차)`),
 			description: encodeURIComponent(`5색 구간별 평균 분포 분석`),
 			layout: 'minimal',
@@ -205,7 +205,7 @@ const breadcrumbItems = [
 		'@type': 'Dataset',
 		name: `로또 6/45 색상 분석 ${data.selectedRounds}회차 분석 데이터`,
 		description: `로또 6/45 최근 ${data.selectedRounds}회차의 색상 구간별 상세 분석 데이터. 노랑 평균 ${data.colorStats.summary.colorAverages.yellow}개, 분포 패턴 및 통계 정보를 제공합니다.`,
-		url: `https://www.645.live/stats/colors/recent/${data.selectedRounds}`,
+		url: `https://645.live/stats/colors/recent/${data.selectedRounds}`,
 		creator: {
 			'@type': 'Organization',
 			name: '645.live'

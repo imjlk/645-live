@@ -80,7 +80,7 @@ const breadcrumbItems = [
 	title="로또 6/45 홀짝 분석 통계 | 홀수/짝수 분포 패턴"
 	titleTemplate="%s | 645.live"
 	description="로또 6/45 당첨번호의 홀수/짝수 분포와 번호 합계 패턴을 분석합니다. 홀짝 균형도와 트렌드를 통해 번호 선택에 도움을 제공합니다."
-	canonical="https://www.645.live/stats/odd-even"
+	canonical="https://645.live/stats/odd-even"
 	keywords={["로또", "홀짝분석", "홀수짝수", "로또통계", "번호합계", "로또패턴", "로또예측", "6/45통계", "홀짝균형", "번호분석"]}
 	robots="index,follow"
 	additionalRobotsProps={{
@@ -111,17 +111,17 @@ const breadcrumbItems = [
 		},
 		{
 			property: 'article:publisher',
-			content: 'https://www.645.live'
+			content: 'https://645.live'
 		}
 	]}
 	openGraph={{
 		type: 'article',
-		url: 'https://www.645.live/stats/odd-even',
+		url: 'https://645.live/stats/odd-even',
 		title: '로또 6/45 홀짝 분석 통계 | 홀수/짝수 분포 패턴',
 		description: '로또 6/45 당첨번호의 홀수/짝수 분포와 번호 합계 패턴을 분석합니다. 홀짝 균형도와 트렌드를 통해 번호 선택에 도움을 제공합니다.',
 		locale: 'ko_KR',
 		images: [{
-			url: `https://www.645.live/og?${new URLSearchParams({
+			url: `https://645.live/og?${new URLSearchParams({
 				title: encodeURIComponent('로또 6/45 홀짝 분석'),
 				description: encodeURIComponent(`홀수/짝수 분포 패턴 분석`),
 				layout: 'blog',
@@ -146,7 +146,7 @@ const breadcrumbItems = [
 		site: '@645live',
 		title: '로또 6/45 홀짝 분석 통계',
 		description: '홀수/짝수 분포와 번호 합계 패턴 분석으로 로또 번호 선택에 도움을 제공합니다.',
-		image: `https://www.645.live/og?${new URLSearchParams({
+		image: `https://645.live/og?${new URLSearchParams({
 			title: encodeURIComponent('로또 6/45 홀짝 분석'),
 			description: encodeURIComponent(`홀수/짝수 분포 패턴 분석`),
 			layout: 'blog',
@@ -162,7 +162,7 @@ const breadcrumbItems = [
 		'@type': 'Dataset',
 		name: '로또 6/45 홀짝 분석 통계',
 		description: '로또 6/45 당첨번호의 홀수/짝수 분포와 번호 합계 패턴을 분석한 통계 데이터입니다.',
-		url: 'https://www.645.live/stats/odd-even',
+		url: 'https://645.live/stats/odd-even',
 		creator: {
 			'@type': 'Organization',
 			name: '645.live'
