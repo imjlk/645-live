@@ -13,6 +13,10 @@ const sslMode =
 	process.env.DATABASE_SSL_MODE ??
 	parsedUrl.searchParams.get("sslmode") ??
 	undefined;
+const sslServerName =
+	process.env.DATABASE_SSL_SERVERNAME ??
+	parsedUrl.searchParams.get("sslservername") ??
+	parsedUrl.hostname;
 const sslCaCertPath =
 	process.env.DATABASE_SSL_CA_CERT_PATH ??
 	parsedUrl.searchParams.get("sslrootcert") ??
@@ -27,6 +31,7 @@ const sslConfig = (() => {
 		return {
 			ca: readFileSync(sslCaCertPath, "utf8"),
 			rejectUnauthorized: true,
+			servername: sslServerName,
 		};
 	}
 
@@ -37,11 +42,15 @@ const sslConfig = (() => {
 	if (sslMode === "require" || sslMode === "allow" || sslMode === "prefer") {
 		return {
 			rejectUnauthorized: false,
+			servername: sslServerName,
 		};
 	}
 
 	if (sslMode === "verify-full") {
-		return {};
+		return {
+			rejectUnauthorized: true,
+			servername: sslServerName,
+		};
 	}
 
 	throw new Error(`Unsupported DATABASE_SSL_MODE: ${sslMode}`);

@@ -59,6 +59,7 @@ DB 관련:
 - 기본 로컬 DB는 `postgres://root:mysecretpassword@localhost:50101/local`
 - `HYPERDRIVE_PROXY`: 앱 런타임(Hyperdrive) 연결 문자열
 - `DATABASE_SSL_MODE`: 원격 direct Postgres 마이그레이션용 SSL 모드 (`verify-full` 권장)
+- `DATABASE_SSL_SERVERNAME`: TLS 검증용 서버 이름 (터널/프록시 사용 시 `db.645.live` 같이 인증서 SAN과 맞춤)
 - `DATABASE_SSL_CA_CERT_PATH`: 원격 direct Postgres 마이그레이션용 CA cert 경로
 - `BETTER_AUTH_SECRET`
 - `BETTER_AUTH_URL`
@@ -79,6 +80,7 @@ DB 관련:
 ```bash
 DATABASE_URL='postgresql://user:pass@host:5432/db' \
 DATABASE_SSL_MODE='verify-full' \
+DATABASE_SSL_SERVERNAME='db.645.live' \
 DATABASE_SSL_CA_CERT_PATH='/absolute/path/to/db-ca.crt' \
 bun run www db:migrate:remote
 ```
