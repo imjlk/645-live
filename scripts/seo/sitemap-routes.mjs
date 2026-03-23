@@ -18,6 +18,8 @@ function readNewsFiles() {
 			const slug = fileName.replace(/\.mdx$/, "");
 			const title = source.match(/^title:\s*["']?([^"'\n]+)["']?/m)?.[1];
 			const date = source.match(/^date:\s*["']?([^"'\n]+)["']?/m)?.[1];
+			const publishedAt =
+				source.match(/^publishedAt:\s*["']?([^"'\n]+)["']?/m)?.[1] || undefined;
 			const updatedAt =
 				source.match(/^updatedAt:\s*["']?([^"'\n]+)["']?/m)?.[1] || undefined;
 
@@ -25,15 +27,16 @@ function readNewsFiles() {
 				slug,
 				title,
 				date,
+				publishedAt,
 				updatedAt,
 				filePath,
 			};
 		});
 }
 
-function buildNewsOgPath(slug, updatedAt, date) {
+function buildNewsOgPath(slug, updatedAt, publishedAt, date) {
 	const params = new URLSearchParams();
-	const version = updatedAt || date;
+	const version = updatedAt || publishedAt || date;
 	if (version) {
 		params.set("v", version);
 	}
@@ -119,8 +122,15 @@ export function buildSitemapEntries() {
 		path: `/news/posts/${item.slug}`,
 		changefreq: "weekly",
 		priority: "0.75",
-		lastmod: toYyyyMmDd(item.updatedAt || item.date) || sourceFileLastMod(item.filePath),
-		image: buildNewsOgPath(item.slug, item.updatedAt, item.date),
+		lastmod:
+			toYyyyMmDd(item.updatedAt || item.publishedAt || item.date) ||
+			sourceFileLastMod(item.filePath),
+		image: buildNewsOgPath(
+			item.slug,
+			item.updatedAt,
+			item.publishedAt,
+			item.date,
+		),
 		imageTitle: item.title || undefined,
 	}));
 

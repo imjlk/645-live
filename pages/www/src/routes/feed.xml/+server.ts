@@ -17,7 +17,7 @@ function toRfc822Date(dateString?: string): string {
 
 function getLatestPostTimestamp(posts: ReturnType<typeof getAllNewsPosts>): string {
 	const timestamps = posts
-		.map((post) => post.updatedAt || post.date)
+		.map((post) => post.updatedAt || post.publishedAt || post.date)
 		.map((value) => new Date(value).getTime())
 		.filter((value) => Number.isFinite(value));
 
@@ -35,7 +35,7 @@ export const GET = async () => {
 	const items = posts
 		.map((post) => {
 			const link = `${SITE_ORIGIN}/news/posts/${encodeURIComponent(post.slug)}`;
-			const pubDate = toRfc822Date(post.updatedAt || post.date);
+			const pubDate = toRfc822Date(post.publishedAt || post.updatedAt || post.date);
 			const description = escapeXml(post.description || post.title);
 
 			return `<item>

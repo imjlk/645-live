@@ -31,9 +31,13 @@ export function isAbsoluteHttpUrl(value: string): boolean {
 
 export function getNewsOgVersion(options: {
 	date?: string;
+	publishedAt?: string;
 	updatedAt?: string;
 }): string | undefined {
-	const candidate = options.updatedAt?.trim() || options.date?.trim();
+	const candidate =
+		options.updatedAt?.trim() ||
+		options.publishedAt?.trim() ||
+		options.date?.trim();
 	return candidate && candidate.length > 0 ? candidate : undefined;
 }
 
@@ -41,6 +45,7 @@ export function getCanonicalNewsOgPath(
 	slug: string,
 	options: {
 		date?: string;
+		publishedAt?: string;
 		updatedAt?: string;
 	} = {},
 ): string {
@@ -59,6 +64,7 @@ export function getCanonicalNewsOgUrl(
 	slug: string,
 	options: {
 		date?: string;
+		publishedAt?: string;
 		updatedAt?: string;
 	} = {},
 ): string {
@@ -123,6 +129,29 @@ export function toIsoDateTime(value?: string): string | undefined {
 	}
 
 	return trimmed;
+}
+
+export function formatVisibleDateTime(value?: string): string | undefined {
+	const isoValue = toIsoDateTime(value);
+	if (!isoValue) return undefined;
+
+	const date = new Date(isoValue);
+	if (Number.isNaN(date.getTime())) {
+		return value;
+	}
+
+	if (value && /^\d{4}-\d{2}-\d{2}$/.test(value.trim())) {
+		return new Intl.DateTimeFormat("ko-KR", {
+			dateStyle: "long",
+			timeZone: "Asia/Seoul",
+		}).format(date);
+	}
+
+	return `${new Intl.DateTimeFormat("ko-KR", {
+		dateStyle: "long",
+		timeStyle: "short",
+		timeZone: "Asia/Seoul",
+	}).format(date)} KST`;
 }
 
 export function titleWithSite(title: string): string {

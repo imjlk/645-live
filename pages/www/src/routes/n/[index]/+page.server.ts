@@ -1,3 +1,4 @@
+import { getScanPreviewState } from "$lib/server/scan-preview.js";
 import { TRAILBASE_URL } from "$env/static/private";
 import { calculateDisplayRound } from "$lib/utils/lotto-api";
 import { error } from "@sveltejs/kit";
@@ -195,6 +196,7 @@ export const load: PageServerLoad = async ({ params }) => {
 		// Use the same totalRounds as latestRound (since we already fetched it)
 		const latestRound = totalRounds;
 		const displayRound = calculateDisplayRound();
+		const scanPreview = await getScanPreviewState(displayRound);
 
 		return {
 			ballNumber,
@@ -205,6 +207,7 @@ export const load: PageServerLoad = async ({ params }) => {
 			mathematicalProperties,
 			latestRound,
 			displayRound,
+			...scanPreview,
 			historicalScanData,
 		};
 	} catch (e) {

@@ -141,6 +141,7 @@ export const GET: RequestHandler = async ({ platform, url, params }) => {
 	const date =
 		url.searchParams.get("date") ||
 		post?.updatedAt ||
+		post?.publishedAt ||
 		post?.date ||
 		new Date().toISOString().split("T")[0];
 	const highlight = url.searchParams.get("highlight") || undefined;

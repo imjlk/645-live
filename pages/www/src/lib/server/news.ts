@@ -8,6 +8,7 @@ export type NewsPostSummary = {
 	slug: string;
 	title: string;
 	date: string;
+	publishedAt?: string;
 	updatedAt?: string;
 	description: string;
 	category: string;
@@ -31,6 +32,10 @@ function resolveNewsThumbnail(slug: string, metadata: Record<string, unknown>): 
 
 	return getCanonicalNewsOgUrl(slug, {
 		date: typeof metadata.date === "string" ? metadata.date : undefined,
+		publishedAt:
+			typeof metadata.publishedAt === "string"
+				? metadata.publishedAt
+				: undefined,
 		updatedAt:
 			typeof metadata.updatedAt === "string" ? metadata.updatedAt : undefined,
 	});
@@ -48,6 +53,7 @@ export function getAllNewsPosts(): NewsPostSummary[] {
 				slug,
 				title: metadata.title || "제목 없음",
 				date: metadata.date || new Date().toISOString().split("T")[0],
+				publishedAt: metadata.publishedAt || undefined,
 				updatedAt: metadata.updatedAt || undefined,
 				description: metadata.description || "",
 				category: metadata.category || "뉴스",
@@ -57,7 +63,11 @@ export function getAllNewsPosts(): NewsPostSummary[] {
 				highlight: metadata.highlight || undefined,
 			};
 		})
-		.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+		.sort(
+			(a, b) =>
+				new Date(b.updatedAt || b.publishedAt || b.date).getTime() -
+				new Date(a.updatedAt || a.publishedAt || a.date).getTime(),
+		);
 }
 
 export function getNewsSlugs(): string[] {

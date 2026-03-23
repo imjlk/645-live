@@ -17,6 +17,8 @@
 		slug: string;
 		title: string;
 		date: string;
+		publishedAt?: string;
+		updatedAt?: string;
 		description: string;
 		category: string;
 		thumbnail: string;
@@ -152,6 +154,10 @@
 		return '';
 	}
 
+	function getPostDateLabel(post: NewsPost): string {
+		return (post.publishedAt || post.date || '').slice(0, 10);
+	}
+
 	function getVisiblePages(page: number, pages: number, windowSize = 5) {
 		if (pages <= windowSize) return Array.from({ length: pages }, (_, i) => i + 1);
 		const half = Math.floor(windowSize / 2);
@@ -233,7 +239,7 @@
 						<div class="card-body">
 							<div class="flex items-center gap-2 text-sm text-base-content/70 mb-2">
 								<span class="badge badge-primary badge-sm">{item.post.category}</span>
-								<span>{item.post.date}</span>
+								<span>{getPostDateLabel(item.post)}</span>
 							</div>
 							
 							<h2 class="card-title text-lg">

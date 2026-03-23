@@ -105,6 +105,10 @@ onMount(() => {
 <ScanStatusGrid 
 	initialRound={data.displayRound || data.latestRound}
 	latestRound={data.latestRound}
+	headlineRound={data.displayRound || data.latestRound}
+	latestRoundHasScanData={data.latestRoundHasScanData}
+	fallbackPreviewRound={data.fallbackPreviewRound}
+	latestPopulatedRound={data.latestPopulatedRound}
 	enableNavigation={true}
 	showHeader={true}
 	forceClientRefresh={true}

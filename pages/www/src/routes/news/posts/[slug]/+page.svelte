@@ -12,6 +12,7 @@
 		getCanonicalNewsOgUrl,
 		getSiteLogoUrl,
 		isAbsoluteHttpUrl,
+		formatVisibleDateTime,
 		toIsoDateTime,
 	} from '$lib/seo/index.js';
 
@@ -27,15 +28,16 @@
 			? data.meta.thumbnail
 			: getCanonicalNewsOgUrl(data.slug, {
 				date: data.meta?.date,
+				publishedAt: data.meta?.publishedAt,
 				updatedAt: data.meta?.updatedAt,
 			}),
 	);
-	const datePublished = $derived(data.meta?.date || undefined);
+	const datePublished = $derived(data.meta?.publishedAt || data.meta?.date || undefined);
 	const dateModified = $derived(data.meta?.updatedAt || datePublished || undefined);
 	const datePublishedIso = $derived(toIsoDateTime(datePublished));
 	const dateModifiedIso = $derived(toIsoDateTime(dateModified));
-	const datePublishedLabel = $derived(datePublished ?? undefined);
-	const dateModifiedLabel = $derived(dateModified ?? undefined);
+	const publishedLabel = $derived(formatVisibleDateTime(datePublished));
+	const modifiedLabel = $derived(formatVisibleDateTime(dateModified));
 	const isGeneratedOgImage = $derived(imageUrl.startsWith(`${SITE_ORIGIN}/og/news/`));
 	const authorName = $derived(data.meta?.author || '645.live 자동뉴스');
 	const authorUrl = $derived(getAutoNewsAuthorUrl());
@@ -134,11 +136,11 @@
 			{#if data.meta?.category}
 				<span class="badge badge-primary badge-outline">{data.meta.category}</span>
 			{/if}
-			{#if datePublishedIso && datePublishedLabel}
-				<time datetime={datePublishedIso}>발행 {datePublishedLabel}</time>
+			{#if datePublishedIso && publishedLabel}
+				<time datetime={datePublishedIso}>발행 {publishedLabel}</time>
 			{/if}
-			{#if dateModifiedIso && dateModifiedLabel && dateModifiedIso !== datePublishedIso}
-				<time datetime={dateModifiedIso}>수정 {dateModifiedLabel}</time>
+			{#if dateModifiedIso && modifiedLabel && dateModifiedIso !== datePublishedIso}
+				<time datetime={dateModifiedIso}>수정 {modifiedLabel}</time>
 			{/if}
 			{#if authorName}
 				<span>
@@ -180,4 +182,29 @@
 	</figure>
 
 	<Content />
+
+	<section class="not-prose mt-10 rounded-2xl border border-base-300 bg-base-200/60 p-5">
+		<h2 class="text-lg font-semibold text-base-content">이 기사와 함께 보면 좋은 정보</h2>
+		<p class="mt-2 text-sm text-base-content/70">
+			공식 발표와 645.live 자체 데이터를 함께 읽을 수 있도록 관련 안내 페이지와 통계를 묶었습니다.
+		</p>
+		<div class="mt-4 grid gap-3 md:grid-cols-2">
+			<a class="rounded-xl border border-base-300 bg-base-100 p-4 no-underline transition hover:-translate-y-0.5 hover:shadow-md" href={resolve(EDITORIAL_POLICY_PATH)}>
+				<div class="text-sm font-semibold text-base-content">편집 원칙</div>
+				<div class="mt-1 text-sm text-base-content/70">자동 생성 기사 작성 기준과 검수 원칙을 확인할 수 있습니다.</div>
+			</a>
+			<a class="rounded-xl border border-base-300 bg-base-100 p-4 no-underline transition hover:-translate-y-0.5 hover:shadow-md" href={resolve(DATA_SOURCES_PATH)}>
+				<div class="text-sm font-semibold text-base-content">데이터 출처</div>
+				<div class="mt-1 text-sm text-base-content/70">동행복권 공식 발표와 645.live 집계 데이터의 사용 범위를 설명합니다.</div>
+			</a>
+			<a class="rounded-xl border border-base-300 bg-base-100 p-4 no-underline transition hover:-translate-y-0.5 hover:shadow-md" href={resolve(AUTO_NEWS_AUTHOR_PATH)}>
+				<div class="text-sm font-semibold text-base-content">작성자 소개</div>
+				<div class="mt-1 text-sm text-base-content/70">645.live 자동뉴스가 어떤 원칙으로 로또 기사를 생성하는지 확인할 수 있습니다.</div>
+			</a>
+			<a class="rounded-xl border border-base-300 bg-base-100 p-4 no-underline transition hover:-translate-y-0.5 hover:shadow-md" href={resolve('/stats')}>
+				<div class="text-sm font-semibold text-base-content">관련 통계 보기</div>
+				<div class="mt-1 text-sm text-base-content/70">번호 통계, 반복 패턴, 당첨점 분포를 이어서 확인할 수 있습니다.</div>
+			</a>
+		</div>
+	</section>
 </NewsLayout>

@@ -2,7 +2,7 @@
 <script lang="ts">
 // @ts-nocheck
 import { goto } from "$app/navigation";
-import { resolveRoute } from "$app/paths";
+import { resolve } from "$app/paths";
 import ScreenReaderStatus from "$lib/components/ui/ScreenReaderStatus.svelte";
 import LottoBall from "$lib/modules/lotto/components/LottoBall.svelte";
 import ValueIncrementEffect from "$lib/modules/lotto/components/ValueIncrementEffect.svelte";
@@ -21,8 +21,16 @@ import { onDestroy, onMount, untrack } from "svelte";
 interface Props {
 	// Initial round to display
 	initialRound: number;
+	// Headline round to keep in the UI
+	headlineRound?: number;
 	// Latest available round for comparison
 	latestRound?: number;
+	// Whether the latest/headline round already has scan data
+	latestRoundHasScanData?: boolean;
+	// Most recent round that already has scan data
+	latestPopulatedRound?: number | null;
+	// Preview round to show while the latest round is still empty
+	fallbackPreviewRound?: number | null;
 	// Whether to show navigation to individual number pages
 	enableNavigation?: boolean;
 	// Whether to show the header with round info
@@ -46,7 +54,11 @@ interface Props {
 
 let {
 	initialRound,
+	headlineRound,
 	latestRound,
+	latestRoundHasScanData = true,
+	latestPopulatedRound = null,
+	fallbackPreviewRound = null,
 	enableNavigation = true,
 	showHeader = true,
 	forceClientRefresh = false,
@@ -62,6 +74,7 @@ let {
 const ballValuesComposable = useBallValues();
 
 const connectionStatus = useConnectionStatus();
+let showingFallbackPreview = $state(false);
 
 // Generate numbers array for rendering based on ballValues
 let numbers = $derived<BallNumber[]>(
@@ -69,6 +82,12 @@ let numbers = $derived<BallNumber[]>(
 		id: i + 1,
 		value: ballValuesComposable.ballValues[i + 1] || 0,
 	})),
+);
+let headerRound = $derived(headlineRound ?? initialRound ?? latestRound ?? null);
+let isFallbackPreviewVisible = $derived(
+	showingFallbackPreview &&
+	!!fallbackPreviewRound &&
+	ballValuesComposable.currentRound === fallbackPreviewRound,
 );
 
 // Subscription cleanup function
@@ -163,11 +182,11 @@ function handleBallGridKeydown(event: KeyboardEvent, ballIndex: number) {
 		maxItems: 45,
 		onActivate: (index) => {
 			const ballNumber = index + 1;
-			void goto(
-				resolveRoute("/n/[index]", {
-					index: String(ballNumber),
-				}),
-			);
+				void goto(
+					resolve("/n/[index]", {
+						index: String(ballNumber),
+					}),
+				);
 		},
 		onEscape: () => {
 			focusedBallIndex = null;
@@ -202,7 +221,20 @@ async function initializeData() {
 			initialRound,
 			forceClientRefresh,
 		);
+
+		if (
+			!latestRoundHasScanData &&
+			fallbackPreviewRound &&
+			fallbackPreviewRound !== initialRound &&
+			ballValuesComposable.totalScans === 0
+		) {
+			showingFallbackPreview = true;
+			await ballValuesComposable.loadInitialData(fallbackPreviewRound, true);
+			return;
+		}
 	}
+
+	showingFallbackPreview = false;
 }
 
 // Public method to update the round
@@ -230,6 +262,17 @@ $effect(() => {
 
 	if (unsubscribeBallValues && round) {
 		void ballValuesComposable.loadInitialData(round, shouldForceRefresh);
+	}
+});
+
+$effect(() => {
+	if (
+		showingFallbackPreview &&
+		initialRound &&
+		ballValuesComposable.currentRound === initialRound &&
+		ballValuesComposable.totalScans > 0
+	) {
+		showingFallbackPreview = false;
 	}
 });
 
@@ -264,8 +307,38 @@ onDestroy(() => {
 		{/if}
 	</div>
 {:else if numbers.length > 0}
-	<!-- Show data notice if all scan counts are zero -->
-	{#if ballValuesComposable.totalScans === 0 && !ballValuesComposable.loading}
+	{#if isFallbackPreviewVisible}
+		<div class="alert alert-info mx-4 mt-4">
+			<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
+				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+			</svg>
+			<div class="flex-1">
+				<h3 class="font-bold">{headerRound}회 집계 준비 중</h3>
+				<div class="text-xs">
+					최신 회차 스캔 데이터는 아직 수집 중입니다. 아래 화면은 가장 최근 데이터가 있는 {ballValuesComposable.currentRound}회 기준 미리보기입니다.
+				</div>
+			</div>
+		</div>
+
+		<div class="mx-4 mt-4 rounded-xl border border-base-300 bg-base-100 p-4 shadow-sm">
+			<div class="flex flex-wrap items-center justify-between gap-3">
+				<div>
+					<p class="text-sm font-semibold text-base-content">최근 데이터 요약</p>
+					<p class="text-xs text-base-content/70">
+						최신 회차는 유지하면서 직전 데이터가 있는 회차를 함께 보여줍니다.
+					</p>
+				</div>
+				<div class="rounded-lg bg-primary/10 px-4 py-3 text-right">
+					<p class="text-sm font-semibold text-primary">
+						{latestPopulatedRound ?? ballValuesComposable.currentRound}회 기준
+					</p>
+					<p class="text-xs text-base-content/70">
+						총 스캔 {ballValuesComposable.totalScans.toLocaleString()}회
+					</p>
+				</div>
+			</div>
+		</div>
+	{:else if ballValuesComposable.totalScans === 0 && !ballValuesComposable.loading}
 		<div class="alert alert-info mx-4 mt-4">
 			<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
 				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
@@ -299,14 +372,11 @@ onDestroy(() => {
 						</span>
 					</div>
 					<span class="text-lg font-bold text-gray-800 dark:text-white">
-						{#if ballValuesComposable.currentRound}
-							{ballValuesComposable.currentRound}회차
-							{#if latestRound && ballValuesComposable.currentRound === latestRound}
-								<span class="ml-2 px-2 py-1 bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100 text-xs font-medium rounded-full">발표됨</span>
-							{/if}
-						{:else if initialRound}
-							{initialRound}회차
-							{#if latestRound && initialRound === latestRound}
+						{#if headerRound}
+							{headerRound}회차
+							{#if isFallbackPreviewVisible}
+								<span class="ml-2 px-2 py-1 bg-amber-100 text-amber-800 dark:bg-amber-800 dark:text-amber-100 text-xs font-medium rounded-full">집계 준비 중</span>
+							{:else if latestRound && headerRound === latestRound}
 								<span class="ml-2 px-2 py-1 bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100 text-xs font-medium rounded-full">발표됨</span>
 							{/if}
 						{:else}
@@ -315,7 +385,14 @@ onDestroy(() => {
 					</span>
 				</div>
 				<div class="flex items-center gap-2 px-3 py-2 bg-white dark:bg-gray-800 rounded-lg shadow-md">
-					{#if ballValuesComposable.totalScans > 0}
+					{#if isFallbackPreviewVisible}
+						<svg class="w-4 h-4 text-blue-500" fill="currentColor" viewBox="0 0 24 24">
+							<path d="M12 6v6l4 2M22 12a10 10 0 11-20 0 10 10 0 0120 0z" />
+						</svg>
+						<span class="text-blue-600 dark:text-blue-400 font-bold text-sm">
+							최근 데이터 {latestPopulatedRound ?? ballValuesComposable.currentRound}회
+						</span>
+					{:else if ballValuesComposable.totalScans > 0}
 						<svg class="w-4 h-4 text-blue-500" fill="currentColor" viewBox="0 0 24 24">
 							<path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
 						</svg>
@@ -344,8 +421,8 @@ onDestroy(() => {
 			{@const isUpdated = ballValuesComposable.recentlyUpdated[ball.id] || false}
 			{@const hasData = ballValuesComposable.totalScans > 0}
 			{#if enableNavigation}
-					<a
-						href={resolveRoute("/n/[index]", { index: String(ball.id) })}
+						<a
+							href={resolve("/n/[index]", { index: String(ball.id) })}
 						class="ball-grid-item {hasData ? '' : 'opacity-75'}"
 					aria-label="로또 번호 {ball.id}번 상세 정보 보기. 현재 {ball.value}회 스캔됨"
 					tabindex="0"

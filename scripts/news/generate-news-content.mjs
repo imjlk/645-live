@@ -297,6 +297,272 @@ function analyzeRound(draw, stores) {
 	};
 }
 
+function getKstTimestamp(date = new Date()) {
+	const koreaTime = new Date(date.getTime() + 9 * 60 * 60 * 1000);
+	return koreaTime.toISOString().replace("Z", "+09:00");
+}
+
+function extractScanSummary(scanRow, analysis) {
+	if (!scanRow) return null;
+
+	const totalScans = safeInt(scanRow.total_scans);
+	if (totalScans <= 0) return null;
+
+	const counts = Array.from({ length: 45 }, (_, index) => {
+		const number = index + 1;
+		return {
+			number,
+			count: safeInt(scanRow[`scan_count_${number}`]),
+		};
+	}).sort((left, right) => right.count - left.count || left.number - right.number);
+
+	const topScanned = counts.filter((item) => item.count > 0).slice(0, 6);
+	const topScannedNumbers = topScanned.map((item) => item.number);
+	const winningOverlap = topScannedNumbers.filter((number) =>
+		analysis.numbers.includes(number),
+	);
+	const missedWinningNumbers = analysis.numbers.filter(
+		(number) => !topScannedNumbers.includes(number),
+	);
+	const topNonWinning = topScanned.find(
+		(item) => !analysis.numbers.includes(item.number),
+	);
+
+	return {
+		totalScans,
+		topScanned,
+		topScannedNumbers,
+		winningOverlap,
+		winningOverlapCount: winningOverlap.length,
+		missedWinningNumbers,
+		topNonWinning,
+	};
+}
+
+function normalizeSimilarityText(value) {
+	return String(value ?? "")
+		.toLowerCase()
+		.replace(/\d+/g, "#")
+		.replace(/[^\p{L}\p{N}\s#]/gu, " ")
+		.replace(/\s+/g, " ")
+		.trim();
+}
+
+function pickByRound(round, variants) {
+	if (!Array.isArray(variants) || variants.length === 0) return "";
+	return variants[Math.abs(round) % variants.length];
+}
+
+function formatNumberList(numbers) {
+	const list = Array.isArray(numbers) ? numbers.filter((value) => value > 0) : [];
+	if (list.length === 0) return "";
+	return list.join(", ");
+}
+
+function buildScanNarrative(scanSummary, analysis) {
+	if (!scanSummary) return "";
+
+	const topNumbersText = formatNumberList(scanSummary.topScannedNumbers.slice(0, 4));
+	const overlapText =
+		scanSummary.winningOverlapCount > 0
+			? `상위 스캔 번호 중 실제 당첨번호와 겹친 숫자는 ${formatNumberList(scanSummary.winningOverlap)} ${scanSummary.winningOverlapCount}개였습니다.`
+			: "상위 스캔 번호와 실제 당첨번호가 크게 어긋나며 이용자 관심과 결과 사이 간극이 확인됐습니다.";
+	const topNonWinningText = scanSummary.topNonWinning
+		? `${scanSummary.topNonWinning.number}번은 ${scanSummary.topNonWinning.count.toLocaleString("ko-KR")}회 스캔됐지만 이번 1등 조합에는 포함되지 않았습니다.`
+		: "";
+	const missedText =
+		scanSummary.missedWinningNumbers.length > 0
+			? `반대로 ${formatNumberList(scanSummary.missedWinningNumbers)}는 상위 관심 번호 바깥에서 당첨번호로 등장했습니다.`
+			: "";
+
+	return [
+		`645.live 내부 스캔 데이터 기준으로 제${analysis.round}회는 총 ${scanSummary.totalScans.toLocaleString("ko-KR")}회의 선택 흔적이 집계됐고, 많이 확인된 번호는 ${topNumbersText || "집계 준비 중"}였습니다.`,
+		overlapText,
+		topNonWinningText,
+		missedText,
+	]
+		.filter(Boolean)
+		.join(" ");
+}
+
+function getSelectionLead(analysis) {
+	const selectionParts = [];
+	if (analysis.autoCount > 0) selectionParts.push(`자동 ${analysis.autoCount}곳`);
+	if (analysis.manualCount > 0) selectionParts.push(`수동 ${analysis.manualCount}곳`);
+	if (analysis.semiCount > 0) selectionParts.push(`반자동 ${analysis.semiCount}곳`);
+	return selectionParts.length > 0
+		? `선택 방식 기준으로는 ${selectionParts.join(", ")} 흐름이 보였습니다.`
+		: "";
+}
+
+function selectStoryAngles(analysis, scanSummary, previous) {
+	const angles = [];
+
+	if (scanSummary?.totalScans > 0) {
+		angles.push("scan_interest");
+	}
+
+	if (
+		analysis.winnerCount <= 3 ||
+		analysis.winnerCount >= 18 ||
+		analysis.anomalies.includes("single_winner") ||
+		analysis.anomalies.includes("few_winners") ||
+		analysis.anomalies.includes("high_payout")
+	) {
+		angles.push("winner_payout");
+	}
+
+	if (
+		analysis.consecutivePairs > 0 ||
+		analysis.anomalies.includes("all_odd_even") ||
+		analysis.anomalies.includes("number_band_concentration")
+	) {
+		angles.push("number_pattern");
+	}
+
+	if (
+		analysis.dominantRegion &&
+		(analysis.dominantRatio >= 0.22 || analysis.dominantRegion.total >= 5)
+	) {
+		angles.push("region_distribution");
+	}
+
+	if (previous) {
+		angles.push("round_comparison");
+	}
+
+	angles.push(
+		"winner_payout",
+		"number_pattern",
+		"region_distribution",
+		"round_comparison",
+	);
+
+	return [...new Set(angles)];
+}
+
+function buildAngleRecommendedStats(analysis, angle, scanSummary) {
+	const links = [];
+
+	const push = (key, label, reason, extra = {}) => {
+		if (links.some((item) => item.key === key && item.href === extra.href)) return;
+
+		if (key === "number_focus") {
+			if (!extra.number) return;
+			links.push({
+				key,
+				icon: "🎯",
+				label: label || `${extra.number}번 스캔 현황`,
+				href: `/n/${extra.number}`,
+				reason,
+			});
+			return;
+		}
+
+		const catalog = STATS_LINK_CATALOG[key];
+		if (!catalog) return;
+		const href = catalog.href(analysis.round, extra);
+		if (links.some((item) => item.href === href)) return;
+		links.push({
+			key,
+			icon: catalog.icon,
+			label: label || catalog.label,
+			href,
+			reason,
+		});
+	};
+
+	push(
+		"stats_main",
+		"전체 통계 메인",
+		"이번 회차 해석을 장기 흐름과 바로 연결해서 보기 좋은 기준 페이지",
+	);
+
+	switch (angle) {
+		case "scan_interest":
+			if (scanSummary?.topScannedNumbers?.[0]) {
+				push(
+					"number_focus",
+					`${scanSummary.topScannedNumbers[0]}번 스캔 현황`,
+					"가장 많이 스캔된 번호의 실제 관심 흐름을 번호 페이지에서 바로 확인",
+					{ number: scanSummary.topScannedNumbers[0] },
+				);
+			}
+			push(
+				"numbers",
+				"번호별 출현 통계",
+				"실제 당첨번호와 상위 관심 번호의 장기 출현 차이를 함께 점검",
+			);
+			push(
+				"winning_stores",
+				`${analysis.round}회차 당첨점 조회`,
+				"번호 관심과 실제 당첨점 분포가 어떻게 갈렸는지 함께 확인",
+			);
+			break;
+		case "number_pattern":
+			push("odd_even", "홀짝 분석", "이번 회차의 홀짝 비율이 평균 패턴에서 얼마나 벗어났는지 확인");
+			push("high_low", "고저번대 통계", "저번호·고번호 쏠림을 장기 데이터와 비교");
+			push("repeat", "연속 중복 통계", "연속번호와 반복 출현 흐름을 함께 확인");
+			break;
+		case "region_distribution":
+			push(
+				"winning_stores",
+				`${analysis.round}회차 당첨점 조회`,
+				"지역별 1등·2등 판매점 주소와 선택 방식을 바로 확인",
+			);
+			push("colors", "색깔별 통계", "집중된 번호 구간이 색상 분포와 연결되는지 확인");
+			push("sections", "구간별 분석", "번호대 분포와 판매점 집중 흐름을 함께 보기 좋음");
+			break;
+		case "round_comparison":
+			push("repeat", "연속 중복 통계", "직전 회차와 겹친 번호가 장기적으로 얼마나 자주 나오는지 확인");
+			push("pairs", "번호 쌍 통계", "연속 회차 사이 함께 등장한 번호 조합을 더 자세히 비교");
+			push("winning_stores", "당첨점 비교", "직전 회차와 판매점 분포 차이를 함께 체크");
+			break;
+		case "winner_payout":
+		default:
+			push("winning_stores", "당첨점 조회", "고액 당첨 회차의 판매점 분포와 선택 방식을 확인");
+			push("ac", "AC값 통계", "당첨자 수와 조합 복잡도의 관계를 함께 살펴볼 수 있음");
+			push("pairs", "번호 쌍 통계", "당첨 조합의 페어 빈도를 장기 데이터와 비교");
+			break;
+	}
+
+	return links.slice(0, 4);
+}
+
+function buildCandidateSimilarity(candidate, references) {
+	const recentReferences = Array.isArray(references) ? references.slice(0, 3) : [];
+	if (recentReferences.length === 0) return 0;
+
+	return recentReferences.reduce((maxScore, reference) => {
+		const score = Math.max(
+			tokenSimilarity(candidate.title, reference.title),
+			tokenSimilarity(firstParagraph(candidate.lead), firstParagraph(reference.lead)),
+			tokenSimilarity(candidate.insight, reference.insight),
+		);
+		return Math.max(maxScore, score);
+	}, 0);
+}
+
+function tokenSimilarity(left, right) {
+	const leftTokens = new Set(normalizeSimilarityText(left).split(" ").filter(Boolean));
+	const rightTokens = new Set(
+		normalizeSimilarityText(right).split(" ").filter(Boolean),
+	);
+
+	if (leftTokens.size === 0 || rightTokens.size === 0) return 0;
+
+	let intersection = 0;
+	for (const token of leftTokens) {
+		if (rightTokens.has(token)) intersection += 1;
+	}
+
+	return intersection / Math.max(leftTokens.size, rightTokens.size);
+}
+
+function firstParagraph(text) {
+	return normalizeBlock(text, "").split(/\n\s*\n/)[0] || "";
+}
+
 function formatRatio(value) {
 	return `${(safeNumber(value) * 100).toFixed(1).replace(/\.0$/, "")}%`;
 }
@@ -706,7 +972,7 @@ function buildFallbackBulletPoints(draw, analysis, variant, previous) {
 		points.push(buildPreviousRoundSentence(previous));
 	}
 
-	return points.slice(0, 6);
+	return points.slice(0, 4);
 }
 
 function buildFallbackInsight(analysis, variant, previous) {
@@ -762,23 +1028,234 @@ function buildFallbackInsight(analysis, variant, previous) {
 	return paragraphs.join("\n\n");
 }
 
-function fallbackPayload(draw, analysis, previousDraw) {
-	const variant = getFallbackVariant(analysis);
-	const previous = buildPreviousRoundContext(analysis, previousDraw);
-	const titleData = pickTitle(analysis, variant);
+function buildAnglePayload(
+	draw,
+	analysis,
+	variant,
+	angle,
+	previous,
+	scanSummary,
+) {
+	const round = analysis.round;
+	const bonus = safeInt(draw.bonus_number);
+	const drawDate = formatDate(draw.draw_date);
+	const scanNarrative = buildScanNarrative(scanSummary, analysis);
+	const previousNarrative = previous ? buildPreviousRoundSentence(previous) : "";
+	const selectionLead = getSelectionLead(analysis);
+	const regionNarrative = analysis.dominantRegion
+		? `${analysis.dominantRegion.region} 지역은 전체 당첨점의 ${formatRatio(analysis.dominantRatio)}를 차지하며 이번 회차 판매점 분포에서 가장 먼저 눈에 띄었습니다.`
+		: "당첨점 분포는 특정 지역 한 곳에 쏠리기보다 여러 권역으로 분산된 모습에 가까웠습니다.";
+	const patternNarrative = `번호 구성은 홀짝 ${analysis.oddCount}:${analysis.evenCount}, 저번호/고번호 ${analysis.lowCount}:${analysis.highCount}로 정리되고 ${buildPatternSummary(analysis)} 흐름이 동시에 관측됐습니다.`;
+
+	const angleTagMap = {
+		scan_interest: "스캔데이터",
+		number_pattern: "번호패턴",
+		region_distribution: "지역분석",
+		round_comparison: "직전회차비교",
+		winner_payout: "당첨금흐름",
+	};
+
+	let title = `제${round}회 로또 결과 분석`;
+	let description = `제${round}회 로또 결과를 공식 발표와 645.live 데이터로 정리했습니다.`;
+	let leadParagraphs = [];
+	let insightParagraphs = [];
+	let bulletPoints = [];
+
+	switch (angle) {
+		case "scan_interest":
+			title = `제${round}회 로또 스캔 관심과 실제 결과 비교`;
+			description = `645.live 스캔 데이터와 실제 당첨번호가 얼마나 겹쳤는지 제${round}회 결과를 바탕으로 정리했습니다.`;
+			leadParagraphs = [
+				pickByRound(round, [
+					`제${round}회 로또는 결과 자체보다 “사람들이 많이 본 번호가 실제로 맞았는가”를 함께 보기 좋은 회차였습니다. 당첨번호는 ${analysis.numbers.join(", ")}이고 보너스번호는 ${bonus}이며, 1등 당첨자는 ${analysis.winnerCount}명으로 집계됐습니다.`,
+					`제${round}회 로또는 당첨번호 발표와 동시에 체감 인기 번호가 실제 결과와 얼마나 맞아떨어졌는지 비교할 수 있는 회차였습니다. 이번 회차 1등 당첨자는 ${analysis.winnerCount}명, 1인당 당첨금은 ${formatWon(analysis.winnerAmount)}입니다.`,
+				]),
+				`이번 회차를 스캔 데이터 관점에서 보면 단순 결과 요약보다 더 흥미로운 차이가 드러납니다. 많이 확인된 번호와 실제 당첨번호가 겹친 정도, 그리고 상위 관심 번호에서 빠진 숫자가 무엇인지까지 함께 봐야 체감과 결과의 간극을 읽을 수 있습니다.`,
+				scanNarrative || previousNarrative || regionNarrative,
+			];
+			insightParagraphs = [
+				`로또 이용자의 관심 흐름은 실제 추첨 결과와 자주 어긋납니다. 그래서 스캔 데이터는 “무엇이 자주 선택됐는가”를 보여주고, 당첨번호는 “무엇이 실제로 나왔는가”를 보여주는 별개의 층위로 읽어야 합니다.`,
+				selectionLead || regionNarrative,
+				previousNarrative || patternNarrative,
+			];
+			bulletPoints = [
+				`당첨번호는 ${analysis.numbers.join(", ")}이고 보너스번호는 ${bonus}입니다.`,
+				`1등 당첨자는 ${analysis.winnerCount}명이며 1인당 당첨금은 ${formatWon(analysis.winnerAmount)}입니다.`,
+				scanNarrative || `총 판매액은 ${formatWon(analysis.totalSales)}이며 스캔 관심도와 실제 결과 차이를 함께 볼 수 있습니다.`,
+				previousNarrative || regionNarrative,
+			];
+			break;
+		case "number_pattern":
+			title = `제${round}회 로또 번호 패턴 분석, ${buildPatternSummary(analysis)}`;
+			description = `연속번호와 홀짝, 번호대 분포를 중심으로 제${round}회 로또 패턴을 해석했습니다.`;
+			leadParagraphs = [
+				`제${round}회 로또는 ${buildPatternSummary(analysis)}이 한 회차에 겹치며 조합 구조가 유독 강하게 눈에 들어온 추첨이었습니다. 당첨번호는 ${analysis.numbers.join(", ")}이고 1등 당첨자는 ${analysis.winnerCount}명입니다.`,
+				`이런 회차는 “무작위 결과”라는 사실은 그대로 유지되지만, 사람들이 실제로 조합을 만들 때 의식하는 규칙과 결과가 얼마나 자주 충돌하는지를 보여준다는 점에서 해석 가치가 큽니다.`,
+				scanNarrative || previousNarrative || regionNarrative,
+			];
+			insightParagraphs = [
+				`패턴형 회차는 보통 과도하게 의미를 부여하기 쉽지만, 장기 통계를 함께 보면 오히려 자주 반복되는 축과 드문 조합을 구분하기 좋습니다. 연속번호와 홀짝 편중, 번호대 집중은 각각 따로도 보지만 한 회차 안에서 동시에 나타날 때 체감 반응이 더 커집니다.`,
+				`이번 회차는 ${patternNarrative}`,
+				previousNarrative || scanNarrative || regionNarrative,
+			];
+			bulletPoints = [
+				`당첨번호는 ${analysis.numbers.join(", ")} + 보너스 ${bonus}입니다.`,
+				`${buildPatternSummary(analysis)}이 동시에 나타났습니다.`,
+				`홀짝은 ${analysis.oddCount}:${analysis.evenCount}, 저번호/고번호는 ${analysis.lowCount}:${analysis.highCount} 분포입니다.`,
+				scanNarrative || previousNarrative || `1등 판매점은 ${analysis.firstStoreCount}개, 전체 당첨점은 ${analysis.storesCount}개입니다.`,
+			];
+			break;
+		case "region_distribution":
+			title = `제${round}회 로또 지역 분포 분석, ${analysis.dominantRegion?.region || "당첨점 흐름"} 주목`;
+			description = `제${round}회 로또 당첨점이 어느 지역과 생활권에 몰렸는지 판매점 데이터 중심으로 정리했습니다.`;
+			leadParagraphs = [
+				`제${round}회 로또는 번호 결과만큼이나 당첨점 분포가 눈에 띈 회차였습니다. 1등 판매점은 ${analysis.firstStoreCount}곳, 전체 당첨점은 ${analysis.storesCount}개로 집계됐고 ${analysis.dominantRegion?.region || "상위"} 지역이 가장 큰 비중을 차지했습니다.`,
+				`지역 분포형 회차는 번호 조합보다 판매점 위치와 선택 방식이 더 많은 관심을 받습니다. 실제로 어느 권역에서 1등·2등이 쏠렸는지까지 같이 봐야 이번 회차의 체감 흐름을 더 정확히 읽을 수 있습니다.`,
+				regionNarrative,
+				scanNarrative || previousNarrative,
+			].filter(Boolean);
+			insightParagraphs = [
+				`판매점 분포는 단순히 “어디서 많이 나왔나”를 넘어서, 온라인 포함 여부와 생활권 밀도, 자동·수동 선택 흐름을 함께 해석해야 의미가 살아납니다. 같은 상위 지역이라도 1등 중심인지 2등 중심인지에 따라 기사 초점이 달라집니다.`,
+				selectionLead || `1등 판매점 기준으로는 지역별 편차가 확실히 나타났습니다.`,
+				scanNarrative || previousNarrative || patternNarrative,
+			];
+			bulletPoints = [
+				`1등 판매점은 ${analysis.firstStoreCount}곳, 전체 당첨점은 ${analysis.storesCount}개입니다.`,
+				analysis.dominantRegion
+					? `${analysis.dominantRegion.region} 지역이 전체 당첨점의 ${formatRatio(analysis.dominantRatio)}를 차지했습니다.`
+					: "지역별 분포는 여러 권역으로 분산됐습니다.",
+				selectionLead || `당첨번호는 ${analysis.numbers.join(", ")} + 보너스 ${bonus}입니다.`,
+				scanNarrative ||
+					previousNarrative ||
+					`상위 주소 기준으로 먼저 확인된 곳은 ${analysis.areaRows[0]?.area || "주요 상권"}입니다.`,
+			];
+			break;
+		case "round_comparison":
+			title = `제${round}회 로또 직전 회차 비교, 겹친 번호와 변화`;
+			description = `제${round}회와 직전 회차를 비교해 당첨자 수, 반복 번호, 판매점 흐름 차이를 정리했습니다.`;
+			leadParagraphs = [
+				`제${round}회 로또는 직전 회차와 비교했을 때 변화 폭이 읽히는 추첨이었습니다. 이번 회차 당첨번호는 ${analysis.numbers.join(", ")}이고 1등 당첨자는 ${analysis.winnerCount}명으로 집계됐습니다.`,
+				`회차성 콘텐츠는 단일 결과보다 “지난주와 무엇이 달라졌는가”를 바로 보여줄 때 이해가 훨씬 빨라집니다. 반복 번호, 1등 당첨자 증감, 판매점 분포 차이는 회차 비교 기사에서 가장 먼저 봐야 할 포인트입니다.`,
+				previousNarrative || regionNarrative,
+				scanNarrative,
+			].filter(Boolean);
+			insightParagraphs = [
+				previous
+					? `직전 ${previous.previousRound}회와의 차이를 보면 이번 회차는 ${previous.repeatedNumbers.length > 0 ? `반복 번호 ${formatNumberList(previous.repeatedNumbers)}가 다시 등장했다는 점` : "번호 반복 없이 새 조합으로 이동했다는 점"}이 먼저 보입니다. 이런 비교는 단기 회차 흐름을 읽을 때 특히 유용합니다.`
+					: `직전 회차 비교 데이터가 제한적일 때는 당첨자 수와 판매점 분포부터 차이를 보는 것이 가장 빠른 기준이 됩니다.`,
+				`당첨자 수 변화는 기사 체감 온도를 바꾸는 핵심 변수입니다. 같은 당첨번호 구조라도 1등 인원과 판매점 분포가 바뀌면 독자의 관심 포인트도 달라집니다.`,
+				scanNarrative || regionNarrative || patternNarrative,
+			];
+			bulletPoints = [
+				`당첨번호는 ${analysis.numbers.join(", ")} + 보너스 ${bonus}입니다.`,
+				previousNarrative || `직전 회차 대비 변화를 확인할 수 있는 비교형 회차입니다.`,
+				`1등 당첨자는 ${analysis.winnerCount}명, 1인당 당첨금은 ${formatWon(analysis.winnerAmount)}입니다.`,
+				scanNarrative || regionNarrative,
+			];
+			break;
+		case "winner_payout":
+		default:
+			title =
+				variant === "single_winner"
+					? `제${round}회 로또 단독 당첨, 수령액과 분포 정리`
+					: `제${round}회 로또 당첨금 흐름, ${analysis.winnerCount}명 배분 구조`;
+			description = `제${round}회 로또 1등 당첨자 수와 1인당 당첨금이 어떻게 형성됐는지 데이터 기반으로 정리했습니다.`;
+			leadParagraphs = [
+				`제${round}회 로또는 1등 당첨자 ${analysis.winnerCount}명에게 ${formatWon(analysis.winnerAmount)}씩 배분되며 이번 회차의 핵심이 ‘당첨금 구조’로 모이는 결과를 만들었습니다. 당첨번호는 ${analysis.numbers.join(", ")}이고 보너스번호는 ${bonus}입니다.`,
+				`로또 기사에서 당첨자 수와 1인당 수령액은 가장 직관적인 지표입니다. 특히 소수 당첨이거나 고액 수령이 형성된 회차는 번호 자체보다 분배 구조와 판매점 흐름이 더 강한 관심을 받습니다.`,
+				selectionLead || regionNarrative,
+				scanNarrative || previousNarrative,
+			].filter(Boolean);
+			insightParagraphs = [
+				`당첨금 중심 회차는 이용자 입장에서 체감 강도가 높습니다. 당첨자 수가 적으면 고액 수령이라는 서사가 붙고, 당첨자가 많으면 “이번엔 넓게 퍼졌다”는 해석으로 이어지기 때문입니다.`,
+				`이번 회차 총 판매액은 ${formatWon(analysis.totalSales)}이며, 판매량 대비 당첨자 규모와 1인당 배분 구조를 함께 보면 이번 결과의 온도를 더 입체적으로 읽을 수 있습니다.`,
+				scanNarrative || previousNarrative || patternNarrative,
+			];
+			bulletPoints = [
+				`1등 당첨자는 ${analysis.winnerCount}명이고 1인당 당첨금은 ${formatWon(analysis.winnerAmount)}입니다.`,
+				`당첨번호는 ${analysis.numbers.join(", ")} + 보너스 ${bonus}입니다.`,
+				`총 판매액은 ${formatWon(analysis.totalSales)}입니다.`,
+				scanNarrative || previousNarrative || regionNarrative,
+			];
+			break;
+	}
+
+	const filteredLead = leadParagraphs.filter(Boolean).join("\n\n");
+	const filteredInsight = insightParagraphs.filter(Boolean).join("\n\n");
 
 	return {
-		title: titleData.title,
-		description: titleData.description,
+		title: normalizeLine(title, `제${round}회 로또 분석`),
+		description: normalizeLine(
+			description,
+			`제${round}회 로또 당첨 결과를 공식 발표와 645.live 데이터로 정리했습니다.`,
+		),
 		category: "로또분석",
-		tags: buildFallbackTags(analysis, variant),
-		lead: buildFallbackLead(draw, analysis, variant, previous),
-		bullet_points: buildFallbackBulletPoints(draw, analysis, variant, previous),
-		insight: buildFallbackInsight(analysis, variant, previous),
+		tags: normalizeTags(
+			[
+				"로또",
+				`${round}회`,
+				"당첨번호",
+				"당첨점",
+				angleTagMap[angle] || buildFallbackTags(analysis, variant)[4],
+			].filter(Boolean),
+			round,
+		),
+		lead: normalizeBlock(filteredLead, buildFallbackLead(draw, analysis, variant, previous)),
+		bullet_points: bulletPoints
+			.map((item) => normalizeLine(item, ""))
+			.filter(Boolean)
+			.slice(0, 4),
+		insight: normalizeBlock(filteredInsight, buildFallbackInsight(analysis, variant, previous)),
 		caution_message:
 			"복권은 건전한 오락으로 즐겨주세요. 과도한 구매는 경제적 부담을 유발할 수 있습니다.",
-		recommended_stats: buildRecommendedStatsLinks(analysis, variant),
+		recommended_stats: buildAngleRecommendedStats(analysis, angle, scanSummary),
+		story_angle: angle,
 	};
+}
+
+function fallbackPayload(draw, analysis, previousDraw, scanSummary = null, recentReferences = []) {
+	const variant = getFallbackVariant(analysis);
+	const previous = buildPreviousRoundContext(analysis, previousDraw);
+	const angleOrder = selectStoryAngles(analysis, scanSummary, previous);
+	let selected = null;
+	let lowestSimilarity = Number.POSITIVE_INFINITY;
+
+	for (const angle of angleOrder) {
+		const candidate = buildAnglePayload(
+			draw,
+			analysis,
+			variant,
+			angle,
+			previous,
+			scanSummary,
+		);
+		const similarity = buildCandidateSimilarity(candidate, recentReferences);
+
+		if (similarity < lowestSimilarity) {
+			selected = candidate;
+			lowestSimilarity = similarity;
+		}
+
+		if (similarity < 0.62) {
+			return candidate;
+		}
+	}
+
+	return (
+		selected || {
+			title: pickTitle(analysis, variant).title,
+			description: pickTitle(analysis, variant).description,
+			category: "로또분석",
+			tags: buildFallbackTags(analysis, variant),
+			lead: buildFallbackLead(draw, analysis, variant, previous),
+			bullet_points: buildFallbackBulletPoints(draw, analysis, variant, previous),
+			insight: buildFallbackInsight(analysis, variant, previous),
+			caution_message:
+				"복권은 건전한 오락으로 즐겨주세요. 과도한 구매는 경제적 부담을 유발할 수 있습니다.",
+			recommended_stats: buildRecommendedStatsLinks(analysis, variant),
+			story_angle: angleOrder[0] || "winner_payout",
+		}
+	);
 }
 
 function tryParseJson(text) {
@@ -815,7 +1292,7 @@ function sanitizeAiPayload(rawPayload, round, fallback) {
 		? rawPayload.bullet_points
 				.map((value) => normalizeLine(value, ""))
 				.filter(Boolean)
-				.slice(0, 6)
+				.slice(0, 4)
 		: [];
 
 	return {
@@ -1091,6 +1568,68 @@ async function getWinningStores(round) {
 	}
 }
 
+async function getScanRow(round) {
+	try {
+		const rows = await fetchRecords("lotto_draw_scan_counts", {
+			"filter[round][$eq]": round,
+			limit: 1,
+		});
+		return rows[0] ?? null;
+	} catch (error) {
+		console.warn(
+			`[news] scan row fetch failed round=${round} reason=${error?.message || error}`,
+		);
+		return null;
+	}
+}
+
+function parseExistingTimestamp(source, key) {
+	return source.match(new RegExp(`^${key}:\\s*["']?([^"'\\n]+)["']?`, "m"))?.[1];
+}
+
+function extractSection(source, startHeading, endHeading) {
+	const startIndex = source.indexOf(startHeading);
+	if (startIndex < 0) return "";
+	const contentStart = startIndex + startHeading.length;
+	const endIndex = endHeading ? source.indexOf(endHeading, contentStart) : -1;
+	const raw = (endIndex >= 0
+		? source.slice(contentStart, endIndex)
+		: source.slice(contentStart))
+		.replace(/<[^>]+>/g, " ")
+		.replace(/^- /gm, " ")
+		.replace(/\{[^}]+\}/g, " ")
+		.replace(/\s+/g, " ")
+		.trim();
+	return raw;
+}
+
+async function loadRecentNewsReferences() {
+	const files = await fs.readdir(NEWS_DIR).catch(() => []);
+	const references = [];
+
+	for (const file of files) {
+		const matched = file.match(/^lotto-(\d+)\.mdx$/);
+		if (!matched) continue;
+
+		const source = await fs
+			.readFile(path.join(NEWS_DIR, file), "utf8")
+			.catch(() => "");
+		if (!source) continue;
+
+		references.push({
+			round: Number.parseInt(matched[1], 10),
+			title:
+				source.match(/^title:\s*["']?([^"'\n]+)["']?/m)?.[1] || "",
+			lead: extractSection(source, "</Card>", "## 당첨번호"),
+			insight: extractSection(source, "## 특이점 분석", "## 지역별 당첨점 현황"),
+			publishedAt: parseExistingTimestamp(source, "publishedAt"),
+			updatedAt: parseExistingTimestamp(source, "updatedAt"),
+		});
+	}
+
+	return references.sort((left, right) => right.round - left.round);
+}
+
 async function getExistingRounds() {
 	const existing = new Set();
 	const files = await fs.readdir(NEWS_DIR).catch(() => []);
@@ -1101,7 +1640,7 @@ async function getExistingRounds() {
 	return existing;
 }
 
-function aiInputPayload(draw, stores, analysis) {
+function aiInputPayload(draw, stores, analysis, context = {}) {
 	const bonus = safeInt(draw.bonus_number);
 	return {
 		round: analysis.round,
@@ -1130,19 +1669,43 @@ function aiInputPayload(draw, stores, analysis) {
 			top_regions: analysis.regionRows,
 			top_areas: analysis.areaRows,
 		},
+		scan_summary: context.scanSummary
+			? {
+					total_scans: context.scanSummary.totalScans,
+					top_scanned_numbers: context.scanSummary.topScannedNumbers,
+					winning_overlap_numbers: context.scanSummary.winningOverlap,
+					missed_winning_numbers: context.scanSummary.missedWinningNumbers,
+				}
+			: null,
+		previous_round_context: context.previous
+			? {
+					previous_round: context.previous.previousRound,
+					previous_numbers: context.previous.previousNumbers,
+					repeated_numbers: context.previous.repeatedNumbers,
+					winner_delta: context.previous.winnerDelta,
+					amount_delta: context.previous.amountDelta,
+				}
+			: null,
+		suggested_story_angle: context.storyAngle || null,
+		recent_reference_titles: Array.isArray(context.recentReferences)
+			? context.recentReferences
+					.map((reference) => normalizeLine(reference.title, ""))
+					.filter(Boolean)
+					.slice(0, 3)
+			: [],
 	};
 }
 
-async function generatePayloadWithAi(draw, stores, analysis, fallback) {
+async function generatePayloadWithAi(draw, stores, analysis, fallback, context = {}) {
 	if (!USE_AI || !ZAI_API_KEY) {
 		return fallback;
 	}
 
 	const endpoint = `${ZAI_BASE_URL}/chat/completions`;
-	const input = aiInputPayload(draw, stores, analysis);
+	const input = aiInputPayload(draw, stores, analysis, context);
 	const prompt = [
 		"다음 JSON 데이터(로또 회차 집계/당첨점 집계)를 기반으로 한국어 뉴스 콘텐츠를 생성하라.",
-		"사실 기반의 중립적 뉴스 요약으로 작성하라.",
+		"사실 기반의 중립적 뉴스 해설 기사로 작성하라.",
 		"반드시 tool call(save_news_payload)로만 응답한다.",
 		"각 항목 규칙:",
 		"- title: 40자 이내",
@@ -1151,24 +1714,30 @@ async function generatePayloadWithAi(draw, stores, analysis, fallback) {
 		'- category: "로또분석" 권장',
 		"- tags: 3~5개",
 		"- lead: 2~4문단, 합계 350자 이상",
-		"- bullet_points: 4~8개",
+		"- bullet_points: 3~4개",
 		"- insight: 2~4문단, 합계 300자 이상",
 		"- caution_message: 건전 구매 안내 1문장",
 		"- recommended_stats: 2~5개. 각 항목은 {key, reason} 형식",
 		"- key 허용값: stats_main, winning_stores, numbers, odd_even, high_low, sections, pairs, repeat, colors, unit_digit, ac",
+		"- 첫 문단은 이번 회차에서 무엇이 달랐는지 바로 설명한다.",
+		"- 둘째 문단은 왜 이 결과가 의미 있는지 해석한다.",
+		"- 최소 1개 문단은 내부 스캔 데이터 또는 직전 회차 비교를 사용한다.",
+		"- 최근 기사와 유사한 문장 반복을 피하고 suggested_story_angle을 우선 반영한다.",
 		"입력 데이터:",
 		JSON.stringify(input),
 	].join("\n");
 
 	const jsonObjectPrompt = [
 		"다음 JSON 데이터로 로또 뉴스 payload를 생성하라.",
-		"사실 기반의 중립적 문체를 사용하라.",
+		"사실 기반의 중립적 문체를 사용하되 해설 기사처럼 작성하라.",
 		"반드시 JSON 객체만 반환하라.",
 		"필수 키: title, description, category, tags, lead, bullet_points, insight, caution_message, recommended_stats",
 		"title은 40자 이내, description은 20~40자로 작성하라.",
 		"description은 title과 같은 표현 반복 없이 키워드 위주로 작성하라.",
-		"tags는 문자열 배열(3~5개), bullet_points는 문자열 배열(4~8개)이어야 한다.",
+		"tags는 문자열 배열(3~5개), bullet_points는 문자열 배열(3~4개)이어야 한다.",
 		"lead와 insight는 각각 2~4문단으로 충분히 길게 작성하라.",
+		"첫 문단은 무엇이 달랐는지, 둘째 문단은 왜 의미 있는지 설명하라.",
+		"최소 1개 문단은 내부 스캔 데이터 또는 직전 회차 비교를 사용하라.",
 		"recommended_stats는 2~5개 배열이며 각 항목은 {key, reason} 형식이다.",
 		"key 허용값: stats_main, winning_stores, numbers, odd_even, high_low, sections, pairs, repeat, colors, unit_digit, ac",
 		JSON.stringify(input),
@@ -1231,7 +1800,12 @@ async function generatePayloadWithAi(draw, stores, analysis, fallback) {
 		const parsed = tryParseJson(content);
 		if (!parsed) return null;
 
-		return sanitizeAiPayload(parsed, analysis.round, fallback);
+		const result = sanitizeAiPayload(parsed, analysis.round, fallback);
+		const similarity = buildCandidateSimilarity(
+			result,
+			context.recentReferences || [],
+		);
+		return similarity >= 0.72 ? null : result;
 	}
 
 	try {
@@ -1363,6 +1937,16 @@ async function generatePayloadWithAi(draw, stores, analysis, fallback) {
 		}
 
 		const result = sanitizeAiPayload(parsed, analysis.round, fallback);
+		const similarity = buildCandidateSimilarity(
+			result,
+			context.recentReferences || [],
+		);
+		if (similarity >= 0.72) {
+			console.warn(
+				`[news] AI payload too similar round=${analysis.round} similarity=${similarity.toFixed(2)} fallback`,
+			);
+			return fallback;
+		}
 		console.log(`[news] ai tool-call payload applied round=${analysis.round}`);
 		return result;
 	} catch (error) {
@@ -1486,7 +2070,7 @@ function buildRecommendedStatsLinks(analysis, variant = getFallbackVariant(analy
 		);
 	}
 
-	return links.slice(0, 6);
+	return links.slice(0, 4);
 }
 
 function escapeHtml(value) {
@@ -1498,16 +2082,18 @@ function escapeHtml(value) {
 		.replace(/'/g, "&#39;");
 }
 
-function renderMdx(draw, analysis, payload) {
+function renderMdx(draw, analysis, payload, metadata = {}) {
 	const round = analysis.round;
 	const bonus = safeInt(draw.bonus_number);
 	const drawDate = formatDate(draw.draw_date);
+	const publishedAt = metadata.publishedAt || `${drawDate}T21:21:00+09:00`;
+	const updatedAt = metadata.updatedAt || publishedAt;
 	const finalTitle = normalizeLine(payload.title, `제${round}회 로또 분석`);
 	const finalDescription = normalizeLine(
 		payload.description,
 		"당첨번호·당첨금·지역분포·당첨점 통계 요약",
 	);
-	const thumbnail = `/og/news/lotto-${round}?v=${encodeURIComponent(drawDate)}`;
+	const thumbnail = `/og/news/lotto-${round}?v=${encodeURIComponent(updatedAt || publishedAt || drawDate)}`;
 	const safeLead = sanitizeMdxBlock(payload.lead, "핵심 요약을 준비 중입니다.");
 	const safeInsight = sanitizeMdxBlock(
 		payload.insight,
@@ -1551,6 +2137,8 @@ function renderMdx(draw, analysis, payload) {
 	return `---
 title: ${yamlString(finalTitle)}
 date: ${yamlString(drawDate)}
+publishedAt: ${yamlString(publishedAt)}
+updatedAt: ${yamlString(updatedAt)}
 category: ${yamlString(payload.category)}
 tags: [${payload.tags.map((tag) => yamlString(tag)).join(", ")}]
 description: ${yamlString(finalDescription)}
@@ -1652,10 +2240,20 @@ ${recommendedStatsCards}
 `;
 }
 
+function stripManagedTimestamps(source) {
+	return String(source ?? "")
+		.replace(/^updatedAt:\s*["']?[^"'\n]+["']?\n/m, "");
+}
+
 async function writeNewsFile(round, content) {
 	const filePath = path.join(NEWS_DIR, `lotto-${round}.mdx`);
 	const previous = await fs.readFile(filePath, "utf8").catch(() => null);
-	if (previous === content) return false;
+	if (
+		previous &&
+		stripManagedTimestamps(previous) === stripManagedTimestamps(content)
+	) {
+		return false;
+	}
 	await fs.writeFile(filePath, content, "utf8");
 	return true;
 }
@@ -1664,6 +2262,7 @@ async function main() {
 	await fs.mkdir(NEWS_DIR, { recursive: true });
 
 	const existingRounds = await getExistingRounds();
+	const recentReferences = await loadRecentNewsReferences();
 	const drawRows = await getDrawRows();
 	if (TARGET_ROUND && drawRows.length === 0) {
 		throw new Error(`No draw data found for round=${TARGET_ROUND}`);
@@ -1688,19 +2287,67 @@ async function main() {
 
 		const stores = await getWinningStores(round);
 		const analysis = analyzeRound(draw, stores);
+		const scanRow = await getScanRow(round);
+		const scanSummary = extractScanSummary(scanRow, analysis);
 		const previousDraw = drawRows.find(
 			(candidate) => safeInt(candidate.round) === round - 1,
 		);
-		const fallback = fallbackPayload(draw, analysis, previousDraw);
+		const candidateReferences = recentReferences
+			.filter((reference) => reference.round !== round)
+			.slice(0, 3);
+		const fallback = fallbackPayload(
+			draw,
+			analysis,
+			previousDraw,
+			scanSummary,
+			candidateReferences,
+		);
 		const payload = await generatePayloadWithAi(
 			draw,
 			stores,
 			analysis,
 			fallback,
+			{
+				scanSummary,
+				previous: buildPreviousRoundContext(analysis, previousDraw),
+				storyAngle: fallback.story_angle,
+				recentReferences: candidateReferences,
+			},
 		);
-		const mdx = renderMdx(draw, analysis, payload);
+		const filePath = path.join(NEWS_DIR, `lotto-${round}.mdx`);
+		const existingSource = await fs.readFile(filePath, "utf8").catch(() => "");
+		const defaultPublishedAt = `${formatDate(draw.draw_date)}T21:21:00+09:00`;
+		const existingPublishedAt = parseExistingTimestamp(
+			existingSource,
+			"publishedAt",
+		);
+		const publishedAt =
+			existingPublishedAt && existingPublishedAt.startsWith(formatDate(draw.draw_date))
+				? existingPublishedAt
+				: defaultPublishedAt;
+		const stableUpdatedAt =
+			parseExistingTimestamp(existingSource, "updatedAt") || publishedAt;
+		const draftMdx = renderMdx(draw, analysis, payload, {
+			publishedAt,
+			updatedAt: stableUpdatedAt,
+		});
+		const hasMaterialChange =
+			stripManagedTimestamps(existingSource) !== stripManagedTimestamps(draftMdx);
+		const mdx = renderMdx(draw, analysis, payload, {
+			publishedAt,
+			updatedAt: hasMaterialChange ? getKstTimestamp() : stableUpdatedAt,
+		});
 		const changed = await writeNewsFile(round, mdx);
 		if (!changed) continue;
+
+		recentReferences.unshift({
+			round,
+			title: payload.title,
+			lead: payload.lead,
+			insight: payload.insight,
+			publishedAt,
+			updatedAt: parseExistingTimestamp(mdx, "updatedAt"),
+		});
 
 		if (existingRounds.has(round)) updatedCount += 1;
 		else generatedCount += 1;

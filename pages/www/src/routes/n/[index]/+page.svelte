@@ -1,6 +1,6 @@
 <script lang="ts">
 import { goto } from "$app/navigation";
-import { resolveRoute } from "$app/paths";
+import { resolve } from "$app/paths";
 import { page } from "$app/stores";
 import LottoBall from "$lib/modules/lotto/components/LottoBall.svelte";
 import ValueIncrementEffect from "$lib/modules/lotto/components/ValueIncrementEffect.svelte";
@@ -23,12 +23,16 @@ const ballNumber = $derived(Number($page.params.index));
 let ballValue = $state(0);
 let isUpdated = $state(false);
 let updateTimeoutId: ReturnType<typeof setTimeout> | null = null;
+let displayedRound = $state<number | null>(null);
+let mounted = $state(false);
+let loadSequence = 0;
 
 // 전역 스트림 구독 해제 함수
 let unsubscribeStream: (() => void) | null = null;
 
 async function loadBallValue(round: number | null, number: number) {
 	if (!round) {
+		displayedRound = null;
 		ballValue = 0;
 		return;
 	}
@@ -41,16 +45,38 @@ async function loadBallValue(round: number | null, number: number) {
 
 	const scanCountField = `scan_count_${number}` as keyof LottoDrawScanCount;
 	ballValue = Number(scanData[scanCountField]) || 0;
+	displayedRound = round;
 }
 
 function getDisplayRound(): number {
 	return data.displayRound ?? calculateDisplayRound();
 }
 
-onMount(async () => {
-	const displayRound = getDisplayRound();
-	await loadBallValue(displayRound, ballNumber);
+const isFallbackPreview = $derived(
+	!!data.fallbackPreviewRound &&
+	displayedRound === data.fallbackPreviewRound &&
+	data.displayRound !== data.fallbackPreviewRound,
+);
 
+async function syncDisplayedBallValue(number: number) {
+	const sequence = ++loadSequence;
+	const displayRound = getDisplayRound();
+	await loadBallValue(displayRound, number);
+
+	if (sequence !== loadSequence) return;
+
+	if (
+		data.latestRoundHasScanData === false &&
+		data.fallbackPreviewRound &&
+		displayRound !== data.fallbackPreviewRound &&
+		ballValue === 0
+	) {
+		await loadBallValue(data.fallbackPreviewRound, number);
+	}
+}
+
+onMount(() => {
+	mounted = true;
 	unsubscribeStream = trailbaseClient.subscribe("ball-page", (scanData) => {
 		if (scanData.round !== getDisplayRound()) {
 			return;
@@ -72,14 +98,18 @@ onMount(async () => {
 		}
 
 		ballValue = nextBallValue;
+		displayedRound = getDisplayRound();
 	});
+
+	return () => {
+		mounted = false;
+	};
 });
 
 $effect(() => {
-	const latestRound = getDisplayRound();
+	if (!mounted) return;
 	const currentBallNumber = ballNumber;
-
-	void loadBallValue(latestRound, currentBallNumber);
+	void syncDisplayedBallValue(currentBallNumber);
 });
 
 onDestroy(() => {
@@ -94,21 +124,21 @@ onDestroy(() => {
 // Navigation functions
 const goToPrevious = () => {
 	if (ballNumber > 1) {
-		void goto(
-			resolveRoute("/n/[index]", {
-				index: String(ballNumber - 1),
-			}),
-		);
+			void goto(
+				resolve("/n/[index]", {
+					index: String(ballNumber - 1),
+				}),
+			);
 	}
 };
 
 const goToNext = () => {
 	if (ballNumber < 45) {
-		void goto(
-			resolveRoute("/n/[index]", {
-				index: String(ballNumber + 1),
-			}),
-		);
+			void goto(
+				resolve("/n/[index]", {
+					index: String(ballNumber + 1),
+				}),
+			);
 	}
 };
 
@@ -200,6 +230,18 @@ const getColorClass = (color: string | undefined) => {
 		<h1 class="text-4xl font-bold text-gray-900 dark:text-gray-100 mb-2">로또 번호 {ballNumber}</h1>
 		<p class="text-lg text-gray-600 dark:text-gray-400">실시간 스캔 현황 및 당첨 통계</p>
 	</div>
+
+	{#if isFallbackPreview}
+		<div class="alert alert-info mb-6">
+			<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
+				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+			</svg>
+			<div>
+				<div class="font-bold">{data.displayRound}회 스캔 데이터 준비 중</div>
+				<div class="text-sm">현재 표시 중인 수치는 가장 최근 데이터가 있는 {displayedRound}회 기준입니다. 최신 회차 데이터가 들어오면 자동으로 전환됩니다.</div>
+			</div>
+		</div>
+	{/if}
 
 	<!-- 메인 콘텐츠 -->
 	<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -368,9 +410,9 @@ const getColorClass = (color: string | undefined) => {
 	<!-- 하단 네비게이션 -->
 	<div class="mt-8 text-center space-y-4">
 		<div class="flex flex-wrap justify-center gap-4">
-				<a href={resolveRoute("/stats/numbers")} class="btn btn-outline btn-primary">전체 번호 통계</a>
-				<a href={resolveRoute("/generator")} class="btn btn-outline btn-secondary">번호 생성기</a>
-				<a href={resolveRoute("/")} class="btn btn-outline">홈으로</a>
+				<a href={resolve("/stats/numbers")} class="btn btn-outline btn-primary">전체 번호 통계</a>
+				<a href={resolve("/generator")} class="btn btn-outline btn-secondary">번호 생성기</a>
+				<a href={resolve("/")} class="btn btn-outline">홈으로</a>
 		</div>
 		<div class="flex justify-center gap-2">
 			{#if ballNumber > 1}
