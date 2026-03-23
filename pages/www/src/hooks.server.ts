@@ -1,7 +1,5 @@
 import { building } from "$app/environment";
 import { env } from "$env/dynamic/private";
-import { createAuth } from "$lib/auth"; // path to your auth file
-import { createDrizzleClient } from "$lib/db";
 import type { DrizzleClient } from "$lib/db";
 import type { Handle } from "@sveltejs/kit";
 import { svelteKitHandler } from "better-auth/svelte-kit";
@@ -27,6 +25,11 @@ export const handle: Handle = async ({ event, resolve }) => {
 	}
 
 	try {
+		const [{ createAuth }, { createDrizzleClient }] = await Promise.all([
+			import("$lib/auth"),
+			import("$lib/db"),
+		]);
+
 		const databaseUrl = getDatabaseUrl(event);
 		event.locals.db = createDrizzleClient(databaseUrl);
 

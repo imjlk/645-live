@@ -3,7 +3,6 @@ import {
 	parseSetCookieHeader,
 	splitSetCookieHeader,
 } from "better-auth/cookies";
-import { handleAuthRequest } from "$lib/auth";
 
 export const getSetCookieHeaders = (response: Response): string[] => {
 	const getSetCookie = Reflect.get(response.headers, "getSetCookie");
@@ -69,6 +68,7 @@ export const executeAuthJsonAction = async <T>(
 		}
 	}
 
+	const { handleAuthRequest } = await import("$lib/auth");
 	const response = await handleAuthRequest(
 		event,
 		new Request(new URL(path, event.url), {

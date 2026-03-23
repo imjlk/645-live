@@ -1,7 +1,6 @@
 import type { RequestHandler } from "@sveltejs/kit";
-import { handleAuthRequest } from "$lib/auth";
 
-const handler: RequestHandler = (event) => {
+const handler: RequestHandler = async (event) => {
 	if (!event.locals.db) {
 		if (
 			event.request.method === "GET" &&
@@ -20,6 +19,7 @@ const handler: RequestHandler = (event) => {
 		);
 	}
 
+	const { handleAuthRequest } = await import("$lib/auth");
 	return handleAuthRequest(event);
 };
 
