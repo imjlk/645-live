@@ -96,6 +96,7 @@ let isFallbackPreviewVisible = $derived(
 
 // Subscription cleanup function
 let unsubscribeBallValues: (() => void) | null = null;
+let unsubscribeConnectionStatus: (() => void) | null = null;
 
 // 키보드 네비게이션을 위한 현재 포커스 인덱스
 let focusedBallIndex = $state<number | null>(null);
@@ -249,6 +250,8 @@ export function updateRound(newRound: number) {
 }
 
 onMount(async () => {
+	unsubscribeConnectionStatus = connectionStatus.subscribe();
+
 	// Initialize data first to ensure values are loaded
 	await initializeData();
 
@@ -289,6 +292,11 @@ onDestroy(() => {
 		unsubscribeBallValues = null;
 	}
 
+	if (unsubscribeConnectionStatus) {
+		unsubscribeConnectionStatus();
+		unsubscribeConnectionStatus = null;
+	}
+
 	// Clear any pending timeouts
 	if (ballUpdateTimeoutId) {
 		clearTimeout(ballUpdateTimeoutId);
@@ -300,8 +308,6 @@ onDestroy(() => {
 		connectionTimeoutId = null;
 	}
 
-	// connectionStatus auto-unsubscribes when component is destroyed
-	connectionStatus.unsubscribe();
 });
 </script>
 

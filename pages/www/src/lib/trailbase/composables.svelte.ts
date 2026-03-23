@@ -530,7 +530,7 @@ export function useBallValues(
 
 /**
  * Simple composable for connection status display
- * Automatically subscribes on creation
+ * Call subscribe() in onMount and unsubscribe() in onDestroy
  */
 export function useConnectionStatus() {
 	let connected = $state(false);
