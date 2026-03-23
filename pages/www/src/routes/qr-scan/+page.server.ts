@@ -81,6 +81,14 @@ export const actions: Actions = {
 				return fail(400, { error: "유효한 로또 QR 코드가 아닙니다." });
 			}
 
+			// TrailBase 집계와 당첨 상태 계산은 서로 독립적이라 먼저 병렬로 시작합니다.
+			const scanRecordPromise = buildScanRecordPayload(qrData);
+			const authSessionPromise = locals.auth
+				? locals.auth.api.getSession({
+						headers: request.headers,
+					})
+				: Promise.resolve(null);
+
 			// 트레일베이스 /scanned 라우트로 POST 요청 (타임아웃 추가)
 			const trailbaseUrl = TRAILBASE_URL || "http://localhost:4000";
 
@@ -118,32 +126,32 @@ export const actions: Actions = {
 			const isTrailbaseDuplicate = response.status === 409 || result.isDuplicate;
 
 			if (!response.ok && !isTrailbaseDuplicate) {
+				void scanRecordPromise.catch(() => {});
+				void authSessionPromise.catch(() => {});
 				return fail(500, { error: `서버 오류: ${response.status}` });
 			}
 
 			if (result.success || isTrailbaseDuplicate) {
-				const scanRecord = await buildScanRecordPayload(qrData);
+				const [scanRecord, authSession] = await Promise.all([
+					scanRecordPromise,
+					authSessionPromise,
+				]);
 				let memberSyncState: "not_applicable" | "synced" | "pending" =
 					"not_applicable";
 
-				if (locals.auth) {
-					const authSession = await locals.auth.api.getSession({
-						headers: request.headers,
-					});
-					const userId =
-						authSession?.user?.id && typeof authSession.user.id === "string"
-							? authSession.user.id
-							: null;
+				const userId =
+					authSession?.user?.id && typeof authSession.user.id === "string"
+						? authSession.user.id
+						: null;
 
-					if (userId) {
-						try {
-							const myScansService = createMyScansService(locals.db);
-							await myScansService.upsertPending(userId, [scanRecord]);
-							memberSyncState = "synced";
-						} catch (memberSaveError) {
-							console.error("회원 스캔 저장 실패:", memberSaveError);
-							memberSyncState = "pending";
-						}
+				if (userId) {
+					try {
+						const myScansService = createMyScansService(locals.db);
+						await myScansService.upsertPending(userId, [scanRecord]);
+						memberSyncState = "synced";
+					} catch (memberSaveError) {
+						console.error("회원 스캔 저장 실패:", memberSaveError);
+						memberSyncState = "pending";
 					}
 				}
 
