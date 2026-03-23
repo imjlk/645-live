@@ -15,6 +15,13 @@
       "when": 1774239262005,
       "tag": "0001_sweet_preak",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1774242098804,
+      "tag": "0002_mute_saracen",
+      "breakpoints": true
     }
   ]
 }

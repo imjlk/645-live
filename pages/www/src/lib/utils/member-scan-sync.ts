@@ -33,6 +33,8 @@ class RpcMemberScanSyncStrategy implements QRScanSyncStrategy {
 			resultStatus: item.resultStatus,
 			lastCheckedAt: item.lastCheckedAt?.toISOString() ?? null,
 			winningGrade: item.winningGrade ?? null,
+			claimStartAt: item.claimStartAt?.toISOString() ?? null,
+			claimDeadlineAt: item.claimDeadlineAt?.toISOString() ?? null,
 			summary: item.summary,
 		}));
 

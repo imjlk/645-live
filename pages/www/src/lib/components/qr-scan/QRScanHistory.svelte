@@ -113,6 +113,9 @@ function getScanIcon(item: QRScanHistoryItem): string {
 		}
 		return "🎊";
 	}
+	if (item.resultStatus === "expired") {
+		return "⌛";
+	}
 	if (item.resultStatus === "unreleased") {
 		return "⏳";
 	}
@@ -130,6 +133,9 @@ function getScanBgColor(item: QRScanHistoryItem): string {
 		}
 		return "bg-gradient-to-r from-green-50 to-blue-50 border-green-300";
 	}
+	if (item.resultStatus === "expired") {
+		return "bg-gradient-to-r from-rose-50 to-orange-50 border-rose-300";
+	}
 	if (item.resultStatus === "unreleased") {
 		return "bg-gradient-to-r from-amber-50 to-yellow-50 border-amber-300";
 	}
@@ -142,6 +148,10 @@ function getScanBgColor(item: QRScanHistoryItem): string {
 function getStatusBadge(item: QRScanHistoryItem): string | null {
 	if (item.resultStatus === "winner" && item.winningGrade) {
 		return item.winningGrade;
+	}
+
+	if (item.resultStatus === "expired") {
+		return "기간 지남";
 	}
 
 	if (item.resultStatus === "unreleased") {
@@ -313,6 +323,7 @@ loadHistory();
 													<div
 														class="badge badge-sm"
 														class:badge-success={item.resultStatus === "winner"}
+														class:badge-error={item.resultStatus === "expired"}
 														class:badge-warning={item.resultStatus === "unreleased"}
 														class:badge-neutral={item.resultStatus === "unknown"}
 													>

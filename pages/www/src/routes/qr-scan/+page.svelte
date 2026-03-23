@@ -421,7 +421,12 @@ $effect(() => {
 			}
 
 			if (scanRecord) {
-				if (scanRecord.isUnreleased) {
+				if (scanRecord.isExpired) {
+					toast.warning("⌛ 수령 기간이 지난 티켓입니다", {
+						description: `${scanRecord.round}회차는 당첨금 수령 기한이 지나 결과 대신 만료 상태로 기록했습니다.`,
+						duration: 7000,
+					});
+				} else if (scanRecord.isUnreleased) {
 					toast.success("✅ 로또 스캔 저장 완료!", {
 						description: alreadyScanned
 							? `${scanRecord.round}회차 기존 티켓을 다시 확인했습니다. 발표 후 상태가 바뀌면 자동으로 갱신됩니다.`

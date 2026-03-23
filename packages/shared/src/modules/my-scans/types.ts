@@ -2,7 +2,8 @@ export type MyScanResultStatus =
 	| "winner"
 	| "loser"
 	| "unreleased"
-	| "unknown";
+	| "unknown"
+	| "expired";
 
 export type MyScanListItem = {
 	id: string;
@@ -12,6 +13,8 @@ export type MyScanListItem = {
 	resultStatus: MyScanResultStatus;
 	lastCheckedAt: string | null;
 	winningGrade: string | null;
+	claimStartAt: string | null;
+	claimDeadlineAt: string | null;
 	summary: string;
 	createdAt: string;
 	updatedAt: string;
@@ -37,6 +40,8 @@ export type MyScanUpsertInput = {
 	resultStatus: MyScanResultStatus;
 	lastCheckedAt?: string | null;
 	winningGrade?: string | null;
+	claimStartAt?: string | null;
+	claimDeadlineAt?: string | null;
 	summary: string;
 };
 

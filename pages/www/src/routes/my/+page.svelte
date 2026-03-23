@@ -42,6 +42,10 @@ function getStatusLabel(item: MyScanListItem): string {
 		return `${item.winningGrade} 당첨`;
 	}
 
+	if (item.resultStatus === "expired") {
+		return "수령 기간 지남";
+	}
+
 	if (item.resultStatus === "unreleased") {
 		return "미발표";
 	}
@@ -56,6 +60,10 @@ function getStatusLabel(item: MyScanListItem): string {
 function getStatusBadgeClass(item: MyScanListItem): string {
 	if (item.resultStatus === "winner") {
 		return "badge-success";
+	}
+
+	if (item.resultStatus === "expired") {
+		return "badge-error";
 	}
 
 	if (item.resultStatus === "unreleased") {

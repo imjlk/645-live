@@ -34,6 +34,7 @@ export function generateScanSummary(options: {
 	isWinner?: boolean;
 	winningGrade?: string;
 	isUnreleased?: boolean;
+	isExpired?: boolean;
 }): string {
 	return v2GenerateScanSummary(options);
 }
@@ -42,6 +43,7 @@ export function deriveScanResultStatus(options: {
 	resultStatus?: QRScanResultStatus;
 	isWinner?: boolean;
 	isUnreleased?: boolean;
+	isExpired?: boolean;
 	summary?: string;
 }): QRScanResultStatus {
 	return v2DeriveScanResultStatus(options);

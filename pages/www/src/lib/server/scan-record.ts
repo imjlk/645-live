@@ -3,14 +3,21 @@ import type {
 	MyScanUpsertInput,
 } from "@645/shared";
 import {
+	findRoundInSnapshot,
+	getDrawSnapshotRound,
+	getRecentDrawSnapshot,
+} from "$lib/server/recent-draw-snapshot";
+import {
+	calculateClaimWindow,
+	estimateDrawDateFromRound,
+	isClaimExpired,
+} from "$lib/utils/claim-window.js";
+import {
 	deriveScanResultStatus,
 	generateScanSummary,
 	generateTicketHash,
 } from "$lib/utils/qr-scan-history.js";
-import {
-	calculateExpectedLatestRound,
-	getLottoNumbersFromAPI,
-} from "$lib/utils/lotto-common.js";
+import { calculateExpectedLatestRound } from "$lib/utils/lotto-common.js";
 import { parseLottoQR } from "$lib/utils/lotto-parser.js";
 
 export interface WinningResult {
@@ -25,6 +32,7 @@ export interface WinningResult {
 export interface ScanRecordPayload extends MyScanUpsertInput {
 	isWinner: boolean;
 	isUnreleased: boolean;
+	isExpired: boolean;
 	winningResults: WinningResult[];
 }
 
@@ -122,53 +130,71 @@ export async function buildScanRecordPayload(
 	let winningResults: WinningResult[] = [];
 	let isWinner = false;
 	let isUnreleased = false;
+	let isExpired = false;
 	let round = qrRound ?? calculateExpectedLatestRound();
 	let lastCheckedAt: string | null = scannedAtIso;
+	let claimStartAt: string | null = null;
+	let claimDeadlineAt: string | null = null;
 
 	if (qrRound) {
 		try {
-			const winningData = await getLottoNumbersFromAPI(qrRound);
+			const snapshot = await getRecentDrawSnapshot();
+			const snapshotRow =
+				findRoundInSnapshot(snapshot, qrRound) ??
+				(await getDrawSnapshotRound(qrRound, snapshot));
 
-			if (
-				!winningData ||
-				(winningData.drwtNo1 === 0 &&
-					winningData.drwtNo2 === 0 &&
-					winningData.drwtNo3 === 0)
-			) {
+			if (snapshotRow) {
+				round = snapshotRow.round;
+				const claimWindow = calculateClaimWindow(snapshotRow.drawDate);
+				claimStartAt = claimWindow.claimStartAt;
+				claimDeadlineAt = claimWindow.claimDeadlineAt;
+
+				if (isClaimExpired(claimWindow.claimDeadlineAt, scannedAt)) {
+					isExpired = true;
+				} else {
+					winningResults = games.map((game) =>
+						checkLottoWinning(
+							game.numbers,
+							snapshotRow.numbers,
+							snapshotRow.bonusNumber,
+							snapshotRow.firstPrizeAmount,
+						),
+					);
+					isWinner = winningResults.some((result) => result.isWinner);
+					winningGrade = getHighestWinningGrade(winningResults) ?? null;
+				}
+			} else if (snapshot.rounds.at(-1)?.round && qrRound < snapshot.rounds.at(-1)!.round) {
+				const claimWindow = calculateClaimWindow(estimateDrawDateFromRound(qrRound));
+				claimStartAt = claimWindow.claimStartAt;
+				claimDeadlineAt = claimWindow.claimDeadlineAt;
+				isExpired = true;
+			} else if (qrRound > snapshot.latestRound) {
 				isUnreleased = true;
 				lastCheckedAt = null;
 			} else {
-				const winningNumbers = [
-					winningData.drwtNo1,
-					winningData.drwtNo2,
-					winningData.drwtNo3,
-					winningData.drwtNo4,
-					winningData.drwtNo5,
-					winningData.drwtNo6,
-				];
-
-				winningResults = games.map((game) =>
-					checkLottoWinning(
-						game.numbers,
-						winningNumbers,
-						winningData.bnusNo,
-						winningData.firstWinamnt,
-					),
-				);
-				isWinner = winningResults.some((result) => result.isWinner);
-				winningGrade = getHighestWinningGrade(winningResults) ?? null;
+				lastCheckedAt = null;
 			}
 		} catch (error) {
 			console.error("QR 당첨 확인용 데이터 조회 실패:", error);
-			lastCheckedAt = null;
+			const claimWindow = calculateClaimWindow(estimateDrawDateFromRound(qrRound));
+			claimStartAt = claimWindow.claimStartAt;
+			claimDeadlineAt = claimWindow.claimDeadlineAt;
+
+			if (isClaimExpired(claimWindow.claimDeadlineAt, scannedAt)) {
+				isExpired = true;
+			} else {
+				lastCheckedAt = null;
+			}
 		}
 	} else {
 		lastCheckedAt = null;
 	}
 
 	resultStatus = deriveScanResultStatus({
+		resultStatus: isExpired ? "expired" : undefined,
 		isWinner,
 		isUnreleased,
+		isExpired,
 	});
 
 	return {
@@ -180,6 +206,8 @@ export async function buildScanRecordPayload(
 		resultStatus,
 		lastCheckedAt,
 		winningGrade,
+		claimStartAt,
+		claimDeadlineAt,
 		summary: generateScanSummary({
 			round,
 			gamesCount,
@@ -187,9 +215,11 @@ export async function buildScanRecordPayload(
 			winningGrade: winningGrade ?? undefined,
 			isWinner,
 			isUnreleased,
+			isExpired,
 		}),
 		isWinner,
 		isUnreleased,
+		isExpired,
 		winningResults,
 	};
 }

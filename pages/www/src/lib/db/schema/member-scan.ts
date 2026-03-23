@@ -22,6 +22,8 @@ export const memberScan = pgTable(
 		resultStatus: text("result_status").notNull(),
 		lastCheckedAt: timestamp("last_checked_at"),
 		winningGrade: text("winning_grade"),
+		claimStartAt: timestamp("claim_start_at"),
+		claimDeadlineAt: timestamp("claim_deadline_at"),
 		summary: text("summary").notNull(),
 		createdAt: timestamp("created_at")
 			.$defaultFn(() => /* @__PURE__ */ new Date())

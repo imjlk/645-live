@@ -9,13 +9,19 @@
  */
 
 import { browser } from "$app/environment";
+import { isClaimExpired } from "./claim-window.js";
 import { parseLottoQR } from "./lotto-parser.js";
 
 const LOCAL_HISTORY_RETENTION_DAYS = 7;
 const LOCAL_HISTORY_RETENTION_MS =
 	LOCAL_HISTORY_RETENTION_DAYS * 24 * 60 * 60 * 1000;
 
-export type QRScanResultStatus = "winner" | "loser" | "unreleased" | "unknown";
+export type QRScanResultStatus =
+	| "winner"
+	| "loser"
+	| "unreleased"
+	| "unknown"
+	| "expired";
 
 // ===== 기본 타입 정의 =====
 
@@ -30,6 +36,8 @@ export interface QRScanHistoryItem {
 	lastCheckedAt?: Date;
 	isWinner?: boolean;
 	winningGrade?: string;
+	claimStartAt?: Date;
+	claimDeadlineAt?: Date;
 	summary: string;
 	// 확장 필드들
 	userId?: string; // 회원 ID
@@ -63,7 +71,8 @@ function isValidResultStatus(value: unknown): value is QRScanResultStatus {
 		value === "winner" ||
 		value === "loser" ||
 		value === "unreleased" ||
-		value === "unknown"
+		value === "unknown" ||
+		value === "expired"
 	);
 }
 
@@ -172,10 +181,15 @@ export function deriveScanResultStatus(options: {
 	resultStatus?: QRScanResultStatus;
 	isWinner?: boolean;
 	isUnreleased?: boolean;
+	isExpired?: boolean;
 	summary?: string;
 }): QRScanResultStatus {
 	if (isValidResultStatus(options.resultStatus)) {
 		return options.resultStatus;
+	}
+
+	if (options.isExpired || options.summary?.includes("수령 기간 지남")) {
+		return "expired";
 	}
 
 	if (options.isUnreleased || options.summary?.includes("미발표")) {
@@ -299,12 +313,15 @@ export class LocalStorageProvider implements QRScanStorageProvider {
 		const scannedAt = parseDate(item.scannedAt) ?? new Date();
 		const round = normalizeRound(item.round);
 		const gamesCount = normalizeGamesCount(item.gamesCount);
+		const claimStartAt = parseDate(item.claimStartAt);
+		const claimDeadlineAt = parseDate(item.claimDeadlineAt);
 		const resultStatus = deriveScanResultStatus({
 			resultStatus: isValidResultStatus(item.resultStatus)
 				? item.resultStatus
 				: undefined,
 			isWinner: typeof item.isWinner === "boolean" ? item.isWinner : undefined,
 			isUnreleased: false,
+			isExpired: isClaimExpired(claimDeadlineAt),
 			summary: typeof item.summary === "string" ? item.summary : undefined,
 		});
 
@@ -332,9 +349,17 @@ export class LocalStorageProvider implements QRScanStorageProvider {
 				(resultStatus === "unknown" ? undefined : scannedAt),
 			isWinner: resultStatus === "winner",
 			winningGrade,
+			claimStartAt,
+			claimDeadlineAt,
 			summary:
 				typeof item.summary === "string" && item.summary.length > 0
-					? item.summary
+					? resultStatus === "expired"
+						? generateScanSummary({
+								round,
+								gamesCount,
+								resultStatus,
+							})
+						: item.summary
 					: generateScanSummary({
 							round,
 							gamesCount,
@@ -872,6 +897,7 @@ export function generateScanSummary(options: {
 	isWinner?: boolean;
 	winningGrade?: string;
 	isUnreleased?: boolean;
+	isExpired?: boolean;
 }): string {
 	const {
 		round,
@@ -880,11 +906,13 @@ export function generateScanSummary(options: {
 		isWinner,
 		winningGrade,
 		isUnreleased,
+		isExpired,
 	} = options;
 	const normalizedStatus = deriveScanResultStatus({
 		resultStatus,
 		isWinner,
 		isUnreleased,
+		isExpired,
 	});
 	const roundLabel =
 		round && gamesCount
@@ -901,6 +929,10 @@ export function generateScanSummary(options: {
 
 	if (normalizedStatus === "unknown") {
 		return `${roundLabel} (확인 필요)`;
+	}
+
+	if (normalizedStatus === "expired") {
+		return `${roundLabel} (수령 기간 지남)`;
 	}
 
 	if (round && gamesCount) {

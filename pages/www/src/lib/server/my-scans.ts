@@ -7,6 +7,7 @@ import type {
 import { and, desc, eq, sql } from "drizzle-orm";
 import { memberScan } from "$lib/db/schema";
 import type { DrizzleClient } from "$lib/db";
+import { isClaimExpired } from "$lib/utils/claim-window.js";
 
 export type MyScansService = ReturnType<typeof createMyScansService>;
 
@@ -26,15 +27,25 @@ function toIsoString(value: Date | string | null | undefined): string | null {
 function toListItem(
 	row: typeof memberScan.$inferSelect,
 ): MyScanListItem {
+	const effectiveResultStatus =
+		row.claimDeadlineAt && isClaimExpired(row.claimDeadlineAt)
+			? "expired"
+			: (row.resultStatus as MyScanListItem["resultStatus"]);
+
 	return {
 		id: row.id,
 		ticketHash: row.ticketHash,
 		round: row.round ?? null,
 		gamesCount: row.gamesCount ?? null,
-		resultStatus: row.resultStatus as MyScanListItem["resultStatus"],
+		resultStatus: effectiveResultStatus,
 		lastCheckedAt: toIsoString(row.lastCheckedAt),
 		winningGrade: row.winningGrade ?? null,
-		summary: row.summary,
+		claimStartAt: toIsoString(row.claimStartAt),
+		claimDeadlineAt: toIsoString(row.claimDeadlineAt),
+		summary:
+			effectiveResultStatus === "expired" && row.round && row.gamesCount
+				? `${row.round}회차 ${row.gamesCount}게임 (수령 기간 지남)`
+				: row.summary,
 		createdAt: toIsoString(row.createdAt) ?? new Date(0).toISOString(),
 		updatedAt: toIsoString(row.updatedAt) ?? new Date(0).toISOString(),
 	};
@@ -51,11 +62,12 @@ function normalizeLimit(limit?: number): number {
 export function createMyScansService(db: DrizzleClient) {
 	return {
 		async getSummary(userId: string): Promise<MyScanSummary> {
+			const now = new Date();
 			const [row] = await db
 				.select({
 					totalTickets: sql<number>`count(*)`,
-					pendingResults: sql<number>`count(*) filter (where ${memberScan.resultStatus} in ('unreleased', 'unknown'))`,
-					winningTickets: sql<number>`count(*) filter (where ${memberScan.resultStatus} = 'winner')`,
+					pendingResults: sql<number>`count(*) filter (where ${memberScan.resultStatus} in ('unreleased', 'unknown') and (${memberScan.claimDeadlineAt} is null or ${memberScan.claimDeadlineAt} > ${now}))`,
+					winningTickets: sql<number>`count(*) filter (where ${memberScan.resultStatus} = 'winner' and (${memberScan.claimDeadlineAt} is null or ${memberScan.claimDeadlineAt} > ${now}))`,
 					lastScannedAt: sql<Date | null>`max(${memberScan.updatedAt})`,
 				})
 				.from(memberScan)
@@ -117,6 +129,12 @@ export function createMyScansService(db: DrizzleClient) {
 								? lastCheckedAt
 								: null,
 						winningGrade: item.winningGrade ?? null,
+						claimStartAt: item.claimStartAt
+							? new Date(item.claimStartAt)
+							: null,
+						claimDeadlineAt: item.claimDeadlineAt
+							? new Date(item.claimDeadlineAt)
+							: null,
 						summary: item.summary,
 						createdAt: updatedAt,
 						updatedAt,
@@ -133,6 +151,12 @@ export function createMyScansService(db: DrizzleClient) {
 									? lastCheckedAt
 									: null,
 							winningGrade: item.winningGrade ?? null,
+							claimStartAt: item.claimStartAt
+								? new Date(item.claimStartAt)
+								: null,
+							claimDeadlineAt: item.claimDeadlineAt
+								? new Date(item.claimDeadlineAt)
+								: null,
 							summary: item.summary,
 							updatedAt,
 						},

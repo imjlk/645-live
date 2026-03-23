@@ -82,6 +82,7 @@ function shouldBypassCaching(request: Request): boolean {
 	}
 
 	return (
+		url.pathname === "/api/lotto-draws-recent.json" ||
 		url.pathname.startsWith("/api/records/v1/") ||
 		url.pathname.startsWith("/api/auth/v1/") ||
 		url.pathname.startsWith("/auth/") ||
