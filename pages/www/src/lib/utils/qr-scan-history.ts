@@ -5,9 +5,11 @@
 import {
 	type QRScanHistoryItem,
 	type QRScanHistoryManager,
+	type QRScanSyncStrategy,
 	QRScanHistoryManagerImpl,
 	type QRScanResultStatus,
 	deriveScanResultStatus as v2DeriveScanResultStatus,
+	generateTicketHash as v2GenerateTicketHash,
 	generateScanSummary as v2GenerateScanSummary,
 	getRelativeTimeString as v2GetRelativeTimeString,
 } from "./qr-scan-history-v2.js";
@@ -52,6 +54,14 @@ export function getRelativeTimeString(date: Date): string {
 	return v2GetRelativeTimeString(date);
 }
 
+export function generateTicketHash(
+	qrData: string,
+	round?: number,
+	gamesCount?: number,
+): string {
+	return v2GenerateTicketHash(qrData, round, gamesCount);
+}
+
 /**
  * 수동 동기화 트리거 (회원용)
  */
@@ -67,4 +77,9 @@ export async function syncHistory(): Promise<{
 }
 
 // 타입 내보내기 (기존 코드 호환성)
-export type { QRScanHistoryItem, QRScanHistoryManager, QRScanResultStatus };
+export type {
+	QRScanHistoryItem,
+	QRScanHistoryManager,
+	QRScanResultStatus,
+	QRScanSyncStrategy,
+};

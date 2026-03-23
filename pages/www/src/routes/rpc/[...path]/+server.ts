@@ -1,4 +1,5 @@
 import { createOrpcFetchHandler, createAppRouter } from "@645/api";
+import { createMyScansService } from "$lib/server/my-scans";
 import { toPublicSession, toPublicUser } from "$lib/server/session";
 import type { RequestHandler } from "@sveltejs/kit";
 
@@ -19,6 +20,9 @@ const runHandler: RequestHandler = async (event) => {
 				session,
 				user: toPublicUser(session),
 				userId: session?.user.id ?? null,
+			},
+			services: {
+				myScans: createMyScansService(event.locals.db),
 			},
 		},
 	});

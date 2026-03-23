@@ -1,4 +1,6 @@
 import { TRAILBASE_URL } from "$env/static/private";
+import { createMyScansService } from "$lib/server/my-scans";
+import { buildScanRecordPayload } from "$lib/server/scan-record";
 import type { BallNumber } from "$lib/modules/lotto/types";
 import { getLatestLottoRoundFromAPI } from "$lib/utils/lotto-common.js";
 import { parseLottoQR } from "$lib/utils/lotto-parser.js";
@@ -9,6 +11,16 @@ import type { Actions, PageServerLoad } from "./$types";
 // Trailbase 클라이언트 초기화 (서버 환경)
 const client = initClient(TRAILBASE_URL || "http://localhost:4000");
 const api = client.records("numbers");
+
+function getUniqueNumbers(games: ReturnType<typeof parseLottoQR>): number[] {
+	if (!games) {
+		return [];
+	}
+
+	return Array.from(
+		new Set(games.flatMap((game) => game.numbers)),
+	).sort((a, b) => a - b);
+}
 
 export const load: PageServerLoad = async () => {
 	try {
@@ -42,7 +54,7 @@ export const load: PageServerLoad = async () => {
 };
 
 export const actions: Actions = {
-	scan: async ({ request, fetch, cookies }) => {
+	scan: async ({ request, fetch, locals }) => {
 		try {
 			const formData = await request.formData();
 			const qrData = formData.get("qrData");
@@ -103,25 +115,50 @@ export const actions: Actions = {
 				};
 			};
 
-			if (!response.ok) {
-				// 409 Conflict는 중복 스캔을 의미
-				if (response.status === 409 || result.isDuplicate) {
-					return fail(409, {
-						error: "이미 스캔한 QR 코드입니다.",
-						isDuplicate: true,
-					});
-				}
+			const isTrailbaseDuplicate = response.status === 409 || result.isDuplicate;
+
+			if (!response.ok && !isTrailbaseDuplicate) {
 				return fail(500, { error: `서버 오류: ${response.status}` });
 			}
 
-			if (result.success) {
+			if (result.success || isTrailbaseDuplicate) {
+				const scanRecord = await buildScanRecordPayload(qrData);
+				let memberSyncState: "not_applicable" | "synced" | "pending" =
+					"not_applicable";
+
+				if (locals.auth) {
+					const authSession = await locals.auth.api.getSession({
+						headers: request.headers,
+					});
+					const userId =
+						authSession?.user?.id && typeof authSession.user.id === "string"
+							? authSession.user.id
+							: null;
+
+					if (userId) {
+						try {
+							const myScansService = createMyScansService(locals.db);
+							await myScansService.upsertPending(userId, [scanRecord]);
+							memberSyncState = "synced";
+						} catch (memberSaveError) {
+							console.error("회원 스캔 저장 실패:", memberSaveError);
+							memberSyncState = "pending";
+						}
+					}
+				}
+
 				return {
 					success: true,
-					message: "스캔이 성공적으로 처리되었습니다.",
+					message: isTrailbaseDuplicate
+						? "이미 저장된 티켓을 다시 확인했습니다."
+						: "스캔이 성공적으로 처리되었습니다.",
 					data: {
-						uniqueNumbers: result.data?.uniqueNumbers || [],
-						gamesCount: result.data?.gamesCount || 0,
+						uniqueNumbers: result.data?.uniqueNumbers || getUniqueNumbers(games),
+						gamesCount: result.data?.gamesCount || games.length || 0,
 						qrData,
+						scanRecord,
+						memberSyncState,
+						alreadyScanned: isTrailbaseDuplicate,
 					},
 				};
 			}

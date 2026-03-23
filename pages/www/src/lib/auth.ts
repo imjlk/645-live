@@ -6,6 +6,7 @@ import { sveltekitCookies } from "better-auth/svelte-kit";
 import type { DrizzleClient } from "./db";
 import * as authSchema from "./db/schema/auth";
 import { createAuthPasswordHasher } from "./server/auth-password-hasher";
+import { getBetterAuthSocialProviders } from "./server/auth-social";
 import { shouldAllowLocalAuthFallback } from "./server/auth-runtime";
 
 function resolveAuthBaseUrl(event: RequestEvent): string {
@@ -54,6 +55,7 @@ export const createAuth = (db: DrizzleClient, event: RequestEvent) =>
 			autoSignIn: true,
 			password: createAuthPasswordHasher(event),
 		},
+		socialProviders: getBetterAuthSocialProviders(event),
 		plugins: [
 			sveltekitCookies(() => event),
 		],

@@ -6,6 +6,7 @@ import { enhance } from "$app/forms";
 import { env } from "$env/dynamic/public";
 import QRScanHistory from "$lib/components/qr-scan/QRScanHistory.svelte";
 import ScanStatusGrid from "$lib/modules/lotto/components/ScanStatusGrid.svelte";
+import { syncMemberScanHistory } from "$lib/utils/member-scan-sync.js";
 import {
 	calculateExpectedLatestRound,
 	getLatestLottoRoundFromAPI,
@@ -373,202 +374,119 @@ $effect(() => {
 		if (form.success) {
 			// Process successful form submission
 
-			// Check if QR code contains games and update round
 			const qrData = form.data?.qrData;
-			if (qrData) {
-				const games = parseLottoQR(qrData);
-				if (games && games.length > 0) {
-					const qrRound = games[0]?.round;
-					if (qrRound) {
-						// 첫 스캔이거나 다른 회차인 경우 업데이트
-						if (currentRound === 0 || qrRound !== currentRound) {
-							console.log(`QR 회차 설정: ${currentRound} → ${qrRound}`);
-							currentRound = qrRound;
-							if (scanStatusGrid) {
-								scanStatusGrid.updateRound(qrRound);
-							}
-						}
+			const scanRecord = form.data?.scanRecord;
+			const memberSyncState = form.data?.memberSyncState;
+			const alreadyScanned = form.data?.alreadyScanned === true;
+
+			const resolvedRound = scanRecord?.round;
+			if (resolvedRound) {
+				if (currentRound === 0 || resolvedRound !== currentRound) {
+					console.log(`QR 회차 설정: ${currentRound} → ${resolvedRound}`);
+					currentRound = resolvedRound;
+					if (scanStatusGrid) {
+						scanStatusGrid.updateRound(resolvedRound);
 					}
 				}
 			}
 
-			// 실제 당첨 번호와 비교하여 당첨 여부 확인
-
-			if (qrData) {
-				// 비동기적으로 당첨 확인 수행
-				checkQRWinning(qrData)
-					.then(async (winningCheck) => {
-						const { isWinner, winningResults, qrRound, isUnreleased } =
-							winningCheck ?? {
-								isWinner: false,
-								winningResults: [],
-								qrRound: undefined,
-								isUnreleased: false,
-							};
-
-						const games = parseLottoQR(qrData);
-						const round =
-							games?.[0]?.round ??
-							qrRound ??
-							(currentRound > 0 ? currentRound : undefined) ??
-							calculateExpectedLatestRound();
-						const gamesCount = form.data?.gamesCount || games?.length || 0;
-						const lastCheckedAt = new Date();
-
-						let winningGrade = "";
-						if (isWinner && winningResults) {
-							const winners = winningResults.filter(
-								(result) => result.isWinner,
-							);
-							if (winners.length > 0) {
-								const highestGrade = winners.reduce((highest, current) => {
-									const gradeOrder = {
-										"1등": 1,
-										"2등": 2,
-										"3등": 3,
-										"4등": 4,
-										"5등": 5,
-									};
-									return gradeOrder[current.grade as keyof typeof gradeOrder] <
-										gradeOrder[highest.grade as keyof typeof gradeOrder]
-										? current
-										: highest;
-								});
-								winningGrade = highestGrade.grade;
-							}
-						}
-
-						const resultStatus = deriveScanResultStatus({
-							resultStatus: winningCheck ? undefined : "unknown",
-							isWinner,
-							isUnreleased: isUnreleased || false,
+			if (browser && qrData && scanRecord) {
+				void (async () => {
+					try {
+						await qrScanHistory.upsertScan({
+							...scanRecord,
+							syncStatus:
+								memberSyncState === "synced"
+									? "synced"
+									: memberSyncState === "pending"
+										? "pending"
+										: "local",
+							isWinner: scanRecord.resultStatus === "winner",
 						});
 
-						// 히스토리 저장 (브라우저 환경에서만)
-						if (browser) {
-							try {
-								await qrScanHistory.addScan({
-									qrData,
-									round,
-									gamesCount,
-									resultStatus,
-									lastCheckedAt,
-									isWinner: resultStatus === "winner",
-									winningGrade: winningGrade || undefined,
-									summary: generateScanSummary({
-										round,
-										gamesCount,
-										resultStatus,
-										winningGrade,
-									}),
-								});
-							} catch (error) {
-								// 중복이면 로그만 남기고 처리 계속
-								if (
-									error instanceof Error &&
-									error.message.includes("이미 스캔한")
-								) {
-									console.log("중복 스캔 방지됨:", qrData);
-								} else {
-									console.error("히스토리 저장 실패:", error);
-								}
-							}
+						if (memberSyncState === "pending") {
+							void syncMemberScanHistory();
 						}
-
-						if (winningCheck) {
-							if (isUnreleased) {
-								// 아직 발표되지 않은 회차
-								toast.success("✅ 로또 스캔 저장 완료!", {
-									description: `${qrRound}회차 ${form.data?.gamesCount}개 게임 저장됨. 로그인 후 당첨 발표 시 자동으로 알림을 받을 수 있습니다.`,
-									duration: 6000,
-								});
-							} else if (isWinner) {
-								// 당첨된 게임들 찾기
-								const winners = winningResults.filter(
-									(result) => result.isWinner,
-								);
-								const highestGrade = winners.reduce((highest, current) => {
-									const gradeOrder = {
-										"1등": 1,
-										"2등": 2,
-										"3등": 3,
-										"4등": 4,
-										"5등": 5,
-									};
-									return gradeOrder[current.grade as keyof typeof gradeOrder] <
-										gradeOrder[highest.grade as keyof typeof gradeOrder]
-										? current
-										: highest;
-								});
-
-								// 당첨 토스트 표시 - 등급별 스타일 구분
-								if (
-									highestGrade.grade === "1등" ||
-									highestGrade.grade === "2등"
-								) {
-									// 1등, 2등은 특별한 스타일
-									const prizeText = highestGrade.prize
-										? ` (${highestGrade.prize})`
-										: "";
-									toast.success(highestGrade.message, {
-										description: `${qrRound}회차 당첨 확인 - ${highestGrade.grade}${prizeText} | 총 ${form.data?.gamesCount}개 게임 중 ${winners.length}개 당첨`,
-										duration: 15000,
-										richColors: true,
-										style:
-											"background: linear-gradient(135deg, #fbbf24, #f59e0b); color: white; border: 2px solid #d97706;",
-									});
-								} else {
-									// 3등, 4등, 5등은 일반 당첨 스타일
-									const prizeText = highestGrade.prize
-										? ` (${highestGrade.prize})`
-										: "";
-									toast.success(highestGrade.message, {
-										description: `${qrRound}회차 당첨 확인 - ${highestGrade.grade}${prizeText} | 총 ${form.data?.gamesCount}개 게임 중 ${winners.length}개 당첨`,
-										duration: 10000,
-										richColors: true,
-									});
-								}
-
-								// 각 당첨 게임에 대한 상세 정보
-								winners.forEach((winner, index) => {
-									setTimeout(
-										() => {
-											const prizeText = winner.prize
-												? ` (${winner.prize})`
-												: "";
-											toast.info(`🎯 당첨 게임 ${index + 1}`, {
-												description: `${winner.grade} - ${winner.matchCount}개 번호 일치${winner.bonusMatch ? " + 보너스" : ""}${prizeText}`,
-												duration: 8000,
-											});
-										},
-										(index + 1) * 1000,
-									);
-								});
-							} else {
-								// 일반 성공 토스트
-								toast.success("✅ QR 스캔 성공!", {
-									description: `${qrRound}회차 당첨 확인 완료 - 당첨 없음 | ${form.data?.gamesCount}개 게임 처리됨`,
-									duration: 5000,
-								});
-							}
+					} catch (error) {
+						if (
+							error instanceof Error &&
+							error.message.includes("이미 스캔한")
+						) {
+							console.log("중복 스캔 방지됨:", qrData);
 						} else {
-							// 당첨 확인 실패 시에도 히스토리는 unknown 상태로 저장
-							toast.success("✅ QR 스캔 성공!", {
-								description: `${form.data?.gamesCount}개 게임 처리됨 (당첨 확인 불가)`,
-								duration: 5000,
-							});
+							console.error("히스토리 저장 실패:", error);
 						}
-					})
-					.catch((error) => {
-						console.error("당첨 확인 중 오류:", error);
-						// 에러 발생 시에도 기본 성공 메시지 표시
-						toast.success("✅ QR 스캔 성공!", {
-							description: `${form.data?.gamesCount}개 게임 처리됨 (당첨 확인 실패)`,
-							duration: 5000,
-						});
+					}
+				})();
+			}
+
+			if (scanRecord) {
+				if (scanRecord.isUnreleased) {
+					toast.success("✅ 로또 스캔 저장 완료!", {
+						description: alreadyScanned
+							? `${scanRecord.round}회차 기존 티켓을 다시 확인했습니다. 발표 후 상태가 바뀌면 자동으로 갱신됩니다.`
+							: `${scanRecord.round}회차 ${scanRecord.gamesCount}개 게임 저장됨. 로그인 후 당첨 발표 시 자동으로 알림을 받을 수 있습니다.`,
+						duration: 6000,
 					});
+				} else if (scanRecord.isWinner) {
+					const winners = scanRecord.winningResults.filter(
+						(result) => result.isWinner,
+					);
+					const highestGrade = winners.reduce((highest, current) => {
+						const gradeOrder = {
+							"1등": 1,
+							"2등": 2,
+							"3등": 3,
+							"4등": 4,
+							"5등": 5,
+						};
+						return gradeOrder[current.grade as keyof typeof gradeOrder] <
+							gradeOrder[highest.grade as keyof typeof gradeOrder]
+							? current
+							: highest;
+					});
+
+					const prizeText = highestGrade.prize
+						? ` (${highestGrade.prize})`
+						: "";
+
+					toast.success(highestGrade.message, {
+						description: `${scanRecord.round}회차 ${alreadyScanned ? "기존 티켓 재확인" : "당첨 확인"} - ${highestGrade.grade}${prizeText} | 총 ${scanRecord.gamesCount}개 게임 중 ${winners.length}개 당첨`,
+						duration:
+							highestGrade.grade === "1등" || highestGrade.grade === "2등"
+								? 15000
+								: 10000,
+						richColors: true,
+						...(highestGrade.grade === "1등" ||
+						highestGrade.grade === "2등"
+							? {
+									style:
+										"background: linear-gradient(135deg, #fbbf24, #f59e0b); color: white; border: 2px solid #d97706;",
+								}
+							: {}),
+					});
+
+					winners.forEach((winner, index) => {
+						setTimeout(
+							() => {
+								const winnerPrizeText = winner.prize
+									? ` (${winner.prize})`
+									: "";
+								toast.info(`🎯 당첨 게임 ${index + 1}`, {
+									description: `${winner.grade} - ${winner.matchCount}개 번호 일치${winner.bonusMatch ? " + 보너스" : ""}${winnerPrizeText}`,
+									duration: 8000,
+								});
+							},
+							(index + 1) * 1000,
+						);
+					});
+				} else {
+					toast.success("✅ QR 스캔 성공!", {
+						description: `${scanRecord.round}회차 ${alreadyScanned ? "기존 티켓 재확인" : "당첨 확인 완료"} - 당첨 없음 | ${scanRecord.gamesCount}개 게임 처리됨`,
+						duration: 5000,
+					});
+				}
 			} else {
-				// QR 데이터가 없는 경우 기본 성공 메시지
 				toast.success("✅ QR 스캔 성공!", {
 					description: `${form.data?.gamesCount}개 게임 처리됨`,
 					duration: 5000,

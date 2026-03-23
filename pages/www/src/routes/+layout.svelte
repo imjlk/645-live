@@ -18,6 +18,10 @@ import { onMount } from "svelte";
 let { data, children } = $props();
 import { preparePageTransition } from "$lib/layout/page-transition";
 import { initPWAPerformanceMonitor } from "$lib/utils/pwa-performance";
+import {
+	configureMemberScanSync,
+	registerMemberScanSyncLifecycle,
+} from "$lib/utils/member-scan-sync";
 
 preparePageTransition();
 
@@ -59,48 +63,64 @@ async function resetDevServiceWorkers(): Promise<boolean> {
 	return false;
 }
 
-onMount(async () => {
-	if (await resetDevServiceWorkers()) {
+onMount(() => {
+	const unregisterMemberScanSync = registerMemberScanSyncLifecycle();
+
+	void (async () => {
+		if (await resetDevServiceWorkers()) {
+			return;
+		}
+
+		// TrailBase 전역 연결 초기화 (단순화된 버전)
+		await initializeGlobalConnection();
+
+		// Microsoft Clarity 초기화 (브라우저 환경 & 프로덕션에서만)
+		if (browser && import.meta.env.PROD) {
+			try {
+				const { default: Clarity } = await import("@microsoft/clarity");
+				Clarity.init("qeumg5ffol");
+			} catch (error) {
+				console.warn("Failed to initialize Microsoft Clarity:", error);
+			}
+		}
+
+		// PWA 성능 모니터링 초기화
+		try {
+			initPWAPerformanceMonitor();
+		} catch (error) {
+			console.warn("PWA 성능 모니터링 초기화 실패:", error);
+		}
+
+		// 실제 데이터가 있는 회차들을 가져오기
+		try {
+			const { initClient } = await import("trailbase");
+			const client = initClient(getTrailbaseBrowserBaseUrl());
+			const api = client.records("lotto_draw_scan_counts");
+
+			const response = await api.list({
+				order: ["-round"], // 최신 회차부터
+				pagination: { limit: 10 }, // 최근 10개 회차
+			});
+
+			availableRounds = response.records
+				.map((record) => Number((record as { round: number }).round))
+				.filter(Boolean);
+		} catch (err) {
+			console.error("Error fetching available rounds:", err);
+		}
+	})();
+
+	return () => {
+		unregisterMemberScanSync();
+	};
+});
+
+$effect(() => {
+	if (!browser) {
 		return;
 	}
 
-	// TrailBase 전역 연결 초기화 (단순화된 버전)
-	await initializeGlobalConnection();
-
-	// Microsoft Clarity 초기화 (브라우저 환경 & 프로덕션에서만)
-	if (browser && import.meta.env.PROD) {
-		try {
-			const { default: Clarity } = await import("@microsoft/clarity");
-			Clarity.init("qeumg5ffol");
-		} catch (error) {
-			console.warn("Failed to initialize Microsoft Clarity:", error);
-		}
-	}
-
-	// PWA 성능 모니터링 초기화
-	try {
-		initPWAPerformanceMonitor();
-	} catch (error) {
-		console.warn("PWA 성능 모니터링 초기화 실패:", error);
-	}
-
-	// 실제 데이터가 있는 회차들을 가져오기
-	try {
-		const { initClient } = await import("trailbase");
-		const client = initClient(getTrailbaseBrowserBaseUrl());
-		const api = client.records("lotto_draw_scan_counts");
-
-		const response = await api.list({
-			order: ["-round"], // 최신 회차부터
-			pagination: { limit: 10 }, // 최근 10개 회차
-		});
-
-		availableRounds = response.records
-			.map((record) => Number((record as { round: number }).round))
-			.filter(Boolean);
-	} catch (err) {
-		console.error("Error fetching available rounds:", err);
-	}
+	configureMemberScanSync(data.session?.user?.id ?? null);
 });
 </script>
 

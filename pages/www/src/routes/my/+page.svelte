@@ -1,55 +1,183 @@
 <script lang="ts">
 import { resolve } from "$app/paths";
-import type { PublicSession } from "@645/shared";
+import type {
+	MyScanListItem,
+	MyScanSummary,
+	PublicSession,
+} from "@645/shared";
 import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
 import { absoluteUrl } from "$lib/seo/index.js";
 import { MetaTags } from "svelte-meta-tags";
 
-let { data }: { data: { session: PublicSession } } = $props();
+let {
+	data,
+}: {
+	data: {
+		session: PublicSession;
+		summary: MyScanSummary;
+		recentScans: MyScanListItem[];
+	};
+} = $props();
 
-// Breadcrumbs 데이터
 const breadcrumbItems = [
 	{ label: "홈", href: "/" },
 	{ label: "내 645", current: true },
 ];
+
+function formatDateTime(value: string | null): string {
+	if (!value) {
+		return "없음";
+	}
+
+	return new Date(value).toLocaleString("ko-KR", {
+		month: "short",
+		day: "numeric",
+		hour: "2-digit",
+		minute: "2-digit",
+	});
+}
+
+function getStatusLabel(item: MyScanListItem): string {
+	if (item.resultStatus === "winner" && item.winningGrade) {
+		return `${item.winningGrade} 당첨`;
+	}
+
+	if (item.resultStatus === "unreleased") {
+		return "미발표";
+	}
+
+	if (item.resultStatus === "unknown") {
+		return "확인 필요";
+	}
+
+	return "당첨 없음";
+}
+
+function getStatusBadgeClass(item: MyScanListItem): string {
+	if (item.resultStatus === "winner") {
+		return "badge-success";
+	}
+
+	if (item.resultStatus === "unreleased") {
+		return "badge-warning";
+	}
+
+	if (item.resultStatus === "unknown") {
+		return "badge-neutral";
+	}
+
+	return "badge-ghost";
+}
 </script>
 
 <MetaTags
 	title="내 645"
 	titleTemplate="%s | 645.live"
-	description="회원 전용 개인화 로또 기능 페이지"
+	description="회원 전용 스캔 티켓 대시보드"
 	canonical={absoluteUrl("/my")}
 	robots="noindex,nofollow"
 />
 
 <div class="p-6 space-y-6">
-	<!-- Breadcrumbs -->
 	<Breadcrumbs items={breadcrumbItems} />
 
-	<!-- 페이지 헤더 -->
-	<div class="text-center space-y-2">
+	<section class="space-y-2">
 		<h1 class="text-3xl font-bold text-primary">내 645</h1>
 		<p class="text-base-content/70">
-			보호된 세션이 정상 연결된 상태입니다. 개인화 기능은 다음 단계에서 이어집니다.
+			{data.session.user.name ?? data.session.user.email ?? "회원"}님의 최근 로또 스캔 티켓과 확인 상태를 모아봤어요.
 		</p>
-	</div>
+	</section>
 
-	<!-- 개발 중 안내 -->
-	<div class="card bg-base-100 shadow-sm">
-		<div class="card-body text-center space-y-4">
-			<h2 class="card-title justify-center">세션 셸 활성화 완료</h2>
-			<div class="rounded-xl bg-base-200 p-4 text-left max-w-md mx-auto">
-				<p><strong>사용자 ID</strong>: {data.session.user.id}</p>
-				<p><strong>이메일</strong>: {data.session.user.email ?? "미설정"}</p>
-				<p><strong>이름</strong>: {data.session.user.name ?? "미설정"}</p>
-			</div>
-			<p class="text-base-content/60">
-				이 페이지는 현재 보호 라우트와 세션 동작을 검증하는 단계입니다. 곧 개인화된 로또 분석 기능을 제공할 예정입니다.
-			</p>
-			<div class="card-actions justify-center mt-4">
-				<a href={resolve("/stats")} class="btn btn-primary">통계 페이지로 이동</a>
-				<a href={resolve("/")} class="btn btn-outline">홈으로 이동</a>
+	<section class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+		<div class="card bg-base-100 shadow-sm">
+			<div class="card-body">
+				<p class="text-sm text-base-content/60">총 저장 티켓</p>
+				<p class="text-3xl font-bold">{data.summary.totalTickets}</p>
 			</div>
 		</div>
-	</div>
+		<div class="card bg-base-100 shadow-sm">
+			<div class="card-body">
+				<p class="text-sm text-base-content/60">미발표 / 확인 필요</p>
+				<p class="text-3xl font-bold">{data.summary.pendingResults}</p>
+			</div>
+		</div>
+		<div class="card bg-base-100 shadow-sm">
+			<div class="card-body">
+				<p class="text-sm text-base-content/60">당첨 티켓 수</p>
+				<p class="text-3xl font-bold text-success">
+					{data.summary.winningTickets}
+				</p>
+			</div>
+		</div>
+		<div class="card bg-base-100 shadow-sm">
+			<div class="card-body">
+				<p class="text-sm text-base-content/60">최근 스캔 시각</p>
+				<p class="text-lg font-semibold">
+					{formatDateTime(data.summary.lastScannedAt)}
+				</p>
+			</div>
+		</div>
+	</section>
+
+	<section class="card bg-base-100 shadow-sm">
+		<div class="card-body space-y-4">
+			<div class="flex items-center justify-between gap-3">
+				<div>
+					<h2 class="card-title">최근 스캔</h2>
+					<p class="text-sm text-base-content/60">
+						회원 데이터에 저장된 최근 티켓 10개를 보여줍니다.
+					</p>
+				</div>
+				<a href={resolve("/qr-scan")} class="btn btn-primary btn-sm">
+					QR 스캔하러 가기
+				</a>
+			</div>
+
+			{#if data.recentScans.length === 0}
+				<div class="rounded-2xl border border-dashed border-base-300 bg-base-200/40 px-6 py-10 text-center space-y-3">
+					<p class="text-lg font-semibold">아직 저장된 회원 스캔 티켓이 없습니다</p>
+					<p class="text-sm text-base-content/60">
+						로그인 상태에서 QR을 스캔하면 여기에서 최근 티켓과 당첨 상태를 확인할 수 있습니다.
+					</p>
+					<div class="flex justify-center gap-2">
+						<a href={resolve("/qr-scan")} class="btn btn-primary">
+							첫 티켓 스캔하기
+						</a>
+						<a href={resolve("/history")} class="btn btn-outline">
+							지난 회차 보기
+						</a>
+					</div>
+				</div>
+			{:else}
+				<div class="overflow-x-auto">
+					<table class="table table-zebra">
+						<thead>
+							<tr>
+								<th>회차</th>
+								<th>게임 수</th>
+								<th>상태</th>
+								<th>최근 스캔</th>
+								<th>요약</th>
+							</tr>
+						</thead>
+						<tbody>
+							{#each data.recentScans as item (item.id)}
+								<tr>
+									<td>{item.round ?? "-"}</td>
+									<td>{item.gamesCount ?? "-"}</td>
+									<td>
+										<span class={`badge ${getStatusBadgeClass(item)}`}>
+											{getStatusLabel(item)}
+										</span>
+									</td>
+									<td>{formatDateTime(item.updatedAt)}</td>
+									<td class="min-w-72 whitespace-normal">{item.summary}</td>
+								</tr>
+							{/each}
+						</tbody>
+					</table>
+				</div>
+			{/if}
+		</div>
+	</section>
 </div>

@@ -160,6 +160,14 @@ function hashText(text: string): string {
 	return Math.abs(hash).toString(36);
 }
 
+export function generateTicketHash(
+	qrData: string,
+	round?: number,
+	gamesCount?: number,
+): string {
+	return hashText(createTicketSignature(qrData, round, gamesCount));
+}
+
 export function deriveScanResultStatus(options: {
 	resultStatus?: QRScanResultStatus;
 	isWinner?: boolean;
@@ -242,6 +250,9 @@ export interface QRScanHistoryManager {
 	addScan(
 		item: Omit<QRScanHistoryItem, "id" | "scannedAt">,
 	): Promise<QRScanHistoryItem>;
+	upsertScan(
+		item: Omit<QRScanHistoryItem, "id" | "scannedAt">,
+	): Promise<QRScanHistoryItem>;
 	isDuplicate(qrData: string): Promise<boolean>;
 	getHistory(filter?: QRScanHistoryFilter): Promise<QRScanHistoryItem[]>;
 	getRecentScans(count?: number): Promise<QRScanHistoryItem[]>;
@@ -257,7 +268,7 @@ export interface QRScanHistoryManager {
 
 	// 동기화 관리
 	sync(): Promise<{ success: boolean; error?: string }>;
-	setSyncStrategy(strategy: QRScanSyncStrategy): void;
+	setSyncStrategy(strategy: QRScanSyncStrategy | null): void;
 
 	// 스토리지 제공자 관리
 	addStorageProvider(provider: QRScanStorageProvider): void;
@@ -541,10 +552,18 @@ export class LocalStorageProvider implements QRScanStorageProvider {
 	}
 
 	async getPendingSync(userId?: string): Promise<QRScanHistoryItem[]> {
-		return this.getItems({
+		const pendingItems = await this.getItems({
 			syncStatus: "pending",
 			userId,
 		});
+		const failedItems = await this.getItems({
+			syncStatus: "failed",
+			userId,
+		});
+
+		return [...pendingItems, ...failedItems].sort(
+			(a, b) => a.scannedAt.getTime() - b.scannedAt.getTime(),
+		);
 	}
 
 	private generateId(): string {
@@ -556,7 +575,7 @@ export class LocalStorageProvider implements QRScanStorageProvider {
 		round?: number,
 		gamesCount?: number,
 	): string {
-		return hashText(createTicketSignature(qrData, round, gamesCount));
+		return generateTicketHash(qrData, round, gamesCount);
 	}
 }
 
@@ -703,6 +722,38 @@ export class QRScanHistoryManagerImpl implements QRScanHistoryManager {
 		return result;
 	}
 
+	async upsertScan(
+		item: Omit<QRScanHistoryItem, "id" | "scannedAt">,
+	): Promise<QRScanHistoryItem> {
+		const provider = this.getCurrentProvider();
+		const userId = this.currentUserId || undefined;
+		const existingItems = await provider.getItems({ userId });
+		const existingItem = existingItems.find(
+			(existing) =>
+				existing.ticketHash === item.ticketHash || existing.qrData === item.qrData,
+		);
+
+		if (!existingItem) {
+			return this.addScan(item);
+		}
+
+		const scannedAt = new Date();
+		const updatedItem: QRScanHistoryItem = {
+			...existingItem,
+			...item,
+			userId,
+			scannedAt,
+		};
+
+		await provider.updateItem(existingItem.id, updatedItem);
+
+		if (userId && this.syncStrategy && provider.markForSync) {
+			await provider.markForSync(existingItem.id);
+		}
+
+		return updatedItem;
+	}
+
 	async isDuplicate(qrData: string): Promise<boolean> {
 		const provider = this.getCurrentProvider();
 		return provider.isDuplicate(qrData, this.currentUserId || undefined);
@@ -748,8 +799,8 @@ export class QRScanHistoryManagerImpl implements QRScanHistoryManager {
 
 	// === 동기화 관리 ===
 
-	setSyncStrategy(strategy: QRScanSyncStrategy): void {
-		this.syncStrategy = strategy;
+	setSyncStrategy(strategy: QRScanSyncStrategy | null): void {
+		this.syncStrategy = strategy ?? undefined;
 	}
 
 	async sync(): Promise<{ success: boolean; error?: string }> {
