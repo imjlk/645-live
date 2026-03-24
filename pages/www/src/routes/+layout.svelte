@@ -5,10 +5,8 @@ import MobileNavigation from "$lib/layout/MobileNavigation.svelte";
 import NavigationMenu from "$lib/layout/NavigationMenu.svelte";
 import "../app.css";
 import { browser } from "$app/environment";
-/* PWA 프롬프트 임시 비활성화
 import InstallPrompt from "$lib/components/ui/InstallPrompt.svelte";
 import UpdatePrompt from "$lib/components/ui/UpdatePrompt.svelte";
-*/
 import Footer from "$lib/layout/Footer.svelte";
 import { getTrailbaseBrowserBaseUrl } from "$lib/trailbase/browser-base";
 import { initializeGlobalConnection } from "$lib/trailbase/global-connection.svelte";
@@ -175,9 +173,7 @@ $effect(() => {
 		<!-- 모바일 전용 하단 네비게이션 -->
 		<MobileNavigation />
 		
-		<!-- PWA 프롬프트 임시 비활성화
 		<InstallPrompt />
 		<UpdatePrompt />
-		-->
 	</div>
 </NuqsAdapter>

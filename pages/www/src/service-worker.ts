@@ -15,7 +15,7 @@ interface FetchEvent extends Event {
 
 declare const self: ServiceWorkerGlobalScope;
 
-const CACHE_VERSION = "v1.1.1"; // Force refresh after stale news/OG cache fixes
+const CACHE_VERSION = "v1.2.0"; // Revalidate documents and OG images more aggressively
 const CACHE_NAMES = {
 	static: `static-${CACHE_VERSION}`,
 	dynamic: `dynamic-${CACHE_VERSION}`,
@@ -38,17 +38,17 @@ const CACHE_STRATEGIES = {
 		"/manifest.json",
 	],
 
-	// Main page - needs fresh data for real-time updates
-	MAIN_PAGE: ["/"],
-
 	// API endpoints - network first with fallback
 	API_ENDPOINTS: ["/api/", "/trailbase/"],
 
-	// Images - cache first with network fallback
-	IMAGE_PATTERNS: [/\.(?:png|jpg|jpeg|svg|webp|gif|ico)$/i, /\/og\//],
+	// News and editorial pages should always prefer fresh HTML
+	NEWS_PAGES: ["/news", "/news/posts/"],
 
-	// Statistics pages - stale while revalidate
-	STATS_PAGES: ["/stats/", "/n/"],
+	// OG images - always revalidate against network
+	OG_IMAGES: ["/og/news/", "/og/"],
+
+	// Images - browser can use cached assets but refresh in background
+	IMAGE_PATTERNS: [/\.(?:png|jpg|jpeg|svg|webp|gif|ico)$/i],
 } as const;
 
 interface CacheConfig {
@@ -87,8 +87,18 @@ function shouldBypassCaching(request: Request): boolean {
 		url.pathname.startsWith("/api/auth/v1/") ||
 		url.pathname.startsWith("/auth/") ||
 		url.pathname.startsWith("/rpc/") ||
-		url.pathname.startsWith("/connection/")
+		url.pathname.startsWith("/connection/") ||
+		url.pathname.startsWith("/og/news/")
 	);
+}
+
+function canCacheResponse(response: Response): boolean {
+	if (!response.ok) {
+		return false;
+	}
+
+	const cacheControl = response.headers.get("cache-control") ?? "";
+	return !/no-store/i.test(cacheControl);
 }
 
 // ============= Caching Strategies =============
@@ -110,7 +120,7 @@ async function cacheFirst(
 			config.networkTimeoutSeconds,
 		);
 
-		if (response.ok) {
+		if (canCacheResponse(response)) {
 			const responseClone = response.clone();
 			await cache.put(request, responseClone);
 		}
@@ -131,7 +141,7 @@ async function networkFirst(
 			config.networkTimeoutSeconds,
 		);
 
-		if (response.ok) {
+		if (canCacheResponse(response)) {
 			const cache = await caches.open(config.cacheName);
 			const responseClone = response.clone();
 			await cache.put(request, responseClone);
@@ -156,7 +166,7 @@ async function staleWhileRevalidate(
 	// Always try to revalidate in background
 	const fetchPromise = fetchWithTimeout(request, config.networkTimeoutSeconds)
 		.then((response) => {
-			if (response.ok) {
+			if (canCacheResponse(response)) {
 				const responseClone = response.clone();
 				cache.put(request, responseClone);
 			}
@@ -301,16 +311,31 @@ function createOfflineResponse(request: Request): Response {
 	return new Response("오프라인 상태입니다.", { status: 503 });
 }
 
-function getRouteConfig(url: string): CacheConfig {
-	const pathname = new URL(url).pathname;
+function getRouteConfig(request: Request): CacheConfig {
+	const pathname = new URL(request.url).pathname;
+	const accept = request.headers.get("accept") ?? "";
+	const isDocument =
+		request.mode === "navigate" ||
+		request.destination === "document" ||
+		accept.includes("text/html");
 
-	// Main page - stale while revalidate for real-time data freshness
-	if (CACHE_STRATEGIES.MAIN_PAGE.some((page) => pathname === page)) {
+	if (isDocument) {
 		return {
-			strategy: "staleWhileRevalidate",
+			strategy: "networkFirst",
 			cacheName: CACHE_NAMES.dynamic,
-			maxAge: 300, // 5 minutes - short cache to ensure freshness
-			networkTimeoutSeconds: 8,
+			maxAge: 60,
+			maxEntries: 80,
+			networkTimeoutSeconds: 6,
+		};
+	}
+
+	if (CACHE_STRATEGIES.NEWS_PAGES.some((page) => pathname.startsWith(page))) {
+		return {
+			strategy: "networkFirst",
+			cacheName: CACHE_NAMES.dynamic,
+			maxAge: 60,
+			maxEntries: 80,
+			networkTimeoutSeconds: 6,
 		};
 	}
 
@@ -337,26 +362,25 @@ function getRouteConfig(url: string): CacheConfig {
 		};
 	}
 
+	if (CACHE_STRATEGIES.OG_IMAGES.some((path) => pathname.startsWith(path))) {
+		return {
+			strategy: "networkFirst",
+			cacheName: CACHE_NAMES.images,
+			maxAge: 300,
+			maxEntries: 120,
+			networkTimeoutSeconds: 5,
+		};
+	}
+
 	// Images
 	if (
 		CACHE_STRATEGIES.IMAGE_PATTERNS.some((pattern) => pattern.test(pathname))
 	) {
 		return {
-			strategy: "cacheFirst",
-			cacheName: CACHE_NAMES.images,
-			maxAge: 604800, // 7 days
-			maxEntries: 200,
-			networkTimeoutSeconds: 8,
-		};
-	}
-
-	// Statistics pages
-	if (CACHE_STRATEGIES.STATS_PAGES.some((page) => pathname.startsWith(page))) {
-		return {
 			strategy: "staleWhileRevalidate",
-			cacheName: CACHE_NAMES.dynamic,
-			maxAge: 1800, // 30 minutes
-			maxEntries: 50,
+			cacheName: CACHE_NAMES.images,
+			maxAge: 86400, // 24 hours
+			maxEntries: 200,
 			networkTimeoutSeconds: 8,
 		};
 	}
@@ -376,7 +400,7 @@ async function handleRequest(request: Request): Promise<Response> {
 		return fetch(request);
 	}
 
-	const config = getRouteConfig(request.url);
+	const config = getRouteConfig(request);
 
 	switch (config.strategy) {
 		case "cacheFirst":
@@ -426,7 +450,7 @@ self.addEventListener("install", (event: ExtendableEvent) => {
 			caches
 				.open(CACHE_NAMES.static)
 				.then((cache) => {
-					const urlsToCache = ["/", "/manifest.json"];
+					const urlsToCache = ["/manifest.json", "/assets/icons/icon-192.png"];
 					return cache.addAll(urlsToCache).catch((error) => {
 						console.warn(
 							"Failed to cache some resources during install:",
