@@ -113,7 +113,9 @@ export const getFromCache = async (
 
 export const storeInCache = async (
 	cacheKey: string,
-	response: Response,
+	body: ArrayBuffer,
+	response: Pick<Response, "status" | "statusText">,
+	headers: Headers,
 	config: CacheConfig,
 ): Promise<void> => {
 	console.log(`🔄 storeInCache called for: ${cacheKey}`);
@@ -121,8 +123,6 @@ export const storeInCache = async (
 	try {
 		console.log(`🗄️ Storing in Cache API: ${cacheKey}`);
 		const cache = await caches.open(CACHE_NAME);
-
-		const headers = new Headers(response.headers);
 		ensureOgHeaders(
 			headers,
 			cacheKey,
@@ -130,7 +130,9 @@ export const storeInCache = async (
 			"generated",
 		);
 
-		const cacheResponse = new Response(response.body, {
+		headers.set("Content-Length", String(body.byteLength));
+
+		const cacheResponse = new Response(body.slice(0), {
 			status: response.status,
 			statusText: response.statusText,
 			headers,
@@ -191,19 +193,36 @@ export const cacheMiddleware = () => {
 			c.res.status === 200 &&
 			c.res.headers.get("Content-Type")?.includes("image")
 		) {
+			const responseHeaders = new Headers(c.res.headers);
 			ensureOgHeaders(
-				c.res.headers,
+				responseHeaders,
 				cacheKey,
 				`public, max-age=${config.maxAge}`,
 				"generated",
 			);
-			c.res.headers.set("X-Cache", "MISS");
+			responseHeaders.set("X-Cache", "MISS");
+			const responseBody = await c.res.arrayBuffer();
+			responseHeaders.set("Content-Length", String(responseBody.byteLength));
+			c.res = new Response(responseBody.slice(0), {
+				status: c.res.status,
+				statusText: c.res.statusText,
+				headers: responseHeaders,
+			});
 
-			// Clone the response before caching to avoid consuming the body
-			const responseToCache = c.res.clone();
+			if (responseBody.byteLength === 0) {
+				console.warn(`⚠️ Generated empty image response for: ${cacheKey}`);
+				return c.res;
+			}
+
 			console.log(`💾 Starting cache storage for: ${cacheKey}`);
-			// Fire and forget - don't await caching to avoid blocking the response
-			storeInCache(cacheKey, responseToCache, config)
+			// Fire and forget - body is already buffered, so caching won't disturb the client response.
+			storeInCache(
+				cacheKey,
+				responseBody,
+				c.res,
+				new Headers(responseHeaders),
+				config,
+			)
 				.then(() => console.log(`✅ Cache storage completed for: ${cacheKey}`))
 				.catch((error) =>
 					console.warn(`❌ Cache storage failed for ${cacheKey}:`, error),
