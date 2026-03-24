@@ -6,7 +6,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..");
 const WEB_ROOT = path.join(REPO_ROOT, "pages", "www");
 const NEWS_ROOT = path.join(WEB_ROOT, "src", "content", "news");
-const NEWS_OG_CACHE_BUSTER = "2026-03-24-3";
+const NEWS_OG_CACHE_BUSTER = "2026-03-24-4";
 
 function readNewsFiles() {
 	return fs
