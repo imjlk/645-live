@@ -4,17 +4,22 @@ export const heroLayout: LayoutStyles = {
 	container: {
 		justifyContent: "center",
 		alignItems: "center",
-		padding: "60px",
+		padding: "56px 68px",
 	},
 	content: {
 		textAlign: "center",
-		maxWidth: "95%",
+		maxWidth: "88%",
 	},
 	title: {
-		fontSize: "96px",
-		marginBottom: "40px",
+		fontSize: "88px",
+		lineHeight: "1.05",
+		fontWeight: "800",
+		letterSpacing: "-0.045em",
+		marginBottom: "28px",
 	},
 	description: {
-		fontSize: "40px",
+		fontSize: "34px",
+		lineHeight: "1.32",
+		opacity: "0.92",
 	},
 };

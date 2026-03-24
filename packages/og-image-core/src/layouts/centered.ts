@@ -11,10 +11,15 @@ export const centeredLayout: LayoutStyles = {
 		maxWidth: "90%",
 	},
 	title: {
-		fontSize: "80px",
-		marginBottom: "30px",
+		fontSize: "74px",
+		lineHeight: "1.08",
+		fontWeight: "800",
+		letterSpacing: "-0.035em",
+		marginBottom: "26px",
 	},
 	description: {
-		fontSize: "36px",
+		fontSize: "32px",
+		lineHeight: "1.34",
+		opacity: "0.9",
 	},
 };

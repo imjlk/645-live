@@ -8,6 +8,9 @@ export interface OGImageOptions {
 	logo?: string;
 	layout?: LayoutType;
 	format?: "png" | "svg";
+	badgeText?: string;
+	metaText?: string;
+	highlightText?: string;
 }
 
 export interface LayoutStyles {

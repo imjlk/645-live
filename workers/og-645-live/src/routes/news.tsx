@@ -121,6 +121,23 @@ function buildDescription(params: {
 	return `${chunks.join(" · ")} 분석`;
 }
 
+function normalizeTheme(value: string | null): "light" | "dark" {
+	return value === "light" ? "light" : "dark";
+}
+
+function formatMetaDate(value: string): string {
+	const trimmed = value.trim();
+	if (!trimmed) {
+		return "최신 업데이트";
+	}
+
+	if (trimmed.includes("T")) {
+		return trimmed.split("T")[0] ?? trimmed;
+	}
+
+	return trimmed;
+}
+
 export const handleNews = async (c: Context) => {
 	try {
 		const url = new URL(c.req.url);
@@ -129,6 +146,9 @@ export const handleNews = async (c: Context) => {
 		const rawTitle = safeDecode(url.searchParams.get("title"));
 		const rawDescription = safeDecode(url.searchParams.get("description"));
 		const round = normalizeRound(path, url.searchParams.get("round"));
+		const category = safeDecode(url.searchParams.get("category")) || "로또분석";
+		const date = safeDecode(url.searchParams.get("date")) || "최신 업데이트";
+		const highlight = safeDecode(url.searchParams.get("highlight"));
 		const winnerCount = safeDecode(url.searchParams.get("winnerCount"));
 		const firstPrize = safeDecode(url.searchParams.get("firstPrize"));
 		const numbers = parseNumbers(safeDecode(url.searchParams.get("numbers")));
@@ -145,7 +165,7 @@ export const handleNews = async (c: Context) => {
 			bonus: bonusNumber,
 		});
 
-		const theme = (url.searchParams.get("theme") as "light" | "dark") || "dark";
+		const theme = normalizeTheme(url.searchParams.get("theme"));
 		const width = parseIntWithRange(url.searchParams.get("width"), DEFAULT_WIDTH, 800, 2400);
 		const height = parseIntWithRange(url.searchParams.get("height"), DEFAULT_HEIGHT, 418, 1260);
 		const format = (url.searchParams.get("format") as "png" | "svg") || "png";
@@ -161,6 +181,9 @@ export const handleNews = async (c: Context) => {
 		const customOptions = {
 			backgroundImage: url.searchParams.get("backgroundImage") || undefined,
 			logo: url.searchParams.get("logo") || undefined,
+			badgeText: round ? `제${round}회` : category,
+				metaText: formatMetaDate(date),
+			highlightText: highlight || category,
 			gradientBackground: {
 				type: "linear" as const,
 				colors: gradientColors,

@@ -15,6 +15,9 @@ export const validateOGImageOptions = (
 	if (opts.backgroundImage && typeof opts.backgroundImage !== "string")
 		return false;
 	if (opts.logo && typeof opts.logo !== "string") return false;
+	if (opts.badgeText && typeof opts.badgeText !== "string") return false;
+	if (opts.metaText && typeof opts.metaText !== "string") return false;
+	if (opts.highlightText && typeof opts.highlightText !== "string") return false;
 
 	// Optional number fields
 	if (opts.width && typeof opts.width !== "number") return false;
@@ -27,7 +30,17 @@ export const validateOGImageOptions = (
 	// Layout validation
 	if (
 		opts.layout &&
-		!["default", "centered", "minimal", "blog", "product"].includes(
+		![
+			"default",
+			"centered",
+			"minimal",
+			"blog",
+			"news",
+			"product",
+			"hero",
+			"testimonial",
+			"event",
+		].includes(
 			opts.layout as string,
 		)
 	)

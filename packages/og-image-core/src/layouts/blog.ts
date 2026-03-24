@@ -12,9 +12,14 @@ export const blogLayout: LayoutStyles = {
 	},
 	title: {
 		fontSize: "68px",
+		lineHeight: "1.1",
+		fontWeight: "780",
+		letterSpacing: "-0.03em",
 		marginBottom: "25px",
 	},
 	description: {
 		fontSize: "30px",
+		lineHeight: "1.36",
+		opacity: "0.92",
 	},
 };
