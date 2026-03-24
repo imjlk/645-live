@@ -23,7 +23,7 @@ const PREWARM_USER_AGENT =
 	process.env.PREWARM_USER_AGENT ||
 	"Mozilla/5.0 (compatible; 645live-prewarm/1.0; +https://645.live)";
 const NEWS_OG_CACHE_BUSTER =
-	process.env.NEWS_OG_CACHE_BUSTER || "2026-03-24-1";
+	process.env.NEWS_OG_CACHE_BUSTER || "2026-03-24-2";
 
 function normalizeBaseUrl(raw) {
 	try {

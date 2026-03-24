@@ -2088,7 +2088,7 @@ function renderMdx(draw, analysis, payload, metadata = {}) {
 	const drawDate = formatDate(draw.draw_date);
 	const publishedAt = metadata.publishedAt || `${drawDate}T21:21:00+09:00`;
 	const updatedAt = metadata.updatedAt || publishedAt;
-	const ogCacheBuster = "2026-03-24-1";
+	const ogCacheBuster = "2026-03-24-2";
 	const finalTitle = normalizeLine(payload.title, `제${round}회 로또 분석`);
 	const finalDescription = normalizeLine(
 		payload.description,
