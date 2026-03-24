@@ -171,7 +171,7 @@ export const handleNews = async (c: Context) => {
 		const format = (url.searchParams.get("format") as "png" | "svg") || "png";
 		const cacheControl =
 			format === "png"
-				? "public, max-age=300, stale-while-revalidate=86400"
+				? "public, max-age=10800, stale-while-revalidate=604800"
 				: "no-store";
 
 		const layout = "news";
