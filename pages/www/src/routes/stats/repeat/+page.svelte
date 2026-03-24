@@ -1,5 +1,6 @@
 <script lang="ts">
 import { goto } from "$app/navigation";
+import { StatsPageHero } from "$lib/components/stats";
 import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
 import LinkButton from "$lib/ui/LinkButton.svelte";
 import { JsonLd, MetaTags } from "svelte-meta-tags";
@@ -226,14 +227,36 @@ const handleKeydown = (event: KeyboardEvent) => {
 	<!-- Breadcrumbs -->
 	<Breadcrumbs items={breadcrumbItems} />
 
-	<!-- 페이지 헤더 -->
-	<div class="text-center space-y-2">
-		<h1 class="text-2xl sm:text-3xl font-bold text-primary">연속번호 분석 통계</h1>
-		<p class="text-sm sm:text-base text-base-content/70">
-			로또 6/45 연속 회차 간 중복 번호 패턴을 분석합니다.<br />
-			이전 회차와 현재 회차의 번호 중복 빈도와 연속성을 확인하세요.
-		</p>
-	</div>
+	<StatsPageHero
+		eyebrow="Repeat Pattern"
+		title="연속번호 분석 통계"
+		description={`연속 회차 사이에 얼마나 많은 번호가 다시 등장하는지 분석합니다. 이전 회차와 현재 회차의 중복 빈도와 연속성을 통해 새 번호 위주의 흐름인지, 반복 출현이 강한 흐름인지 비교할 수 있습니다.`}
+		metrics={[
+			{
+				label: "평균 중복",
+				value: `${data.averageRepeatCount}개`,
+				note: "회차 간 평균 중복 개수",
+				tone: "primary",
+			},
+			{
+				label: "최대 중복",
+				value: `${data.maxRepeatCount}개`,
+				note: "가장 높은 중복 기록",
+				tone: "secondary",
+			},
+			{
+				label: "중복 없음",
+				value: `${data.zeroRepeatRate}%`,
+				note: "이전 회차와 겹치지 않은 비율",
+				tone: "accent",
+			},
+			{
+				label: "높은 중복",
+				value: `${data.highRepeatRate}%`,
+				note: "3개 이상 중복 비중",
+			},
+		]}
+	/>
 
 	<!-- 최근 회차 분석 -->
 	<div class="card bg-base-100 shadow-sm">

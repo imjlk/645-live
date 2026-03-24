@@ -1,5 +1,5 @@
 <script lang="ts">
-import { RecentAnalysisInput } from "$lib/components/stats";
+import { RecentAnalysisInput, StatsPageHero } from "$lib/components/stats";
 import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
 import { JsonLd, MetaTags } from "svelte-meta-tags";
 import type { PageData } from "./$types";
@@ -201,14 +201,36 @@ const breadcrumbItems = [
 	<!-- Breadcrumbs -->
 	<Breadcrumbs items={breadcrumbItems} />
 
-	<!-- 페이지 헤더 -->
-	<div class="text-center space-y-2">
-		<h1 class="text-2xl sm:text-3xl font-bold text-primary">홀짝 분석 통계</h1>
-		<p class="text-sm sm:text-base text-base-content/70">
-			로또 6/45 당첨번호의 홀수/짝수 분포를 분석합니다.<br class="hidden sm:block" />
-			<span class="block sm:inline">균형잡힌 홀짝 조합이 가장 일반적인 패턴입니다.</span>
-		</p>
-	</div>
+	<StatsPageHero
+		eyebrow="Odd Even Pattern"
+		title="홀짝 분석 통계"
+		description={`로또 6/45 당첨번호의 홀수·짝수 분포를 분석합니다. 전체 ${data.totalRounds}회차를 기준으로 균형형 조합과 극단 조합이 얼마나 자주 나왔는지 한눈에 비교할 수 있습니다.`}
+		metrics={[
+			{
+				label: "균형 조합",
+				value: `${data.balancedRate}%`,
+				note: "3:3 또는 2:4 / 4:2 중심",
+				tone: "primary",
+			},
+			{
+				label: "극단 조합",
+				value: `${data.extremeRate}%`,
+				note: "0:6 또는 6:0 비중",
+				tone: "secondary",
+			},
+			{
+				label: "합계 구간",
+				value: Object.keys(data.sumDistribution).length,
+				note: "번호 합계 분포 범위",
+				tone: "accent",
+			},
+			{
+				label: "분석 회차",
+				value: `${data.totalRounds}회`,
+				note: "전체 회차 기준",
+			},
+		]}
+	/>
 
 	<!-- 최근 회차 분석 -->
 	<RecentAnalysisInput 

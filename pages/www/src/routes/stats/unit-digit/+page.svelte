@@ -1,5 +1,6 @@
 <script lang="ts">
 import { goto } from "$app/navigation";
+import { StatsPageHero } from "$lib/components/stats";
 import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
 import LinkButton from "$lib/ui/LinkButton.svelte";
 import { JsonLd, MetaTags } from "svelte-meta-tags";
@@ -266,14 +267,36 @@ let safeLeastFrequentDigit = $derived(
 	<!-- Breadcrumbs -->
 	<Breadcrumbs items={breadcrumbItems} />
 
-	<!-- 페이지 헤더 -->
-	<div class="text-center space-y-2">
-		<h1 class="text-3xl font-bold text-primary">끝수 분석 통계</h1>
-		<p class="text-base-content/70">
-			로또 6/45 당첨번호의 끝수(0-9) 분포 및 출현 패턴을 분석합니다.<br />
-			각 끝수별 출현 빈도와 통계를 확인하세요.
-		</p>
-	</div>
+	<StatsPageHero
+		eyebrow="Unit Digit Pattern"
+		title="끝수 분석 통계"
+		description={`로또 6/45 당첨번호의 끝수(0-9) 분포와 출현 패턴을 분석합니다. 어떤 끝수가 상대적으로 강했고 약했는지, 회차별 기대 평균과 함께 비교할 수 있습니다.`}
+		metrics={[
+			{
+				label: "최다 끝수",
+				value: `${safeMostFrequentDigit[0]}`,
+				note: `${safeMostFrequentDigit[1]}회 출현`,
+				tone: "primary",
+			},
+			{
+				label: "최소 끝수",
+				value: `${safeLeastFrequentDigit[0]}`,
+				note: `${safeLeastFrequentDigit[1]}회 출현`,
+				tone: "secondary",
+			},
+			{
+				label: "이론적 평균",
+				value: "1.3개",
+				note: "회차당 기대 끝수 평균",
+				tone: "accent",
+			},
+			{
+				label: "분석 회차",
+				value: `${data.totalRounds}회`,
+				note: "전체 당첨번호 기준",
+			},
+		]}
+	/>
 
 	<!-- 최근 회차 분석 -->
 	<div class="card bg-base-100 shadow-sm">

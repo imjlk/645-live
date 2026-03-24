@@ -1,5 +1,6 @@
 <script lang="ts">
 import { goto } from "$app/navigation";
+import { StatsPageHero } from "$lib/components/stats";
 import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
 import { JsonLd, MetaTags } from "svelte-meta-tags";
 import type { PageData } from "./$types";
@@ -237,20 +238,36 @@ const safeRecentStats = $derived(
 	<!-- Breadcrumbs -->
 	<Breadcrumbs items={breadcrumbItems} />
 
-	<!-- 페이지 헤더 -->
-	<div class="text-center space-y-2 sm:space-y-3">
-		<h1 class="text-xl sm:text-2xl md:text-3xl font-bold text-primary px-2">로또 6/45 고저 분석 통계</h1>
-		<p class="text-sm sm:text-base text-base-content/70 px-2">
-			<strong>고저 분석</strong>은 로또 번호를 고숫자(23-45)와 저숫자(1-22)로 구분하여 분석하는 핵심 지표입니다.
-			전체 <strong>{data.totalRounds}회차</strong> 데이터를 기반으로 당첨번호 패턴을 분석하여 
-			다음 당첨번호 예측에 도움이 되는 통계 정보를 제공합니다.
-		</p>
-		<div class="flex flex-col sm:flex-row justify-center gap-2 sm:gap-4 text-xs sm:text-sm text-base-content/60 mt-3 sm:mt-4 px-2">
-			<span>📊 평균 고숫자: <strong class="text-primary">{data.averageHighCount}개</strong></span>
-			<span>🎯 평균 저숫자: <strong class="text-secondary">{data.averageLowCount}개</strong></span>
-			<span>📈 분석 회차: <strong class="text-accent">{data.totalRounds}회</strong></span>
-		</div>
-	</div>
+	<StatsPageHero
+		eyebrow="High Low Pattern"
+		title="로또 6/45 고저 분석 통계"
+		description={`고저 분석은 번호를 저숫자(1-22)와 고숫자(23-45)로 나눠서 보는 핵심 지표입니다. 전체 ${data.totalRounds}회차를 기준으로 어느 쪽이 더 자주 선택됐는지, 균형형 패턴이 얼마나 안정적인지 확인할 수 있습니다.`}
+		metrics={[
+			{
+				label: "평균 고숫자",
+				value: `${data.averageHighCount}개`,
+				note: "23-45 구간 평균",
+				tone: "primary",
+			},
+			{
+				label: "평균 저숫자",
+				value: `${data.averageLowCount}개`,
+				note: "1-22 구간 평균",
+				tone: "secondary",
+			},
+			{
+				label: "최빈 패턴",
+				value: `저${data.mostFrequentPattern[0]}:고${6 - Number(data.mostFrequentPattern[0])}`,
+				note: "가장 자주 나온 고저 비율",
+				tone: "accent",
+			},
+			{
+				label: "분석 회차",
+				value: `${data.totalRounds}회`,
+				note: "전체 당첨번호 기준",
+			},
+		]}
+	/>
 
 	<!-- 최근 회차 분석 -->
 	<div class="card bg-base-100 shadow-sm">

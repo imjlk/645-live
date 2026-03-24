@@ -3,6 +3,7 @@ import {
 	ColorBadge,
 	GuideSection,
 	RecentAnalysisInput,
+	StatsPageHero,
 	StatsSummary,
 } from "$lib/components/stats";
 import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
@@ -202,20 +203,36 @@ const breadcrumbItems = [
 	<!-- Breadcrumbs -->
 	<Breadcrumbs items={breadcrumbItems} />
 
-	<!-- 페이지 헤더 -->
-	<div class="text-center space-y-2">
-		<h1 class="text-xl sm:text-2xl lg:text-3xl font-bold text-primary">로또 6/45 색상 분석 통계</h1>
-		<p class="text-base-content/70">
-			<strong>색상 분석</strong>은 로또 번호를 구간별로 나누어 분석하는 핵심 지표입니다.<br />
-			전체 <strong>{data.totalRounds}회차</strong> 데이터를 기반으로 당첨번호 패턴을 분석하여 
-			다음 당첨번호 예측에 도움이 되는 통계 정보를 제공합니다.
-		</p>
-		<div class="flex flex-col sm:flex-row justify-center gap-2 sm:gap-4 text-xs sm:text-sm text-base-content/60 mt-4">
-			<span>📊 최빈 색상: <strong class="text-primary">{colorInfo[data.mostFrequentColor[0] as keyof typeof colorInfo]?.name}</strong></span>
-			<span>🎯 평균 개수: <strong class="text-secondary">{data.mostFrequentColor[1]}개</strong></span>
-			<span>📈 분석 회차: <strong class="text-accent">{data.totalRounds}회</strong></span>
-		</div>
-	</div>
+	<StatsPageHero
+		eyebrow="Color Distribution"
+		title="로또 6/45 색상 분석 통계"
+		description={`색상 분석은 로또 번호를 구간별로 나누어 보는 핵심 지표입니다. 전체 ${data.totalRounds}회차를 기준으로 어떤 색 구간이 자주 등장하는지, 최근 조합이 어느 쪽에 몰렸는지 함께 확인할 수 있습니다.`}
+		metrics={[
+			{
+				label: "최빈 색상",
+				value: colorInfo[data.mostFrequentColor[0] as keyof typeof colorInfo]?.name ?? "-",
+				note: `평균 ${data.mostFrequentColor[1]}개`,
+				tone: "primary",
+			},
+			{
+				label: "회색 평균",
+				value: `${(data.colorAverages as any)?.grey || "0.00"}개`,
+				note: "31-40번 구간 평균",
+				tone: "secondary",
+			},
+			{
+				label: "저집중 비율",
+				value: `${data.lowComplexityRate}%`,
+				note: "특정 색이 0~1개인 조합",
+				tone: "accent",
+			},
+			{
+				label: "분석 회차",
+				value: `${data.totalRounds}회`,
+				note: "전체 당첨번호 기준",
+			},
+		]}
+	/>
 
 	<!-- 최근 회차 분석 -->
 	<RecentAnalysisInput 

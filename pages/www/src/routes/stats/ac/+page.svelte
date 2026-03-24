@@ -2,7 +2,7 @@
 import { goto } from "$app/navigation";
 import { resolveRoute } from "$app/paths";
 import { page } from "$app/state";
-import { StatsFreshnessNotice } from "$lib/components/stats";
+import { StatsPageHero } from "$lib/components/stats";
 import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
 import LinkButton from "$lib/ui/LinkButton.svelte";
 import { JsonLd, MetaTags } from "svelte-meta-tags";
@@ -205,22 +205,37 @@ const breadcrumbItems = [
 	<!-- Breadcrumbs -->
 	<Breadcrumbs items={breadcrumbItems} />
 
-	<!-- 페이지 헤더 -->
-	<div class="text-center space-y-2">
-		<h1 class="text-3xl font-bold text-primary">로또 6/45 AC값 통계 분석</h1>
-		<p class="text-base-content/70">
-			<strong>AC값(Arithmetic Complexity)</strong>은 로또 번호 조합의 산술적 복잡도를 나타내는 핵심 지표입니다.<br />
-			전체 <strong>{data.totalRounds}회차</strong> 데이터를 기반으로 당첨번호 패턴을 분석하여 
-			다음 당첨번호 예측에 도움이 되는 통계 정보를 제공합니다.
-		</p>
-		<div class="flex justify-center gap-4 text-sm text-base-content/60 mt-4">
-			<span>📊 평균 AC값: <strong class="text-primary">{data.averageAcValue}</strong></span>
-			<span>🎯 최빈 AC값: <strong class="text-secondary">{data.mostFrequentAc[0]}</strong></span>
-			<span>📈 분석 회차: <strong class="text-accent">{data.totalRounds}회</strong></span>
-		</div>
-	</div>
-
-	<StatsFreshnessNotice freshness={data.freshness} />
+	<StatsPageHero
+		eyebrow="Arithmetic Complexity"
+		title="로또 6/45 AC값 통계 분석"
+		description={`AC값은 번호 조합의 산술적 복잡도를 보여주는 핵심 지표입니다. 전체 ${data.totalRounds}회차를 기준으로 단순한 패턴과 복잡한 패턴이 얼마나 자주 등장했는지 비교할 수 있습니다.`}
+		freshness={data.freshness}
+		metrics={[
+			{
+				label: "평균 AC값",
+				value: data.averageAcValue,
+				note: "전체 회차 기준 평균",
+				tone: "primary",
+			},
+			{
+				label: "최빈 AC값",
+				value: data.mostFrequentAc[0],
+				note: `${data.mostFrequentAc[1]}회 출현`,
+				tone: "secondary",
+			},
+			{
+				label: "높은 복잡도",
+				value: `${data.highComplexityRate}%`,
+				note: "AC 11 이상 조합 비중",
+				tone: "accent",
+			},
+			{
+				label: "분석 회차",
+				value: `${data.totalRounds}회`,
+				note: `최대 ${data.maxAcValue} / 최소 ${data.minAcValue}`,
+			},
+		]}
+	/>
 
 	<!-- 최근 회차 AC 트렌드 -->
 	<div class="card bg-base-100 shadow-sm">

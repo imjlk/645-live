@@ -1,5 +1,6 @@
 <script lang="ts">
 import { goto } from "$app/navigation";
+import { StatsPageHero } from "$lib/components/stats";
 import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
 import LinkButton from "$lib/ui/LinkButton.svelte";
 import { JsonLd, MetaTags } from "svelte-meta-tags";
@@ -263,19 +264,36 @@ const getSectionBalance = (s1: number, s2: number, s3: number): string => {
 	<!-- Breadcrumbs -->
 	<Breadcrumbs items={breadcrumbItems} />
 
-	<!-- 페이지 헤더 -->
-	<div class="text-center space-y-3 sm:space-y-4">
-		<h1 class="text-xl sm:text-2xl lg:text-3xl font-bold text-primary px-2">로또 6/45 구간별 분석 통계</h1>
-		<p class="text-sm sm:text-base text-base-content/70 px-2 leading-relaxed">
-			로또 6/45 당첨번호의 <strong>구간별 분포</strong>와 패턴을 분석합니다.<br class="hidden sm:block" />
-			<span class="block sm:inline mt-2 sm:mt-0">1구간 평균 <strong class="text-secondary">{sectionMappedData.section1.average.toFixed(2)}개</strong>, 2구간 평균 <strong class="text-accent">{sectionMappedData.section2.average.toFixed(2)}개</strong>의 구간별 분포 분석을 통해 당첨번호 패턴을 파악해보세요.</span>
-		</p>
-		<div class="flex flex-col sm:flex-row justify-center gap-2 sm:gap-4 text-xs sm:text-sm text-base-content/60 mt-3 sm:mt-4">
-			<span>📊 전체 분석: <strong class="text-primary">{data.totalRounds}회차</strong></span>
-			<span>📈 구간 수: <strong class="text-secondary">5개 구간</strong></span>
-			<span>🎯 분석 범위: <strong class="text-accent">1-45번</strong></span>
-		</div>
-	</div>
+	<StatsPageHero
+		eyebrow="Section Distribution"
+		title="로또 6/45 구간별 분석 통계"
+		description={`당첨번호를 1-10, 11-20, 21-30, 31-40, 41-45의 다섯 구간으로 나눠서 봅니다. 전체 ${data.totalRounds}회차 기준으로 어느 구간이 안정적으로 분산됐는지, 최근 흐름이 어느 구간에 몰렸는지 함께 비교할 수 있습니다.`}
+		metrics={[
+			{
+				label: "1-10 평균",
+				value: sectionMappedData.section1.average.toFixed(2),
+				note: "첫 구간 평균 개수",
+				tone: "primary",
+			},
+			{
+				label: "21-30 평균",
+				value: sectionMappedData.section3.average.toFixed(2),
+				note: "중앙 구간 평균 개수",
+				tone: "secondary",
+			},
+			{
+				label: "41-45 평균",
+				value: sectionMappedData.section5.average.toFixed(2),
+				note: "마지막 구간 평균 개수",
+				tone: "accent",
+			},
+			{
+				label: "분석 회차",
+				value: `${data.totalRounds}회`,
+				note: "1-45 전체 번호 범위",
+			},
+		]}
+	/>
 
 	<!-- 최근 회차 분석 -->
 	<div class="card bg-base-100 shadow-sm">

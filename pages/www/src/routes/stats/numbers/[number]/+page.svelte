@@ -1,7 +1,7 @@
 <script lang="ts">
 import { goto } from "$app/navigation";
 import { resolveRoute } from "$app/paths";
-import { StatsFreshnessNotice } from "$lib/components/stats";
+import { StatsPageHero } from "$lib/components/stats";
 import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
 import LinkButton from "$lib/ui/LinkButton.svelte";
 import { JsonLd, MetaTags } from "svelte-meta-tags";
@@ -215,21 +215,37 @@ const breadcrumbItems = [
 	<!-- Breadcrumbs -->
 	<Breadcrumbs items={breadcrumbItems} />
 
-	<!-- 페이지 헤더 -->
-	<div class="text-center space-y-2">
-		<h1 class="text-xl sm:text-2xl lg:text-3xl font-bold text-primary">번호 {data.selectedNumber}번 상세 분석</h1>
-		<p class="text-sm sm:text-base text-base-content/70">
-			로또 6/45 번호 <strong class="text-primary">{data.selectedNumber}번</strong>의 상세 분석 정보입니다.<br />
-			총 <strong class="text-secondary">{data.numberStats.draw_count}회</strong> 출현하여 <strong class="text-accent">{data.numberStats.averageFrequency}%</strong>의 출현율을 보입니다.
-		</p>
-		<div class="flex flex-col sm:flex-row justify-center items-center gap-2 sm:gap-4 text-xs sm:text-sm text-base-content/60 mt-4">
-			<span>🎯 출현 횟수: <strong class="text-primary">{data.numberStats.draw_count}회</strong></span>
-			<span>🎁 보너스 출현: <strong class="text-secondary">{data.numberStats.bonus_count}회</strong></span>
-			<span>📊 출현율: <strong class="text-accent">{data.numberStats.averageFrequency}%</strong></span>
-		</div>
-	</div>
-
-	<StatsFreshnessNotice freshness={data.freshness} />
+	<StatsPageHero
+		eyebrow="Number Detail"
+		title={`번호 ${data.selectedNumber}번 상세 분석`}
+		description={`로또 6/45 번호 ${data.selectedNumber}번의 상세 통계입니다. 총 ${data.numberStats.draw_count}회 출현해 ${data.numberStats.averageFrequency}%의 출현율을 보였고, 기대값 대비 얼마나 많이 혹은 적게 등장했는지 함께 확인할 수 있습니다.`}
+		freshness={data.freshness}
+		metrics={[
+			{
+				label: "출현 횟수",
+				value: `${data.numberStats.draw_count}회`,
+				note: `전체 ${data.totalRounds}회차 기준`,
+				tone: "primary",
+			},
+			{
+				label: "보너스 출현",
+				value: `${data.numberStats.bonus_count}회`,
+				note: "보너스 번호 등장 횟수",
+				tone: "secondary",
+			},
+			{
+				label: "출현율",
+				value: `${data.numberStats.averageFrequency}%`,
+				note: getFrequencyAnalysis(data.numberStats.averageFrequency),
+				tone: "accent",
+			},
+			{
+				label: "마지막 출현",
+				value: `${data.numberStats.last_draw_round}회`,
+				note: "가장 최근 등장 회차",
+			},
+		]}
+	/>
 
 	<!-- 번호 분석 변경 -->
 	<div class="card bg-base-100 shadow-sm">

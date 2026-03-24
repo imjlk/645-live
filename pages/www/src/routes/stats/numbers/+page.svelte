@@ -2,7 +2,7 @@
 import {
 	GuideSection,
 	LottoBall,
-	StatsFreshnessNotice,
+	StatsPageHero,
 	StatsSummary,
 	StatsTable,
 } from "$lib/components/stats";
@@ -40,6 +40,18 @@ const getDeviationClass = (deviation: string) => {
 	if (dev < -5) return "text-blue-500";
 	return "text-gray-600";
 };
+
+const maxNumberDrawCount = $derived(
+	data.numberStats.length > 0
+		? Math.max(...data.numberStats.map((stat) => stat.draw_count))
+		: 0,
+);
+
+const minNumberDrawCount = $derived(
+	data.numberStats.length > 0
+		? Math.min(...data.numberStats.map((stat) => stat.draw_count))
+		: 0,
+);
 </script>
 
 <MetaTags
@@ -99,16 +111,37 @@ const getDeviationClass = (deviation: string) => {
 	<!-- Breadcrumbs -->
 	<Breadcrumbs items={breadcrumbItems} />
 
-	<!-- 페이지 헤더 -->
-	<div class="text-center space-y-2">
-		<h1 class="text-xl sm:text-2xl lg:text-3xl font-bold text-primary">로또 6/45 번호별 출현 통계</h1>
-		<p class="text-sm sm:text-base text-base-content/70">
-			총 <span class="font-semibold text-primary">{data.totalRounds}</span>회차 데이터 분석
-			(최신: {data.latestRound}회차)
-		</p>
-	</div>
-
-	<StatsFreshnessNotice freshness={data.freshness} />
+	<StatsPageHero
+		eyebrow="Number Distribution"
+		title="로또 6/45 번호별 출현 통계"
+		description={`총 ${data.totalRounds}회차 데이터를 기준으로, 1번부터 45번까지 어떤 번호가 자주 나왔고 어떤 번호가 상대적으로 적게 나왔는지 전체 흐름을 한눈에 비교합니다.`}
+		freshness={data.freshness}
+		metrics={[
+			{
+				label: "분석 회차",
+				value: `${data.totalRounds}회`,
+				note: `최신 ${data.latestRound}회차 기준`,
+				tone: "primary",
+			},
+			{
+				label: "평균 출현",
+				value: Math.round((data.totalRounds * 6) / 45),
+				note: "번호당 기대 출현 횟수",
+				tone: "secondary",
+			},
+			{
+				label: "최다 출현",
+				value: `${maxNumberDrawCount}회`,
+				note: "가장 많이 등장한 번호 기준",
+				tone: "accent",
+			},
+			{
+				label: "최소 출현",
+				value: `${minNumberDrawCount}회`,
+				note: "가장 적게 등장한 번호 기준",
+			},
+		]}
+	/>
 
 	<!-- 요약 통계 -->
 	<StatsSummary
@@ -127,13 +160,13 @@ const getDeviationClass = (deviation: string) => {
 			},
 			{
 				title: "최다 출현",
-				value: Math.max(...data.numberStats.map(s => s.draw_count)),
+				value: maxNumberDrawCount,
 				description: "횟수", 
 				theme: "accent"
 			},
 			{
 				title: "최소 출현",
-				value: Math.min(...data.numberStats.map(s => s.draw_count)),
+				value: minNumberDrawCount,
 				description: "횟수",
 				theme: "info"
 			}

@@ -2,6 +2,7 @@
 import {
 	GuideSection,
 	RecentAnalysisInput,
+	StatsPageHero,
 	StatsSummary,
 } from "$lib/components/stats";
 import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
@@ -172,13 +173,36 @@ const getPairGrade = (pairCount: number) => {
 	<!-- Breadcrumbs -->
 	<Breadcrumbs items={breadcrumbItems} />
 
-	<!-- 페이지 헤더 -->
-	<div class="text-center space-y-2">
-		<h1 class="text-2xl sm:text-3xl lg:text-4xl font-bold text-primary">번호쌍 분석 통계</h1>
-		<p class="text-sm sm:text-base text-base-content/70 px-2">
-			로또 6/45 당첨번호의 동반 출현 패턴 및 번호 쌍 분석 함께 출현하는 번호들의 패턴을 확인하세요.
-		</p>
-	</div>
+	<StatsPageHero
+		eyebrow="Pair Correlation"
+		title="번호쌍 분석 통계"
+		description={`로또 6/45 당첨번호의 동반 출현 패턴을 분석합니다. 어떤 번호쌍이 함께 자주 등장하는지, 전체 ${data.totalPairs}개 번호쌍의 결합 흐름을 한 화면에서 읽을 수 있습니다.`}
+		metrics={[
+			{
+				label: "총 번호쌍",
+				value: data.totalPairs,
+				note: "전체 조합 수",
+				tone: "primary",
+			},
+			{
+				label: "평균 동반 출현",
+				value: data.averagePairCount,
+				note: "번호쌍당 평균 횟수",
+				tone: "secondary",
+			},
+			{
+				label: "최대 기록",
+				value: `${data.maxPairCount}회`,
+				note: "가장 강한 번호쌍",
+				tone: "accent",
+			},
+			{
+				label: "최소 기록",
+				value: `${data.minPairCount}회`,
+				note: "최저 동반 출현",
+			},
+		]}
+	/>
 
 	<!-- 최근 회차 분석 -->
 	<RecentAnalysisInput 
