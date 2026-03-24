@@ -152,6 +152,12 @@ let safeMostFrequentDigit = $derived(
 let safeLeastFrequentDigit = $derived(
 	Array.isArray(data.leastFrequentDigit) ? data.leastFrequentDigit : [0, "0"],
 );
+
+let digitTotalsMax = $derived(
+	Object.keys(safeDigitTotals).length > 0
+		? Math.max(...Object.values(safeDigitTotals).map((value) => Number(value)))
+		: 0,
+);
 </script>
 
 <MetaTags
@@ -393,7 +399,6 @@ let safeLeastFrequentDigit = $derived(
 				<h3 class="card-title text-lg sm:text-xl">끝수별 총 출현 횟수</h3>
 				<div class="space-y-3">
 					{#each Object.entries(safeDigitTotals) as [digit, total]}
-						{@const maxTotal = Math.max(...Object.values(safeDigitTotals).map(v => Number(v)))}
 						<div class="flex items-center justify-between">
 							<div class="flex items-center">
 								<div class="w-6 h-6 rounded-full {getDigitColorClass(digit)} mr-3 text-white text-sm font-bold flex items-center justify-center">
@@ -406,7 +411,7 @@ let safeLeastFrequentDigit = $derived(
 								<div class="w-32 bg-base-300 rounded-full h-2">
 									<div 
 										class="{getDigitColorClass(digit)} h-2 rounded-full" 
-										style="width: {maxTotal > 0 ? (Number(total) / maxTotal) * 100 : 0}%"
+										style="width: {digitTotalsMax > 0 ? (Number(total) / digitTotalsMax) * 100 : 0}%"
 									></div>
 								</div>
 							</div>

@@ -52,6 +52,10 @@ const minNumberDrawCount = $derived(
 		? Math.min(...data.numberStats.map((stat) => stat.draw_count))
 		: 0,
 );
+
+const numberStatsOgDescription = $derived(
+	`총 ${data.totalRounds}회차 데이터 분석 - 최다 ${maxNumberDrawCount}회 - 최소 ${minNumberDrawCount}회`,
+);
 </script>
 
 <MetaTags
@@ -68,7 +72,7 @@ const minNumberDrawCount = $derived(
 		siteName: "645.live",
 		locale: "ko_KR",
 		images: [{
-			url: `https://645.live/og?title=${encodeURIComponent('로또 6/45 번호별 출현 통계')}&description=${encodeURIComponent(`총 ${data.totalRounds}회차 데이터 분석 - 최다 ${Math.max(...data.numberStats.map(s => s.draw_count))}회 - 최소 ${Math.min(...data.numberStats.map(s => s.draw_count))}회`)}&layout=blog&theme=light`,
+			url: `https://645.live/og?title=${encodeURIComponent('로또 6/45 번호별 출현 통계')}&description=${encodeURIComponent(numberStatsOgDescription)}&layout=blog&theme=light`,
 			width: 1200,
 			height: 630,
 			alt: "로또 6/45 번호별 출현 통계",
@@ -80,7 +84,7 @@ const minNumberDrawCount = $derived(
 		site: "@645live",
 		title: "로또 6/45 번호별 출현 통계",
 		description: `📊 전 번호 완전분석! 총 ${data.totalRounds}회차 데이터로 당첨 패턴 발견하기`,
-		image: `https://645.live/og?title=${encodeURIComponent('로또 6/45 번호별 출현 통계')}&description=${encodeURIComponent(`총 ${data.totalRounds}회차 데이터 분석 - 최다 ${Math.max(...data.numberStats.map(s => s.draw_count))}회 - 최소 ${Math.min(...data.numberStats.map(s => s.draw_count))}회`)}&layout=blog&theme=light`,
+		image: `https://645.live/og?title=${encodeURIComponent('로또 6/45 번호별 출현 통계')}&description=${encodeURIComponent(numberStatsOgDescription)}&layout=blog&theme=light`,
 		imageAlt: "로또 6/45 번호별 출현 통계"
 	}}
 	additionalMetaTags={[

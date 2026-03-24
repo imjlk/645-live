@@ -46,6 +46,12 @@ const getPairGrade = (pairCount: number) => {
 	if (pairCount >= 5) return { grade: "D", class: "bg-blue-500 text-white" };
 	return { grade: "E", class: "bg-gray-500 text-white" };
 };
+
+const pairDistributionMax = $derived(
+	Object.keys(data.pairCountDistribution).length > 0
+		? Math.max(...Object.values(data.pairCountDistribution))
+		: 0,
+);
 </script>
 
 <MetaTags
@@ -241,7 +247,6 @@ const getPairGrade = (pairCount: number) => {
 				<h2 class="card-title text-lg sm:text-xl">동반 출현 횟수 분포</h2>
 				<div class="space-y-2 sm:space-y-3">
 					{#each Object.entries(data.pairCountDistribution) as [range, count]}
-						{@const maxCount = Math.max(...Object.values(data.pairCountDistribution))}
 						<div class="flex items-center justify-between">
 							<span class="text-xs sm:text-sm font-medium">{range}회</span>
 							<div class="flex items-center">
@@ -249,7 +254,7 @@ const getPairGrade = (pairCount: number) => {
 								<div class="w-20 sm:w-32 bg-base-300 rounded-full h-2">
 									<div 
 										class="bg-primary h-2 rounded-full" 
-										style="width: {maxCount > 0 ? (count / maxCount) * 100 : 0}%"
+										style="width: {pairDistributionMax > 0 ? (count / pairDistributionMax) * 100 : 0}%"
 									></div>
 								</div>
 							</div>
