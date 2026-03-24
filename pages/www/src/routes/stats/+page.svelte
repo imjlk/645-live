@@ -27,6 +27,12 @@
 			draw_count: 0,
 		},
 	);
+	const bottomNumberSummary = $derived(
+		data.bottomNumberStats[0] ?? {
+			number: "-",
+			draw_count: 0,
+		},
+	);
 	const ogImage = $derived(
 		getGenericOgImage({
 			title: "로또 6/45 통계 분석",
@@ -47,6 +53,58 @@
 			? timestampFormatter.format(new Date(data.freshness.lastUpdatedAt))
 			: "",
 	);
+	const heroSignals = $derived([
+		{
+			label: "최신 회차",
+			value: data.latestRound > 0 ? `${data.latestRound}회차` : "-",
+			note: data.latestDrawDate || "추첨일 확인 중",
+		},
+		{
+			label: "누적 분석",
+			value: `${data.totalRounds}회차`,
+			note: "전체 데이터 기준선",
+		},
+		{
+			label: "최다 출현",
+			value:
+				topNumberSummary.number !== "-"
+					? `${topNumberSummary.number}번`
+					: "-",
+			note:
+				topNumberSummary.number !== "-"
+					? `${topNumberSummary.draw_count}회 등장`
+					: "데이터 확인 중",
+		},
+		{
+			label: "저빈도 번호",
+			value:
+				bottomNumberSummary.number !== "-"
+					? `${bottomNumberSummary.number}번`
+					: "-",
+			note:
+				bottomNumberSummary.number !== "-"
+					? `${bottomNumberSummary.draw_count}회 등장`
+					: "데이터 확인 중",
+		},
+	]);
+	const summaryCards = $derived([
+		{
+			label: "최근 10회",
+			copy: data.summarySnapshots.recent10,
+		},
+		{
+			label: "최근 50회",
+			copy: data.summarySnapshots.recent50,
+		},
+		{
+			label: "최근 100회",
+			copy: data.summarySnapshots.recent100,
+		},
+		{
+			label: `전체 ${data.totalRounds}회차`,
+			copy: data.summarySnapshots.overall,
+		},
+	]);
 
 	const collectionSchema = createCollectionPageSchema({
 		path: "/stats",
@@ -199,59 +257,80 @@
 <JsonLd schema={createWebSiteSchema()} />
 <JsonLd schema={faqSchema} />
 
-<div class="container mx-auto px-4 py-8 max-sm:px-0">
-	<header class="space-y-3">
-		<h1 class="text-3xl font-bold text-base-content">로또 6/45 통계 분석</h1>
-		<p class="text-base-content/70">
-			총 <span class="font-semibold text-primary">{data.totalRounds}</span>회차 데이터를 기반으로 한 통계 분석
-			{#if data.latestRound > 0}
-				(최신: {data.latestRound}회차, {data.latestDrawDate})
-			{/if}
-		</p>
-		<StatsFreshnessNotice freshness={data.freshness} />
+<div class="stats-shell container mx-auto px-4 py-8 max-sm:px-0">
+	<div class="stats-shell__glow stats-shell__glow--rose"></div>
+	<div class="stats-shell__glow stats-shell__glow--blue"></div>
+
+	<header class="stats-hero">
+		<div class="stats-hero__copy">
+			<p class="stats-hero__eyebrow">645.live 대표 통계 허브</p>
+			<h1 class="stats-hero__title">로또 6/45 통계 분석</h1>
+			<p class="stats-hero__lead">
+				최근 로또 당첨 번호 패턴부터 번호별 출현 빈도, 홀짝·고저·색상·번호쌍·AC값까지 한 화면 안에서 비교할 수 있는 대표 분석 허브입니다.
+			</p>
+
+			<div class="stats-hero__freshness">
+				<StatsFreshnessNotice freshness={data.freshness} />
+			</div>
+
+			<div class="stats-hero__summary">
+				<h2 class="stats-section-label">최근 로또 당첨 번호 패턴 분석 요약</h2>
+				<div class="space-y-3 text-sm leading-7 text-base-content/80 sm:text-base">
+					<p>
+						최근 로또 당첨 번호 패턴을 보면, 완전히 한쪽으로 치우친 조합보다
+						<strong class="text-base-content">홀짝, 고저, 구간 분포가 비교적 균형에 가까운 조합</strong>이 더 자주 나타나는 흐름을 확인할 수 있습니다.
+						다만 짧은 구간에서는 일시적인 쏠림이 자주 발생하므로, 최근 10회·50회·100회와 전체 회차를 함께 비교해서 보는 것이 좋습니다.
+					</p>
+					<p>
+						이 페이지는 <strong class="text-base-content">번호별 출현 빈도, 홀짝 분포, 색상 분포, 구간 분포, 고저 분포, 번호쌍, 연속번호, 끝수, AC값</strong>을 한곳에서 비교할 수 있는 로또 통계 허브입니다.
+						전체 흐름과 최근 흐름을 함께 확인해, 어떤 번호와 조합이 자주 보였는지 빠르게 파악할 수 있도록 정리했습니다.
+					</p>
+				</div>
+			</div>
+
+			<p class="stats-hero__note">
+				통계는 과거 데이터를 정리한 참고 정보이며, 특정 번호의 당첨을 보장하지 않습니다.
+			</p>
+		</div>
+
+		<div class="stats-hero__panel">
+			<div class="stats-hero__signal-grid">
+				{#each heroSignals as signal (signal.label)}
+					<div class="stats-signal-card">
+						<p class="stats-signal-card__label">{signal.label}</p>
+						<p class="stats-signal-card__value">{signal.value}</p>
+						<p class="stats-signal-card__note">{signal.note}</p>
+					</div>
+				{/each}
+			</div>
+
+			<div class="stats-snapshot-panel">
+				<div class="stats-snapshot-panel__head">
+					<h2 class="stats-section-label">최근 흐름 빠르게 보기</h2>
+					<p>짧은 구간과 장기 흐름을 한 번에 비교할 수 있도록 핵심 해석만 추렸습니다.</p>
+				</div>
+				<div class="stats-snapshot-list">
+					{#each summaryCards as card (card.label)}
+						<div class="stats-snapshot-item">
+							<p class="stats-snapshot-item__label">{card.label}</p>
+							<p class="stats-snapshot-item__copy">{card.copy}</p>
+						</div>
+					{/each}
+				</div>
+			</div>
+		</div>
 	</header>
 
-	<section class="mt-8 rounded-2xl border border-base-300 bg-base-100 p-6 shadow-sm">
-		<h2 class="text-2xl font-bold text-base-content">최근 로또 당첨 번호 패턴 분석 요약</h2>
-		<div class="mt-4 space-y-3 text-sm leading-7 text-base-content/80 sm:text-base">
-			<p>
-				최근 로또 당첨 번호 패턴을 보면, 완전히 한쪽으로 치우친 조합보다
-				<strong class="text-base-content"> 홀짝, 고저, 구간 분포가 비교적 균형에 가까운 조합</strong>이 더 자주 나타나는 흐름을 확인할 수 있습니다.
-				다만 짧은 구간에서는 일시적인 쏠림이 자주 발생하므로, 최근 10회·50회·100회와 전체 회차를 함께 비교해서 보는 것이 좋습니다.
-			</p>
-			<p>
-				이 페이지는 <strong class="text-base-content">번호별 출현 빈도, 홀짝 분포, 색상 분포, 구간 분포, 고저 분포, 번호쌍, 연속번호, 끝수, AC값</strong>을 한곳에서 비교할 수 있는 로또 통계 허브입니다.
-				전체 흐름과 최근 흐름을 함께 확인해, 어떤 번호와 조합이 자주 보였는지 빠르게 파악할 수 있도록 정리했습니다.
-			</p>
-		</div>
-		<p class="mt-4 rounded-xl bg-warning/10 px-4 py-3 text-sm text-base-content/80">
-			통계는 과거 데이터를 정리한 참고 정보이며, 특정 번호의 당첨을 보장하지 않습니다.
-		</p>
-	</section>
-
-	<section class="mt-6 rounded-2xl border border-base-300 bg-base-100 p-6 shadow-sm">
-		<h3 class="text-xl font-bold text-base-content">최근 흐름 빠르게 보기</h3>
-		<div class="mt-4 grid gap-3 sm:grid-cols-2">
-			<div class="rounded-xl bg-base-200/80 p-4 text-sm text-base-content/80">
-				<p class="font-semibold text-base-content">최근 10회</p>
-				<p class="mt-2 leading-6">{data.summarySnapshots.recent10}</p>
-			</div>
-			<div class="rounded-xl bg-base-200/80 p-4 text-sm text-base-content/80">
-				<p class="font-semibold text-base-content">최근 50회</p>
-				<p class="mt-2 leading-6">{data.summarySnapshots.recent50}</p>
-			</div>
-			<div class="rounded-xl bg-base-200/80 p-4 text-sm text-base-content/80">
-				<p class="font-semibold text-base-content">최근 100회</p>
-				<p class="mt-2 leading-6">{data.summarySnapshots.recent100}</p>
-			</div>
-			<div class="rounded-xl bg-base-200/80 p-4 text-sm text-base-content/80">
-				<p class="font-semibold text-base-content">전체 {data.totalRounds}회차</p>
-				<p class="mt-2 leading-6">{data.summarySnapshots.overall}</p>
-			</div>
-		</div>
-	</section>
-
 	<nav class="mt-8">
+		<div class="mb-4 flex items-end justify-between gap-4 max-sm:flex-col max-sm:items-start">
+			<div>
+				<p class="stats-section-label">세부 분석 바로가기</p>
+				<h2 class="text-2xl font-bold text-base-content">원하는 패턴으로 바로 이동</h2>
+			</div>
+			<p class="max-w-xl text-sm leading-6 text-base-content/65">
+				숫자 하나의 출현 빈도부터 최근 AC값 변화까지, broad 허브인 이 페이지에서 세부 통계 페이지로 바로 이어집니다.
+			</p>
+		</div>
 		<div class="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
 			{#each statsCategories as category (category.href)}
 				<StatsCard
@@ -264,8 +343,8 @@
 		</div>
 	</nav>
 
-	<div class="mt-8 grid grid-cols-1 gap-6 md:grid-cols-2">
-		<section class="rounded-2xl bg-base-100 p-6 shadow-md">
+	<div class="mt-10 grid grid-cols-1 gap-6 md:grid-cols-2">
+		<section class="stats-panel stats-panel--mint">
 			<h2 class="flex items-center text-xl font-bold">
 				<span class="mr-2 text-2xl">🔢</span>
 				번호별 출현 빈도
@@ -304,7 +383,7 @@
 			</div>
 		</section>
 
-		<section class="rounded-2xl bg-base-100 p-6 shadow-md">
+		<section class="stats-panel stats-panel--violet">
 			<h2 class="flex items-center text-xl font-bold">
 				<span class="mr-2 text-2xl">⚖️</span>
 				최근 홀짝 분포
@@ -334,7 +413,7 @@
 			</div>
 		</section>
 
-		<section class="rounded-2xl bg-base-100 p-6 shadow-md">
+		<section class="stats-panel stats-panel--amber">
 			<h2 class="flex items-center text-xl font-bold">
 				<span class="mr-2 text-2xl">🎨</span>
 				최근 색상 분포
@@ -363,7 +442,7 @@
 			</div>
 		</section>
 
-		<section class="rounded-2xl bg-base-100 p-6 shadow-md">
+		<section class="stats-panel stats-panel--rose">
 			<h2 class="flex items-center text-xl font-bold">
 				<span class="mr-2 text-2xl">👥</span>
 				최다 동반 출현 번호쌍
@@ -391,10 +470,18 @@
 		</section>
 	</div>
 
-	<section class="mt-8 rounded-2xl bg-base-200 p-6">
-		<h2 class="text-xl font-bold text-base-content">통계를 볼 때 함께 확인하면 좋은 기준</h2>
-		<div class="mt-4 grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
+	<section class="mt-8 rounded-[2rem] border border-base-300/70 bg-base-100/90 p-6 shadow-sm">
+		<div class="mb-4 flex items-end justify-between gap-4 max-sm:flex-col max-sm:items-start">
 			<div>
+				<p class="stats-section-label">읽는 법</p>
+				<h2 class="text-2xl font-bold text-base-content">통계를 볼 때 함께 확인하면 좋은 기준</h2>
+			</div>
+			<p class="max-w-xl text-sm leading-6 text-base-content/65">
+				짧은 구간의 변동성과 전체 회차 기준선을 함께 보는 방식이 가장 안정적입니다.
+			</p>
+		</div>
+		<div class="mt-4 grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
+			<div class="rounded-2xl bg-base-200/70 p-5">
 				<h3 class="mb-2 font-semibold text-base-content">비교 방법</h3>
 				<ul class="space-y-1 text-base-content/70">
 					<li>최근 10회는 단기 흐름, 최근 50회와 100회는 더 넓은 평균 흐름을 보여줍니다.</li>
@@ -402,7 +489,7 @@
 					<li>QR 스캔 흐름과 실제 당첨 패턴은 의미가 다르므로 함께 비교하는 편이 좋습니다.</li>
 				</ul>
 			</div>
-			<div>
+			<div class="rounded-2xl bg-base-200/70 p-5">
 				<h3 class="mb-2 font-semibold text-base-content">주의할 점</h3>
 				<ul class="space-y-1 text-base-content/70">
 					<li>과거 통계는 참고용이며 다음 회차 결과를 보장하지 않습니다.</li>
@@ -413,11 +500,19 @@
 		</div>
 	</section>
 
-	<section class="mt-8 rounded-2xl border border-base-300 bg-base-100 p-6 shadow-sm">
-		<h2 class="text-2xl font-bold text-base-content">자주 묻는 질문</h2>
-		<div class="mt-5 space-y-4">
+	<section class="mt-8 rounded-[2rem] border border-base-300 bg-base-100 p-6 shadow-sm">
+		<div class="mb-4 flex items-end justify-between gap-4 max-sm:flex-col max-sm:items-start">
+			<div>
+				<p class="stats-section-label">FAQ</p>
+				<h2 class="text-2xl font-bold text-base-content">자주 묻는 질문</h2>
+			</div>
+			<p class="max-w-xl text-sm leading-6 text-base-content/65">
+				AI 답변과 검색 요약에서 바로 인용되기 쉬운 형태로 핵심 질문을 정리했습니다.
+			</p>
+		</div>
+		<div class="mt-5 grid gap-4 lg:grid-cols-2">
 			{#each faqItems as item (item.question)}
-				<div class="rounded-xl bg-base-200/70 p-4">
+				<div class="faq-card">
 					<h3 class="text-base font-semibold text-base-content">{item.question}</h3>
 					<p class="mt-2 text-sm leading-6 text-base-content/75">{item.answer}</p>
 				</div>
@@ -434,3 +529,277 @@
 		{/if}
 	</footer>
 </div>
+
+<style>
+	.stats-shell {
+		position: relative;
+		isolation: isolate;
+	}
+
+	.stats-shell__glow {
+		pointer-events: none;
+		position: absolute;
+		z-index: -1;
+		filter: blur(60px);
+		opacity: 0.4;
+	}
+
+	.stats-shell__glow--rose {
+		top: 2rem;
+		right: 4rem;
+		height: 14rem;
+		width: 14rem;
+		border-radius: 9999px;
+		background: rgba(244, 114, 182, 0.18);
+	}
+
+	.stats-shell__glow--blue {
+		left: 0;
+		top: 18rem;
+		height: 16rem;
+		width: 16rem;
+		border-radius: 9999px;
+		background: rgba(96, 165, 250, 0.16);
+	}
+
+	.stats-hero {
+		display: grid;
+		gap: 1.5rem;
+		border: 1px solid color-mix(in oklab, oklch(var(--b3)) 72%, white);
+		background:
+			radial-gradient(circle at top left, rgba(236, 72, 153, 0.12), transparent 34%),
+			radial-gradient(circle at 90% 10%, rgba(59, 130, 246, 0.14), transparent 28%),
+			linear-gradient(180deg, color-mix(in oklab, oklch(var(--b1)) 92%, white) 0%, color-mix(in oklab, oklch(var(--b1)) 96%, black) 100%);
+		border-radius: 2rem;
+		padding: 1.5rem;
+		box-shadow: 0 24px 64px rgba(15, 23, 42, 0.08);
+	}
+
+	.stats-hero__copy {
+		display: flex;
+		flex-direction: column;
+		gap: 1rem;
+	}
+
+	.stats-hero__eyebrow,
+	.stats-section-label {
+		font-size: 0.78rem;
+		font-weight: 700;
+		letter-spacing: 0.16em;
+		text-transform: uppercase;
+		color: color-mix(in oklab, oklch(var(--p)) 74%, oklch(var(--bc)));
+	}
+
+	.stats-hero__title {
+		max-width: 11ch;
+		font-size: clamp(2.4rem, 4vw, 4.8rem);
+		line-height: 0.95;
+		letter-spacing: -0.05em;
+		font-weight: 800;
+		color: oklch(var(--bc));
+		text-wrap: balance;
+	}
+
+	.stats-hero__lead {
+		max-width: 58ch;
+		font-size: 1rem;
+		line-height: 1.8;
+		color: color-mix(in oklab, oklch(var(--bc)) 74%, white);
+	}
+
+	.stats-hero__freshness {
+		max-width: 52rem;
+	}
+
+	.stats-hero__summary {
+		max-width: 58rem;
+		border-top: 1px solid color-mix(in oklab, oklch(var(--b3)) 72%, white);
+		padding-top: 1rem;
+	}
+
+	.stats-hero__note {
+		display: inline-flex;
+		max-width: fit-content;
+		border-radius: 9999px;
+		padding: 0.8rem 1rem;
+		background: rgba(250, 204, 21, 0.1);
+		color: color-mix(in oklab, oklch(var(--bc)) 75%, white);
+		font-size: 0.9rem;
+	}
+
+	.stats-hero__panel {
+		display: flex;
+		flex-direction: column;
+		gap: 1rem;
+	}
+
+	.stats-hero__signal-grid {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 0.75rem;
+	}
+
+	.stats-signal-card,
+	.stats-snapshot-item,
+	.faq-card {
+		border: 1px solid color-mix(in oklab, oklch(var(--b3)) 72%, white);
+		background: color-mix(in oklab, oklch(var(--b1)) 92%, white);
+		box-shadow: 0 12px 36px rgba(15, 23, 42, 0.06);
+	}
+
+	.stats-signal-card {
+		border-radius: 1.35rem;
+		padding: 1rem;
+	}
+
+	.stats-signal-card__label {
+		font-size: 0.72rem;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: color-mix(in oklab, oklch(var(--bc)) 50%, white);
+	}
+
+	.stats-signal-card__value {
+		margin-top: 0.45rem;
+		font-size: 1.55rem;
+		line-height: 1.1;
+		font-weight: 700;
+		color: oklch(var(--bc));
+	}
+
+	.stats-signal-card__note {
+		margin-top: 0.55rem;
+		font-size: 0.9rem;
+		line-height: 1.5;
+		color: color-mix(in oklab, oklch(var(--bc)) 62%, white);
+	}
+
+	.stats-snapshot-panel {
+		border-radius: 1.6rem;
+		background: linear-gradient(180deg, rgba(15, 23, 42, 0.97), rgba(30, 41, 59, 0.92));
+		padding: 1rem;
+		color: white;
+		box-shadow: 0 20px 48px rgba(15, 23, 42, 0.18);
+	}
+
+	.stats-snapshot-panel__head p {
+		margin-top: 0.4rem;
+		font-size: 0.95rem;
+		line-height: 1.6;
+		color: rgba(255, 255, 255, 0.72);
+	}
+
+	.stats-snapshot-panel .stats-section-label {
+		color: rgba(255, 255, 255, 0.78);
+	}
+
+	.stats-snapshot-list {
+		margin-top: 1rem;
+		display: grid;
+		gap: 0.75rem;
+	}
+
+	.stats-snapshot-item {
+		border-radius: 1.2rem;
+		padding: 0.95rem 1rem;
+		background: rgba(255, 255, 255, 0.08);
+		border-color: rgba(255, 255, 255, 0.08);
+		box-shadow: none;
+	}
+
+	.stats-snapshot-item__label {
+		font-size: 0.78rem;
+		font-weight: 700;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: rgba(255, 255, 255, 0.72);
+	}
+
+	.stats-snapshot-item__copy {
+		margin-top: 0.45rem;
+		font-size: 0.95rem;
+		line-height: 1.7;
+		color: rgba(255, 255, 255, 0.94);
+	}
+
+	.stats-panel {
+		border-radius: 1.65rem;
+		padding: 1.5rem;
+		border: 1px solid color-mix(in oklab, oklch(var(--b3)) 70%, white);
+		background: linear-gradient(180deg, color-mix(in oklab, oklch(var(--b1)) 96%, white), color-mix(in oklab, oklch(var(--b1)) 90%, white));
+		box-shadow: 0 18px 46px rgba(15, 23, 42, 0.06);
+	}
+
+	.stats-panel--mint {
+		background:
+			linear-gradient(180deg, rgba(16, 185, 129, 0.06), transparent 28%),
+			linear-gradient(180deg, color-mix(in oklab, oklch(var(--b1)) 96%, white), color-mix(in oklab, oklch(var(--b1)) 90%, white));
+	}
+
+	.stats-panel--violet {
+		background:
+			linear-gradient(180deg, rgba(99, 102, 241, 0.06), transparent 28%),
+			linear-gradient(180deg, color-mix(in oklab, oklch(var(--b1)) 96%, white), color-mix(in oklab, oklch(var(--b1)) 90%, white));
+	}
+
+	.stats-panel--amber {
+		background:
+			linear-gradient(180deg, rgba(245, 158, 11, 0.08), transparent 28%),
+			linear-gradient(180deg, color-mix(in oklab, oklch(var(--b1)) 96%, white), color-mix(in oklab, oklch(var(--b1)) 90%, white));
+	}
+
+	.stats-panel--rose {
+		background:
+			linear-gradient(180deg, rgba(244, 63, 94, 0.06), transparent 28%),
+			linear-gradient(180deg, color-mix(in oklab, oklch(var(--b1)) 96%, white), color-mix(in oklab, oklch(var(--b1)) 90%, white));
+	}
+
+	.faq-card {
+		position: relative;
+		border-radius: 1.4rem;
+		padding: 1.15rem 1.15rem 1.15rem 1.35rem;
+		overflow: hidden;
+	}
+
+	.faq-card::before {
+		content: "";
+		position: absolute;
+		left: 0;
+		top: 1rem;
+		bottom: 1rem;
+		width: 4px;
+		border-radius: 9999px;
+		background: linear-gradient(180deg, oklch(var(--p)), rgba(244, 114, 182, 0.8));
+	}
+
+	@media (min-width: 1024px) {
+		.stats-hero {
+			grid-template-columns: minmax(0, 1.25fr) minmax(22rem, 0.75fr);
+			padding: 2rem;
+		}
+	}
+
+	@media (max-width: 640px) {
+		.stats-shell {
+			padding-inline: 0;
+		}
+
+		.stats-hero {
+			border-radius: 1.5rem;
+			padding: 1.1rem;
+		}
+
+		.stats-hero__title {
+			max-width: 100%;
+			font-size: 2.4rem;
+		}
+
+		.stats-hero__signal-grid {
+			grid-template-columns: 1fr;
+		}
+
+		.stats-panel {
+			padding: 1.15rem;
+		}
+	}
+</style>
