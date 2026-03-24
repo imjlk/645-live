@@ -7,7 +7,7 @@ export const AUTO_NEWS_AUTHOR_PATH = "/authors/645-live-auto-news";
 export const ABOUT_PATH = "/about";
 export const EDITORIAL_POLICY_PATH = "/editorial-policy";
 export const DATA_SOURCES_PATH = "/data-sources";
-export const NEWS_OG_CACHE_BUSTER = "2026-03-24-2";
+export const NEWS_OG_CACHE_BUSTER = "2026-03-24-3";
 
 export function absoluteUrl(path: string): string {
 	return new URL(path, SITE_ORIGIN).toString();

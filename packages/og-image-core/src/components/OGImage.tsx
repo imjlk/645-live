@@ -77,13 +77,7 @@ function balanceTitle(text: string, layout: CustomLayoutOptions["layout"]): stri
 	const normalized = normalizeWhitespace(text);
 
 	if (layout === "news") {
-		const commaIndex = normalized.indexOf(",");
-		if (commaIndex > 0 && commaIndex < normalized.length - 1) {
-			return [
-				normalized.slice(0, commaIndex + 1).trim(),
-				normalized.slice(commaIndex + 1).trim(),
-			];
-		}
+		return balanceText(normalized, 3);
 	}
 
 	return balanceText(
@@ -119,30 +113,58 @@ export const OGImage: React.FC<CustomLayoutOptions> = ({
 		: [];
 	const hasNewsMeta = (badgeText && badgeText.length > 0) || (metaText && metaText.length > 0);
 	const newsAccent = colors.accentColor;
-	const titleBlock = (
-		<h1
-			style={{
-				fontSize: layoutStyles.title.fontSize,
-				fontWeight: layoutStyles.title.fontWeight ?? "700",
-				color: colors.textColor,
-				lineHeight: layoutStyles.title.lineHeight ?? "1.2",
-				letterSpacing: layoutStyles.title.letterSpacing ?? "-0.02em",
-				margin: 0,
-				marginBottom: layoutStyles.title.marginBottom,
-			}}
-		>
-			{titleLines.map((line, index) => (
-				<span
-					key={`${line}-${index}`}
-					style={{
-						display: "block",
-					}}
-				>
-					{line}
-				</span>
-			))}
-		</h1>
-	);
+	const resolvedTitleFontSize =
+		layout === "news"
+			? title.length > 40
+				? "48px"
+				: title.length > 28
+					? "54px"
+					: layoutStyles.title.fontSize
+			: layoutStyles.title.fontSize;
+	const resolvedDescriptionFontSize =
+		layout === "news" && descriptionText && descriptionText.length > 24
+			? "24px"
+			: layoutStyles.description.fontSize;
+	const titleBlock =
+		layout === "news" ? (
+			<h1
+				style={{
+					fontSize: resolvedTitleFontSize,
+					fontWeight: layoutStyles.title.fontWeight ?? "700",
+					color: colors.textColor,
+					lineHeight: "1.16",
+					letterSpacing: "-0.04em",
+					margin: 0,
+					marginBottom: layoutStyles.title.marginBottom,
+					maxWidth: "700px",
+				}}
+			>
+				{title}
+			</h1>
+		) : (
+			<h1
+				style={{
+					fontSize: resolvedTitleFontSize,
+					fontWeight: layoutStyles.title.fontWeight ?? "700",
+					color: colors.textColor,
+					lineHeight: layoutStyles.title.lineHeight ?? "1.2",
+					letterSpacing: layoutStyles.title.letterSpacing ?? "-0.02em",
+					margin: 0,
+					marginBottom: layoutStyles.title.marginBottom,
+				}}
+			>
+				{titleLines.map((line, index) => (
+					<span
+						key={`${line}-${index}`}
+						style={{
+							display: "block",
+						}}
+					>
+						{line}
+					</span>
+				))}
+			</h1>
+		);
 
 	return (
 		<div
@@ -153,9 +175,11 @@ export const OGImage: React.FC<CustomLayoutOptions> = ({
 				height: "100%",
 				position: "relative",
 				fontFamily: "Arial, sans-serif",
+				backgroundColor: colors.backgroundColor,
 				padding: layoutStyles.container.padding,
 				justifyContent: layoutStyles.container.justifyContent,
 				alignItems: layoutStyles.container.alignItems,
+				overflow: "hidden",
 			}}
 		>
 			<Background
@@ -200,7 +224,7 @@ export const OGImage: React.FC<CustomLayoutOptions> = ({
 						style={{
 							display: "flex",
 							flexDirection: "column",
-							gap: "28px",
+							gap: "30px",
 							width: "100%",
 						}}
 					>
@@ -217,7 +241,7 @@ export const OGImage: React.FC<CustomLayoutOptions> = ({
 									style={{
 										display: "flex",
 										alignItems: "center",
-										gap: "16px",
+										gap: "14px",
 									}}
 								>
 									{badgeText && (
@@ -225,34 +249,25 @@ export const OGImage: React.FC<CustomLayoutOptions> = ({
 											style={{
 												display: "flex",
 												alignItems: "center",
-												padding: "10px 18px",
+												padding: "12px 22px",
 												borderRadius: "999px",
 												backgroundColor: newsAccent,
-												color: colors.backgroundColor,
+												color: "#08111f",
 												fontSize: "24px",
 												fontWeight: "800",
-												letterSpacing: "-0.02em",
+												letterSpacing: "-0.03em",
 											}}
 										>
 											{badgeText}
 										</div>
 									)}
-									<div
-										style={{
-											width: "14px",
-											height: "14px",
-											borderRadius: "999px",
-											backgroundColor: newsAccent,
-											opacity: 0.55,
-										}}
-									/>
 								</div>
 								{metaText && (
 									<div
 										style={{
-											fontSize: "22px",
+											fontSize: "21px",
 											color: colors.textColor,
-											opacity: 0.72,
+											opacity: 0.82,
 											textAlign: "right",
 										}}
 									>
@@ -262,53 +277,53 @@ export const OGImage: React.FC<CustomLayoutOptions> = ({
 							</div>
 						)}
 
-						<div
-							style={{
-								display: "flex",
-								justifyContent: "space-between",
-								alignItems: "stretch",
-								gap: "36px",
-								width: "100%",
-							}}
-						>
 							<div
 								style={{
 									display: "flex",
-									flexDirection: "column",
 									justifyContent: "space-between",
-									gap: "24px",
-									flex: "1 1 auto",
-									maxWidth: "76%",
+									alignItems: "stretch",
+									gap: "34px",
+									width: "100%",
 								}}
 							>
-								{titleBlock}
-
-								{descriptionLines.length > 0 && (
 									<div
 										style={{
 											display: "flex",
 											flexDirection: "column",
-											gap: "8px",
-											padding: "22px 24px",
-											borderRadius: "26px",
-											backgroundColor:
-												theme === "dark"
-													? "rgba(255,255,255,0.08)"
-													: "rgba(15,23,42,0.08)",
-											border:
-												theme === "dark"
-													? "1px solid rgba(255,255,255,0.10)"
-													: "1px solid rgba(15,23,42,0.08)",
+											justifyContent: "space-between",
+											gap: "24px",
+											flex: "1 1 auto",
+											maxWidth: "62%",
 										}}
 									>
-										{descriptionLines.map((line, index) => (
-											<p
-												key={`${line}-${index}`}
-												style={{
-													fontSize: layoutStyles.description.fontSize,
-													color: colors.textColor,
-													opacity: layoutStyles.description.opacity ?? "0.92",
-													margin: 0,
+										{titleBlock}
+
+									{descriptionLines.length > 0 && (
+										<div
+											style={{
+												display: "flex",
+												flexDirection: "column",
+												gap: "10px",
+												padding: "24px 28px",
+												borderRadius: "28px",
+												backgroundColor:
+													theme === "dark"
+														? "rgba(8,17,31,0.64)"
+														: "rgba(255,255,255,0.92)",
+												border:
+													theme === "dark"
+														? "1px solid rgba(148,163,184,0.18)"
+														: "1px solid rgba(15,23,42,0.08)",
+											}}
+										>
+											{descriptionLines.map((line, index) => (
+												<p
+													key={`${line}-${index}`}
+													style={{
+													fontSize: resolvedDescriptionFontSize,
+														color: colors.textColor,
+													opacity: "0.96",
+														margin: 0,
 													lineHeight:
 														layoutStyles.description.lineHeight ?? "1.38",
 												}}
@@ -325,8 +340,8 @@ export const OGImage: React.FC<CustomLayoutOptions> = ({
 									display: "flex",
 									flexDirection: "column",
 									justifyContent: "space-between",
-									gap: "20px",
-									width: "220px",
+									gap: "18px",
+									width: "236px",
 								}}
 							>
 								<div
@@ -338,34 +353,26 @@ export const OGImage: React.FC<CustomLayoutOptions> = ({
 										borderRadius: "32px",
 										background:
 											theme === "dark"
-												? "rgba(255,255,255,0.06)"
-												: "rgba(255,255,255,0.75)",
+												? "rgba(7, 12, 24, 0.78)"
+												: "rgba(255,255,255,0.86)",
 										border:
 											theme === "dark"
-												? "1px solid rgba(255,255,255,0.12)"
+												? "1px solid rgba(148,163,184,0.22)"
 												: "1px solid rgba(15,23,42,0.08)",
-										minHeight: "250px",
+										minHeight: "252px",
 									}}
 								>
 									<div
 										style={{
 											fontSize: "18px",
 											color: colors.textColor,
-											opacity: 0.58,
+											opacity: 0.64,
 											textTransform: "uppercase",
 											letterSpacing: "0.18em",
 										}}
 									>
 										Lotto News
 									</div>
-									<div
-										style={{
-											width: "72px",
-											height: "8px",
-											borderRadius: "999px",
-											backgroundColor: newsAccent,
-										}}
-									/>
 									<div
 										style={{
 											fontSize: "88px",
@@ -383,7 +390,7 @@ export const OGImage: React.FC<CustomLayoutOptions> = ({
 										style={{
 											fontSize: "24px",
 											color: colors.textColor,
-											opacity: 0.7,
+											opacity: 0.76,
 										}}
 									>
 										{badgeText || "뉴스 브리프"}
@@ -395,15 +402,15 @@ export const OGImage: React.FC<CustomLayoutOptions> = ({
 										display: "flex",
 										alignItems: "center",
 										gap: "12px",
-										padding: "14px 18px",
-										borderRadius: "999px",
+										padding: "16px 18px",
+										borderRadius: "24px",
 										backgroundColor:
 											theme === "dark"
-												? "rgba(15,23,42,0.36)"
-												: "rgba(255,255,255,0.7)",
+												? "rgba(8,17,31,0.72)"
+												: "rgba(255,255,255,0.84)",
 										border:
 											theme === "dark"
-												? "1px solid rgba(255,255,255,0.08)"
+												? "1px solid rgba(148,163,184,0.18)"
 												: "1px solid rgba(15,23,42,0.08)",
 									}}
 								>
@@ -417,9 +424,9 @@ export const OGImage: React.FC<CustomLayoutOptions> = ({
 									/>
 									<div
 										style={{
-											fontSize: "20px",
+											fontSize: "19px",
 											color: colors.textColor,
-											opacity: 0.8,
+											opacity: 0.9,
 										}}
 									>
 										{highlightText || "당첨 흐름 요약"}
@@ -449,7 +456,9 @@ export const OGImage: React.FC<CustomLayoutOptions> = ({
 				)}
 			</div>
 
-			<Brand accentColor={colors.accentColor} textColor={colors.textColor} />
+			{layout !== "news" && (
+				<Brand accentColor={colors.accentColor} textColor={colors.textColor} />
+			)}
 		</div>
 	);
 };
