@@ -1,6 +1,15 @@
 import { dev } from "$app/environment";
 import type { RequestHandler } from "./$types";
 
+const PAGES_OG_PROXY_VERSION = "2026-03-25-1";
+
+function applyPagesOgProxyHeaders(headers: Headers) {
+	headers.set("cache-control", "no-store");
+	headers.set("cdn-cache-control", "no-store");
+	headers.set("cloudflare-cdn-cache-control", "no-store");
+	headers.set("x-pages-og-proxy-version", PAGES_OG_PROXY_VERSION);
+}
+
 function createGenericFallbackSvg(title: string, description?: string) {
 	return `<?xml version="1.0" encoding="UTF-8"?>
 <svg width="1200" height="630" viewBox="0 0 1200 630" xmlns="http://www.w3.org/2000/svg">
@@ -18,20 +27,26 @@ function createGenericFallbackSvg(title: string, description?: string) {
 }
 
 function createDevFallbackResponse(title: string, description?: string) {
+	const headers = new Headers({
+		"content-type": "image/svg+xml",
+		"cache-control": "no-store",
+	});
+	applyPagesOgProxyHeaders(headers);
+
 	return new Response(createGenericFallbackSvg(title, description), {
-		headers: {
-			"content-type": "image/svg+xml",
-			"cache-control": "no-store",
-		},
+		headers,
 	});
 }
 
 function createUnavailableResponse() {
+	const headers = new Headers({
+		"cache-control": "no-store",
+	});
+	applyPagesOgProxyHeaders(headers);
+
 	return new Response("OG service unavailable", {
 		status: 503,
-		headers: {
-			"cache-control": "no-store",
-		},
+		headers,
 	});
 }
 
@@ -61,6 +76,7 @@ async function createImageResponse(
 
 	const body = await upstream.arrayBuffer();
 	headers.set("content-length", String(body.byteLength));
+	applyPagesOgProxyHeaders(headers);
 
 	return new Response(body, {
 		status: upstream.status,

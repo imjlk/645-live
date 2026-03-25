@@ -2,6 +2,15 @@ import { dev } from "$app/environment";
 import { getNewsPostBySlug } from "$lib/server/news.js";
 import type { RequestHandler } from "./$types";
 
+const PAGES_OG_PROXY_VERSION = "2026-03-25-1";
+
+function applyPagesOgProxyHeaders(headers: Headers) {
+	headers.set("Cache-Control", "no-store");
+	headers.set("CDN-Cache-Control", "no-store");
+	headers.set("Cloudflare-CDN-Cache-Control", "no-store");
+	headers.set("X-Pages-OG-Proxy-Version", PAGES_OG_PROXY_VERSION);
+}
+
 // Category color themes
 const categoryThemes: Record<string, { bg: string; accent: string; text: string }> = {
 	'로또분석': { bg: '#1E3A8A', accent: '#3B82F6', text: '#DBEAFE' },  // Blue
@@ -91,11 +100,14 @@ function generateEnhancedSVG(
 }
 
 function createGenericFailureResponse() {
+	const headers = new Headers({
+		"Cache-Control": "no-store",
+	});
+	applyPagesOgProxyHeaders(headers);
+
 	return new Response("OG service unavailable", {
 		status: 503,
-		headers: {
-			"Cache-Control": "no-store",
-		},
+		headers,
 	});
 }
 
@@ -125,6 +137,7 @@ async function createImageResponse(
 
 	const body = await upstream.arrayBuffer();
 	headers.set("content-length", String(body.byteLength));
+	applyPagesOgProxyHeaders(headers);
 
 	return new Response(body, {
 		status: upstream.status,
@@ -158,11 +171,14 @@ export const GET: RequestHandler = async ({ platform, url, params }) => {
 
 	const generateFallbackSVG = () => {
 		const svg = generateEnhancedSVG(title, description, category, date, highlight);
+		const headers = new Headers({
+			"Content-Type": "image/svg+xml",
+			"Cache-Control": "no-store",
+		});
+		applyPagesOgProxyHeaders(headers);
+
 		return new Response(svg, {
-			headers: {
-				"Content-Type": "image/svg+xml",
-				"Cache-Control": "no-store",
-			},
+			headers,
 		});
 	};
 
