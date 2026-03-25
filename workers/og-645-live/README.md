@@ -7,7 +7,7 @@ Cloudflare Worker 기반 OG 이미지 생성 서비스입니다.
 - 일반 OG 이미지 생성 (`GET /*`)
 - 뉴스 전용 OG 이미지 생성 (`GET /news/*`)
 - JSON payload 기반 생성 (`POST /generate`)
-- 응답 헤더 기반 CDN 캐시 제어
+- 뉴스 경로 전용 Worker Cache API + 응답 헤더 기반 CDN 캐시 제어
 
 ## 로컬 실행
 
@@ -86,11 +86,18 @@ JSON body로 생성 옵션 전달.
 
 ## 캐시 설정
 
-Worker 내부 `Cache API`는 사용하지 않습니다.
+뉴스 OG(`GET /news/*`)는 Worker 내부 `Cache API`와 응답 헤더를 함께 사용합니다.
 
-- 최종 캐시 동작은 각 라우트가 설정하는 `Cache-Control` 헤더를 기준으로 Cloudflare CDN과 브라우저가 처리합니다.
-- 뉴스 OG 이미지는 현재 `max-age=10800, stale-while-revalidate=604800` 정책을 사용합니다.
-- 무효화는 URL의 `rev` 파라미터 변경과 Cloudflare 존 캐시 퍼지로 처리합니다.
+- 내부 캐시는 `CACHE_KEY_PREFIX`가 포함된 키로 저장되어, 필요할 때 프리픽스만 바꿔도 논리적으로 캐시를 비울 수 있습니다.
+- `CACHE_MAX_AGE`가 지나면 내부 캐시는 자동 폐기 후 재생성됩니다.
+- 외부로는 `Cache-Control` 헤더를 기준으로 Cloudflare CDN과 브라우저가 동작합니다.
+- 무효화는 URL의 `rev` 파라미터 변경, `CACHE_KEY_PREFIX` 변경, Cloudflare 존 캐시 퍼지로 처리합니다.
+
+환경 변수:
+
+- `CACHE_ENABLED` (`true` | `false`)
+- `CACHE_MAX_AGE` (초)
+- `CACHE_KEY_PREFIX` (캐시 네임스페이스 버전)
 
 ## 코드 구조
 
@@ -98,6 +105,7 @@ Worker 내부 `Cache API`는 사용하지 않습니다.
 - `src/routes/wildcard.tsx`: 일반 GET 라우트
 - `src/routes/news.tsx`: 뉴스 전용 라우트
 - `src/routes/generate.tsx`: POST 라우트
+- `src/middleware/cache.ts`: 뉴스 OG Cache API 처리
 
 공용 렌더러는 `packages/og-image-core`를 사용합니다.
 

@@ -4,6 +4,11 @@
 	"main": "src/index.tsx",
 	"compatibility_date": "2025-07-20",
 	"compatibility_flags": ["nodejs_compat"],
+	"vars": {
+		"CACHE_ENABLED": "true",
+		"CACHE_MAX_AGE": "10800",
+		"CACHE_KEY_PREFIX": "og-news-v1"
+	},
 	// "r2_buckets": [
 	// 	{
 	// 		"binding": "OG_645_LIVE_R2",

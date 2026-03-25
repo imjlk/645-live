@@ -5,9 +5,6 @@ import type { RequestHandler } from "./$types";
 const PAGES_OG_PROXY_VERSION = "2026-03-25-1";
 
 function applyPagesOgProxyHeaders(headers: Headers) {
-	headers.set("Cache-Control", "no-store");
-	headers.set("CDN-Cache-Control", "no-store");
-	headers.set("Cloudflare-CDN-Cache-Control", "no-store");
 	headers.set("X-Pages-OG-Proxy-Version", PAGES_OG_PROXY_VERSION);
 }
 
@@ -133,6 +130,12 @@ async function createImageResponse(
 
 	if (!headers.get("content-type")) {
 		headers.set("content-type", fallbackContentType);
+	}
+
+	const upstreamCacheControl = headers.get("cache-control");
+	if (upstreamCacheControl) {
+		headers.set("CDN-Cache-Control", upstreamCacheControl);
+		headers.set("Cloudflare-CDN-Cache-Control", upstreamCacheControl);
 	}
 
 	const body = await upstream.arrayBuffer();
