@@ -2,10 +2,87 @@ import { dev } from "$app/environment";
 import { getNewsPostBySlug } from "$lib/server/news.js";
 import type { RequestHandler } from "./$types";
 
-const PAGES_OG_PROXY_VERSION = "2026-03-25-1";
+const PAGES_OG_PROXY_VERSION = "2026-03-25-2";
+const PUBLIC_OG_WORKER_ORIGIN = "https://og-645-live.645.workers.dev";
+const SERVICE_BINDING_RETRY_DELAY_MS = 120;
 
 function applyPagesOgProxyHeaders(headers: Headers) {
 	headers.set("X-Pages-OG-Proxy-Version", PAGES_OG_PROXY_VERSION);
+}
+
+function sleep(ms: number) {
+	return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function fetchFromWorker(
+	binding: Env["OG_645_LIVE"],
+	ogUrl: URL,
+): Promise<{ response: Response; upstream: "binding" | "public" } | null> {
+	let lastResponse: Response | null = null;
+	let lastError: unknown = null;
+
+	for (let attempt = 0; attempt < 2; attempt += 1) {
+		try {
+			const response = await binding.fetch(new Request(ogUrl.toString()));
+			if (response.ok) {
+				return { response, upstream: "binding" };
+			}
+
+			lastResponse = response;
+			console.warn("OG service binding returned non-ok response", {
+				status: response.status,
+				url: ogUrl.toString(),
+				attempt: attempt + 1,
+			});
+		} catch (error) {
+			lastError = error;
+			console.warn("OG service binding request failed", {
+				url: ogUrl.toString(),
+				attempt: attempt + 1,
+				error,
+			});
+		}
+
+		if (attempt === 0) {
+			await sleep(SERVICE_BINDING_RETRY_DELAY_MS);
+		}
+	}
+
+	const publicUrl = new URL(ogUrl.toString());
+	publicUrl.protocol = "https:";
+	publicUrl.host = PUBLIC_OG_WORKER_ORIGIN.replace(/^https?:\/\//, "");
+
+	try {
+		const response = await fetch(publicUrl.toString());
+		if (response.ok) {
+			console.warn("OG proxy fell back to public worker", {
+				url: publicUrl.toString(),
+			});
+			return { response, upstream: "public" };
+		}
+
+		lastResponse = response;
+		console.warn("Public OG worker returned non-ok response", {
+			status: response.status,
+			url: publicUrl.toString(),
+		});
+	} catch (error) {
+		lastError = error;
+		console.error("Public OG worker request failed", {
+			url: publicUrl.toString(),
+			error,
+		});
+	}
+
+	if (lastResponse) {
+		return { response: lastResponse, upstream: "binding" };
+	}
+
+	if (lastError) {
+		throw lastError;
+	}
+
+	return null;
 }
 
 // Category color themes
@@ -110,6 +187,7 @@ function createGenericFailureResponse() {
 
 async function createImageResponse(
 	upstream: Response,
+	upstreamMode: "binding" | "public",
 	fallbackContentType = "image/png",
 ) {
 	const headers = new Headers();
@@ -141,6 +219,7 @@ async function createImageResponse(
 	const body = await upstream.arrayBuffer();
 	headers.set("content-length", String(body.byteLength));
 	applyPagesOgProxyHeaders(headers);
+	headers.set("X-Pages-OG-Upstream", upstreamMode);
 
 	return new Response(body, {
 		status: upstream.status,
@@ -217,12 +296,11 @@ export const GET: RequestHandler = async ({ platform, url, params }) => {
 		if (!ogUrl.searchParams.has("height")) {
 			ogUrl.searchParams.set("height", "630");
 		}
-		const ogRequest = new Request(ogUrl.toString());
-		const response = await platform.env.OG_645_LIVE.fetch(ogRequest);
-
-		if (response.ok) {
+		const upstreamResult = await fetchFromWorker(platform.env.OG_645_LIVE, ogUrl);
+		if (upstreamResult?.response.ok) {
 			return await createImageResponse(
-				response,
+				upstreamResult.response,
+				upstreamResult.upstream,
 				format === "svg" ? "image/svg+xml" : "image/png",
 			);
 		}
