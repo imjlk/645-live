@@ -10,10 +10,6 @@
 	// 		"bucket_name": "og-645-live-R2"
 	// 	}
 	// ],
-	"vars": {
-		"CACHE_ENABLED": "true",
-		"CACHE_MAX_AGE": "86400"
-	},
 	"observability": {
 		"logs": {
 			"enabled": true
