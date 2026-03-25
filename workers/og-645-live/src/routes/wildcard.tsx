@@ -1,6 +1,12 @@
-import { type LayoutType, OGImage, pathToTitle } from "@645/og-image-core";
+import { OGImage, pathToTitle } from "@645/og-image-core";
 import { ImageResponse } from "@cf-wasm/og";
 import type { Context } from "hono";
+import {
+	normalizeOgFormat,
+	normalizeOgLayout,
+	normalizeOgTheme,
+	parseOgDimensions,
+} from "../lib/request.js";
 
 export const handleWildcard = async (c: Context) => {
 	try {
@@ -14,12 +20,10 @@ export const handleWildcard = async (c: Context) => {
 		const description = rawDescription
 			? decodeURIComponent(rawDescription)
 			: undefined;
-		const theme =
-			(url.searchParams.get("theme") as "light" | "dark") || "light";
-		const layout = (url.searchParams.get("layout") as LayoutType) || "default";
-		const width = Number.parseInt(url.searchParams.get("width") || "1200");
-		const height = Number.parseInt(url.searchParams.get("height") || "630");
-		const format = (url.searchParams.get("format") as "png" | "svg") || "png";
+		const theme = normalizeOgTheme(url.searchParams.get("theme"));
+		const layout = normalizeOgLayout(url.searchParams.get("layout"));
+		const { width, height } = parseOgDimensions(url.searchParams);
+		const format = normalizeOgFormat(url.searchParams.get("format"));
 
 		// Determine content type based on format
 		const contentType = format === "svg" ? "image/svg+xml" : "image/png";

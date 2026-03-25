@@ -8,9 +8,13 @@ export interface CacheConfig {
 
 const CACHE_NAME = "og-images";
 const NEWS_PATH_PREFIX = "/news/";
+const DEFAULT_STALE_WHILE_REVALIDATE = 604800;
 
 const buildCacheRequest = (cacheKey: string) =>
 	new Request(`https://og-cache.local/${cacheKey}`);
+
+const buildCacheControl = (maxAge: number) =>
+	`public, max-age=${maxAge}, stale-while-revalidate=${DEFAULT_STALE_WHILE_REVALIDATE}`;
 
 const ensureOgHeaders = (
 	headers: Headers,
@@ -78,7 +82,9 @@ export const createCacheKey = async (
 	const data = encoder.encode(normalizedUrlString);
 	const hashBuffer = await crypto.subtle.digest("SHA-256", data);
 	const hashArray = Array.from(new Uint8Array(hashBuffer));
-	const hash = hashArray.map((byte) => byte.toString(16).padStart(2, "0")).join("");
+	const hash = hashArray
+		.map((byte) => byte.toString(16).padStart(2, "0"))
+		.join("");
 	return `${prefix}-${hash}`;
 };
 
@@ -113,7 +119,7 @@ export const getFromCache = async (
 		ensureOgHeaders(
 			headers,
 			cacheKey,
-			`public, max-age=${config.maxAge}, stale-while-revalidate=604800`,
+			buildCacheControl(config.maxAge),
 			"cache",
 		);
 		headers.set("X-Cache", "HIT");
@@ -141,7 +147,7 @@ export const storeInCache = async (
 		ensureOgHeaders(
 			headers,
 			cacheKey,
-			`public, max-age=${config.maxAge}, stale-while-revalidate=604800`,
+			buildCacheControl(config.maxAge),
 			"generated",
 		);
 		headers.set("Content-Length", String(body.byteLength));
@@ -189,7 +195,7 @@ export const cacheMiddleware = () => {
 		ensureOgHeaders(
 			responseHeaders,
 			cacheKey,
-			`public, max-age=${config.maxAge}, stale-while-revalidate=604800`,
+			buildCacheControl(config.maxAge),
 			"generated",
 		);
 		responseHeaders.set("X-Cache", "MISS");
@@ -206,13 +212,23 @@ export const cacheMiddleware = () => {
 			return c.res;
 		}
 
-		void storeInCache(
+		const cacheWrite = storeInCache(
 			cacheKey,
 			responseBody,
 			c.res,
 			new Headers(responseHeaders),
 			config,
 		);
+
+		try {
+			c.executionCtx.waitUntil(cacheWrite);
+		} catch (error) {
+			console.warn(
+				"ExecutionContext.waitUntil unavailable, writing cache inline:",
+				error,
+			);
+			void cacheWrite;
+		}
 
 		return c.res;
 	};

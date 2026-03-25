@@ -1,9 +1,12 @@
 import { OGImage, pathToTitle } from "@645/og-image-core";
 import { ImageResponse } from "@cf-wasm/og";
 import type { Context } from "hono";
-
-const DEFAULT_WIDTH = 1200;
-const DEFAULT_HEIGHT = 630;
+import {
+	DEFAULT_OG_FORMAT,
+	normalizeOgFormat,
+	normalizeOgTheme,
+	parseIntWithRange,
+} from "../lib/request.js";
 
 const NEWS_GRADIENTS = [
 	["#0f172a", "#1d4ed8", "#38bdf8"],
@@ -22,19 +25,6 @@ function safeDecode(value: string | null): string | undefined {
 	} catch {
 		return value.trim();
 	}
-}
-
-function parseIntWithRange(
-	value: string | null,
-	fallback: number,
-	min: number,
-	max: number,
-): number {
-	const parsed = Number.parseInt(value ?? "", 10);
-	if (!Number.isFinite(parsed)) {
-		return fallback;
-	}
-	return Math.min(max, Math.max(min, parsed));
 }
 
 function parseRoundFromPath(path: string): string | undefined {
@@ -59,7 +49,10 @@ function parseNumbers(raw: string | undefined): number[] {
 		.slice(0, 6);
 }
 
-function normalizeRound(path: string, roundQuery: string | null): string | undefined {
+function normalizeRound(
+	path: string,
+	roundQuery: string | null,
+): string | undefined {
 	const queryRound = roundQuery?.trim();
 	if (queryRound && /^\d{3,5}$/.test(queryRound)) {
 		return queryRound;
@@ -75,7 +68,11 @@ function pickGradient(round: string | undefined): string[] {
 	return NEWS_GRADIENTS[idx];
 }
 
-function buildTitle(path: string, rawTitle: string | undefined, round: string | undefined): string {
+function buildTitle(
+	path: string,
+	rawTitle: string | undefined,
+	round: string | undefined,
+): string {
 	const baseTitle = rawTitle || pathToTitle(path) || "로또 뉴스";
 	if (round && !baseTitle.includes(round)) {
 		return `제${round}회 로또 ${baseTitle}`;
@@ -121,10 +118,6 @@ function buildDescription(params: {
 	return `${chunks.join(" · ")} 분석`;
 }
 
-function normalizeTheme(value: string | null): "light" | "dark" {
-	return value === "light" ? "light" : "dark";
-}
-
 function formatMetaDate(value: string): string {
 	const trimmed = value.trim();
 	if (!trimmed) {
@@ -153,7 +146,8 @@ export const handleNews = async (c: Context) => {
 		const firstPrize = safeDecode(url.searchParams.get("firstPrize"));
 		const numbers = parseNumbers(safeDecode(url.searchParams.get("numbers")));
 		const bonus = Number.parseInt(url.searchParams.get("bonus") ?? "", 10);
-		const bonusNumber = Number.isInteger(bonus) && bonus >= 1 && bonus <= 45 ? bonus : null;
+		const bonusNumber =
+			Number.isInteger(bonus) && bonus >= 1 && bonus <= 45 ? bonus : null;
 
 		const title = buildTitle(path, rawTitle, round);
 		const description = buildDescription({
@@ -165,10 +159,22 @@ export const handleNews = async (c: Context) => {
 			bonus: bonusNumber,
 		});
 
-		const theme = normalizeTheme(url.searchParams.get("theme"));
-		const width = parseIntWithRange(url.searchParams.get("width"), DEFAULT_WIDTH, 800, 2400);
-		const height = parseIntWithRange(url.searchParams.get("height"), DEFAULT_HEIGHT, 418, 1260);
-		const format = (url.searchParams.get("format") as "png" | "svg") || "png";
+		const theme = normalizeOgTheme(url.searchParams.get("theme"));
+		const width = parseIntWithRange(
+			url.searchParams.get("width"),
+			1200,
+			800,
+			2400,
+		);
+		const height = parseIntWithRange(
+			url.searchParams.get("height"),
+			630,
+			418,
+			1260,
+		);
+		const format = normalizeOgFormat(
+			url.searchParams.get("format") ?? DEFAULT_OG_FORMAT,
+		);
 		const cacheControl =
 			format === "png"
 				? "public, max-age=10800, stale-while-revalidate=604800"
@@ -182,7 +188,7 @@ export const handleNews = async (c: Context) => {
 			backgroundImage: url.searchParams.get("backgroundImage") || undefined,
 			logo: url.searchParams.get("logo") || undefined,
 			badgeText: round ? `제${round}회` : category,
-				metaText: formatMetaDate(date),
+			metaText: formatMetaDate(date),
 			highlightText: highlight || category,
 			gradientBackground: {
 				type: "linear" as const,
