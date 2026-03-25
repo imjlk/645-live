@@ -8,6 +8,7 @@ export const ABOUT_PATH = "/about";
 export const EDITORIAL_POLICY_PATH = "/editorial-policy";
 export const DATA_SOURCES_PATH = "/data-sources";
 export const NEWS_OG_CACHE_BUSTER = "2026-03-25-2";
+export const GENERIC_OG_CACHE_BUSTER = "2026-03-25-1";
 
 export function absoluteUrl(path: string): string {
 	return new URL(path, SITE_ORIGIN).toString();
@@ -87,6 +88,7 @@ type GenericOgOptions = {
 
 export function getGenericOgPath(options: GenericOgOptions): string {
 	const params = new URLSearchParams();
+	params.set("rev", GENERIC_OG_CACHE_BUSTER);
 	params.set("title", encodeURIComponent(options.title));
 	if (options.description) {
 		params.set("description", encodeURIComponent(options.description));

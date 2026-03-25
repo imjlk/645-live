@@ -120,11 +120,23 @@ export const OGImage: React.FC<CustomLayoutOptions> = ({
 				: title.length > 28
 					? "54px"
 					: layoutStyles.title.fontSize
+			: layout === "hero"
+				? title.length > 18
+					? "78px"
+					: title.length > 12
+						? "84px"
+						: layoutStyles.title.fontSize
 			: layoutStyles.title.fontSize;
 	const resolvedDescriptionFontSize =
 		layout === "news" && descriptionText && descriptionText.length > 24
 			? "24px"
 			: layoutStyles.description.fontSize;
+	const resolvedTitleMaxWidth =
+		layout === "news"
+			? "700px"
+			: layout === "hero"
+				? "940px"
+				: "100%";
 	const titleBlock =
 		layout === "news" ? (
 			<h1
@@ -136,34 +148,40 @@ export const OGImage: React.FC<CustomLayoutOptions> = ({
 					letterSpacing: "-0.04em",
 					margin: 0,
 					marginBottom: layoutStyles.title.marginBottom,
-					maxWidth: "700px",
+					maxWidth: resolvedTitleMaxWidth,
 				}}
 			>
 				{title}
 			</h1>
 		) : (
-			<h1
+			<div
 				style={{
-					fontSize: resolvedTitleFontSize,
-					fontWeight: layoutStyles.title.fontWeight ?? "700",
-					color: colors.textColor,
-					lineHeight: layoutStyles.title.lineHeight ?? "1.2",
-					letterSpacing: layoutStyles.title.letterSpacing ?? "-0.02em",
-					margin: 0,
 					marginBottom: layoutStyles.title.marginBottom,
+					display: "flex",
+					flexDirection: "column",
+					alignItems: layout === "hero" || layout === "centered" ? "center" : "flex-start",
+					gap: "0px",
+					width: "100%",
+					maxWidth: resolvedTitleMaxWidth,
 				}}
 			>
 				{titleLines.map((line, index) => (
-					<span
+					<div
 						key={`${line}-${index}`}
 						style={{
 							display: "block",
+							fontSize: resolvedTitleFontSize,
+							fontWeight: layoutStyles.title.fontWeight ?? "700",
+							color: colors.textColor,
+							lineHeight: layoutStyles.title.lineHeight ?? "1.2",
+							letterSpacing: layoutStyles.title.letterSpacing ?? "-0.02em",
+							margin: 0,
 						}}
 					>
 						{line}
-					</span>
+					</div>
 				))}
-			</h1>
+			</div>
 		);
 
 	return (
