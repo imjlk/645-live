@@ -420,6 +420,9 @@ const guideSection = [
 			<LinkButton href="/generator" class="btn btn-secondary btn-sm">
 				번호 생성하기
 			</LinkButton>
+			<LinkButton href="/stats/bonus" class="btn btn-outline btn-sm">
+				보너스 번호 통계 보기
+			</LinkButton>
 			<LinkButton href="/stats" class="btn btn-outline btn-sm">
 				전체 로또 통계 허브 보기
 			</LinkButton>
@@ -463,6 +466,13 @@ const guideSection = [
 							<p class="text-sm sm:text-base text-base-content/80 leading-relaxed">
 								{item.content}
 							</p>
+							{#if item.title === "보너스 번호"}
+								<div class="mt-3">
+									<LinkButton href="/stats/bonus" class="btn btn-outline btn-sm">
+										보너스 번호 통계 자세히 보기
+									</LinkButton>
+								</div>
+							{/if}
 						</div>
 					{/each}
 				</div>
@@ -480,6 +490,9 @@ const guideSection = [
 				</LinkButton>
 				<LinkButton href="/stats/numbers" class="btn btn-outline w-full justify-start">
 					🔢 자주 나온 번호 통계 보기
+				</LinkButton>
+				<LinkButton href="/stats/bonus" class="btn btn-outline w-full justify-start">
+					⭐ 보너스 번호 통계 자세히 보기
 				</LinkButton>
 				<LinkButton href="/stats" class="btn btn-outline w-full justify-start">
 					⚖️ 홀짝·고저·연속번호 패턴 함께 보기

@@ -1,4 +1,5 @@
 import {
+	getBonusAnalysis,
 	getLatestRoundInfo,
 	getNumberStats,
 	getPairStats,
@@ -149,6 +150,7 @@ export const load: PageServerLoad = async () => {
 			recentSectionStats,
 			recentHighLowStats,
 			topPairStats,
+			bonusAnalysis,
 			oddEven50,
 			highLow50,
 			ac100,
@@ -161,6 +163,7 @@ export const load: PageServerLoad = async () => {
 			getStatsForAnalysisType("sections", 10),
 			getStatsForAnalysisType("high-low", 10),
 			getPairStats(10),
+			getBonusAnalysis(),
 			getStatsForAnalysisType("odd-even", 50) as Promise<OddEvenStat[]>,
 			getStatsForAnalysisType("high-low", 50) as Promise<HighLowStat[]>,
 			getStatsForAnalysisType("ac", 100) as Promise<ACStat[]>,
@@ -191,6 +194,16 @@ export const load: PageServerLoad = async () => {
 					tableName: "lotto_draw_ac_stats",
 					sourceLabel: "AC 통계",
 				},
+				{
+					tableName: "lotto_draw_bonus_stats",
+					sourceLabel: "보너스 통계",
+				},
+				{
+					tableName: "lotto_bonus_number_stats",
+					sourceLabel: "보너스 번호 통계",
+					orderField: "last_bonus_round",
+					roundField: "last_bonus_round",
+				},
 			]),
 		]);
 
@@ -205,6 +218,7 @@ export const load: PageServerLoad = async () => {
 			recentSectionStats,
 			recentHighLowStats,
 			topPairStats,
+			bonusAnalysis,
 			freshness,
 			summarySnapshots: {
 				recent10: buildRecent10Summary(
@@ -236,6 +250,27 @@ export const load: PageServerLoad = async () => {
 			recentSectionStats: [],
 			recentHighLowStats: [],
 			topPairStats: [],
+			bonusAnalysis: {
+				latestRound: 0,
+				latestDrawDate: "",
+				totalRounds: 0,
+				expectedBonusCount: 0,
+				latestBonusDraw: null,
+				bonusNumberStats: [],
+				topBonusNumber: null,
+				bottomBonusNumber: null,
+				topBonusShareNumbers: [],
+				recent10BonusStats: [],
+				recent50Summary: "",
+				recent100Summary: "",
+				recentlyMissingNumbers: [],
+				comparisonHighlights: {
+					bonusHeavy: null,
+					mainHeavy: null,
+					combinedLeader: null,
+					recentLeader: null,
+				},
+			},
 			freshness: {
 				latestRound: 0,
 				latestDrawDate: "",

@@ -2,7 +2,6 @@
 import { goto } from "$app/navigation";
 import { resolve } from "$app/paths";
 import { page } from "$app/state";
-import { PUBLIC_TRAILBASE_URL } from "$env/static/public";
 import {
 	createBreadcrumbSchema,
 	createCollectionPageSchema,
@@ -11,16 +10,18 @@ import {
 	getGenericOgImage,
 	absoluteUrl
 } from "$lib/seo/index.js";
-import { calculateExpectedLatestRound } from "$lib/utils/lotto-common";
+import { getTrailbaseBrowserBaseUrl } from "$lib/trailbase/browser-base";
 import { JsonLd, MetaTags } from "svelte-meta-tags";
 import { initClient } from "trailbase";
 
 interface Props {
-	data: {
-		initialRound: number;
-		initialStores: Array<{
-			id: number;
-			round: number;
+		data: {
+			initialRound: number;
+			availableRounds: number[];
+			latestRound: number;
+			initialStores: Array<{
+				id: number;
+				round: number;
 			store_name: string;
 			address: string;
 			win_type: "1등" | "2등";
@@ -37,7 +38,7 @@ interface Props {
 let { data }: Props = $props();
 
 // Trailbase client 초기화
-const client = initClient(PUBLIC_TRAILBASE_URL || "http://localhost:4000");
+const client = initClient(getTrailbaseBrowserBaseUrl());
 
 // URL에서 파라미터를 derived rune로 추출
 let urlRound = $derived.by(() => {
@@ -121,7 +122,7 @@ function updateUrl(newRound: number) {
 }
 
 function handleRoundChange(event: Event) {
-	const target = event.target as HTMLInputElement;
+	const target = event.target as HTMLSelectElement;
 	const newRound = Number.parseInt(target.value);
 	if (!Number.isNaN(newRound) && newRound > 0) {
 		updateUrl(newRound);
@@ -200,17 +201,23 @@ const ogImage = getGenericOgImage({
 				<label for="round" class="block text-sm font-medium text-base-content mb-2">
 					회차
 				</label>
-				<input
+				<select
 					id="round"
-					type="number"
-					min="1"
-					max={calculateExpectedLatestRound()}
 					value={round}
-					oninput={handleRoundChange}
+					onchange={handleRoundChange}
 					class="input input-bordered w-full"
-					placeholder="회차를 입력하세요"
 					disabled={loading}
-				/>
+				>
+					{#each data.availableRounds as availableRound (availableRound)}
+						<option value={availableRound}>
+							{availableRound}회차
+							{#if availableRound === data.latestRound} (최신){/if}
+						</option>
+					{/each}
+				</select>
+				<p class="mt-2 text-sm text-base-content/60">
+					최신 추첨 완료 회차부터 자동으로 생성된 목록입니다.
+				</p>
 			</div>
 		</div>
 	</div>

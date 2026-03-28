@@ -32,7 +32,7 @@ function toLastMod(value: string | null, fallbackDate = ""): string {
 }
 
 export const GET = async () => {
-	const [statsFreshness, numbersFreshness, acFreshness] = await Promise.all([
+	const [statsFreshness, numbersFreshness, acFreshness, bonusFreshness] = await Promise.all([
 		getStatsFreshness([
 			{
 				tableName: "lotto_number_stats",
@@ -71,11 +71,24 @@ export const GET = async () => {
 			tableName: "lotto_draw_ac_stats",
 			sourceLabel: "AC 통계",
 		}),
+		getStatsFreshness([
+			{
+				tableName: "lotto_draw_bonus_stats",
+				sourceLabel: "보너스 추첨 통계",
+			},
+			{
+				tableName: "lotto_bonus_number_stats",
+				sourceLabel: "보너스 번호 통계",
+				orderField: "last_bonus_round",
+				roundField: "last_bonus_round",
+			},
+		]),
 	]);
 
 	const entries = [
 		{ path: "/stats", lastmod: toLastMod(statsFreshness.lastUpdatedAt, statsFreshness.latestDrawDate) },
 		{ path: "/guide", lastmod: toLastMod(statsFreshness.lastUpdatedAt, statsFreshness.latestDrawDate) },
+		{ path: "/stats/bonus", lastmod: toLastMod(bonusFreshness.lastUpdatedAt, bonusFreshness.latestDrawDate) },
 		{ path: "/stats/numbers", lastmod: toLastMod(numbersFreshness.lastUpdatedAt, numbersFreshness.latestDrawDate) },
 		{ path: "/stats/ac", lastmod: toLastMod(acFreshness.lastUpdatedAt, acFreshness.latestDrawDate) },
 		{ path: "/stats/odd-even", lastmod: toLastMod(statsFreshness.lastUpdatedAt, statsFreshness.latestDrawDate) },

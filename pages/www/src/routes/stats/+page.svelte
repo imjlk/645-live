@@ -105,6 +105,8 @@
 			copy: data.summarySnapshots.overall,
 		},
 	]);
+	const bonusTopSummary = $derived(data.bonusAnalysis.topBonusNumber);
+	const latestBonusSummary = $derived(data.bonusAnalysis.latestBonusDraw);
 
 	const collectionSchema = createCollectionPageSchema({
 		path: "/stats",
@@ -147,6 +149,11 @@
 			question: "통계로 로또 번호를 예측할 수 있나요?",
 			answer:
 				"통계는 과거 데이터를 정리해 흐름을 이해하는 데 도움을 주지만, 특정 번호나 조합의 당첨을 보장하지는 않습니다. 이 페이지의 통계는 참고용으로 활용하는 것이 가장 적절합니다.",
+		},
+		{
+			question: "보너스 번호는 왜 따로 보나요?",
+			answer:
+				"보너스 번호는 2등 판정에 직접 사용되고, 회차마다 1개만 추첨되기 때문에 본 번호 통계와 다른 흐름을 보일 수 있습니다. 그래서 본 번호와 분리해서 보고, 필요할 때는 보너스 포함 통계까지 함께 비교하는 것이 좋습니다.",
 		},
 	];
 
@@ -210,6 +217,12 @@
 			icon: "🔟",
 			title: "끝수 분석",
 			description: "끝수 분포 통계 보기",
+		},
+		{
+			href: "/stats/bonus",
+			icon: "⭐",
+			title: "보너스 번호",
+			description: "많이 나온 보너스 번호와 최근 흐름 보기",
 		},
 		{
 			href: "/stats/ac",
@@ -379,6 +392,63 @@
 			<div class="mt-4 text-center">
 				<a href={resolve("/stats/numbers")} class="text-sm font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
 					자주 나온 번호와 적게 나온 번호 전체 보기
+				</a>
+			</div>
+		</section>
+
+		<section class="stats-panel stats-panel--sky">
+			<h2 class="flex items-center text-xl font-bold">
+				<span class="mr-2 text-2xl">⭐</span>
+				보너스 번호 흐름
+			</h2>
+			<p class="mt-2 text-sm leading-6 text-base-content/70">
+				보너스 번호는 2등 판정에 직접 사용되는 일곱 번째 번호입니다. 최근 보너스 번호와 자주 나온 번호를 함께 보면 본 번호 통계와 다른 흐름을 비교할 수 있습니다.
+			</p>
+			<div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
+				<div class="rounded-3xl border border-base-300/60 bg-base-100/85 p-4">
+					<p class="text-xs font-semibold uppercase tracking-[0.18em] text-base-content/50">최신 보너스</p>
+					<p class="mt-3 text-3xl font-black text-base-content">
+						{#if latestBonusSummary}
+							{latestBonusSummary.bonus_number}번
+						{:else}
+							-
+						{/if}
+					</p>
+					<p class="mt-2 text-sm text-base-content/65">
+						{#if latestBonusSummary}
+							{latestBonusSummary.round}회차 기준
+						{:else}
+							최신 보너스 번호 확인 중
+						{/if}
+					</p>
+				</div>
+				<div class="rounded-3xl border border-base-300/60 bg-base-100/85 p-4">
+					<p class="text-xs font-semibold uppercase tracking-[0.18em] text-base-content/50">최다 보너스</p>
+					<p class="mt-3 text-3xl font-black text-base-content">
+						{#if bonusTopSummary}
+							{bonusTopSummary.number}번
+						{:else}
+							-
+						{/if}
+					</p>
+					<p class="mt-2 text-sm text-base-content/65">
+						{#if bonusTopSummary}
+							보너스로 {bonusTopSummary.bonus_count}회 등장
+						{:else}
+							집계 데이터 확인 중
+						{/if}
+					</p>
+				</div>
+				<div class="rounded-3xl border border-base-300/60 bg-base-100/85 p-4">
+					<p class="text-xs font-semibold uppercase tracking-[0.18em] text-base-content/50">최근 100회 흐름</p>
+					<p class="mt-3 text-sm leading-6 text-base-content/75">
+						{data.bonusAnalysis.recent100Summary || "최근 100회 보너스 흐름을 불러오는 중입니다."}
+					</p>
+				</div>
+			</div>
+			<div class="mt-4 text-center">
+				<a href={resolve("/stats/bonus")} class="text-sm font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
+					보너스 번호 통계 자세히 보기
 				</a>
 			</div>
 		</section>
@@ -733,6 +803,12 @@
 	.stats-panel--mint {
 		background:
 			linear-gradient(180deg, rgba(16, 185, 129, 0.06), transparent 28%),
+			linear-gradient(180deg, color-mix(in oklab, oklch(var(--b1)) 96%, white), color-mix(in oklab, oklch(var(--b1)) 90%, white));
+	}
+
+	.stats-panel--sky {
+		background:
+			linear-gradient(180deg, rgba(14, 165, 233, 0.08), transparent 28%),
 			linear-gradient(180deg, color-mix(in oklab, oklch(var(--b1)) 96%, white), color-mix(in oklab, oklch(var(--b1)) 90%, white));
 	}
 

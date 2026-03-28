@@ -1,26 +1,28 @@
 import { TRAILBASE_URL } from "$env/static/private";
-import { error } from "@sveltejs/kit";
+import { getLatestLottoRound } from "$lib/utils/lotto-api";
 import { initClient } from "trailbase";
 import type { PageServerLoad } from "./$types";
 
 const client = initClient(TRAILBASE_URL || "http://localhost:4000");
 
-export const load: PageServerLoad = async () => {
-	let defaultRound = 0; // 기본값
+export const load: PageServerLoad = async ({ url }) => {
+	let defaultRound = 0;
+	let latestRound = 0;
 
 	try {
-		// 최신 레코드 하나를 가져와서 회차 확인
-		const latestResponse = await client.records("lotto_winning_stores").list({
-			order: ["-id"], // ID 역순으로 정렬 (최신부터)
-			pagination: { limit: 1 },
-		});
+		const latestInfo = await getLatestLottoRound();
+		latestRound = latestInfo?.drwNo ?? 0;
+		defaultRound = latestRound;
 
-		if (latestResponse.records.length > 0) {
-			const latestRecord = latestResponse.records[0] as { round: number };
-			defaultRound = latestRecord.round;
+		const roundParam = url.searchParams.get("round");
+		if (roundParam) {
+			const parsed = Number.parseInt(roundParam, 10);
+			if (!Number.isNaN(parsed) && parsed > 0) {
+				defaultRound =
+					latestRound > 0 ? Math.min(parsed, latestRound) : parsed;
+			}
 		}
 
-		// 해당 회차의 모든 당첨점 조회
 		const response = await client.records("lotto_winning_stores").list({
 			order: ["win_type", "id"],
 			filters: [
@@ -49,6 +51,11 @@ export const load: PageServerLoad = async () => {
 
 		return {
 			initialRound: defaultRound,
+			availableRounds:
+				latestRound > 0
+					? Array.from({ length: latestRound }, (_, index) => latestRound - index)
+					: [],
+			latestRound,
 			initialStores: stores,
 			initialStatistics: {
 				total: stores.length,
@@ -61,6 +68,11 @@ export const load: PageServerLoad = async () => {
 		// 에러 발생시에도 기본값 반환
 		return {
 			initialRound: defaultRound,
+			availableRounds:
+				latestRound > 0
+					? Array.from({ length: latestRound }, (_, index) => latestRound - index)
+					: [],
+			latestRound,
 			initialStores: [],
 			initialStatistics: {
 				total: 0,

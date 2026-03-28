@@ -1,4 +1,11 @@
 현재 우선순위:
+  보너스 통계 허브 후속:
+    ☐ `/stats/numbers`에 `본 번호 / 보너스 번호 / 보너스 포함` 모드 전환 UI 추가 여부 결정
+    ☐ `/stats/bonus`의 period/sort query 파라미터 canonical 정책 정리 (`?period=10|50|100`, `?sort=...`)
+    ☐ `/stats/bonus/recent/*` 같은 파생 URL이 실제로 필요한지 Search Console/Bing 데이터 기반으로 판단
+    ☐ `lotto_bonus_number_stats`에서 순위/편차를 저장할지 앱 레이어 계산으로 유지할지 결정
+    ☐ `/stats/bonus` 구조화 데이터에 `FAQPage` 외 `ItemList`/`Dataset` 세분화가 필요한지 검토
+
   웹 안정화 및 빌드 정리:
     ☐ SvelteKit service worker build 경고 정리
       ☐ `inlineDynamicImports` deprecation 대응 가능 여부 확인

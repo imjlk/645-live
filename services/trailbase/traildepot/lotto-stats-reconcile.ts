@@ -31,6 +31,7 @@ const PER_DRAW_TABLES = [
 	{ table: "lotto_draw_repeat_stats", label: "반복번호 통계" },
 	{ table: "lotto_draw_unit_digit_stats", label: "끝수 통계" },
 	{ table: "lotto_draw_ac_stats", label: "AC 통계" },
+	{ table: "lotto_draw_bonus_stats", label: "보너스 통계" },
 ] as const;
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -159,6 +160,30 @@ async function getPairStatsHealth() {
 	};
 }
 
+async function getBonusNumberStatsHealth() {
+	const rows = await query(
+		`SELECT
+			COUNT(*) as row_count,
+			COALESCE(SUM(main_count), 0) as main_sum,
+			COALESCE(SUM(bonus_count), 0) as bonus_sum,
+			COALESCE(SUM(combined_count), 0) as combined_sum,
+			COALESCE(MAX(last_bonus_round), 0) as latest_bonus_round,
+			MAX(updated_at) as last_updated_at
+		FROM lotto_bonus_number_stats`,
+		[],
+	);
+	const row = rows[0];
+
+	return {
+		rowCount: asNumber(readValue(row, "row_count")),
+		mainSum: asNumber(readValue(row, "main_sum")),
+		bonusSum: asNumber(readValue(row, "bonus_sum")),
+		combinedSum: asNumber(readValue(row, "combined_sum")),
+		latestBonusRound: asNumber(readValue(row, "latest_bonus_round")),
+		lastUpdatedAt: readStringValue(row, "last_updated_at"),
+	};
+}
+
 async function getLottoStatsHealth(): Promise<LottoStatsHealth> {
 	const latestDraw = await getLatestDrawHealth();
 	if (latestDraw.drawCount === 0) {
@@ -170,10 +195,12 @@ async function getLottoStatsHealth(): Promise<LottoStatsHealth> {
 		};
 	}
 
-	const [perDrawTables, numberStats, pairStats] = await Promise.all([
+	const [perDrawTables, numberStats, pairStats, bonusNumberStats] =
+		await Promise.all([
 		Promise.all(PER_DRAW_TABLES.map((item) => getPerDrawTableHealth(item.table))),
 		getNumberStatsHealth(),
 		getPairStatsHealth(),
+		getBonusNumberStatsHealth(),
 	]);
 
 	const staleSources: string[] = [];
@@ -203,6 +230,16 @@ async function getLottoStatsHealth(): Promise<LottoStatsHealth> {
 		staleSources.push("번호쌍 통계");
 	}
 
+	if (
+		bonusNumberStats.rowCount !== 45 ||
+		bonusNumberStats.mainSum !== latestDraw.drawCount * 6 ||
+		bonusNumberStats.bonusSum !== latestDraw.drawCount ||
+		bonusNumberStats.combinedSum !== latestDraw.drawCount * 7 ||
+		bonusNumberStats.latestBonusRound !== latestDraw.latestDrawRound
+	) {
+		staleSources.push("보너스 번호 통계");
+	}
+
 	return {
 		latestDrawRound: latestDraw.latestDrawRound,
 		drawCount: latestDraw.drawCount,
@@ -221,8 +258,10 @@ async function rebuildDerivedStats(): Promise<void> {
 		await tx.execute("DELETE FROM lotto_draw_repeat_stats", []);
 		await tx.execute("DELETE FROM lotto_draw_unit_digit_stats", []);
 		await tx.execute("DELETE FROM lotto_draw_ac_stats", []);
+		await tx.execute("DELETE FROM lotto_draw_bonus_stats", []);
 		await tx.execute("DELETE FROM lotto_number_stats", []);
 		await tx.execute("DELETE FROM lotto_number_pair_stats", []);
+		await tx.execute("DELETE FROM lotto_bonus_number_stats", []);
 		await tx.execute(
 			"DELETE FROM sqlite_sequence WHERE name = 'lotto_number_pair_stats'",
 			[],
@@ -385,12 +424,45 @@ async function rebuildDerivedStats(): Promise<void> {
 		);
 
 		await tx.execute(
+			`INSERT INTO lotto_draw_bonus_stats (round, bonus_number, color, section, is_odd, is_high, updated_at)
+			SELECT
+				r.round,
+				r.bonus_number,
+				d.color,
+				d.section,
+				CASE WHEN r.bonus_number % 2 = 1 THEN 1 ELSE 0 END,
+				CASE WHEN r.bonus_number >= 23 THEN 1 ELSE 0 END,
+				CURRENT_TIMESTAMP
+			FROM lotto_draw_results r
+			JOIN lotto_number_details d ON d.number = r.bonus_number
+			ORDER BY r.round`,
+			[],
+		);
+
+		await tx.execute(
 			`INSERT INTO lotto_number_stats (number, draw_count, bonus_count, last_draw_round, updated_at)
 			SELECT
 				d.number,
 				COALESCE(SUM(CASE WHEN d.number IN (r.draw_number_1, r.draw_number_2, r.draw_number_3, r.draw_number_4, r.draw_number_5, r.draw_number_6) THEN 1 ELSE 0 END), 0),
 				COALESCE(SUM(CASE WHEN d.number = r.bonus_number THEN 1 ELSE 0 END), 0),
 				MAX(CASE WHEN d.number IN (r.draw_number_1, r.draw_number_2, r.draw_number_3, r.draw_number_4, r.draw_number_5, r.draw_number_6) THEN r.round END),
+				CURRENT_TIMESTAMP
+			FROM lotto_number_details d
+			LEFT JOIN lotto_draw_results r ON d.number IN (r.draw_number_1, r.draw_number_2, r.draw_number_3, r.draw_number_4, r.draw_number_5, r.draw_number_6, r.bonus_number)
+			GROUP BY d.number
+			ORDER BY d.number`,
+			[],
+		);
+
+		await tx.execute(
+			`INSERT INTO lotto_bonus_number_stats (number, bonus_count, main_count, combined_count, last_bonus_round, updated_at)
+			SELECT
+				d.number,
+				COALESCE(SUM(CASE WHEN r.bonus_number = d.number THEN 1 ELSE 0 END), 0),
+				COALESCE(SUM(CASE WHEN d.number IN (r.draw_number_1, r.draw_number_2, r.draw_number_3, r.draw_number_4, r.draw_number_5, r.draw_number_6) THEN 1 ELSE 0 END), 0),
+				COALESCE(SUM(CASE WHEN d.number IN (r.draw_number_1, r.draw_number_2, r.draw_number_3, r.draw_number_4, r.draw_number_5, r.draw_number_6) THEN 1 ELSE 0 END), 0) +
+				COALESCE(SUM(CASE WHEN r.bonus_number = d.number THEN 1 ELSE 0 END), 0),
+				MAX(CASE WHEN r.bonus_number = d.number THEN r.round END),
 				CURRENT_TIMESTAMP
 			FROM lotto_number_details d
 			LEFT JOIN lotto_draw_results r ON d.number IN (r.draw_number_1, r.draw_number_2, r.draw_number_3, r.draw_number_4, r.draw_number_5, r.draw_number_6, r.bonus_number)

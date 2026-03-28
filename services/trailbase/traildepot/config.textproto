@@ -104,6 +104,16 @@ record_apis: [{
   acl_world: [READ]
   enable_subscriptions: true
 }, {
+  name: "lotto_draw_bonus_stats"
+  table_name: "lotto_draw_bonus_stats"
+  acl_world: [READ]
+  enable_subscriptions: true
+}, {
+  name: "lotto_bonus_number_stats"
+  table_name: "lotto_bonus_number_stats"
+  acl_world: [READ]
+  enable_subscriptions: true
+}, {
   name: "active_users_stats"
   table_name: "active_users_stats"
   acl_world: [READ]

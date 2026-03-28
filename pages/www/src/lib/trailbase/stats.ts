@@ -27,6 +27,35 @@ export interface NumberStat {
 	last_draw_round: number | null;
 }
 
+export interface BonusDrawStat {
+	round: number;
+	bonus_number: number;
+	color: string;
+	section: number;
+	is_odd: number;
+	is_high: number;
+	updated_at?: string;
+}
+
+export interface BonusNumberStat {
+	number: number;
+	bonus_count: number;
+	main_count: number;
+	combined_count: number;
+	last_bonus_round: number | null;
+	updated_at?: string;
+	color?: string;
+	section?: number;
+	recent_100_bonus_count?: number;
+	expected_bonus_count?: string;
+	bonus_deviation?: string;
+	bonus_share?: string;
+	bonus_rank?: number;
+	main_rank?: number;
+	combined_rank?: number;
+	rank_delta?: number;
+}
+
 export interface OddEvenStat {
 	round: number;
 	odd_count: number;
@@ -125,6 +154,251 @@ export async function getNumberStats(
 	} catch (error) {
 		console.error("Failed to fetch number stats:", error);
 		return [];
+	}
+}
+
+export async function getBonusNumberStats(
+	order: "asc" | "desc" = "desc",
+	limit?: number,
+): Promise<BonusNumberStat[]> {
+	try {
+		const sortOrder = order === "desc" ? ["-bonus_count", "number"] : ["bonus_count", "number"];
+		const [response, numberDetails] = await Promise.all([
+			client.records("lotto_bonus_number_stats").list({
+				order: sortOrder,
+				pagination: limit ? { limit } : undefined,
+			}),
+			client.records("lotto_number_details").list({
+				order: ["number"],
+				pagination: { limit: 45 },
+			}),
+		]);
+
+		const numberDetailMap = new Map(
+			numberDetails.records.map((record) => {
+				const row = record as { number: number; color: string; section: number };
+				return [row.number, row];
+			}),
+		);
+
+		return response.records.map((record) => {
+			const row = record as BonusNumberStat;
+			const detail = numberDetailMap.get(row.number);
+			return {
+				...row,
+				color: detail?.color || "grey",
+				section: detail?.section || 0,
+			};
+		});
+	} catch (error) {
+		console.error("Failed to fetch bonus number stats:", error);
+		return [];
+	}
+}
+
+export async function getRecentBonusStats(limit = 10): Promise<BonusDrawStat[]> {
+	try {
+		const response = await client.records("lotto_draw_bonus_stats").list({
+			order: ["-round"],
+			pagination: { limit },
+		});
+
+		return response.records as unknown as BonusDrawStat[];
+	} catch (error) {
+		console.error("Failed to fetch recent bonus stats:", error);
+		return [];
+	}
+}
+
+function rankNumbers(
+	stats: BonusNumberStat[],
+	key: "bonus_count" | "main_count" | "combined_count",
+): Map<number, number> {
+	return new Map(
+		[...stats]
+			.sort((a, b) => {
+				const diff = (b[key] ?? 0) - (a[key] ?? 0);
+				return diff !== 0 ? diff : a.number - b.number;
+			})
+			.map((stat, index) => [stat.number, index + 1]),
+	);
+}
+
+function buildBonusRecent50Summary(recent50: BonusDrawStat[]): string {
+	if (recent50.length === 0) {
+		return "최근 50회 보너스 번호 흐름을 분석할 데이터가 아직 없습니다.";
+	}
+
+	const oddCount = recent50.filter((stat) => stat.is_odd === 1).length;
+	const highCount = recent50.filter((stat) => stat.is_high === 1).length;
+	const colorCounts = recent50.reduce<Record<string, number>>((acc, stat) => {
+		acc[stat.color] = (acc[stat.color] ?? 0) + 1;
+		return acc;
+	}, {});
+	const dominantColor = Object.entries(colorCounts).sort((a, b) => b[1] - a[1])[0];
+
+	return `최근 50회 보너스 번호는 ${oddCount >= recent50.length / 2 ? "홀수" : "짝수"} 비중이 조금 더 높았고, ${highCount >= recent50.length / 2 ? "고번대" : "저번대"} 구간이 중심이었습니다. 색상 기준으로는 ${dominantColor?.[0] ?? "grey"} 계열이 가장 자주 보였습니다.`;
+}
+
+function buildBonusRecent100Summary(recent100: BonusDrawStat[]): string {
+	if (recent100.length === 0) {
+		return "최근 100회 보너스 번호 흐름을 분석할 데이터가 아직 없습니다.";
+	}
+
+	const sectionCounts = recent100.reduce<Record<number, number>>((acc, stat) => {
+		acc[stat.section] = (acc[stat.section] ?? 0) + 1;
+		return acc;
+	}, {});
+	const dominantSection = Object.entries(sectionCounts).sort(
+		(a, b) => b[1] - a[1],
+	)[0];
+	const zeroCountSections = [1, 2, 3, 4, 5].filter(
+		(section) => !recent100.some((stat) => stat.section === section),
+	);
+
+	return `최근 100회 기준으로는 ${dominantSection ? `${dominantSection[0]}구간` : "특정 구간"} 보너스 번호가 가장 두드러졌고, ${zeroCountSections.length > 0 ? `${zeroCountSections.length}개 구간은 장기간 보너스 미출현 상태였습니다.` : "모든 구간에서 보너스 번호가 한 번 이상 등장했습니다."}`;
+}
+
+export async function getBonusAnalysis(): Promise<{
+	latestRound: number;
+	latestDrawDate: string;
+	totalRounds: number;
+	expectedBonusCount: number;
+	latestBonusDraw: BonusDrawStat | null;
+	bonusNumberStats: BonusNumberStat[];
+	topBonusNumber: BonusNumberStat | null;
+	bottomBonusNumber: BonusNumberStat | null;
+	topBonusShareNumbers: BonusNumberStat[];
+	recent10BonusStats: BonusDrawStat[];
+	recent50Summary: string;
+	recent100Summary: string;
+	recentlyMissingNumbers: number[];
+	comparisonHighlights: {
+		bonusHeavy: BonusNumberStat | null;
+		mainHeavy: BonusNumberStat | null;
+		combinedLeader: BonusNumberStat | null;
+		recentLeader: BonusNumberStat | null;
+	};
+}> {
+	try {
+		const [latestRoundInfo, rawBonusStats, recent10BonusStats, recent50BonusStats, recent100BonusStats] = await Promise.all([
+			getLatestRoundInfo(),
+			getBonusNumberStats("desc", 45),
+			getRecentBonusStats(10),
+			getRecentBonusStats(50),
+			getRecentBonusStats(100),
+		]);
+
+		const totalRounds = latestRoundInfo?.round || 0;
+		const expectedBonusCount = totalRounds > 0 ? totalRounds / 45 : 0;
+		const recent100CountMap = new Map<number, number>();
+
+		for (const stat of recent100BonusStats) {
+			recent100CountMap.set(
+				stat.bonus_number,
+				(recent100CountMap.get(stat.bonus_number) ?? 0) + 1,
+			);
+		}
+
+		const bonusRankMap = rankNumbers(rawBonusStats, "bonus_count");
+		const mainRankMap = rankNumbers(rawBonusStats, "main_count");
+		const combinedRankMap = rankNumbers(rawBonusStats, "combined_count");
+
+		const bonusNumberStats = rawBonusStats.map((stat) => {
+			const bonusShare =
+				stat.combined_count > 0
+					? ((stat.bonus_count / stat.combined_count) * 100).toFixed(1)
+					: "0.0";
+			const bonusRank = bonusRankMap.get(stat.number) ?? 0;
+			const mainRank = mainRankMap.get(stat.number) ?? 0;
+			const combinedRank = combinedRankMap.get(stat.number) ?? 0;
+
+			return {
+				...stat,
+				recent_100_bonus_count: recent100CountMap.get(stat.number) ?? 0,
+				expected_bonus_count: expectedBonusCount.toFixed(1),
+				bonus_deviation: (stat.bonus_count - expectedBonusCount).toFixed(1),
+				bonus_share: bonusShare,
+				bonus_rank: bonusRank,
+				main_rank: mainRank,
+				combined_rank: combinedRank,
+				rank_delta: mainRank - bonusRank,
+			};
+		});
+
+		const topBonusShareNumbers = [...bonusNumberStats]
+			.filter((stat) => stat.combined_count > 0)
+			.sort((a, b) => Number(b.bonus_share || 0) - Number(a.bonus_share || 0))
+			.slice(0, 5);
+
+		const comparisonHighlights = {
+			bonusHeavy:
+				[...bonusNumberStats]
+					.filter((stat) => stat.rank_delta && stat.rank_delta > 0)
+					.sort((a, b) => (b.rank_delta ?? 0) - (a.rank_delta ?? 0))[0] ?? null,
+			mainHeavy:
+				[...bonusNumberStats]
+					.filter((stat) => stat.rank_delta && stat.rank_delta < 0)
+					.sort((a, b) => (a.rank_delta ?? 0) - (b.rank_delta ?? 0))[0] ?? null,
+			combinedLeader:
+				[...bonusNumberStats].sort(
+					(a, b) =>
+						b.combined_count - a.combined_count || a.number - b.number,
+				)[0] ?? null,
+			recentLeader:
+				[...bonusNumberStats]
+					.sort(
+						(a, b) =>
+							(b.recent_100_bonus_count ?? 0) -
+								(a.recent_100_bonus_count ?? 0) ||
+							a.number - b.number,
+					)[0] ?? null,
+		};
+
+		return {
+			latestRound: latestRoundInfo?.round || 0,
+			latestDrawDate: latestRoundInfo?.draw_date || "",
+			totalRounds,
+			expectedBonusCount,
+			latestBonusDraw: recent10BonusStats[0] ?? null,
+			bonusNumberStats,
+			topBonusNumber: bonusNumberStats[0] ?? null,
+			bottomBonusNumber:
+				[...bonusNumberStats]
+					.sort((a, b) => a.bonus_count - b.bonus_count || a.number - b.number)[0] ??
+				null,
+			topBonusShareNumbers,
+			recent10BonusStats,
+			recent50Summary: buildBonusRecent50Summary(recent50BonusStats),
+			recent100Summary: buildBonusRecent100Summary(recent100BonusStats),
+			recentlyMissingNumbers: bonusNumberStats
+				.filter((stat) => (stat.recent_100_bonus_count ?? 0) === 0)
+				.map((stat) => stat.number),
+			comparisonHighlights,
+		};
+	} catch (error) {
+		console.error("Failed to fetch bonus analysis:", error);
+		return {
+			latestRound: 0,
+			latestDrawDate: "",
+			totalRounds: 0,
+			expectedBonusCount: 0,
+			latestBonusDraw: null,
+			bonusNumberStats: [],
+			topBonusNumber: null,
+			bottomBonusNumber: null,
+			topBonusShareNumbers: [],
+			recent10BonusStats: [],
+			recent50Summary: "",
+			recent100Summary: "",
+			recentlyMissingNumbers: [],
+			comparisonHighlights: {
+				bonusHeavy: null,
+				mainHeavy: null,
+				combinedLeader: null,
+				recentLeader: null,
+			},
+		};
 	}
 }
 

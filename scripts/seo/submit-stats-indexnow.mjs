@@ -64,6 +64,7 @@ async function main() {
 	const urls = dedupe([
 		`${SITE_BASE_URL}/stats`,
 		`${SITE_BASE_URL}/guide`,
+		`${SITE_BASE_URL}/stats/bonus`,
 		`${SITE_BASE_URL}/stats/numbers`,
 		`${SITE_BASE_URL}/stats/ac`,
 		`${SITE_BASE_URL}/stats/odd-even`,

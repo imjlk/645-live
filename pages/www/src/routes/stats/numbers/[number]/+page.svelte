@@ -1,6 +1,6 @@
 <script lang="ts">
 import { goto } from "$app/navigation";
-import { resolveRoute } from "$app/paths";
+import { resolve } from "$app/paths";
 import { StatsPageHero } from "$lib/components/stats";
 import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
 import LinkButton from "$lib/ui/LinkButton.svelte";
@@ -40,11 +40,7 @@ const navigateToNumber = async () => {
 	if (validateInput(inputStr)) {
 		const number = Number(inputStr);
 		try {
-			await goto(
-				resolveRoute("/stats/numbers/[number]", {
-					number: String(number),
-				}),
-			);
+			await goto(resolve(`/stats/numbers/${number}`));
 		} catch (error) {
 			console.error("Navigation error:", error);
 			alert("페이지 이동 중 오류가 발생했습니다.");
@@ -74,6 +70,21 @@ const getFrequencyAnalysis = (frequency: string): string => {
 // 색상 정보 - Svelte 5 $derived
 let colorDetail = $derived(
 	data.colorInfo[data.numberStats.color as keyof typeof data.colorInfo],
+);
+const bonusExpectedCount = $derived(data.totalRounds > 0 ? data.totalRounds / 45 : 0);
+const bonusDeviation = $derived(data.numberStats.bonus_count - bonusExpectedCount);
+const totalAppearances = $derived(data.totalAppearances || 0);
+const bonusShare = $derived(
+	totalAppearances > 0
+		? ((data.numberStats.bonus_count / totalAppearances) * 100).toFixed(1)
+		: "0.0",
+);
+const bonusFrequencyLabel = $derived(
+	bonusDeviation > 1
+		? "평균보다 높음"
+		: bonusDeviation < -1
+			? "평균보다 낮음"
+			: "평균과 비슷함",
 );
 
 // Breadcrumbs 데이터
@@ -369,6 +380,46 @@ const breadcrumbItems = [
 					💡 각 번호의 이론적 출현 기대값은 전체 회차 × 6 ÷ 45 = {data.numberStats.expectedFrequency}회입니다.
 					{Number(data.numberStats.deviation) > 0 ? '이 번호는 기대값보다 많이 출현했습니다.' : '이 번호는 기대값보다 적게 출현했습니다.'}
 				</p>
+			</div>
+		</div>
+	</div>
+
+	<div class="card bg-base-100 shadow-sm">
+		<div class="card-body">
+			<div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+				<div>
+					<h2 class="card-title">보너스 번호 관점에서 보기</h2>
+					<p class="text-sm leading-6 text-base-content/70">
+						{data.selectedNumber}번은 본 번호로 {data.numberStats.draw_count}회, 보너스 번호로 {data.numberStats.bonus_count}회 등장했습니다. 합산 기준으로는 총 {totalAppearances}회 등장했고, 보너스 기준으로는 {bonusFrequencyLabel} 흐름입니다.
+					</p>
+				</div>
+				<LinkButton href="/stats/bonus" class="btn btn-outline btn-sm">
+					보너스 번호 통계 보기
+				</LinkButton>
+			</div>
+
+			<div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+				<div class="rounded-2xl border border-base-300/60 bg-base-200/60 p-4">
+					<div class="text-xs font-semibold uppercase tracking-[0.16em] text-base-content/50">보너스 출현</div>
+					<div class="mt-2 text-2xl font-black text-base-content">{data.numberStats.bonus_count}회</div>
+					<div class="mt-1 text-xs text-base-content/60">전체 {data.totalRounds}회차 기준</div>
+				</div>
+				<div class="rounded-2xl border border-base-300/60 bg-base-200/60 p-4">
+					<div class="text-xs font-semibold uppercase tracking-[0.16em] text-base-content/50">기대값 대비</div>
+					<div class="mt-2 text-2xl font-black {bonusDeviation > 0 ? 'text-emerald-600' : bonusDeviation < 0 ? 'text-rose-600' : 'text-base-content'}">
+						{bonusDeviation > 0 ? "+" : ""}{bonusDeviation.toFixed(1)}
+					</div>
+					<div class="mt-1 text-xs text-base-content/60">번호당 기대 보너스 {bonusExpectedCount.toFixed(1)}회</div>
+				</div>
+				<div class="rounded-2xl border border-base-300/60 bg-base-200/60 p-4">
+					<div class="text-xs font-semibold uppercase tracking-[0.16em] text-base-content/50">보너스 비중</div>
+					<div class="mt-2 text-2xl font-black text-base-content">{bonusShare}%</div>
+					<div class="mt-1 text-xs text-base-content/60">본 번호 + 보너스 합산 대비</div>
+				</div>
+			</div>
+
+			<div class="mt-4 rounded-2xl bg-warning/10 p-4 text-sm leading-6 text-base-content/72">
+				보너스 번호는 회차마다 1개만 추첨되기 때문에 본 번호 출현 통계와 기대값이 다릅니다. 그래서 본 번호 순위와 보너스 출현 흐름을 함께 봐야 이 번호가 어디에서 상대적으로 강한지 더 정확하게 읽을 수 있습니다.
 			</div>
 		</div>
 	</div>

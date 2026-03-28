@@ -9,6 +9,7 @@ interface GuideSectionProps {
 	icon?: string;
 	description?: string;
 	guides: GuideItem[];
+	columns?: 1 | 2;
 	theme?:
 		| "info"
 		| "primary"
@@ -24,6 +25,7 @@ let {
 	icon = "📊",
 	description,
 	guides,
+	columns = 2,
 	theme = "info",
 }: GuideSectionProps = $props();
 
@@ -63,7 +65,7 @@ const getTitleClass = (themeName: string): string => {
     {/if}
   </div>
 
-  <div class="guide-section-shell__grid">
+  <div class="guide-section-shell__grid" class:guide-section-shell__grid--two-columns={columns === 2}>
     {#each guides as guide (guide.title)}
       <div class="guide-section-shell__card">
         <h4 class="guide-section-shell__card-title">{guide.title}</h4>
@@ -147,7 +149,7 @@ const getTitleClass = (themeName: string): string => {
       padding: 1.3rem;
     }
 
-    .guide-section-shell__grid {
+    .guide-section-shell__grid--two-columns {
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
   }

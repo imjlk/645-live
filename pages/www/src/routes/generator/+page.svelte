@@ -1,6 +1,6 @@
 <script lang="ts">
-import { env } from "$env/dynamic/public";
 import { SITE_NAME, SITE_ORIGIN, absoluteUrl } from "$lib/seo/index.js";
+import { getTrailbaseBrowserBaseUrl } from "$lib/trailbase/browser-base";
 import { onMount } from "svelte";
 import { JsonLd, MetaTags } from "svelte-meta-tags";
 import { initClient } from "trailbase";
@@ -59,7 +59,7 @@ interface LottoStats {
 }
 
 // --- Trailbase Client and Reactive State ---
-const client = initClient(env.PUBLIC_TRAILBASE_URL || "http://localhost:4000");
+const client = initClient(getTrailbaseBrowserBaseUrl());
 let lottoStats = $state<LottoStats | null>(null);
 let numberOfSets = $state(5);
 let includedNumbers = $state<Set<number>>(new Set());
