@@ -1,15 +1,11 @@
 <script lang="ts">
-import { goto } from "$app/navigation";
-import { StatsPageHero } from "$lib/components/stats";
+import { RecentAnalysisInput, StatsPageHero } from "$lib/components/stats";
 import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
 import LinkButton from "$lib/ui/LinkButton.svelte";
 import { JsonLd, MetaTags } from "svelte-meta-tags";
 import type { PageData } from "./$types";
 
 let { data }: { data: PageData } = $props();
-
-// 사용자 입력 상태 (기본값은 빈 값)
-let inputValue = $state("");
 
 // Breadcrumbs 데이터
 const breadcrumbItems = [
@@ -64,42 +60,6 @@ const getRepeatAnalysis = (
 	};
 };
 
-// 입력값 유효성 검사
-const validateInput = (value: string): boolean => {
-	const str = String(value || "");
-	if (str.trim() === "") return false;
-	const num = Number(str);
-	return !Number.isNaN(num) && num > 0 && num <= data.totalRounds;
-};
-
-// 분석 페이지로 이동
-const navigateToAnalysis = async () => {
-	const inputStr = String(inputValue || "");
-
-	if (inputStr.trim() === "") {
-		alert("분석할 회차 수를 입력해주세요.");
-		return;
-	}
-
-	if (validateInput(inputStr)) {
-		const rounds = Number(inputStr);
-		try {
-			await goto(`/stats/repeat/recent/${rounds}`);
-		} catch (error) {
-			console.error("Navigation error:", error);
-			alert("페이지 이동 중 오류가 발생했습니다.");
-		}
-	} else {
-		alert(`1부터 ${data.totalRounds}까지의 숫자를 입력해주세요.`);
-	}
-};
-
-// Enter 키 처리
-const handleKeydown = (event: KeyboardEvent) => {
-	if (event.key === "Enter") {
-		navigateToAnalysis();
-	}
-};
 </script>
 
 <MetaTags
@@ -258,37 +218,7 @@ const handleKeydown = (event: KeyboardEvent) => {
 		]}
 	/>
 
-	<!-- 최근 회차 분석 -->
-	<div class="card bg-base-100 shadow-sm">
-		<div class="card-body p-3 sm:p-4">
-			<h2 class="card-title text-base sm:text-lg">최근 회차 분석</h2>
-			<div class="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
-				<div class="flex flex-col sm:flex-row items-start sm:items-center gap-2 w-full sm:w-auto">
-					<label for="rounds-input" class="text-sm font-medium whitespace-nowrap">분석 회차 (1-{data.totalRounds}):</label>
-					<input
-						id="rounds-input"
-						type="text"
-						inputmode="numeric"
-						pattern="[0-9]*"
-						bind:value={inputValue}
-						onkeydown={handleKeydown}
-						class="input input-bordered input-sm w-24 sm:w-20 text-center"
-						placeholder="100"
-					/>
-				</div>
-				<button
-					type="button"
-					onclick={navigateToAnalysis}
-					class="btn btn-primary btn-sm w-full sm:w-auto"
-				>
-					분석하기
-				</button>
-			</div>
-			<p class="text-xs sm:text-sm text-base-content/60">
-				현재 <span class="font-semibold text-primary">전체 {data.totalRounds}회차</span> 데이터를 분석 중입니다.
-			</p>
-		</div>
-	</div>
+	<RecentAnalysisInput maxRounds={data.totalRounds} basePath="/stats/repeat" />
 
 	<!-- 요약 통계 -->
 	<div class="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4">
