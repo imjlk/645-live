@@ -21,12 +21,30 @@ function escapeXml(value: string): string {
 		.replaceAll("'", "&apos;");
 }
 
+function normalizeLastMod(value: string): string {
+	const trimmed = value.trim();
+
+	if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+		return `${trimmed}T00:00:00+09:00`;
+	}
+
+	if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(trimmed)) {
+		return trimmed.replace(" ", "T") + "+09:00";
+	}
+
+	if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/.test(trimmed)) {
+		return `${trimmed}+09:00`;
+	}
+
+	return trimmed;
+}
+
 function toLastMod(value: string | null, fallbackDate = ""): string {
 	if (value && value.trim().length > 0) {
-		return value;
+		return normalizeLastMod(value);
 	}
 	if (fallbackDate) {
-		return `${fallbackDate}T00:00:00+09:00`;
+		return normalizeLastMod(fallbackDate);
 	}
 	return new Date().toISOString();
 }
