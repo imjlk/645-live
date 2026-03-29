@@ -321,7 +321,6 @@ function notifyStoredDuplicate(ticketHash: string) {
 	}
 
 	toast.info("ℹ️ 이미 스캔한 로또 용지입니다", {
-		id: toastKey,
 		description: "저장된 스캔 내역과 일치하는 티켓입니다.",
 		duration: 4000,
 	});
@@ -334,7 +333,6 @@ function notifyCooldownDuplicate(ticketHash: string) {
 	}
 
 	toast.info("ℹ️ 방금 처리한 로또 용지입니다", {
-		id: toastKey,
 		description: "카메라가 같은 QR를 다시 읽고 있습니다. 잠시만 두면 다음 스캔으로 넘어갑니다.",
 		duration: 1500,
 	});
@@ -347,7 +345,6 @@ function notifyProcessingDuplicate(ticketHash: string) {
 	}
 
 	toast.info("⏳ 같은 QR 코드를 처리 중입니다", {
-		id: toastKey,
 		description: "처리가 끝나면 저장 상태를 기준으로 다시 안내합니다.",
 		duration: 2500,
 	});
@@ -910,10 +907,12 @@ async function requestPermission() {
 
 <!-- Toaster 컴포넌트 추가 -->
 <Toaster 
-	position="top-center" 
+	position="bottom-center" 
 	richColors 
 	closeButton 
 	duration={5000}
+	offset={{ top: 24, left: 24, right: 24, bottom: 104 }}
+	mobileOffset={{ top: 16, left: 16, right: 16, bottom: 112 }}
 	toastOptions={{
 		style: 'background: white; color: black; border: 1px solid #e5e7eb;',
 		classes: {
