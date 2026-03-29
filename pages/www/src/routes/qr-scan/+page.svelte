@@ -288,13 +288,14 @@ let sessionStoredTicketHashes = $state(new Set<string>());
 
 // 같은 이유의 토스트를 짧은 시간 안에 중복 표시하지 않기 위한 캐시
 const recentToastKeys = new Map<string, number>();
-const TOAST_DEDUP_MS = 2000;
+const TOAST_DEDUP_MS = QR_SCAN_COOLDOWN_MS;
+const PROCESSING_TOAST_DEDUP_MS = 800;
 
-function shouldShowToast(key: string) {
+function shouldShowToast(key: string, dedupMs = TOAST_DEDUP_MS) {
 	const now = Date.now();
 	const lastShownAt = recentToastKeys.get(key) ?? 0;
 
-	if (now - lastShownAt < TOAST_DEDUP_MS) {
+	if (now - lastShownAt < dedupMs) {
 		return false;
 	}
 
@@ -341,7 +342,7 @@ function notifyCooldownDuplicate(ticketHash: string) {
 
 function notifyProcessingDuplicate(ticketHash: string) {
 	const toastKey = `processing-${ticketHash}`;
-	if (!shouldShowToast(toastKey)) {
+	if (!shouldShowToast(toastKey, PROCESSING_TOAST_DEDUP_MS)) {
 		return;
 	}
 
@@ -449,7 +450,6 @@ $effect(() => {
 			const qrData = form.data?.qrData;
 			const scanRecord = form.data?.scanRecord;
 			const memberSyncState = form.data?.memberSyncState;
-			const alreadyScanned = form.data?.alreadyScanned === true;
 			const ticketHash =
 				scanRecord?.ticketHash ||
 				(qrData ? generateTicketHash(qrData, scanRecord?.round, scanRecord?.gamesCount) : null);
@@ -500,27 +500,14 @@ $effect(() => {
 			}
 
 			if (scanRecord) {
-				if (alreadyScanned) {
-					toast.info("ℹ️ 이미 스캔한 로또 용지입니다", {
-						description: scanRecord.isExpired
-							? `${scanRecord.round}회차 저장된 티켓입니다. 수령 기한이 지난 상태로 기록되어 있습니다.`
-							: scanRecord.isUnreleased
-								? `${scanRecord.round}회차 저장된 티켓입니다. 발표 전 티켓이라 추후 상태가 갱신됩니다.`
-								: scanRecord.isWinner
-									? `${scanRecord.round}회차 저장된 당첨 티켓입니다. 기존 저장 결과를 다시 보여드립니다.`
-									: `${scanRecord.round}회차 저장된 티켓입니다. 기존 스캔 내역과 일치합니다.`,
-						duration: 5000,
-					});
-				} else if (scanRecord.isExpired) {
+				if (scanRecord.isExpired) {
 					toast.warning("⌛ 수령 기간이 지난 티켓입니다", {
 						description: `${scanRecord.round}회차는 당첨금 수령 기한이 지나 결과 대신 만료 상태로 기록했습니다.`,
 						duration: 7000,
 					});
 				} else if (scanRecord.isUnreleased) {
 					toast.success("✅ 로또 스캔 저장 완료!", {
-						description: alreadyScanned
-							? `${scanRecord.round}회차 기존 티켓을 다시 확인했습니다. 발표 후 상태가 바뀌면 자동으로 갱신됩니다.`
-							: `${scanRecord.round}회차 ${scanRecord.gamesCount}개 게임 저장됨. 로그인 후 당첨 발표 시 자동으로 알림을 받을 수 있습니다.`,
+						description: `${scanRecord.round}회차 ${scanRecord.gamesCount}개 게임 저장됨. 로그인 후 당첨 발표 시 자동으로 알림을 받을 수 있습니다.`,
 						duration: 6000,
 					});
 				} else if (scanRecord.isWinner) {
@@ -546,7 +533,7 @@ $effect(() => {
 						: "";
 
 					toast.success(highestGrade.message, {
-						description: `${scanRecord.round}회차 ${alreadyScanned ? "기존 티켓 재확인" : "당첨 확인"} - ${highestGrade.grade}${prizeText} | 총 ${scanRecord.gamesCount}개 게임 중 ${winners.length}개 당첨`,
+						description: `${scanRecord.round}회차 당첨 확인 - ${highestGrade.grade}${prizeText} | 총 ${scanRecord.gamesCount}개 게임 중 ${winners.length}개 당첨`,
 						duration:
 							highestGrade.grade === "1등" || highestGrade.grade === "2등"
 								? 15000
@@ -577,7 +564,7 @@ $effect(() => {
 					});
 				} else {
 					toast.success("✅ QR 스캔 성공!", {
-						description: `${scanRecord.round}회차 ${alreadyScanned ? "기존 티켓 재확인" : "당첨 확인 완료"} - 당첨 없음 | ${scanRecord.gamesCount}개 게임 처리됨`,
+						description: `${scanRecord.round}회차 당첨 확인 완료 - 당첨 없음 | ${scanRecord.gamesCount}개 게임 처리됨`,
 						duration: 5000,
 					});
 				}
@@ -936,6 +923,12 @@ async function requestPermission() {
 		}
 	}}
 />
+
+<style>
+	:global([data-sonner-toaster]) {
+		z-index: 2147483647 !important;
+	}
+</style>
 
 <!-- QR 데이터를 서버 액션으로 전송하는 폼 -->
 <form 
