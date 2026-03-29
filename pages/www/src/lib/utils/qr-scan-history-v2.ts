@@ -540,7 +540,9 @@ export class LocalStorageProvider implements QRScanStorageProvider {
 		const ticketHash = this.generateTicketHash(qrData);
 
 		return items.some((item) => {
-			const matchesUser = userId ? item.userId === userId : true;
+			const matchesUser = userId
+				? item.userId === userId || item.userId === undefined
+				: true;
 			return item.ticketHash === ticketHash && matchesUser;
 		});
 	}
@@ -752,10 +754,12 @@ export class QRScanHistoryManagerImpl implements QRScanHistoryManager {
 	): Promise<QRScanHistoryItem> {
 		const provider = this.getCurrentProvider();
 		const userId = this.currentUserId || undefined;
-		const existingItems = await provider.getItems({ userId });
+		const existingItems = await provider.getItems();
 		const existingItem = existingItems.find(
 			(existing) =>
-				existing.ticketHash === item.ticketHash || existing.qrData === item.qrData,
+				(existing.ticketHash === item.ticketHash ||
+					existing.qrData === item.qrData) &&
+				(!userId || existing.userId === userId || existing.userId === undefined),
 		);
 
 		if (!existingItem) {

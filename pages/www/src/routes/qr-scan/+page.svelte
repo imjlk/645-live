@@ -14,8 +14,7 @@ import {
 } from "$lib/utils/lotto-common.js";
 import { parseLottoQR } from "$lib/utils/lotto-parser.js";
 import {
-	deriveScanResultStatus,
-	generateScanSummary,
+	generateTicketHash,
 	qrScanHistory,
 } from "$lib/utils/qr-scan-history.js";
 import {
@@ -277,33 +276,111 @@ async function onDetectUploaded(detectedCodes: DetectedBarcode[]) {
 
 // 현재 처리 중인 QR 데이터 추적 (중복 제출 방지)
 let processingQRData = $state<string | null>(null);
+let processingTicketHash = $state<string | null>(null);
 
-// 최근 스캔한 QR 데이터들 (5초 쿨다운용)
-let recentScannedQRs = $state(new Set<string>());
+const QR_SCAN_COOLDOWN_MS = 500;
+
+// 최근 처리한 티켓 해시들 (짧은 재감지 쿨다운용)
+let recentScannedTicketHashes = $state(new Set<string>());
+
+// 현재 세션에서 저장 완료된 티켓 해시들
+let sessionStoredTicketHashes = $state(new Set<string>());
+
+// 같은 이유의 토스트를 짧은 시간 안에 중복 표시하지 않기 위한 캐시
+const recentToastKeys = new Map<string, number>();
+const TOAST_DEDUP_MS = 2000;
+
+function shouldShowToast(key: string) {
+	const now = Date.now();
+	const lastShownAt = recentToastKeys.get(key) ?? 0;
+
+	if (now - lastShownAt < TOAST_DEDUP_MS) {
+		return false;
+	}
+
+	recentToastKeys.set(key, now);
+	return true;
+}
+
+function rememberRecentTicket(ticketHash: string) {
+	recentScannedTicketHashes.add(ticketHash);
+	recentScannedTicketHashes = new Set(recentScannedTicketHashes);
+	clearQRCooldown(ticketHash);
+}
+
+function markStoredTicket(ticketHash: string) {
+	sessionStoredTicketHashes.add(ticketHash);
+	sessionStoredTicketHashes = new Set(sessionStoredTicketHashes);
+}
+
+function notifyStoredDuplicate(ticketHash: string) {
+	const toastKey = `stored-duplicate-${ticketHash}`;
+	if (!shouldShowToast(toastKey)) {
+		return;
+	}
+
+	toast.info("ℹ️ 이미 스캔한 로또 용지입니다", {
+		id: toastKey,
+		description: "저장된 스캔 내역과 일치하는 티켓입니다.",
+		duration: 4000,
+	});
+}
+
+function notifyCooldownDuplicate(ticketHash: string) {
+	const toastKey = `cooldown-${ticketHash}`;
+	if (!shouldShowToast(toastKey)) {
+		return;
+	}
+
+	toast.info("ℹ️ 방금 처리한 로또 용지입니다", {
+		id: toastKey,
+		description: "카메라가 같은 QR를 다시 읽고 있습니다. 잠시만 두면 다음 스캔으로 넘어갑니다.",
+		duration: 1500,
+	});
+}
+
+function notifyProcessingDuplicate(ticketHash: string) {
+	const toastKey = `processing-${ticketHash}`;
+	if (!shouldShowToast(toastKey)) {
+		return;
+	}
+
+	toast.info("⏳ 같은 QR 코드를 처리 중입니다", {
+		id: toastKey,
+		description: "처리가 끝나면 저장 상태를 기준으로 다시 안내합니다.",
+		duration: 2500,
+	});
+}
 
 // QR 쿨다운 해제 함수
-function clearQRCooldown(qrData: string) {
+function clearQRCooldown(ticketHash: string) {
 	setTimeout(() => {
-		recentScannedQRs.delete(qrData);
-		recentScannedQRs = new Set(recentScannedQRs); // 반응성을 위한 재할당
-	}, 5000); // 5초 후 쿨다운 해제
+		recentScannedTicketHashes.delete(ticketHash);
+		recentScannedTicketHashes = new Set(recentScannedTicketHashes); // 반응성을 위한 재할당
+	}, QR_SCAN_COOLDOWN_MS);
 }
 
 // QR 데이터를 서버 액션으로 제출하는 함수
 async function submitQRData(qrData: string) {
 	try {
+		const ticketHash = generateTicketHash(qrData);
+
 		// 이미 같은 QR 데이터를 처리 중인지 확인
-		if (processingQRData === qrData) {
+		if (processingTicketHash === ticketHash || processingQRData === qrData) {
 			console.log("이미 처리 중인 QR 데이터:", qrData);
+			notifyProcessingDuplicate(ticketHash);
 			return;
 		}
 
-		// 5초 쿨다운 체크
-		if (recentScannedQRs.has(qrData)) {
-			toast.info("ℹ️ 잠시만 기다려주세요", {
-				description: "같은 QR 코드는 5초 후에 다시 스캔할 수 있습니다.",
-				duration: 3000,
-			});
+		// 짧은 재감지 쿨다운 체크
+		if (recentScannedTicketHashes.has(ticketHash)) {
+			notifyCooldownDuplicate(ticketHash);
+			return;
+		}
+
+		if (sessionStoredTicketHashes.has(ticketHash)) {
+			rememberRecentTicket(ticketHash);
+			notifyStoredDuplicate(ticketHash);
 			return;
 		}
 
@@ -311,15 +388,9 @@ async function submitQRData(qrData: string) {
 		if (browser) {
 			const isDupe = await qrScanHistory.isDuplicate(qrData);
 			if (isDupe) {
-				toast.info("ℹ️ 이미 스캔한 로또 용지입니다", {
-					description: "이 로또 용지는 이미 스캔 내역에 저장되어 있습니다.",
-					duration: 4000,
-				});
-
-				// 쿨다운 추가 (중복이지만 5초 후 다시 시도 가능)
-				recentScannedQRs.add(qrData);
-				recentScannedQRs = new Set(recentScannedQRs);
-				clearQRCooldown(qrData);
+				markStoredTicket(ticketHash);
+				rememberRecentTicket(ticketHash);
+				notifyStoredDuplicate(ticketHash);
 				return;
 			}
 		}
@@ -334,11 +405,10 @@ async function submitQRData(qrData: string) {
 
 		// 처리 시작 표시
 		processingQRData = qrData;
+		processingTicketHash = ticketHash;
 
 		// 성공적인 스캔 시도 시 쿨다운 추가
-		recentScannedQRs.add(qrData);
-		recentScannedQRs = new Set(recentScannedQRs);
-		clearQRCooldown(qrData);
+		rememberRecentTicket(ticketHash);
 
 		// 숨겨진 input에 QR 데이터 설정
 		qrDataInput.value = qrData;
@@ -353,6 +423,7 @@ async function submitQRData(qrData: string) {
 		});
 		isSubmittingForm = false;
 		processingQRData = null;
+		processingTicketHash = null;
 	}
 }
 
@@ -370,6 +441,7 @@ $effect(() => {
 
 		isSubmittingForm = false;
 		processingQRData = null; // 처리 완료 표시
+		processingTicketHash = null;
 
 		if (form.success) {
 			// Process successful form submission
@@ -378,6 +450,9 @@ $effect(() => {
 			const scanRecord = form.data?.scanRecord;
 			const memberSyncState = form.data?.memberSyncState;
 			const alreadyScanned = form.data?.alreadyScanned === true;
+			const ticketHash =
+				scanRecord?.ticketHash ||
+				(qrData ? generateTicketHash(qrData, scanRecord?.round, scanRecord?.gamesCount) : null);
 
 			const resolvedRound = scanRecord?.round;
 			if (resolvedRound) {
@@ -388,6 +463,10 @@ $effect(() => {
 						scanStatusGrid.updateRound(resolvedRound);
 					}
 				}
+			}
+
+			if (ticketHash) {
+				markStoredTicket(ticketHash);
 			}
 
 			if (browser && qrData && scanRecord) {
@@ -421,7 +500,18 @@ $effect(() => {
 			}
 
 			if (scanRecord) {
-				if (scanRecord.isExpired) {
+				if (alreadyScanned) {
+					toast.info("ℹ️ 이미 스캔한 로또 용지입니다", {
+						description: scanRecord.isExpired
+							? `${scanRecord.round}회차 저장된 티켓입니다. 수령 기한이 지난 상태로 기록되어 있습니다.`
+							: scanRecord.isUnreleased
+								? `${scanRecord.round}회차 저장된 티켓입니다. 발표 전 티켓이라 추후 상태가 갱신됩니다.`
+								: scanRecord.isWinner
+									? `${scanRecord.round}회차 저장된 당첨 티켓입니다. 기존 저장 결과를 다시 보여드립니다.`
+									: `${scanRecord.round}회차 저장된 티켓입니다. 기존 스캔 내역과 일치합니다.`,
+						duration: 5000,
+					});
+				} else if (scanRecord.isExpired) {
 					toast.warning("⌛ 수령 기간이 지난 티켓입니다", {
 						description: `${scanRecord.round}회차는 당첨금 수령 기한이 지나 결과 대신 만료 상태로 기록했습니다.`,
 						duration: 7000,
