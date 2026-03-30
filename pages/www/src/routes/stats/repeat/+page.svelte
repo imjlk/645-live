@@ -147,7 +147,7 @@ const getRepeatAnalysis = (
 	schema={{
 		'@type': 'Dataset',
 		name: '로또 6/45 연속번호 분석 통계',
-		description: '로또 6/45 연속 회차 간 중복 번호 패턴을 분석한 통계 데이터입니다.',
+		description: '로또 6/45 연속 회차 간 중복 번호 패턴을 분석한 통계 데이터입니다. 전체 회차 기준으로 직전 회차와의 중복 빈도와 연속성 분포를 확인할 수 있습니다.',
 		url: 'https://645.live/stats/repeat',
 		creator: {
 			'@type': 'Organization',

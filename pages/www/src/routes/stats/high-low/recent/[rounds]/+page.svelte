@@ -124,7 +124,7 @@ const highPercentage = $derived(
 	schema={{
 		'@type': 'Dataset',
 		name: `로또 6/45 고저 분석 통계 (최근 ${data.selectedRounds}회차)`,
-		description: `로또 6/45 고저 번호 분포를 분석한 통계 데이터입니다 (최근 ${data.selectedRounds}회차).`,
+		description: `로또 6/45 고저 번호 분포를 분석한 통계 데이터입니다 (최근 ${data.selectedRounds}회차). 최근 회차 기준 저구간과 고구간의 균형 변화와 출현 패턴을 함께 확인할 수 있습니다.`,
 		url: `https://645.live/stats/high-low/recent/${data.selectedRounds}`,
 		creator: {
 			'@type': 'Organization',

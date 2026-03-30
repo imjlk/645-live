@@ -172,7 +172,7 @@ const sortedPatterns = $derived(
 	schema={{
 		'@type': 'Dataset',
 		name: `로또 6/45 끝자리수 분석 통계 (최근 ${data.selectedRounds}회차)`,
-		description: `로또 6/45 끝자리수 분포를 분석한 통계 데이터입니다 (최근 ${data.selectedRounds}회차).`,
+		description: `로또 6/45 끝자리수 분포를 분석한 통계 데이터입니다 (최근 ${data.selectedRounds}회차). 최근 회차 기준 0부터 9까지 끝수별 출현 빈도와 균형 변화를 확인할 수 있습니다.`,
 		url: `https://645.live/stats/unit-digit/recent/${data.selectedRounds}`,
 		creator: {
 			'@type': 'Organization',

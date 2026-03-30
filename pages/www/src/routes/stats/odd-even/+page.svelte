@@ -161,7 +161,7 @@ const breadcrumbItems = [
 	schema={{
 		'@type': 'Dataset',
 		name: '로또 6/45 홀짝 분석 통계',
-		description: '로또 6/45 당첨번호의 홀수/짝수 분포와 번호 합계 패턴을 분석한 통계 데이터입니다.',
+		description: '로또 6/45 당첨번호의 홀수/짝수 분포와 번호 합계 패턴을 분석한 통계 데이터입니다. 전체 회차 기준 홀짝 균형도와 합계 구간 흐름을 함께 확인할 수 있습니다.',
 		url: 'https://645.live/stats/odd-even',
 		creator: {
 			'@type': 'Organization',

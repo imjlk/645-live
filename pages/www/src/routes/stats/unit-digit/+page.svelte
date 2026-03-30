@@ -187,7 +187,7 @@ let digitTotalsMax = $derived(
 	schema={{
 		'@type': 'Dataset',
 		name: '로또 6/45 끝수 분석 통계',
-		description: '로또 6/45 당첨번호의 끝수(0-9) 분포 및 출현 패턴을 분석한 통계 데이터입니다.',
+		description: '로또 6/45 당첨번호의 끝수(0-9) 분포 및 출현 패턴을 분석한 통계 데이터입니다. 전체 회차 기준 끝수별 빈도와 균형 변화를 확인할 수 있습니다.',
 		url: 'https://645.live/stats/unit-digit',
 		creator: {
 			'@type': 'Organization',

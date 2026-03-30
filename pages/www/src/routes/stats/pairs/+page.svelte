@@ -139,7 +139,7 @@ const pairDistributionMax = $derived(
 	schema={{
 		'@type': 'Dataset',
 		name: '로또 6/45 번호쌍 분석 통계',
-		description: '로또 6/45 당첨번호의 동반 출현 패턴 및 번호 쌍 분석 데이터입니다.',
+		description: '로또 6/45 당첨번호의 동반 출현 패턴 및 번호 쌍 분석 데이터입니다. 자주 함께 나온 번호쌍과 전체 회차 기준 동반 출현 흐름을 확인할 수 있습니다.',
 		url: 'https://645.live/stats/pairs',
 		creator: {
 			'@type': 'Organization',

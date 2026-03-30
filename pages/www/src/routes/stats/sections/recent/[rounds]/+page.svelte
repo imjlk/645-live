@@ -147,7 +147,7 @@ const sortedPatterns = $derived(
 	schema={{
 		'@type': 'Dataset',
 		name: `로또 6/45 구간별 분석 통계 (최근 ${data.selectedRounds}회차)`,
-		description: `로또 6/45 구간별 번호 분포를 분석한 통계 데이터입니다 (최근 ${data.selectedRounds}회차).`,
+		description: `로또 6/45 구간별 번호 분포를 분석한 통계 데이터입니다 (최근 ${data.selectedRounds}회차). 최근 회차 기준 1구간부터 5구간까지의 출현 비중과 분포 흐름을 확인할 수 있습니다.`,
 		url: `https://645.live/stats/sections/recent/${data.selectedRounds}`,
 		creator: {
 			'@type': 'Organization',

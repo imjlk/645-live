@@ -153,7 +153,7 @@ const getSumRangeAnalysis = (range: string): string => {
 	schema={{
 		'@type': 'Dataset',
 		name: `로또 6/45 홀짝 분석 통계 - 최근 ${data.selectedRounds}회차`,
-		description: `로또 6/45 최근 ${data.selectedRounds}회차 당첨번호의 홀수/짝수 분포와 번호 합계 패턴을 분석한 통계 데이터입니다.`,
+		description: `로또 6/45 최근 ${data.selectedRounds}회차 당첨번호의 홀수/짝수 분포와 번호 합계 패턴을 분석한 통계 데이터입니다. 최근 회차 기준 홀짝 균형도와 합계 흐름을 함께 확인할 수 있습니다.`,
 		url: `https://645.live/stats/odd-even/recent/${data.selectedRounds}`,
 		creator: {
 			'@type': 'Organization',

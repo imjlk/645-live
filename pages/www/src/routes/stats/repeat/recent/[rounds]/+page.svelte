@@ -147,7 +147,7 @@ const sortedRepeatCounts = $derived(
 	schema={{
 		'@type': 'Dataset',
 		name: `로또 6/45 연속번호 중복 분석 통계 (최근 ${data.selectedRounds}회차)`,
-		description: `로또 6/45 연속 회차 간 중복 번호 패턴을 분석한 통계 데이터입니다 (최근 ${data.selectedRounds}회차).`,
+		description: `로또 6/45 연속 회차 간 중복 번호 패턴을 분석한 통계 데이터입니다 (최근 ${data.selectedRounds}회차). 직전 회차와 겹친 번호 수와 최근 연속성 흐름을 함께 비교할 수 있습니다.`,
 		url: `https://645.live/stats/repeat/recent/${data.selectedRounds}`,
 		creator: {
 			'@type': 'Organization',

@@ -175,7 +175,7 @@ const getSectionBalance = (s1: number, s2: number, s3: number): string => {
 	schema={{
 		'@type': 'Dataset',
 		name: '로또 6/45 구간 분석 통계',
-		description: '로또 6/45 당첨번호의 구간별(1-10, 11-20, 21-30, 31-40, 41-45) 분포를 분석한 통계 데이터입니다.',
+		description: '로또 6/45 당첨번호의 구간별(1-10, 11-20, 21-30, 31-40, 41-45) 분포를 분석한 통계 데이터입니다. 전체 회차 기준 각 구간의 비중과 균형 흐름을 확인할 수 있습니다.',
 		url: 'https://645.live/stats/sections',
 		creator: {
 			'@type': 'Organization',
