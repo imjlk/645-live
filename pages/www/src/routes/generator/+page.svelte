@@ -1,4 +1,5 @@
 <script lang="ts">
+import { resolve } from "$app/paths";
 import { SITE_NAME, SITE_ORIGIN, absoluteUrl } from "$lib/seo/index.js";
 import { getTrailbaseBrowserBaseUrl } from "$lib/trailbase/browser-base";
 import { onMount } from "svelte";
@@ -74,6 +75,48 @@ let sumRange = $state({ min: 100, max: 180, enabled: false });
 let oddEvenRatio = $state({ odd: 3, even: 3, enabled: false });
 let highLowRatio = $state({ high: 3, low: 3, enabled: false });
 let consecutiveCount = $state({ max: 1, enabled: false });
+
+const generatorUseCases = [
+	{
+		title: "포함수 중심으로 번호 만들기",
+		description:
+			"자주 쓰는 숫자 2~3개를 포함수로 고정하고 나머지를 통계 기반으로 채워, 빠르게 여러 조합을 비교할 수 있습니다.",
+	},
+	{
+		title: "제외수 중심으로 위험한 번호 줄이기",
+		description:
+			"이번 회차에 피하고 싶은 번호를 제외수로 두고, 나머지 숫자 중에서 조건에 맞는 조합만 생성할 수 있습니다.",
+	},
+	{
+		title: "통계 필터로 패턴 맞추기",
+		description:
+			"홀짝, 고저, 합계, 연속번호 조건을 함께 써서 원하는 패턴에 가까운 로또 번호 조합만 추릴 수 있습니다.",
+	},
+];
+
+const generatorFilterGuide = [
+	{
+		title: "포함수·제외수 설정",
+		description:
+			"포함수는 반드시 넣고 싶은 번호, 제외수는 빼고 싶은 번호입니다. 포함수는 최대 5개까지 고정할 수 있습니다.",
+	},
+	{
+		title: "홀짝·고저 필터",
+		description:
+			"홀수와 짝수 비율, 높은 번호와 낮은 번호 비율을 맞춰 원하는 조합 형태를 더 좁게 만들 수 있습니다.",
+	},
+	{
+		title: "번호 총합과 연속번호",
+		description:
+			"번호 총합 범위와 연속번호 허용 개수를 제한하면 너무 극단적인 조합을 줄이고 비교하기 쉬운 결과를 만들 수 있습니다.",
+	},
+];
+
+const generatorCautions = [
+	"통계 기반 번호 생성기는 과거 데이터를 참고해 조합을 만드는 도구이며, 특정 번호의 당첨을 보장하지 않습니다.",
+	"필터를 너무 많이 켜면 조건을 만족하는 조합이 줄어들어 생성이 오래 걸리거나 실패할 수 있습니다.",
+	"생성된 번호는 저장된 정답이 아니라 비교용 후보이므로, 실제 구매 전에는 스스로 한 번 더 검토하는 것이 좋습니다.",
+];
 
 onMount(() => {
 	// Load statistics data
@@ -305,14 +348,14 @@ $effect(() => {
 <MetaTags
 	title="로또 번호 생성기"
 	titleTemplate="%s | 645.live"
-	description="🚀 통계 기반 로또번호 생성기! 당첨 확률을 높이는 다양한 필터를 적용하여 나만의 운명 번호를 만들어보세요."
+	description="포함수·제외수, 홀짝·고저·연속번호 필터를 적용해 통계 기반 로또 번호 조합을 생성하세요. 다양한 조건으로 나만의 번호를 빠르게 만들어볼 수 있습니다."
 	canonical={absoluteUrl("/generator")}
 	keywords={['로또', '로또번호', '로또생성기', '로또번호생성기', '로또통계', '제외수']}
 	openGraph={{
 		type: 'website',
 		url: absoluteUrl("/generator"),
 		title: '통계 기반 로또 번호 생성기',
-		description: '🚀 통계 기반으로 당첨 확률을 높이는 나만의 로또 번호를 생성하세요!',
+		description: '포함수·제외수와 홀짝·고저 필터를 적용해 로또 번호 조합을 만들고, 통계 흐름을 참고해 후보를 비교해보세요.',
 		images: [
 			{
 				url: `https://645.live/og?title=${encodeURIComponent('로또 번호 생성기')}&description=${encodeURIComponent('🚀 통계 기반 스마트 번호 생성 | 다양한 필터로 당신만의 운명 번호 만들기')}&layout=centered&theme=dark`,
@@ -327,7 +370,7 @@ $effect(() => {
 		cardType: 'summary_large_image',
 		site: '@645live',
 		title: '통계 기반 로또 번호 생성기',
-		description: '🚀 통계 기반으로 당첨 확률을 높이는 나만의 로또 번호를 생성하세요!',
+		description: '포함수·제외수와 홀짝·고저 필터를 적용해 로또 번호 조합을 만들고 통계 흐름을 비교해보세요.',
 		image: `https://645.live/og?title=${encodeURIComponent('로또 번호 생성기')}&description=${encodeURIComponent('🚀 통계 기반 스마트 번호 생성 | 다양한 필터로 당신만의 운명 번호 만들기')}&layout=centered&theme=dark`,
 		imageAlt: '로또 번호 생성기 트위터 이미지'
 	}}
@@ -339,7 +382,7 @@ $effect(() => {
 		"@type": "WebApplication",
 		name: `로또 번호 생성기 | ${SITE_NAME}`,
 		url: absoluteUrl("/generator"),
-		description: "통계 기반으로 로또 번호 조합을 생성하는 웹 도구",
+		description: "포함수·제외수와 홀짝·고저·연속번호 필터를 적용해 통계 기반 로또 번호 조합을 생성하는 웹 도구입니다.",
 		applicationCategory: "UtilitiesApplication",
 		operatingSystem: "Web Browser",
 		isAccessibleForFree: true,
@@ -353,11 +396,12 @@ $effect(() => {
 
 <div class="container mx-auto max-sm:px-0 px-4 p-8">
 	<h1 class="text-3xl font-bold mb-4">로또 번호 생성기</h1>
-	<p class="mb-8 text-gray-600">
-		통계 데이터를 기반으로 다양한 조건을 적용하여 나만의 로또 번호를 생성해보세요.
+	<p class="mb-8 text-gray-600 leading-7">
+		포함수·제외수, 홀짝·고저·연속번호 조건을 적용해 통계 기반 로또 번호 조합을 빠르게 생성할 수 있습니다.
+		직접 숫자를 고르기 어려울 때 비교용 후보를 만드는 도구로 활용해보세요.
 	</p>
 
-	<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+	<div class="grid grid-cols-1 lg:grid-cols-3 gap-8" data-nosnippet>
 		<!-- Left Column: Controls -->
 		<div class="lg:col-span-2 space-y-4">
 			<!-- Basic Settings -->
@@ -387,7 +431,7 @@ $effect(() => {
 						<div>
 							<h3 class="font-medium mb-3">포함할 번호 (최대 5개)</h3>
 							<div class="grid grid-cols-9 gap-2">
-								{#each Array.from({ length: 45 }, (_, i) => i + 1) as num}
+									{#each Array.from({ length: 45 }, (_, i) => i + 1) as num (num)}
 									<button
 										onclick={() => toggleNumber('included', num)}
 										class="btn btn-sm rounded-full transition-all"
@@ -403,7 +447,7 @@ $effect(() => {
 						<div>
 							<h3 class="font-medium mb-3">제외할 번호</h3>
 							<div class="grid grid-cols-9 gap-2">
-								{#each Array.from({ length: 45 }, (_, i) => i + 1) as num}
+									{#each Array.from({ length: 45 }, (_, i) => i + 1) as num (num)}
 									<button
 										onclick={() => toggleNumber('excluded', num)}
 										class="btn btn-sm rounded-full transition-all"
@@ -477,7 +521,7 @@ $effect(() => {
 								onchange={(e) => { oddEvenRatio.even = 6 - Number(e.currentTarget.value); }}
 								aria-label="홀수 개수"
 							>
-								{#each [0, 1, 2, 3, 4, 5, 6] as n}<option value={n}>{n}</option>{/each}
+									{#each [0, 1, 2, 3, 4, 5, 6] as n (n)}<option value={n}>{n}</option>{/each}
 							</select>
 							<span>:</span>
 							<label for="even-count" class="sr-only">짝수 개수</label>
@@ -511,7 +555,7 @@ $effect(() => {
 								onchange={(e) => { highLowRatio.low = 6 - Number(e.currentTarget.value); }}
 								aria-label="고수 개수 (23-45)"
 							>
-								{#each [0, 1, 2, 3, 4, 5, 6] as n}<option value={n}>{n}</option>{/each}
+									{#each [0, 1, 2, 3, 4, 5, 6] as n (n)}<option value={n}>{n}</option>{/each}
 							</select>
 							<span>:</span>
 							<label for="low-count" class="sr-only">저수 개수</label>
@@ -561,11 +605,11 @@ $effect(() => {
 					<p class="text-gray-500">통계 데이터 로딩 중...</p>
 				{:else if sortedNumberStats.length > 0}
 					<div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 text-sm">
-						{#each sortedNumberStats as stat}
-							<a 
-								href="/stats/numbers/{stat.number}" 
-								class="flex items-center justify-between p-2 rounded-md bg-gray-50 hover:bg-gray-100 transition-colors group"
-							>
+							{#each sortedNumberStats as stat (stat.number)}
+								<a 
+									href={resolve(`/stats/numbers/${stat.number}`)} 
+									class="flex items-center justify-between p-2 rounded-md bg-gray-50 hover:bg-gray-100 transition-colors group"
+								>
 								<div class="w-6 h-6 rounded-full flex items-center justify-center font-bold text-xs {getNumberColor(stat.number)} group-hover:scale-110 transition-transform">
 									{stat.number}
 								</div>
@@ -589,15 +633,15 @@ $effect(() => {
 					<div class="alert alert-error"><span>{error}</span></div>
 				{/if}
 				<div class="space-y-3 mt-4 mb-6">
-					{#if generatedLottoSets.length > 0}
-						{#each generatedLottoSets as set, i}
-							<div class="flex items-center gap-1 p-2 pl-1 rounded-lg hover:bg-gray-50 border border-gray-100">
-								<span class="font-bold text-gray-500 w-6 text-center flex-shrink-0 text-sm">{i + 1}.</span>
-								<div class="flex flex-wrap gap-1 sm:gap-2">
-									{#each set as num}
-										<div class="w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center font-bold text-xs sm:text-sm {getNumberColor(num)} flex-shrink-0">
-											{num}
-										</div>
+						{#if generatedLottoSets.length > 0}
+							{#each generatedLottoSets as set, i (`${i}-${set.join("-")}`)}
+								<div class="flex items-center gap-1 p-2 pl-1 rounded-lg hover:bg-gray-50 border border-gray-100">
+									<span class="font-bold text-gray-500 w-6 text-center flex-shrink-0 text-sm">{i + 1}.</span>
+									<div class="flex flex-wrap gap-1 sm:gap-2">
+										{#each set as num (num)}
+											<div class="w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center font-bold text-xs sm:text-sm {getNumberColor(num)} flex-shrink-0">
+												{num}
+											</div>
 									{/each}
 								</div>
 							</div>
@@ -645,4 +689,73 @@ $effect(() => {
 				</button>
 			</div>
 		{/if}
+
+		<section class="mt-12 rounded-[2rem] border border-base-300 bg-base-100/95 p-6 shadow-sm">
+			<div class="max-w-3xl">
+				<p class="text-xs font-semibold uppercase tracking-[0.18em] text-base-content/50">Tool Guide</p>
+				<h2 class="mt-2 text-2xl font-bold text-base-content">로또 번호 생성기는 무엇을 해주나요?</h2>
+				<p class="mt-3 text-sm leading-7 text-base-content/75 sm:text-base">
+					이 페이지는 로또 번호 생성기이면서 동시에 통계 기반 비교 도구입니다. 포함수·제외수 설정과 홀짝·고저 필터를 함께 써서
+					원하는 패턴에 가까운 번호 조합을 여러 세트로 빠르게 만들어볼 수 있습니다.
+				</p>
+			</div>
+
+			<div class="mt-8 grid gap-4 lg:grid-cols-3">
+				{#each generatorUseCases as item (item.title)}
+					<article class="rounded-3xl border border-base-300/70 bg-base-200/55 p-5">
+						<h3 class="text-lg font-semibold text-base-content">{item.title}</h3>
+						<p class="mt-3 text-sm leading-7 text-base-content/75">{item.description}</p>
+					</article>
+				{/each}
+			</div>
+		</section>
+
+		<section class="mt-8 rounded-[2rem] border border-base-300 bg-base-100/95 p-6 shadow-sm">
+			<div class="mb-6 flex items-end justify-between gap-4 max-sm:flex-col max-sm:items-start">
+				<div>
+					<p class="text-xs font-semibold uppercase tracking-[0.18em] text-base-content/50">Filter Guide</p>
+					<h2 class="mt-2 text-2xl font-bold text-base-content">주요 필터는 어떻게 읽나요?</h2>
+				</div>
+				<p class="max-w-xl text-sm leading-6 text-base-content/65">
+					필터는 정답을 고르는 장치가 아니라, 원하는 조합 형태를 더 빠르게 좁히는 기준으로 보는 것이 좋습니다.
+				</p>
+			</div>
+
+			<div class="grid gap-4 md:grid-cols-3">
+				{#each generatorFilterGuide as item (item.title)}
+					<div class="rounded-3xl border border-base-300/60 bg-base-100 p-5">
+						<h3 class="text-base font-semibold text-base-content">{item.title}</h3>
+						<p class="mt-3 text-sm leading-7 text-base-content/75">{item.description}</p>
+					</div>
+				{/each}
+			</div>
+		</section>
+
+		<section class="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
+			<div class="rounded-[2rem] border border-base-300 bg-base-100/95 p-6 shadow-sm">
+				<p class="text-xs font-semibold uppercase tracking-[0.18em] text-base-content/50">Caution</p>
+				<h2 class="mt-2 text-2xl font-bold text-base-content">번호 생성기 사용 시 주의할 점</h2>
+				<ul class="mt-4 space-y-3 text-sm leading-7 text-base-content/75 sm:text-base">
+					{#each generatorCautions as item (item)}
+						<li>{item}</li>
+					{/each}
+				</ul>
+			</div>
+
+			<aside class="rounded-[2rem] border border-base-300 bg-base-100/95 p-6 shadow-sm">
+				<p class="text-xs font-semibold uppercase tracking-[0.18em] text-base-content/50">Next Step</p>
+				<h2 class="mt-2 text-xl font-bold text-base-content">구매한 용지는 QR 스캔으로 당첨 확인</h2>
+				<p class="mt-3 text-sm leading-7 text-base-content/75">
+					생성한 번호로 실제 용지를 구매했다면, QR 스캔 페이지에서 당첨 여부와 저장 내역을 바로 확인할 수 있습니다.
+				</p>
+				<div class="mt-5">
+					<a
+						href={resolve("/qr-scan")}
+						class="inline-flex items-center rounded-full border border-base-300 bg-base-200 px-4 py-2 text-sm font-medium text-base-content transition hover:bg-base-300"
+					>
+						구매한 용지는 QR 스캔으로 당첨 확인
+					</a>
+				</div>
+			</aside>
+		</section>
 	</div>

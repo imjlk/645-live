@@ -403,10 +403,10 @@ const guideSection = [
 		
 		<div class="flex flex-wrap justify-center gap-2 sm:gap-3 mt-4">
 			<LinkButton href="/qr-scan" class="btn btn-primary btn-sm">
-				QR 스캔하기
+				로또 QR 스캔으로 당첨 확인하기
 			</LinkButton>
 			<LinkButton href="/generator" class="btn btn-secondary btn-sm">
-				번호 생성하기
+				통계 기반 로또 번호 생성기 사용하기
 			</LinkButton>
 			<LinkButton href="/stats/bonus" class="btn btn-outline btn-sm">
 				보너스 번호 통계 보기
@@ -486,7 +486,10 @@ const guideSection = [
 					⚖️ 홀짝·고저·연속번호 패턴 함께 보기
 				</LinkButton>
 				<LinkButton href="/qr-scan" class="btn btn-outline w-full justify-start">
-					📱 QR 스캔 흐름과 당첨 패턴 비교하기
+					📱 로또 QR 스캔으로 당첨 확인하기
+				</LinkButton>
+				<LinkButton href="/generator" class="btn btn-outline w-full justify-start">
+					🎲 통계 기반 로또 번호 생성기 사용하기
 				</LinkButton>
 				<LinkButton href="/history" class="btn btn-outline w-full justify-start">
 					📈 당첨번호 히스토리

@@ -3,6 +3,7 @@
 // @ts-nocheck
 import { browser } from "$app/environment";
 import { enhance } from "$app/forms";
+import { resolve } from "$app/paths";
 import { env } from "$env/dynamic/public";
 import QRScanHistory from "$lib/components/qr-scan/QRScanHistory.svelte";
 import ScanStatusGrid from "$lib/modules/lotto/components/ScanStatusGrid.svelte";
@@ -23,7 +24,7 @@ import {
 	BarqodeStream,
 	type DetectedBarcode,
 } from "barqode";
-import { MetaTags } from "svelte-meta-tags";
+import { JsonLd, MetaTags } from "svelte-meta-tags";
 import { Toaster, toast } from "svelte-sonner";
 import type { ActionData, PageData } from "./$types";
 
@@ -70,6 +71,29 @@ let qrDataInput: HTMLInputElement;
 let scanStatusGrid = $state<ScanStatusGrid>();
 let historyModal = $state();
 let currentRound = $state(0); // QR 스캔 후에 실제 회차로 설정
+
+const qrScanFaqs = [
+	{
+		question: "로또 QR 스캔은 어떻게 사용하나요?",
+		answer:
+			"카메라 권한을 허용한 뒤 로또 용지의 QR 코드를 화면에 비추면 당첨 확인과 저장이 순서대로 진행됩니다. 카메라 대신 이미지 업로드로도 QR을 읽을 수 있습니다.",
+	},
+	{
+		question: "어떤 정보가 저장되나요?",
+		answer:
+			"스캔한 티켓의 회차, 게임 수, 당첨 상태 요약, 스캔 시각 같은 확인용 정보가 저장됩니다. 로그인한 경우에는 내 스캔 내역과 함께 관리될 수 있습니다.",
+	},
+	{
+		question: "여러 QR 코드를 한 번에 비추면 되나요?",
+		answer:
+			"스캔 정확도를 높이려면 한 번에 한 장씩 비추는 것이 좋습니다. 여러 QR이 동시에 보이면 원하는 티켓이 아닌 다른 코드가 먼저 인식될 수 있습니다.",
+	},
+	{
+		question: "어떤 환경에서 잘 동작하나요?",
+		answer:
+			"밝은 조명과 흔들림이 적은 환경에서 가장 안정적입니다. 모바일 브라우저의 후면 카메라를 쓰면 인식률이 더 좋습니다.",
+	},
+];
 
 // ===== LOTTO WINNING CHECK UTILITIES =====
 interface WinningResult {
@@ -871,13 +895,13 @@ async function requestPermission() {
 </script>
 
 <MetaTags
-	title="로또 QR 코드 스캔 - 당첨 확인 및 번호 기록"
-	description="📱 로또 QR 스캔으로 즉시 당첨 확인! 카메라만 갖다대면 당첨여부가 바로 나와요. 번호 기록까지 자동으로!"
+	title="로또 QR 스캔 | QR 코드로 당첨 확인하고 스캔 내역 저장"
+	description="로또 용지 QR 코드를 스캔하거나 이미지를 업로드해 당첨 여부를 확인하세요. 스캔 내역 저장과 발표 전 티켓 추적도 지원합니다."
 	canonical="https://645.live/qr-scan"
 	keywords={["로또QR스캔", "로또당첨확인", "로또스캔", "QR코드스캔", "로또번호확인", "당첨조회", "로또체크", "645스캔"]}
 	openGraph={{
-		title: "로또 QR 코드 스캔 - 당첨 확인",
-		description: "📱 로또 QR 스캔으로 즉시 당첨 확인! 카메라만 갖다대면 당첨여부가 바로 나와요.",
+		title: "로또 QR 스캔 | QR 코드로 당첨 확인",
+		description: "로또 QR 코드를 스캔하거나 이미지를 업로드해 당첨 여부를 확인하고 스캔 내역을 저장할 수 있습니다.",
 		url: "https://645.live/qr-scan",
 		type: "website",
 		siteName: "645.live",
@@ -892,8 +916,8 @@ async function requestPermission() {
 	}}
 	twitter={{
 		cardType: "summary_large_image",
-		title: "로또 QR 코드 스캔 - 당첨 확인",
-		description: "📱 로또 QR 스캔으로 즉시 당첨 확인! 카메라만 갖다대면 당첨여부가 바로 나와요.",
+		title: "로또 QR 스캔 | QR 코드로 당첨 확인",
+		description: "로또 QR 코드를 스캔하거나 이미지를 업로드해 당첨 여부를 확인하고 스캔 내역을 저장할 수 있습니다.",
 		image: `https://645.live/og?title=${encodeURIComponent('로또 QR 스캔')}&description=${encodeURIComponent('즉시 당첨 확인')}`,
 		imageAlt: "로또 QR 코드 스캔"
 	}}
@@ -903,6 +927,34 @@ async function requestPermission() {
 			content: "645.live"
 		}
 	]}
+/>
+
+<JsonLd
+	schema={{
+		"@context": "https://schema.org",
+		"@type": "HowTo",
+		name: "로또 QR 스캔으로 당첨 확인하는 방법",
+		description: "카메라 권한 허용부터 QR 인식, 저장된 스캔 결과 확인까지 로또 QR 스캔 사용 방법을 안내합니다.",
+		image: `https://645.live/og?title=${encodeURIComponent("로또 QR 스캔")}&description=${encodeURIComponent("QR 코드로 당첨 확인")}`,
+		totalTime: "PT1M",
+		step: [
+			{
+				"@type": "HowToStep",
+				name: "카메라 권한 허용",
+				text: "브라우저에서 카메라 접근 권한을 허용하고 QR이 잘 보이도록 화면을 준비합니다.",
+			},
+			{
+				"@type": "HowToStep",
+				name: "QR 코드 인식 또는 이미지 업로드",
+				text: "로또 용지의 QR 코드를 카메라에 비추거나 이미지 파일을 업로드해 코드를 읽습니다.",
+			},
+			{
+				"@type": "HowToStep",
+				name: "당첨 확인 및 저장된 결과 확인",
+				text: "당첨 여부와 회차 정보가 표시되면 스캔 내역에 저장된 결과를 다시 확인할 수 있습니다.",
+			},
+		],
+	}}
 />
 
 <!-- Toaster 컴포넌트 추가 -->
@@ -987,6 +1039,7 @@ async function requestPermission() {
 		<!-- QR Scanner Column (Left on desktop, Top on mobile) -->
 		<div class="order-1 lg:order-1">
 			<div class="w-full max-w-md mx-auto lg:max-w-none min-sm:px-4">
+	<div data-nosnippet>
 	<div class="aspect-square my-4">
 		{#if permissionDenied}
 			<div class="h-full flex flex-col items-center justify-center text-center p-6 bg-base-200 rounded-lg">
@@ -1086,11 +1139,12 @@ async function requestPermission() {
 			</div>
 		</BarqodeDropzone>
 	</div>
+	</div>
 			</div>
 		</div>
 
 		<!-- Scan Status Grid Column (Right on desktop, Bottom on mobile) -->
-		<div class="order-2 lg:order-2">
+		<div class="order-2 lg:order-2" data-nosnippet>
 			<div class="mb-6">
 				<h2 class="text-xl font-bold text-base-content mb-4 min-sm:px-4">
 					회차별 스캔 현황
@@ -1119,6 +1173,68 @@ async function requestPermission() {
 			</div>
 		</div>
 	</div>
+</div>
+
+<div class="w-full max-w-5xl mx-auto mt-10 space-y-8 px-4">
+	<section class="rounded-[2rem] border border-base-300 bg-base-100/95 p-6 shadow-sm">
+		<div class="max-w-3xl">
+			<p class="text-xs font-semibold uppercase tracking-[0.18em] text-base-content/50">Scan Guide</p>
+			<h2 class="mt-2 text-2xl font-bold text-base-content">로또 QR 스캔은 어떻게 사용하나요?</h2>
+			<p class="mt-3 text-sm leading-7 text-base-content/75 sm:text-base">
+				이 페이지에서는 로또 용지의 QR 코드를 카메라로 읽거나 이미지 업로드로 인식해 당첨 여부를 확인할 수 있습니다.
+				구매한 티켓을 다시 확인할 수 있도록 스캔 결과도 함께 저장됩니다.
+			</p>
+		</div>
+
+		<div class="mt-8 grid gap-4 md:grid-cols-3">
+			<div class="rounded-3xl border border-base-300/70 bg-base-200/55 p-5">
+				<p class="text-xs font-semibold uppercase tracking-[0.16em] text-base-content/50">Step 1</p>
+				<h3 class="mt-2 text-lg font-semibold text-base-content">카메라 권한 허용</h3>
+				<p class="mt-3 text-sm leading-7 text-base-content/75">후면 카메라를 사용하면 인식률이 좋습니다. 밝은 조명과 흔들림이 적은 환경을 권장합니다.</p>
+			</div>
+			<div class="rounded-3xl border border-base-300/70 bg-base-200/55 p-5">
+				<p class="text-xs font-semibold uppercase tracking-[0.16em] text-base-content/50">Step 2</p>
+				<h3 class="mt-2 text-lg font-semibold text-base-content">QR 코드 인식 또는 이미지 업로드</h3>
+				<p class="mt-3 text-sm leading-7 text-base-content/75">로또 용지를 카메라에 비추거나 이미지를 업로드하면 QR 데이터를 읽고 회차 정보를 확인합니다.</p>
+			</div>
+			<div class="rounded-3xl border border-base-300/70 bg-base-200/55 p-5">
+				<p class="text-xs font-semibold uppercase tracking-[0.16em] text-base-content/50">Step 3</p>
+				<h3 class="mt-2 text-lg font-semibold text-base-content">당첨 확인 및 스캔 내역 저장</h3>
+				<p class="mt-3 text-sm leading-7 text-base-content/75">당첨 여부와 회차 결과를 확인하고, 다시 확인할 수 있도록 스캔 내역과 요약 정보가 함께 저장됩니다.</p>
+			</div>
+		</div>
+	</section>
+
+	<section class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
+		<div class="rounded-[2rem] border border-base-300 bg-base-100/95 p-6 shadow-sm">
+			<p class="text-xs font-semibold uppercase tracking-[0.18em] text-base-content/50">FAQ</p>
+			<h2 class="mt-2 text-2xl font-bold text-base-content">지원 환경과 주의사항</h2>
+			<div class="mt-5 grid gap-4">
+				{#each qrScanFaqs as item (item.question)}
+					<div class="rounded-3xl border border-base-300/60 bg-base-100 p-5">
+						<h3 class="text-base font-semibold text-base-content">{item.question}</h3>
+						<p class="mt-3 text-sm leading-7 text-base-content/75">{item.answer}</p>
+					</div>
+				{/each}
+			</div>
+		</div>
+
+		<aside class="rounded-[2rem] border border-base-300 bg-base-100/95 p-6 shadow-sm">
+			<p class="text-xs font-semibold uppercase tracking-[0.18em] text-base-content/50">Next Step</p>
+			<h2 class="mt-2 text-xl font-bold text-base-content">통계를 참고해 번호 생성하기</h2>
+			<p class="mt-3 text-sm leading-7 text-base-content/75">
+				QR 스캔으로 결과를 확인했다면, 다음 회차에는 통계 기반 번호 생성기에서 포함수·제외수와 필터를 조합해 후보를 비교해볼 수 있습니다.
+			</p>
+			<div class="mt-5">
+				<a
+					href={resolve("/generator")}
+					class="inline-flex items-center rounded-full border border-base-300 bg-base-200 px-4 py-2 text-sm font-medium text-base-content transition hover:bg-base-300"
+				>
+					통계를 참고해 번호 생성하기
+				</a>
+			</div>
+		</aside>
+	</section>
 </div>
 
 {#if showPermissionModal}

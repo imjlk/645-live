@@ -590,6 +590,28 @@
 		</div>
 	</section>
 
+	<section class="mt-8 rounded-[2rem] border border-base-300 bg-base-100/95 p-6 shadow-sm">
+		<div class="mb-4 flex items-end justify-between gap-4 max-sm:flex-col max-sm:items-start">
+			<div>
+				<p class="stats-section-label">Tools</p>
+				<h2 class="text-2xl font-bold text-base-content">통계와 함께 보면 좋은 도구</h2>
+			</div>
+			<p class="max-w-xl text-sm leading-6 text-base-content/65">
+				통계는 흐름을 이해하는 기준이고, QR 스캔과 번호 생성기는 실제 확인과 비교를 빠르게 도와주는 보조 도구입니다.
+			</p>
+		</div>
+		<div class="grid gap-4 md:grid-cols-2">
+			<a href={resolve("/qr-scan")} class="rounded-3xl border border-base-300/70 bg-base-200/55 p-5 transition hover:bg-base-200">
+				<p class="text-base font-semibold text-base-content">QR 스캔으로 실제 선택 흐름 확인하기</p>
+				<p class="mt-2 text-sm leading-6 text-base-content/70">구매한 로또 용지의 QR 코드를 읽어 당첨 여부와 저장된 스캔 내역을 바로 확인할 수 있습니다.</p>
+			</a>
+			<a href={resolve("/generator")} class="rounded-3xl border border-base-300/70 bg-base-200/55 p-5 transition hover:bg-base-200">
+				<p class="text-base font-semibold text-base-content">통계 기반 번호 생성기 바로 가기</p>
+				<p class="mt-2 text-sm leading-6 text-base-content/70">포함수·제외수와 홀짝·고저 필터를 적용해 원하는 패턴의 번호 조합을 빠르게 만들어볼 수 있습니다.</p>
+			</a>
+		</div>
+	</section>
+
 	<footer class="mt-8 text-sm text-base-content/60">
 		{#if formattedUpdatedAt}
 			최종 업데이트: {formattedUpdatedAt}
