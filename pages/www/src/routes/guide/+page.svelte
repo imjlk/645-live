@@ -63,22 +63,17 @@ const faqData = [
 	},
 ];
 
-const faqMainEntity = Array.from(
-	new Map(
-		faqData.map((faq, index) => [
-			faq.question.trim(),
-			{
-				'@type': 'Question',
-				'@id': `https://645.live/guide#faq-q${index + 1}`,
-				name: faq.question.trim(),
-				acceptedAnswer: {
-					'@type': 'Answer',
-					text: faq.answer.trim()
-				}
-			}
-		])
-	).values()
-);
+const faqSchema = {
+	'@type': 'FAQPage',
+	mainEntity: faqData.map((faq) => ({
+		'@type': 'Question',
+		name: faq.question.trim(),
+		acceptedAnswer: {
+			'@type': 'Answer',
+			text: faq.answer.trim()
+		}
+	}))
+};
 
 // 가이드 섹션 데이터
 const guideSection = [
@@ -353,14 +348,7 @@ const guideSection = [
 	}}
 />
 
-<!-- FAQ Schema -->
-<JsonLd
-	schema={{
-		'@type': 'FAQPage',
-		'@id': 'https://645.live/guide#faq',
-		mainEntity: faqMainEntity
-	}}
-/>
+<JsonLd schema={faqSchema} />
 
 <!-- How-to Guide Schema -->
 <JsonLd
