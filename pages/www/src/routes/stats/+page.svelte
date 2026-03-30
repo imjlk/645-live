@@ -161,10 +161,10 @@
 		"@type": "FAQPage",
 		mainEntity: faqItems.map((item) => ({
 			"@type": "Question",
-			name: item.question,
+			name: item.question.trim(),
 			acceptedAnswer: {
 				"@type": "Answer",
-				text: item.answer,
+				text: item.answer.trim(),
 			},
 		})),
 	};
