@@ -133,18 +133,18 @@ function getScanIcon(item: QRScanHistoryItem): string {
 function getScanBgColor(item: QRScanHistoryItem): string {
 	if (item.resultStatus === "winner") {
 		if (item.winningGrade === "1등" || item.winningGrade === "2등") {
-			return "bg-gradient-to-r from-yellow-100 to-orange-100 border-yellow-300";
+			return "bg-gradient-to-r from-yellow-100 to-orange-100 border-yellow-300 dark:from-yellow-950/70 dark:to-orange-950/70 dark:border-yellow-800";
 		}
-		return "bg-gradient-to-r from-green-50 to-blue-50 border-green-300";
+		return "bg-gradient-to-r from-green-50 to-blue-50 border-green-300 dark:from-green-950/60 dark:to-blue-950/60 dark:border-green-800";
 	}
 	if (item.resultStatus === "expired") {
-		return "bg-gradient-to-r from-rose-50 to-orange-50 border-rose-300";
+		return "bg-gradient-to-r from-rose-50 to-orange-50 border-rose-300 dark:from-rose-950/60 dark:to-orange-950/60 dark:border-rose-800";
 	}
 	if (item.resultStatus === "unreleased") {
-		return "bg-gradient-to-r from-amber-50 to-yellow-50 border-amber-300";
+		return "bg-gradient-to-r from-amber-50 to-yellow-50 border-amber-300 dark:from-amber-950/60 dark:to-yellow-950/60 dark:border-amber-800";
 	}
 	if (item.resultStatus === "unknown") {
-		return "bg-gradient-to-r from-slate-50 to-gray-100 border-slate-300";
+		return "bg-gradient-to-r from-slate-50 to-gray-100 border-slate-300 dark:from-slate-900 dark:to-slate-800 dark:border-slate-700";
 	}
 	return "bg-base-100 border-base-300";
 }
@@ -233,9 +233,9 @@ loadHistory();
 <!-- Modal -->
 {#if showModal}
 	<div class="modal modal-open">
-		<div class="modal-box max-w-2xl max-h-[50vh] p-0">
+		<div class="modal-box max-w-2xl max-h-[50vh] p-0 bg-base-100 text-base-content shadow-2xl">
 			<!-- Header -->
-			<div class="sticky top-0 bg-base-100 border-b border-base-300 p-6 z-10">
+			<div class="sticky top-0 bg-base-100 border-b border-base-300 p-6 z-10 text-base-content">
 				<div class="flex items-center justify-between">
 					<div>
 						<h3 class="font-bold text-lg">QR 스캔 히스토리</h3>
@@ -311,7 +311,7 @@ loadHistory();
 				{:else}
 					{#each historyItems as item (item.id)}
 						{@const statusBadge = getStatusBadge(item)}
-						<div class="card border {getScanBgColor(item)} transition-all hover:shadow-md mb-1">
+						<div class="card border text-base-content {getScanBgColor(item)} transition-all hover:shadow-md mb-1">
 							<div class="card-body p-2">
 								<div class="flex items-start justify-between">
 									<div class="flex items-start gap-3 flex-1">
@@ -320,7 +320,7 @@ loadHistory();
 										</div>
 										<div class="flex-1 min-w-0">
 											<div class="flex items-center gap-2 mb-1">
-												<h4 class="font-semibold text-sm truncate">
+												<h4 class="font-semibold text-sm truncate text-base-content">
 													{item.summary}
 												</h4>
 												{#if statusBadge}
@@ -353,7 +353,7 @@ loadHistory();
 													</p>
 												{/if}
 												{#if getLottoNumbers(item.qrData)}
-													<div class="p-1 bg-base-200 rounded text-xs">
+													<div class="p-1 bg-base-200/90 dark:bg-base-300/20 rounded text-xs">
 														<span class="font-medium text-base-content/80">번호:</span>
 														<span class="pl-1 text-base-content/70 font-mono text-xs leading-relaxed">
 															{getLottoNumbers(item.qrData)}
@@ -364,7 +364,7 @@ loadHistory();
 										</div>
 									</div>
 									<button 
-										class="btn btn-ghost btn-xs opacity-50 hover:opacity-100"
+										class="btn btn-ghost btn-xs text-base-content/70 opacity-60 hover:opacity-100 hover:text-base-content"
 										onclick={() => deleteScan(item.id)}
 										title="이 기록 삭제"
 										aria-label="이 기록 삭제"
@@ -382,7 +382,7 @@ loadHistory();
 
 			<!-- Footer -->
 			{#if historyItems.length > 0}
-				<div class="sticky bottom-0 bg-base-100 border-t border-base-300 p-4">
+				<div class="sticky bottom-0 bg-base-100 border-t border-base-300 p-4 text-base-content">
 					<div class="flex justify-between items-center text-xs text-base-content/60">
 						<span>로그인하지 않은 스캔 내역은 최대 1주일 동안 보관됩니다</span>
 						<span>최대 100개까지 저장됩니다</span>
