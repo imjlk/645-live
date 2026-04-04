@@ -27,9 +27,13 @@ function checkLoginStatus() {
 async function loadHistory() {
 	if (!browser) return;
 	try {
+		checkLoginStatus();
+		const refreshResult = await qrScanHistory.refreshPendingResults();
+		if (refreshResult.updated > 0 && isLoggedIn) {
+			void syncHistory();
+		}
 		historyItems = await qrScanHistory.getHistory();
 		todayScansCount = await qrScanHistory.getTotalScansToday();
-		checkLoginStatus();
 	} catch (error) {
 		console.error("히스토리 로드 실패:", error);
 		historyItems = [];

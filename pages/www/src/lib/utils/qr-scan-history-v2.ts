@@ -10,6 +10,14 @@
 
 import { browser } from "$app/environment";
 import { isClaimExpired } from "./claim-window.js";
+import {
+	calculateClaimWindow,
+	estimateDrawDateFromRound,
+} from "./claim-window.js";
+import {
+	getLatestLottoRoundFromAPI,
+	getLottoNumbersFromAPI,
+} from "./lotto-common.js";
 import { parseLottoQR } from "./lotto-parser.js";
 
 const LOCAL_HISTORY_RETENTION_DAYS = 7;
@@ -65,6 +73,13 @@ export interface QRScanHistoryStats {
 	uniqueRounds: number;
 	lastScanAt?: Date;
 }
+
+type StoredWinningResult = {
+	isWinner: boolean;
+	grade: string;
+	matchCount: number;
+	bonusMatch: boolean;
+};
 
 function isValidResultStatus(value: unknown): value is QRScanResultStatus {
 	return (
@@ -207,6 +222,96 @@ export function deriveScanResultStatus(options: {
 	return "unknown";
 }
 
+function checkLottoWinning(
+	userNumbers: number[],
+	winningNumbers: number[],
+	bonusNumber: number,
+): StoredWinningResult {
+	const matchCount = userNumbers.filter((num) =>
+		winningNumbers.includes(num),
+	).length;
+	const bonusMatch = userNumbers.includes(bonusNumber);
+
+	if (matchCount === 6) {
+		return {
+			isWinner: true,
+			grade: "1등",
+			matchCount,
+			bonusMatch,
+		};
+	}
+
+	if (matchCount === 5 && bonusMatch) {
+		return {
+			isWinner: true,
+			grade: "2등",
+			matchCount,
+			bonusMatch,
+		};
+	}
+
+	if (matchCount === 5) {
+		return {
+			isWinner: true,
+			grade: "3등",
+			matchCount,
+			bonusMatch,
+		};
+	}
+
+	if (matchCount === 4) {
+		return {
+			isWinner: true,
+			grade: "4등",
+			matchCount,
+			bonusMatch,
+		};
+	}
+
+	if (matchCount === 3) {
+		return {
+			isWinner: true,
+			grade: "5등",
+			matchCount,
+			bonusMatch,
+		};
+	}
+
+	return {
+		isWinner: false,
+		grade: "",
+		matchCount,
+		bonusMatch,
+	};
+}
+
+function getHighestWinningGrade(
+	winningResults: StoredWinningResult[],
+): string | undefined {
+	const winners = winningResults.filter((result) => result.isWinner);
+	if (winners.length === 0) {
+		return undefined;
+	}
+
+	const gradeOrder: Record<string, number> = {
+		"1등": 1,
+		"2등": 2,
+		"3등": 3,
+		"4등": 4,
+		"5등": 5,
+	};
+
+	return winners.reduce((highest, current) => {
+		if (!highest) {
+			return current.grade;
+		}
+
+		return gradeOrder[current.grade] < gradeOrder[highest]
+			? current.grade
+			: highest;
+	}, "" as string);
+}
+
 // ===== Storage Provider 인터페이스 =====
 
 export interface QRScanStorageProvider {
@@ -275,6 +380,11 @@ export interface QRScanHistoryManager {
 	getScanById(id: string): Promise<QRScanHistoryItem | null>;
 	getStats(): Promise<QRScanHistoryStats>;
 	getTotalScansToday(): Promise<number>;
+	refreshPendingResults(latestRoundHint?: number): Promise<{
+		checked: number;
+		updated: number;
+		latestRound: number;
+	}>;
 
 	// 회원 관리
 	setUserId(userId: string | null): void;
@@ -824,6 +934,124 @@ export class QRScanHistoryManagerImpl implements QRScanHistoryManager {
 	async getTotalScansToday(): Promise<number> {
 		const stats = await this.getStats();
 		return stats.todayScans;
+	}
+
+	async refreshPendingResults(latestRoundHint?: number): Promise<{
+		checked: number;
+		updated: number;
+		latestRound: number;
+	}> {
+		const provider = this.getCurrentProvider();
+		const items = await this.getHistory();
+		const latestRoundInfo = latestRoundHint
+			? { drwNo: latestRoundHint }
+			: await getLatestLottoRoundFromAPI();
+		const latestRound = latestRoundInfo?.drwNo ?? 0;
+
+		if (latestRound <= 0) {
+			return { checked: 0, updated: 0, latestRound: 0 };
+		}
+
+		const candidates = items.filter(
+			(item) =>
+				(item.resultStatus === "unreleased" || item.resultStatus === "unknown") &&
+				typeof item.round === "number" &&
+				item.round > 0 &&
+				item.round <= latestRound,
+		);
+
+		let updated = 0;
+
+		for (const item of candidates) {
+			const parsedGames = parseLottoQR(item.qrData);
+			if (!parsedGames || parsedGames.length === 0 || !item.round) {
+				continue;
+			}
+
+			const winningData = await getLottoNumbersFromAPI(item.round);
+			if (
+				!winningData ||
+				(winningData.drwtNo1 === 0 &&
+					winningData.drwtNo2 === 0 &&
+					winningData.drwtNo3 === 0)
+			) {
+				continue;
+			}
+
+			const claimWindow = calculateClaimWindow(
+				winningData.drwNoDate || estimateDrawDateFromRound(item.round),
+			);
+			const isExpired = isClaimExpired(claimWindow.claimDeadlineAt);
+			let nextResultStatus: QRScanResultStatus;
+			let winningGrade: string | undefined;
+			let isWinner = false;
+
+			if (isExpired) {
+				nextResultStatus = "expired";
+			} else {
+				const winningNumbers = [
+					winningData.drwtNo1,
+					winningData.drwtNo2,
+					winningData.drwtNo3,
+					winningData.drwtNo4,
+					winningData.drwtNo5,
+					winningData.drwtNo6,
+				];
+				const winningResults = parsedGames.map((game) =>
+					checkLottoWinning(game.numbers, winningNumbers, winningData.bnusNo),
+				);
+				isWinner = winningResults.some((result) => result.isWinner);
+				winningGrade = getHighestWinningGrade(winningResults);
+				nextResultStatus = deriveScanResultStatus({
+					isWinner,
+					isExpired,
+				});
+			}
+
+			const nextSummary = generateScanSummary({
+				round: item.round,
+				gamesCount: item.gamesCount,
+				resultStatus: nextResultStatus,
+				isWinner,
+				winningGrade,
+				isExpired,
+			});
+
+			const hasChanged =
+				item.resultStatus !== nextResultStatus ||
+				(item.winningGrade ?? "") !== (winningGrade ?? "") ||
+				item.summary !== nextSummary ||
+				item.lastCheckedAt === undefined ||
+				item.lastCheckedAt === null ||
+				item.isWinner !== isWinner;
+
+			if (!hasChanged) {
+				continue;
+			}
+
+			await provider.updateItem(item.id, {
+				resultStatus: nextResultStatus,
+				isWinner,
+				winningGrade,
+				lastCheckedAt: new Date(),
+				claimStartAt: new Date(claimWindow.claimStartAt),
+				claimDeadlineAt: new Date(claimWindow.claimDeadlineAt),
+				summary: nextSummary,
+				syncStatus: this.currentUserId ? "pending" : item.syncStatus,
+			});
+
+			if (this.currentUserId && provider.markForSync) {
+				await provider.markForSync(item.id);
+			}
+
+			updated += 1;
+		}
+
+		return {
+			checked: candidates.length,
+			updated,
+			latestRound,
+		};
 	}
 
 	// === 동기화 관리 ===

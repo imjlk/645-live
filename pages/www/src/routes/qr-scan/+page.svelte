@@ -24,6 +24,7 @@ import {
 	BarqodeStream,
 	type DetectedBarcode,
 } from "barqode";
+import { onMount } from "svelte";
 import { JsonLd, MetaTags } from "svelte-meta-tags";
 import { Toaster, toast } from "svelte-sonner";
 import type { ActionData, PageData } from "./$types";
@@ -303,6 +304,7 @@ let processingQRData = $state<string | null>(null);
 let processingTicketHash = $state<string | null>(null);
 
 const QR_SCAN_COOLDOWN_MS = 500;
+const HISTORY_REFRESH_INTERVAL_MS = 30_000;
 
 // 최근 처리한 티켓 해시들 (짧은 재감지 쿨다운용)
 let recentScannedTicketHashes = $state(new Set<string>());
@@ -314,6 +316,8 @@ let sessionStoredTicketHashes = $state(new Set<string>());
 const recentToastKeys = new Map<string, number>();
 const TOAST_DEDUP_MS = QR_SCAN_COOLDOWN_MS;
 const PROCESSING_TOAST_DEDUP_MS = 800;
+let lastHistoryRefreshAt = 0;
+let historyRefreshInFlight: Promise<number> | null = null;
 
 function shouldShowToast(key: string, dedupMs = TOAST_DEDUP_MS) {
 	const now = Date.now();
@@ -380,6 +384,57 @@ function clearQRCooldown(ticketHash: string) {
 		recentScannedTicketHashes.delete(ticketHash);
 		recentScannedTicketHashes = new Set(recentScannedTicketHashes); // 반응성을 위한 재할당
 	}, QR_SCAN_COOLDOWN_MS);
+}
+
+async function refreshStoredScanResults(
+	options: { notify?: boolean; force?: boolean } = {},
+) {
+	if (!browser) {
+		return 0;
+	}
+
+	const { notify = false, force = false } = options;
+	const now = Date.now();
+
+	if (
+		!force &&
+		now - lastHistoryRefreshAt < HISTORY_REFRESH_INTERVAL_MS
+	) {
+		return 0;
+	}
+
+	if (historyRefreshInFlight) {
+		return historyRefreshInFlight;
+	}
+
+	lastHistoryRefreshAt = now;
+	historyRefreshInFlight = (async () => {
+		try {
+			const result = await qrScanHistory.refreshPendingResults();
+
+			if (result.updated > 0) {
+				if (qrScanHistory.getUserId()) {
+					void syncMemberScanHistory();
+				}
+
+				if (notify) {
+					toast.success("🔄 저장된 스캔 결과를 갱신했습니다", {
+						description: `발표가 완료된 ${result.updated}개 티켓을 최신 당첨 결과로 다시 확인했습니다.`,
+						duration: 5000,
+					});
+				}
+			}
+
+			return result.updated;
+		} catch (refreshError) {
+			console.error("저장된 스캔 결과 갱신 실패:", refreshError);
+			return 0;
+		} finally {
+			historyRefreshInFlight = null;
+		}
+	})();
+
+	return historyRefreshInFlight;
 }
 
 // QR 데이터를 서버 액션으로 제출하는 함수
@@ -892,6 +947,32 @@ async function requestPermission() {
 		showPermissionModal = true;
 	}
 }
+
+onMount(() => {
+	void refreshStoredScanResults({ notify: true, force: true });
+
+	const handleFocus = () => {
+		void refreshStoredScanResults();
+	};
+	const handleOnline = () => {
+		void refreshStoredScanResults({ force: true });
+	};
+	const handleVisibilityChange = () => {
+		if (document.visibilityState === "visible") {
+			void refreshStoredScanResults();
+		}
+	};
+
+	window.addEventListener("focus", handleFocus);
+	window.addEventListener("online", handleOnline);
+	document.addEventListener("visibilitychange", handleVisibilityChange);
+
+	return () => {
+		window.removeEventListener("focus", handleFocus);
+		window.removeEventListener("online", handleOnline);
+		document.removeEventListener("visibilitychange", handleVisibilityChange);
+	};
+});
 </script>
 
 <MetaTags
