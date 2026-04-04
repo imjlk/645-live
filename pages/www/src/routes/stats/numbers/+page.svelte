@@ -108,6 +108,7 @@ const numberStatsOgDescription = $derived(
 			"@type": "Organization",
 			name: "645.live",
 		},
+		license: "https://645.live/terms-of-service",
 	}}
 />
 

@@ -112,6 +112,7 @@ const breadcrumbItems = [
 			'@type': 'Organization',
 			name: '645.live'
 		},
+		license: 'https://645.live/terms-of-service',
 		temporalCoverage: `1회차/${data.totalRounds}회차`,
 		spatial: {
 			'@type': 'Country',
