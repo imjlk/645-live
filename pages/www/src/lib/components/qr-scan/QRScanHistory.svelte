@@ -185,20 +185,11 @@ function getLottoNumbers(qrData: string): string {
 		const games = parseLottoQR(qrData);
 		if (!games || games.length === 0) return "";
 
-		// 최대 3개 게임까지만 표시, 나머지는 "외 N개"로 표시
-		const displayGames = games.slice(0, 3);
-		const remainingCount = Math.max(0, games.length - 3);
-
-		const gameTexts = displayGames.map((game) =>
-			game.numbers.sort((a, b) => a - b).join(", "),
+		const gameTexts = games.map((game, index) =>
+			`${index + 1}게임  ${game.numbers.sort((a, b) => a - b).join(", ")}`,
 		);
 
-		let result = gameTexts.join(" | ");
-		if (remainingCount > 0) {
-			result += ` 외 ${remainingCount}개`;
-		}
-
-		return result;
+		return gameTexts.join("\n");
 	} catch (error) {
 		return "";
 	}
@@ -353,11 +344,11 @@ loadHistory();
 													</p>
 												{/if}
 												{#if getLottoNumbers(item.qrData)}
-													<div class="p-1 bg-base-200/90 dark:bg-base-300/20 rounded text-xs">
-														<span class="font-medium text-base-content/80">번호:</span>
-														<span class="pl-1 text-base-content/70 font-mono text-xs leading-relaxed">
+													<div class="p-2 bg-base-200/90 dark:bg-base-300/20 rounded text-xs">
+														<div class="font-medium text-base-content/80">번호</div>
+														<div class="mt-1 whitespace-pre-line text-base-content/70 font-mono text-xs leading-relaxed">
 															{getLottoNumbers(item.qrData)}
-														</span>
+														</div>
 													</div>
 												{/if}
 											</div>
