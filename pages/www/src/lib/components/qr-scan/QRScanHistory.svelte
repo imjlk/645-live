@@ -1,5 +1,7 @@
 <script lang="ts">
 import { browser } from "$app/environment";
+import SimpleBall from "$lib/components/SimpleBall.svelte";
+import { getLottoNumbersFromAPI } from "$lib/utils/lotto-common.js";
 import { parseLottoQR } from "$lib/utils/lotto-parser.js";
 import {
 	type QRScanHistoryItem,
@@ -15,6 +17,31 @@ let historyItems = $state<QRScanHistoryItem[]>([]);
 let todayScansCount = $state(0);
 let syncStatus = $state<"idle" | "syncing" | "success" | "error">("idle");
 let isLoggedIn = $state(false);
+type ParsedGame = {
+	round?: number;
+	numbers: number[];
+};
+
+type WinningDrawPreview = {
+	winningNumbers: number[];
+	bonusNumber: number;
+	drawDate: string;
+};
+
+let winningDrawsByRound = $state<Record<number, WinningDrawPreview | null>>({});
+const parsedGamesByItemId = $derived.by(() => {
+	const parsedGames: Record<string, ParsedGame[]> = {};
+
+	for (const item of historyItems) {
+		const games = parseLottoQR(item.qrData) ?? [];
+		parsedGames[item.id] = games.map((game) => ({
+			round: game.round,
+			numbers: [...game.numbers].sort((a, b) => a - b),
+		}));
+	}
+
+	return parsedGames;
+});
 
 // Check login status
 function checkLoginStatus() {
@@ -32,7 +59,9 @@ async function loadHistory() {
 		if (refreshResult.updated > 0 && isLoggedIn) {
 			void syncHistory();
 		}
-		historyItems = await qrScanHistory.getHistory();
+		const nextHistoryItems = await qrScanHistory.getHistory();
+		historyItems = nextHistoryItems;
+		await loadWinningDraws(nextHistoryItems);
 		todayScansCount = await qrScanHistory.getTotalScansToday();
 	} catch (error) {
 		console.error("히스토리 로드 실패:", error);
@@ -179,19 +208,129 @@ function formatScanDate(date: Date): string {
 	});
 }
 
-// Get lotto numbers from QR data
-function getLottoNumbers(qrData: string): string {
+function isReleasedDraw(
+	winningData: Awaited<ReturnType<typeof getLottoNumbersFromAPI>>,
+): winningData is NonNullable<Awaited<ReturnType<typeof getLottoNumbersFromAPI>>> {
+	if (!winningData) {
+		return false;
+	}
+
+	return !(
+		winningData.drwtNo1 === 0 &&
+		winningData.drwtNo2 === 0 &&
+		winningData.drwtNo3 === 0
+	);
+}
+
+async function loadWinningDraws(items: QRScanHistoryItem[]) {
+	const rounds = Array.from(
+		new Set(
+			items
+				.filter(
+					(item): item is QRScanHistoryItem & { round: number } =>
+						typeof item.round === "number" &&
+						item.round > 0 &&
+						item.resultStatus !== "unreleased",
+				)
+				.map((item) => item.round),
+		),
+	);
+
+	const missingRounds = rounds.filter((round) => !(round in winningDrawsByRound));
+	if (missingRounds.length === 0) {
+		return;
+	}
+
+	const fetchedEntries = await Promise.all(
+		missingRounds.map(async (round) => {
+			try {
+				const winningData = await getLottoNumbersFromAPI(round);
+				if (!isReleasedDraw(winningData)) {
+					return [round, null] as const;
+				}
+
+				return [
+					round,
+					{
+						winningNumbers: [
+							winningData.drwtNo1,
+							winningData.drwtNo2,
+							winningData.drwtNo3,
+							winningData.drwtNo4,
+							winningData.drwtNo5,
+							winningData.drwtNo6,
+						],
+						bonusNumber: winningData.bnusNo,
+						drawDate: winningData.drwNoDate,
+					},
+				] as const;
+			} catch (error) {
+				console.error(`${round}회차 당첨 번호 로드 실패:`, error);
+				return [round, null] as const;
+			}
+		}),
+	);
+
+	winningDrawsByRound = {
+		...winningDrawsByRound,
+		...Object.fromEntries(fetchedEntries),
+	};
+}
+
+function getMatchCount(numbers: number[], winningDraw: WinningDrawPreview | null): number {
+	if (!winningDraw) {
+		return 0;
+	}
+
+	return numbers.filter((number) => winningDraw.winningNumbers.includes(number))
+		.length;
+}
+
+function hasBonusMatch(
+	numbers: number[],
+	winningDraw: WinningDrawPreview | null,
+): boolean {
+	return winningDraw ? numbers.includes(winningDraw.bonusNumber) : false;
+}
+
+function getMatchSummary(
+	numbers: number[],
+	winningDraw: WinningDrawPreview | null,
+): string | null {
+	const matchCount = getMatchCount(numbers, winningDraw);
+	const bonusMatch = hasBonusMatch(numbers, winningDraw);
+
+	if (matchCount === 0 && !bonusMatch) {
+		return null;
+	}
+
+	if (bonusMatch && matchCount > 0) {
+		return `${matchCount}개 일치 + 보너스`;
+	}
+
+	if (bonusMatch) {
+		return "보너스 일치";
+	}
+
+	return `${matchCount}개 일치`;
+}
+
+function getWinningDraw(round?: number): WinningDrawPreview | null {
+	if (typeof round !== "number") {
+		return null;
+	}
+
+	return winningDrawsByRound[round] ?? null;
+}
+
+function formatWinningDrawDate(drawDate: string): string {
 	try {
-		const games = parseLottoQR(qrData);
-		if (!games || games.length === 0) return "";
-
-		const gameTexts = games.map((game, index) =>
-			`${index + 1}게임  ${game.numbers.sort((a, b) => a - b).join(", ")}`,
-		);
-
-		return gameTexts.join("\n");
-	} catch (error) {
-		return "";
+		return new Date(drawDate).toLocaleDateString("ko-KR", {
+			month: "short",
+			day: "numeric",
+		});
+	} catch {
+		return drawDate;
 	}
 }
 
@@ -302,6 +441,8 @@ loadHistory();
 				{:else}
 					{#each historyItems as item (item.id)}
 						{@const statusBadge = getStatusBadge(item)}
+						{@const winningDraw = getWinningDraw(item.round)}
+						{@const parsedGames = parsedGamesByItemId[item.id] ?? []}
 						<div class="card border text-base-content {getScanBgColor(item)} transition-all hover:shadow-md mb-1">
 							<div class="card-body p-2">
 								<div class="flex items-start justify-between">
@@ -343,11 +484,54 @@ loadHistory();
 														{/if}
 													</p>
 												{/if}
-												{#if getLottoNumbers(item.qrData)}
-													<div class="p-2 bg-base-200/90 dark:bg-base-300/20 rounded text-xs">
-														<div class="font-medium text-base-content/80">번호</div>
-														<div class="mt-1 whitespace-pre-line text-base-content/70 font-mono text-xs leading-relaxed">
-															{getLottoNumbers(item.qrData)}
+												{#if parsedGames.length > 0}
+													<div class="rounded-lg bg-base-200/90 p-2 text-xs dark:bg-base-300/20">
+														{#if winningDraw}
+															<div class="rounded-md border border-warning/30 bg-warning/10 p-2">
+																<div class="flex items-center justify-between gap-2">
+																	<div class="font-medium text-base-content/80">당첨 번호</div>
+																	<div class="text-[11px] text-base-content/50">
+																		{formatWinningDrawDate(winningDraw.drawDate)} 추첨
+																	</div>
+																</div>
+																<div class="mt-1 flex flex-wrap items-center gap-1.5">
+																	{#each winningDraw.winningNumbers as number (number)}
+																		<SimpleBall number={number} isWinning={true} size="sm" />
+																	{/each}
+																	<span class="px-1 text-[11px] font-semibold text-base-content/60">
+																		보너스
+																	</span>
+																	<SimpleBall number={winningDraw.bonusNumber} isBonus={true} size="sm" />
+																</div>
+															</div>
+														{/if}
+
+														<div class="mt-2 space-y-2">
+															{#each parsedGames as game, index (`${item.id}-${index}`)}
+																{@const matchSummary = getMatchSummary(game.numbers, winningDraw)}
+																<div class="rounded-md bg-base-100/80 p-2">
+																	<div class="flex items-center justify-between gap-2">
+																		<div class="font-medium text-base-content/80">
+																			{index + 1}게임
+																		</div>
+																		{#if matchSummary}
+																			<div class="badge badge-outline badge-sm border-info/60 bg-info/10 font-bold text-info">
+																				{matchSummary}
+																			</div>
+																		{/if}
+																	</div>
+																	<div class="mt-1 flex flex-wrap gap-1.5">
+																		{#each game.numbers as number (`${item.id}-${index}-${number}`)}
+																			<SimpleBall
+																				number={number}
+																				isWinning={winningDraw ? winningDraw.winningNumbers.includes(number) : false}
+																				isBonus={winningDraw ? winningDraw.bonusNumber === number : false}
+																				size="sm"
+																			/>
+																		{/each}
+																	</div>
+																</div>
+															{/each}
 														</div>
 													</div>
 												{/if}
