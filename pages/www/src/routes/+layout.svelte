@@ -1,17 +1,18 @@
 <script lang="ts">
 import { page } from "$app/state";
+import { browser } from "$app/environment";
+import { onMount } from "svelte";
+import { NuqsAdapter } from "nuqs-svelte/adapters/svelte-kit";
 import Header from "$lib/layout/Header.svelte";
 import MobileNavigation from "$lib/layout/MobileNavigation.svelte";
 import NavigationMenu from "$lib/layout/NavigationMenu.svelte";
-import "../app.css";
-import { browser } from "$app/environment";
+import Footer from "$lib/layout/Footer.svelte";
 import InstallPrompt from "$lib/components/ui/InstallPrompt.svelte";
 import UpdatePrompt from "$lib/components/ui/UpdatePrompt.svelte";
-import Footer from "$lib/layout/Footer.svelte";
+import { syncWebMcpContext } from "$lib/agent/webmcp";
+import "../app.css";
 import { getTrailbaseBrowserBaseUrl } from "$lib/trailbase/browser-base";
 import { initializeGlobalConnection } from "$lib/trailbase/global-connection.svelte";
-import { NuqsAdapter } from "nuqs-svelte/adapters/svelte-kit";
-import { onMount } from "svelte";
 
 let { data, children } = $props();
 import { preparePageTransition } from "$lib/layout/page-transition";
@@ -136,6 +137,17 @@ $effect(() => {
 	}
 
 	configureMemberScanSync(data.session?.user?.id ?? null);
+});
+
+$effect(() => {
+	if (!browser) {
+		return;
+	}
+
+	void syncWebMcpContext({
+		pathname: currentPath,
+		isSignedIn: !!data.session?.user?.id,
+	});
 });
 </script>
 

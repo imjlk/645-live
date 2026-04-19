@@ -28,7 +28,15 @@ export const createOrpcFetchHandler = <
 		);
 
 		if (!result.matched) {
-			return new Response("Not Found", { status: 404 });
+			return Response.json(
+				{
+					error: "endpoint_not_found",
+					code: "RPC_ENDPOINT_NOT_FOUND",
+					message: `No RPC endpoint exists for ${new URL(request.url).pathname}.`,
+					hint: "Use /docs or /api/openapi.json for the public API surface, or inspect the 645.live RPC contract.",
+				},
+				{ status: 404 },
+			);
 		}
 
 		return new Response(result.response.body, {

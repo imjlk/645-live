@@ -1,0 +1,28 @@
+{
+	"name": "@645live/cli",
+	"version": "0.1.0",
+	"description": "Official CLI for the 645.live public API",
+	"type": "module",
+	"main": "./src/index.ts",
+	"types": "./src/index.ts",
+	"bin": {
+		"645live": "./dist/cli.js"
+	},
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"files": ["dist", "src", "README.md"],
+	"scripts": {
+		"build": "rm -rf dist && bunx tsc -p tsconfig.json && chmod +x dist/cli.js",
+		"check": "bunx tsc --noEmit -p tsconfig.json"
+	},
+	"keywords": ["645.live", "lotto", "cli", "typescript"],
+	"author": "645.live",
+	"license": "MIT",
+	"publishConfig": {
+		"access": "public"
+	},
+	"devDependencies": {
+		"typescript": "^5.9.3"
+	}
+}

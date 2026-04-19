@@ -1,18 +1,35 @@
 User-agent: *
 Allow: /
+Content-Signal: ai-train=no, search=yes, ai-input=yes
 
 # Allow all lotto number pages
 Allow: /n/
 Allow: /stats/
 Allow: /generator
 Allow: /news/
+Allow: /.well-known/
+Allow: /docs
+Allow: /compare
+Allow: /status
+Allow: /api/
 
 # Utility pages such as /login and /my are intentionally omitted from the sitemap
 # and controlled via page-level noindex directives.
 
 # Block admin or private areas if any exist
-Disallow: /api/
+Disallow: /rpc/
+Disallow: /auth/
+Disallow: /sign-out
+Disallow: /my
 Disallow: /news/sample
+
+User-agent: CCBot
+Disallow: /
+Content-Signal: ai-train=no, search=yes, ai-input=no
+
+User-agent: Bytespider
+Disallow: /
+Content-Signal: ai-train=no, search=yes, ai-input=no
 
 # Sitemap location
 Sitemap: https://645.live/sitemap.xml

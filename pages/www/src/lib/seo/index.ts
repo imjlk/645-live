@@ -193,7 +193,10 @@ export function createOrganizationSchema() {
 			"@type": "ImageObject",
 			url: getSiteLogoUrl(),
 		},
-		sameAs: [`https://x.com/${SITE_TWITTER.replace(/^@/, "")}`],
+		sameAs: [
+			`https://x.com/${SITE_TWITTER.replace(/^@/, "")}`,
+			SITE_GITHUB,
+		],
 	};
 }
 

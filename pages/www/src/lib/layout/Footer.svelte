@@ -11,6 +11,9 @@ let currentYear = $state(new Date().getFullYear());
 		<div class="text-xs opacity-60">© {currentYear} 645.live. All rights reserved.</div>
 	</div>
 	<div class="flex flex-wrap justify-center gap-1 md:justify-end">
+		<LinkButton href="/docs" class="btn-ghost shadow-none">개발자 문서</LinkButton>
+		<LinkButton href="/compare" class="btn-ghost shadow-none">왜 645.live인가</LinkButton>
+		<LinkButton href="/status" class="btn-ghost shadow-none">상태</LinkButton>
 		<LinkButton href="/about" class="btn-ghost shadow-none">소개</LinkButton>
 		<LinkButton href="/editorial-policy" class="btn-ghost shadow-none">편집 원칙</LinkButton>
 		<LinkButton href="/data-sources" class="btn-ghost shadow-none">데이터 출처</LinkButton>

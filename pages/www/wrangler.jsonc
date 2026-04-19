@@ -5,7 +5,9 @@
 	"pages_build_output_dir": "./.svelte-kit/cloudflare",
 	"compatibility_flags": ["nodejs_compat"],
 	"vars": {
-		"BETTER_AUTH_URL": "http://127.0.0.1:5173"
+		"BETTER_AUTH_URL": "https://645.live",
+		"TRAILBASE_URL": "https://trail.645.live",
+		"PUBLIC_TRAILBASE_URL": "https://trail.645.live"
 	},
 	"hyperdrive": [
 		{

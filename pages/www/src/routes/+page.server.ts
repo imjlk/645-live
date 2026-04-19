@@ -3,10 +3,16 @@ import {
 	calculateExpectedLatestRound,
 	getLatestLottoRound,
 } from "$lib/utils/lotto-api";
+import {
+	getAgentHomePageContent,
+	getHomePageContent,
+} from "$lib/agent/content";
 import { getScanPreviewState } from "$lib/server/scan-preview.js";
 import type { PageServerLoad } from "./$types";
 
-export const load: PageServerLoad = async () => {
+export const load: PageServerLoad = async ({ url }) => {
+	const agentMode = url.searchParams.get("mode") === "agent";
+
 	try {
 		// Get latest round info from lotto API
 		const latestInfo = await getLatestLottoRound();
@@ -18,6 +24,9 @@ export const load: PageServerLoad = async () => {
 				latestRound: latestInfo.drwNo,
 				latestRoundDate: latestInfo.drwNoDate,
 				displayRound: displayRound, // 스캔 데이터를 보여줄 회차
+				agentMode,
+				landingPage: getHomePageContent(),
+				agentPage: getAgentHomePageContent(),
 				...scanPreview,
 			};
 		}
@@ -31,6 +40,9 @@ export const load: PageServerLoad = async () => {
 			latestRound: calculatedRound,
 			latestRoundDate: new Date().toISOString().split("T")[0],
 			displayRound: displayRound,
+			agentMode,
+			landingPage: getHomePageContent(),
+			agentPage: getAgentHomePageContent(),
 			...scanPreview,
 		};
 	} catch (error) {
@@ -46,6 +58,9 @@ export const load: PageServerLoad = async () => {
 			latestRound: calculatedRound,
 			latestRoundDate: new Date().toISOString().split("T")[0],
 			displayRound: displayRound,
+			agentMode,
+			landingPage: getHomePageContent(),
+			agentPage: getAgentHomePageContent(),
 			...scanPreview,
 		};
 	}
