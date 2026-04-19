@@ -151,6 +151,22 @@
 <JsonLd
 	schema={{
 		"@context": "https://schema.org",
+		"@type": "Service",
+		name: "645.live Korean Lotto 6/45 statistics service",
+		description: pageDescription,
+		serviceType: "Lottery statistics and result checking",
+		areaServed: "KR",
+		url: SITE_ORIGIN,
+		provider: {
+			"@type": "Organization",
+			name: SITE_NAME,
+			url: SITE_ORIGIN,
+		},
+	}}
+/>
+<JsonLd
+	schema={{
+		"@context": "https://schema.org",
 		"@type": "FAQPage",
 		mainEntity: homepageFaq.map((item) => ({
 			"@type": "Question",

@@ -32,6 +32,24 @@ const DRAW_DETAILS_RESOURCE = "ui://645live/draw-details.html";
 const STATS_OVERVIEW_RESOURCE = "ui://645live/stats-overview.html";
 const MEMBER_SCANS_RESOURCE = "ui://645live/member-scans.html";
 
+function isMcpTransportRequest(request: Request): boolean {
+	if (request.method === "POST" || request.method === "DELETE" || request.method === "OPTIONS") {
+		return true;
+	}
+
+	if (request.method !== "GET") {
+		return false;
+	}
+
+	const accept = request.headers.get("accept") ?? "";
+	return (
+		accept.includes("text/event-stream") ||
+		accept.includes("application/json") ||
+		request.headers.has("mcp-session-id") ||
+		request.headers.has("mcp-protocol-version")
+	);
+}
+
 function renderMcpAppHtml(title: string, subtitle: string, bullets: string[]) {
 	return `<!DOCTYPE html>
 <html lang="en">
@@ -562,6 +580,16 @@ function appendMcpCorsHeaders(response: Response): Response {
 export async function handleMcpRequest(event: McpEvent) {
 	if (event.request.method === "OPTIONS") {
 		return appendMcpCorsHeaders(new Response(null, { status: 204 }));
+	}
+
+	if (event.request.method === "GET" && !isMcpTransportRequest(event.request)) {
+		return appendMcpCorsHeaders(
+			Response.json(getMcpServerCard(), {
+				headers: {
+					"cache-control": "public, max-age=300, s-maxage=900, stale-while-revalidate=1800",
+				},
+			}),
+		);
 	}
 
 	const authState = await getPublicAuthState(event);

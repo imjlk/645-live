@@ -103,11 +103,16 @@ export function getPublicOpenApiDocument() {
 				"Public read API for Korean Lotto 6/45 draw snapshots, statistics overviews, auth provider visibility, and status checks. Public read endpoints are anonymous. Signed-in member scan workflows use the existing Better Auth session cookie flow and are exposed through RPC and MCP, not through a separate OAuth surface in Phase 1.",
 		},
 		servers: [{ url: SITE_ORIGIN }],
+		externalDocs: {
+			description: "Developer documentation",
+			url: absoluteUrl(DISCOVERY_PATHS.docs),
+		},
 		paths: {
 			[DISCOVERY_PATHS.recentDraws]: {
 				get: {
 					operationId: "getRecentDraws",
 					summary: "Get recent Korean Lotto 6/45 draw snapshots",
+					security: [],
 					responses: {
 						"200": {
 							description: "Recent draw snapshots",
@@ -119,6 +124,16 @@ export function getPublicOpenApiDocument() {
 								},
 							},
 						},
+						"500": {
+							description: "Unexpected server error",
+							content: {
+								"application/json": {
+									schema: {
+										$ref: "#/components/schemas/ErrorResponse",
+									},
+								},
+							},
+						},
 					},
 				},
 			},
@@ -126,6 +141,7 @@ export function getPublicOpenApiDocument() {
 				get: {
 					operationId: "getDrawByRound",
 					summary: "Get a single Korean Lotto 6/45 draw snapshot by round",
+					security: [],
 					parameters: [
 						{
 							name: "round",
@@ -145,8 +161,28 @@ export function getPublicOpenApiDocument() {
 								},
 							},
 						},
+						"400": {
+							description: "Invalid round number",
+							content: {
+								"application/json": {
+									schema: {
+										$ref: "#/components/schemas/ErrorResponse",
+									},
+								},
+							},
+						},
 						"404": {
 							description: "Round not found",
+							content: {
+								"application/json": {
+									schema: {
+										$ref: "#/components/schemas/ErrorResponse",
+									},
+								},
+							},
+						},
+						"500": {
+							description: "Unexpected server error",
 							content: {
 								"application/json": {
 									schema: {
@@ -162,6 +198,7 @@ export function getPublicOpenApiDocument() {
 				get: {
 					operationId: "getStatsOverview",
 					summary: "Get the public TrailBase-backed statistics overview",
+					security: [],
 					responses: {
 						"200": {
 							description: "Statistics overview",
@@ -173,6 +210,16 @@ export function getPublicOpenApiDocument() {
 								},
 							},
 						},
+						"500": {
+							description: "Unexpected server error",
+							content: {
+								"application/json": {
+									schema: {
+										$ref: "#/components/schemas/ErrorResponse",
+									},
+								},
+							},
+						},
 					},
 				},
 			},
@@ -180,6 +227,7 @@ export function getPublicOpenApiDocument() {
 				get: {
 					operationId: "getAuthProviders",
 					summary: "Get public authentication provider visibility",
+					security: [],
 					responses: {
 						"200": {
 							description: "Current sign-in provider summary",
@@ -191,6 +239,16 @@ export function getPublicOpenApiDocument() {
 								},
 							},
 						},
+						"500": {
+							description: "Unexpected server error",
+							content: {
+								"application/json": {
+									schema: {
+										$ref: "#/components/schemas/ErrorResponse",
+									},
+								},
+							},
+						},
 					},
 				},
 			},
@@ -198,6 +256,7 @@ export function getPublicOpenApiDocument() {
 				get: {
 					operationId: "getPublicStatus",
 					summary: "Get machine-readable public surface status",
+					security: [],
 					responses: {
 						"200": {
 							description: "Current status document",
@@ -209,11 +268,49 @@ export function getPublicOpenApiDocument() {
 								},
 							},
 						},
+						"500": {
+							description: "Unexpected server error",
+							content: {
+								"application/json": {
+									schema: {
+										$ref: "#/components/schemas/ErrorResponse",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			[DISCOVERY_PATHS.openApi]: {
+				get: {
+					operationId: "getOpenApiDocument",
+					summary: "Get the OpenAPI document for the public REST surface",
+					security: [],
+					responses: {
+						"200": {
+							description: "OpenAPI document",
+							content: {
+								"application/json": {
+									schema: {
+										$ref: "#/components/schemas/OpenApiDocument",
+									},
+								},
+							},
+						},
 					},
 				},
 			},
 		},
 		components: {
+			securitySchemes: {
+				cookieSession: {
+					type: "apiKey",
+					in: "cookie",
+					name: "better-auth.session_token",
+					description:
+						"Existing Better Auth session cookie used for signed-in member workflows on 645.live.",
+				},
+			},
 			schemas: {
 				RecentDrawSnapshot: {
 					type: "object",
@@ -259,32 +356,95 @@ export function getPublicOpenApiDocument() {
 				},
 				StatsOverview: {
 					type: "object",
+					required: [
+						"latestRound",
+						"latestDrawDate",
+						"totalRounds",
+						"topNumbers",
+						"lowestNumbers",
+						"topPairs",
+						"bonusSummary",
+						"freshness",
+						"summaries",
+					],
 					properties: {
 						latestRound: { type: "integer" },
 						latestDrawDate: { type: "string" },
 						totalRounds: { type: "integer" },
 						topNumbers: {
 							type: "array",
-							items: { type: "object", additionalProperties: true },
+							items: {
+								type: "object",
+								required: ["number", "draw_count"],
+								properties: {
+									number: { type: "integer" },
+									draw_count: { type: "integer" },
+								},
+								additionalProperties: true,
+							},
 						},
 						lowestNumbers: {
 							type: "array",
-							items: { type: "object", additionalProperties: true },
+							items: {
+								type: "object",
+								required: ["number", "draw_count"],
+								properties: {
+									number: { type: "integer" },
+									draw_count: { type: "integer" },
+								},
+								additionalProperties: true,
+							},
 						},
 						topPairs: {
 							type: "array",
-							items: { type: "object", additionalProperties: true },
+							items: {
+								type: "object",
+								required: ["number_a", "number_b", "pair_count"],
+								properties: {
+									number_a: { type: "integer" },
+									number_b: { type: "integer" },
+									pair_count: { type: "integer" },
+								},
+								additionalProperties: true,
+							},
 						},
 						bonusSummary: {
 							type: ["object", "null"],
-							additionalProperties: true,
+							properties: {
+								topBonusNumber: {
+									type: "object",
+									additionalProperties: true,
+								},
+								latestBonusDraw: {
+									type: "object",
+									additionalProperties: true,
+								},
+							},
+							additionalProperties: false,
 						},
 						freshness: {
 							type: "object",
-							additionalProperties: true,
+							required: [
+								"latestRound",
+								"latestDrawDate",
+								"analysisRound",
+								"isStale",
+								"lastUpdatedAt",
+								"sourceLabel",
+							],
+							properties: {
+								latestRound: { type: "integer" },
+								latestDrawDate: { type: "string" },
+								analysisRound: { type: "integer" },
+								isStale: { type: "boolean" },
+								lastUpdatedAt: { type: ["string", "null"], format: "date-time" },
+								sourceLabel: { type: "string" },
+							},
+							additionalProperties: false,
 						},
 						summaries: {
 							type: "object",
+							required: ["recent10", "recent50", "recent100", "overall"],
 							properties: {
 								recent10: { type: "string" },
 								recent50: { type: "string" },
@@ -296,9 +456,16 @@ export function getPublicOpenApiDocument() {
 				},
 				AuthSummary: {
 					type: "object",
+					required: [
+						"emailPassword",
+						"socialProviders",
+						"sessionMode",
+						"oauthDiscovery",
+					],
 					properties: {
 						emailPassword: {
 							type: "object",
+							required: ["enabled"],
 							properties: {
 								enabled: { type: "boolean" },
 							},
@@ -307,6 +474,7 @@ export function getPublicOpenApiDocument() {
 							type: "array",
 							items: {
 								type: "object",
+								required: ["id", "label"],
 								properties: {
 									id: { type: "string" },
 									label: { type: "string" },
@@ -319,6 +487,15 @@ export function getPublicOpenApiDocument() {
 				},
 				StatusDocument: {
 					type: "object",
+					required: [
+						"service",
+						"status",
+						"timestamp",
+						"publicSurfaces",
+						"auth",
+						"dependencies",
+						"issues",
+					],
 					properties: {
 						service: { type: "string" },
 						status: { type: "string" },
@@ -336,11 +513,32 @@ export function getPublicOpenApiDocument() {
 							type: "array",
 							items: {
 								type: "object",
+								required: ["code", "message"],
 								properties: {
 									code: { type: "string" },
 									message: { type: "string" },
 								},
 							},
+						},
+					},
+				},
+				OpenApiDocument: {
+					type: "object",
+					required: ["openapi", "info", "paths"],
+					properties: {
+						openapi: { type: "string" },
+						info: {
+							type: "object",
+							required: ["title", "version", "description"],
+							properties: {
+								title: { type: "string" },
+								version: { type: "string" },
+								description: { type: "string" },
+							},
+						},
+						paths: {
+							type: "object",
+							additionalProperties: true,
 						},
 					},
 				},

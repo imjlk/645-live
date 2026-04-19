@@ -5,6 +5,7 @@ export const SITE_LOGO_PATH = "/assets/icons/icon-512.png";
 export const SITE_GITHUB = "https://github.com/imjlk/645-live";
 export const AUTO_NEWS_AUTHOR_PATH = "/authors/645-live-auto-news";
 export const ABOUT_PATH = "/about";
+export const CONTACT_PATH = "/contact";
 export const EDITORIAL_POLICY_PATH = "/editorial-policy";
 export const DATA_SOURCES_PATH = "/data-sources";
 export const NEWS_OG_CACHE_BUSTER = "2026-03-25-2";
@@ -197,6 +198,15 @@ export function createOrganizationSchema() {
 			`https://x.com/${SITE_TWITTER.replace(/^@/, "")}`,
 			SITE_GITHUB,
 		],
+		contactPoint: [
+			{
+				"@type": "ContactPoint",
+				contactType: "customer support",
+				url: absoluteUrl(CONTACT_PATH),
+				availableLanguage: ["ko", "en"],
+			},
+		],
+		areaServed: "KR",
 	};
 }
 

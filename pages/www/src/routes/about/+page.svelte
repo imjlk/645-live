@@ -80,6 +80,7 @@ const twitterUrl = `https://x.com/${SITE_TWITTER.replace(/^@/, "")}`;
 					<a class="link link-primary" href={resolve("/editorial-policy")}>편집 원칙 보기</a>
 					<a class="link link-primary" href={resolve("/data-sources")}>데이터 출처 보기</a>
 					<a class="link link-primary" href={resolve("/authors/645-live-auto-news")}>645.live 자동뉴스 소개</a>
+					<a class="link link-primary" href={resolve("/contact")}>문의 채널 보기</a>
 				</div>
 			</div>
 		</aside>

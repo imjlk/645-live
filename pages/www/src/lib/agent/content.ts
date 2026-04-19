@@ -26,7 +26,14 @@ export type AgentSection = {
 };
 
 export type AgentPage = {
-	key: "home" | "agent-home" | "docs" | "compare" | "status" | "methodology";
+	key:
+		| "home"
+		| "agent-home"
+		| "docs"
+		| "compare"
+		| "status"
+		| "methodology"
+		| "contact";
 	eyebrow: string;
 	title: string;
 	description: string;
@@ -48,6 +55,7 @@ export const DISCOVERY_PATHS = {
 	compare: "/compare",
 	status: "/status",
 	methodology: "/methodology",
+	contact: "/contact",
 	pricing: "/pricing.md",
 	llms: "/llms.txt",
 	llmsFull: "/llms-full.txt",
@@ -339,12 +347,21 @@ export function getDocsPageContent(): AgentPage {
 				bullets: [...AUTH_SUMMARY_LINES],
 			},
 			{
+				title: "Errors and support",
+				bullets: [
+					"Public API errors return JSON with error, code, message, and hint fields instead of HTML fallback pages.",
+					"Use /api/status.json when an agent needs a machine-readable health check before retrying.",
+					"Use /contact for public support channels and implementation issue reporting.",
+				],
+			},
+			{
 				title: "Related resources",
 				links: [
 					{ label: "Agent View", href: "/?mode=agent", description: "Compact AI-oriented homepage variant" },
 					{ label: "API Catalog", href: DISCOVERY_PATHS.apiCatalog, description: "RFC 9727 discovery document" },
 					{ label: "Methodology", href: DISCOVERY_PATHS.methodology, description: "How official and scan-derived data are combined" },
 					{ label: "Pricing", href: DISCOVERY_PATHS.pricing, description: "Machine-readable plan information" },
+					{ label: "Contact", href: DISCOVERY_PATHS.contact, description: "Public support and issue-reporting channels" },
 				],
 			},
 		],
@@ -461,6 +478,44 @@ export function getMethodologyPageContent(): AgentPage {
 	};
 }
 
+export function getContactPageContent(): AgentPage {
+	return {
+		key: "contact",
+		eyebrow: "Contact",
+		title: "How to contact 645.live",
+		description:
+			"645.live currently handles support, issue reports, and integration questions through public web channels so agents and users can find a clear contact path.",
+		intro: [
+			"If you need help with public API discovery, MCP integration, data corrections, or product questions, start with the public contact channels listed below. Phase 1 keeps support contact lightweight and public rather than introducing a separate ticket portal.",
+		],
+		sections: [
+			{
+				title: "Support channels",
+				links: [
+					{
+						label: "X",
+						href: `https://x.com/${SITE_TWITTER.replace(/^@/, "")}`,
+						description: "Public product updates and lightweight support contact.",
+					},
+					{
+						label: "GitHub",
+						href: SITE_GITHUB,
+						description: "Repository, issue reporting, and implementation context.",
+					},
+				],
+			},
+			{
+				title: "What to include",
+				bullets: [
+					"Which URL or endpoint you were using when the issue happened.",
+					"Whether the issue affected the public API, docs, MCP, or signed-in member scan flow.",
+					"The Lotto 6/45 round number or stats page involved, if relevant.",
+				],
+			},
+		],
+	};
+}
+
 export function getAllAgentPages(): AgentPage[] {
 	return [
 		getHomePageContent(),
@@ -469,6 +524,7 @@ export function getAllAgentPages(): AgentPage[] {
 		getComparePageContent(),
 		getStatusPageContent(),
 		getMethodologyPageContent(),
+		getContactPageContent(),
 	];
 }
 
@@ -495,6 +551,10 @@ export function getAgentPageForRequest(url: URL): AgentPage | null {
 
 	if (url.pathname === DISCOVERY_PATHS.methodology) {
 		return getMethodologyPageContent();
+	}
+
+	if (url.pathname === DISCOVERY_PATHS.contact) {
+		return getContactPageContent();
 	}
 
 	return null;
@@ -571,12 +631,15 @@ export function getLlmsText(): string {
 		"- Guide a signed-in user through member scan summary or sync flows.",
 		"",
 		"## Public resources",
-		`- Docs: ${absoluteUrl(DISCOVERY_PATHS.docs)}`,
-		`- OpenAPI: ${absoluteUrl(DISCOVERY_PATHS.openApi)}`,
-		`- API catalog: ${absoluteUrl(DISCOVERY_PATHS.apiCatalog)}`,
-		`- Status: ${absoluteUrl(DISCOVERY_PATHS.apiStatus)}`,
-		`- MCP: ${absoluteUrl(DISCOVERY_PATHS.mcp)}`,
-		`- Agent view: ${absoluteUrl("/?mode=agent")}`,
+		`- [Docs](${absoluteUrl(DISCOVERY_PATHS.docs)})`,
+		`- [OpenAPI](${absoluteUrl(DISCOVERY_PATHS.openApi)})`,
+		`- [API catalog](${absoluteUrl(DISCOVERY_PATHS.apiCatalog)})`,
+		`- [Status](${absoluteUrl(DISCOVERY_PATHS.apiStatus)})`,
+		`- [MCP endpoint](${absoluteUrl(DISCOVERY_PATHS.mcp)})`,
+		`- [MCP server card](${absoluteUrl(DISCOVERY_PATHS.mcpServerCard)})`,
+		`- [Agent view](${absoluteUrl("/?mode=agent")})`,
+		`- [Pricing](${absoluteUrl(DISCOVERY_PATHS.pricing)})`,
+		`- [Contact](${absoluteUrl(DISCOVERY_PATHS.contact)})`,
 		"",
 		"## Authentication",
 		"- Public read APIs do not require auth.",
@@ -595,6 +658,7 @@ export function getLlmsFullText(): string {
 		getDocsPageContent(),
 		getComparePageContent(),
 		getMethodologyPageContent(),
+		getContactPageContent(),
 	];
 
 	return [
@@ -702,6 +766,45 @@ export function getAgentCard() {
 
 export function getMcpServerCard() {
 	return {
+		name: `${SITE_NAME} MCP`,
+		version: "1.0.0",
+		description:
+			"Same-domain MCP server for Korean Lotto 6/45 draw snapshots, statistics summaries, auth visibility, and member scan workflows.",
+		serverUrl: absoluteUrl(DISCOVERY_PATHS.mcp),
+		tools: [
+			{
+				name: "get_recent_draws",
+				description: "Get recent Korean Lotto 6/45 draw snapshots with claim deadline data.",
+			},
+			{
+				name: "get_draw",
+				description: "Get a single Korean Lotto 6/45 draw snapshot by round number.",
+			},
+			{
+				name: "get_stats_overview",
+				description: "Get the public TrailBase-backed 645.live statistics overview.",
+			},
+			{
+				name: "get_auth_options",
+				description: "Get the current Better Auth-backed sign-in options that 645.live exposes publicly.",
+			},
+			{
+				name: "get_status",
+				description: "Get the machine-readable status document for the public 645.live agent surface.",
+			},
+			{
+				name: "get_my_scan_summary",
+				description: "Get the signed-in user's member scan summary using the existing Better Auth session cookie.",
+			},
+			{
+				name: "list_my_scans",
+				description: "List recent signed-in member scans using the existing Better Auth session cookie.",
+			},
+			{
+				name: "upsert_pending_scans",
+				description: "Persist pending member scans for the signed-in user through the existing Better Auth and TrailBase workflow.",
+			},
+		],
 		serverInfo: {
 			name: `${SITE_NAME} MCP`,
 			version: "1.0.0",
@@ -741,8 +844,8 @@ export function getAgentSkillMarkdown(slug: AgentSkillDefinition["slug"]): strin
 		throw new Error(`Unknown agent skill: ${slug}`);
 	}
 
-	return [
-		`# ${skill.name}`,
+		return [
+			`# ${skill.name}`,
 		"",
 		skill.description,
 		"",
@@ -759,6 +862,21 @@ export function getAgentSkillMarkdown(slug: AgentSkillDefinition["slug"]): strin
 		`- OpenAPI: ${absoluteUrl(DISCOVERY_PATHS.openApi)}`,
 		`- API catalog: ${absoluteUrl(DISCOVERY_PATHS.apiCatalog)}`,
 		`- MCP: ${absoluteUrl(DISCOVERY_PATHS.mcp)}`,
+	].join("\n");
+}
+
+export function getSectionLlmsText(page: AgentPage): string {
+	return [
+		`# ${page.title}`,
+		"",
+		page.description,
+		"",
+		`- [Canonical page](${absoluteUrl(getPathForPage(page.key))})`,
+		`- [Docs](${absoluteUrl(DISCOVERY_PATHS.docs)})`,
+		`- [OpenAPI](${absoluteUrl(DISCOVERY_PATHS.openApi)})`,
+		`- [MCP](${absoluteUrl(DISCOVERY_PATHS.mcp)})`,
+		"",
+		serializeAgentPageMarkdown(page),
 	].join("\n");
 }
 
@@ -783,4 +901,23 @@ export function getDiscoveryLinkHeaderTargets(pathname: string) {
 
 function isAbsoluteHref(value: string): boolean {
 	return value.startsWith("http://") || value.startsWith("https://");
+}
+
+function getPathForPage(pageKey: AgentPage["key"]): string {
+	switch (pageKey) {
+		case "home":
+			return DISCOVERY_PATHS.home;
+		case "agent-home":
+			return "/?mode=agent";
+		case "docs":
+			return DISCOVERY_PATHS.docs;
+		case "compare":
+			return DISCOVERY_PATHS.compare;
+		case "status":
+			return DISCOVERY_PATHS.status;
+		case "methodology":
+			return DISCOVERY_PATHS.methodology;
+		case "contact":
+			return DISCOVERY_PATHS.contact;
+	}
 }

@@ -7,6 +7,12 @@ export const GET: RequestHandler = async () => {
 		linkset: [
 			{
 				anchor: `${SITE_ORIGIN}/api`,
+				item: [
+					{
+						href: `${SITE_ORIGIN}/api`,
+						type: "application/json",
+					},
+				],
 				"service-desc": [
 					{
 						href: absoluteUrl(DISCOVERY_PATHS.openApi),
