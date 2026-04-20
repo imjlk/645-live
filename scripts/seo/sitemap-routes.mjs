@@ -7,6 +7,16 @@ const REPO_ROOT = path.resolve(__dirname, "..", "..");
 const WEB_ROOT = path.join(REPO_ROOT, "pages", "www");
 const NEWS_ROOT = path.join(WEB_ROOT, "src", "content", "news");
 const NEWS_OG_CACHE_BUSTER = "2026-03-25-2";
+const RECENT_ROUNDS = [10, 20, 50, 100];
+const RECENT_SECTIONS = [
+	"ac",
+	"colors",
+	"high-low",
+	"odd-even",
+	"repeat",
+	"sections",
+	"unit-digit",
+];
 
 function readNewsFiles() {
 	return fs
@@ -67,11 +77,22 @@ export function buildSitemapEntries() {
 	const staticEntries = [
 		{ path: "/", changefreq: "hourly", priority: "1.0", source: "src/routes/+page.svelte" },
 		{ path: "/news", changefreq: "daily", priority: "0.85", source: "src/routes/news/+page.svelte" },
+		{ path: "/stats", changefreq: "daily", priority: "0.85", source: "src/routes/stats/+page.svelte" },
 		{ path: "/guide", changefreq: "monthly", priority: "0.7", source: "src/routes/guide/+page.svelte" },
 		{ path: "/history", changefreq: "weekly", priority: "0.8", source: "src/routes/history/+page.svelte" },
 		{ path: "/qr-scan", changefreq: "monthly", priority: "0.5", source: "src/routes/qr-scan/+page.svelte" },
 		{ path: "/generator", changefreq: "weekly", priority: "0.8", source: "src/routes/generator/+page.svelte" },
 		{ path: "/winning-stores", changefreq: "weekly", priority: "0.7", source: "src/routes/winning-stores/+page.svelte" },
+		{ path: "/stats/bonus", changefreq: "daily", priority: "0.8", source: "src/routes/stats/bonus/+page.svelte" },
+		{ path: "/stats/ac", changefreq: "daily", priority: "0.75", source: "src/routes/stats/ac/+page.svelte" },
+		{ path: "/stats/odd-even", changefreq: "daily", priority: "0.75", source: "src/routes/stats/odd-even/+page.svelte" },
+		{ path: "/stats/high-low", changefreq: "daily", priority: "0.75", source: "src/routes/stats/high-low/+page.svelte" },
+		{ path: "/stats/colors", changefreq: "daily", priority: "0.75", source: "src/routes/stats/colors/+page.svelte" },
+		{ path: "/stats/sections", changefreq: "daily", priority: "0.75", source: "src/routes/stats/sections/+page.svelte" },
+		{ path: "/stats/pairs", changefreq: "daily", priority: "0.75", source: "src/routes/stats/pairs/+page.svelte" },
+		{ path: "/stats/repeat", changefreq: "daily", priority: "0.75", source: "src/routes/stats/repeat/+page.svelte" },
+		{ path: "/stats/unit-digit", changefreq: "daily", priority: "0.75", source: "src/routes/stats/unit-digit/+page.svelte" },
+		{ path: "/stats/numbers", changefreq: "daily", priority: "0.8", source: "src/routes/stats/numbers/+page.svelte" },
 		{ path: "/privacy", changefreq: "monthly", priority: "0.4", source: "src/routes/privacy/+page.svelte" },
 		{ path: "/terms-of-service", changefreq: "monthly", priority: "0.4", source: "src/routes/terms-of-service/+page.svelte" },
 	];
@@ -82,6 +103,22 @@ export function buildSitemapEntries() {
 		priority: "0.8",
 		source: "src/routes/n/[index]/+page.svelte",
 	}));
+
+	const statsNumberEntries = Array.from({ length: 45 }, (_, index) => ({
+		path: `/stats/numbers/${index + 1}`,
+		changefreq: "daily",
+		priority: "0.75",
+		source: "src/routes/stats/numbers/[number]/+page.svelte",
+	}));
+
+	const statsRecentEntries = RECENT_SECTIONS.flatMap((section) =>
+		RECENT_ROUNDS.map((rounds) => ({
+			path: `/stats/${section}/recent/${rounds}`,
+			changefreq: "daily",
+			priority: "0.7",
+			source: `src/routes/stats/${section}/recent/[rounds]/+page.svelte`,
+		})),
+	);
 
 	const newsEntries = newsFiles.map((item) => ({
 		path: `/news/posts/${item.slug}`,
@@ -99,7 +136,13 @@ export function buildSitemapEntries() {
 		imageTitle: item.title || undefined,
 	}));
 
-	const entries = [...staticEntries, ...liveNumberEntries, ...newsEntries]
+	const entries = [
+		...staticEntries,
+		...liveNumberEntries,
+		...statsNumberEntries,
+		...statsRecentEntries,
+		...newsEntries,
+	]
 		.map((entry) => {
 			const sourcePath = entry.source
 				? path.join(WEB_ROOT, entry.source)

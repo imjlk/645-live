@@ -33,7 +33,6 @@ Content-Signal: ai-train=no, search=yes, ai-input=no
 
 # Sitemap location
 Sitemap: https://645.live/sitemap.xml
-Sitemap: https://645.live/stats-sitemap.xml
 Host: 645.live
 
 #DaumWebMasterTool:a312960ef1c69c94861adf494f497e4d1b8141e780d9d888a0139ab69d812f50:ztgmEl8QlmiSmMVpMYpdLg==

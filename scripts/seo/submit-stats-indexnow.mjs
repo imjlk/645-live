@@ -74,7 +74,7 @@ async function main() {
 		`${SITE_BASE_URL}/stats/pairs`,
 		`${SITE_BASE_URL}/stats/repeat`,
 		`${SITE_BASE_URL}/stats/unit-digit`,
-		`${SITE_BASE_URL}/stats-sitemap.xml`,
+		`${SITE_BASE_URL}/sitemap.xml`,
 	]);
 
 	await submitIndexNow(urls);
