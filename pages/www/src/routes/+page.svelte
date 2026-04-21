@@ -19,10 +19,10 @@
 	const pageTitle = $derived(
 		data.agentMode
 			? "645.live agent view"
-			: "645.live is a Korean Lotto 6/45 real-time scan, QR checking, and statistics platform.",
+			: "로또 6/45 실시간 스캔, QR 확인, 통계 플랫폼",
 	);
 	const pageDescription =
-		"645.live is a Korean Lotto 6/45 real-time scan, QR checking, and statistics platform with public read APIs, TrailBase-backed analysis, and signed-in member scan workflows.";
+		"645.live는 로또 6/45 실시간 스캔 현황, QR 당첨 확인, 번호 통계, 회원 스캔 이력을 한 곳에서 확인할 수 있는 플랫폼입니다.";
 	const canonicalUrl = $derived(
 		data.agentMode ? `${SITE_ORIGIN}?mode=agent` : SITE_ORIGIN,
 	);
@@ -30,9 +30,11 @@
 		getGenericOgImage({
 			title: data.agentMode
 				? "645.live agent view"
-				: "Korean Lotto 6/45 statistics and scan insights",
+				: "로또 6/45 실시간 스캔과 통계",
 			description:
-				"Recent draw lookup, TrailBase-backed statistics, QR checking guidance, and agent discovery surfaces.",
+				data.agentMode
+					? "Recent draw lookup, TrailBase-backed statistics, QR checking guidance, and agent discovery surfaces."
+					: pageDescription,
 			layout: "hero",
 			theme: "dark",
 		}),
@@ -40,19 +42,24 @@
 
 	const homepageFaq = [
 		{
-			question: "What is 645.live?",
+			question: "645.live에서는 무엇을 볼 수 있나요?",
 			answer:
-				"645.live is a Korean Lotto 6/45 statistics and scan platform that combines official draw snapshots with TrailBase-backed analysis and member scan workflows.",
+				"645.live에서는 최신 회차 당첨번호, 실시간 스캔 현황, QR 당첨 확인, 번호별 통계와 회원 스캔 이력을 함께 볼 수 있습니다.",
 		},
 		{
-			question: "Does 645.live expose agent-friendly APIs?",
+			question: "메인 화면의 실시간 스캔 현황은 무엇을 보여주나요?",
 			answer:
-				"Yes. Phase 1 adds public read APIs, OpenAPI, markdown negotiation, an RFC 9727 API catalog, same-domain MCP discovery, and browser-side WebMCP registration.",
+				"최신 표시 회차 기준으로 어떤 번호가 얼마나 스캔됐는지 빠르게 확인할 수 있고, 각 번호를 눌러 더 자세한 번호별 통계 페이지로 이동할 수 있습니다.",
 		},
 		{
-			question: "How does authentication work today?",
+			question: "QR 당첨 확인과 스캔 이력 저장도 지원하나요?",
 			answer:
-				"Public reads are anonymous. Signed-in member scan actions use the existing Better Auth session cookie flow. OAuth discovery is planned for a later phase.",
+				"네. QR 스캔으로 당첨 여부를 확인할 수 있고, 로그인한 경우 회원 스캔 이력과 동기화 흐름까지 함께 사용할 수 있습니다.",
+		},
+		{
+			question: "API나 에이전트 연동용 정보도 제공하나요?",
+			answer:
+				"공개 조회 API, OpenAPI 문서, MCP 엔드포인트 같은 연동 정보는 메인 소개문 대신 별도 문서와 에이전트용 화면에서 확인할 수 있습니다.",
 		},
 	];
 
@@ -120,7 +127,7 @@
 	schema={{
 		"@context": "https://schema.org",
 		"@type": "WebApplication",
-		"name": `${SITE_NAME} Korean Lotto 6/45 statistics platform`,
+		"name": `${SITE_NAME} 로또 6/45 통계 플랫폼`,
 		"description": pageDescription,
 		"url": SITE_ORIGIN,
 		"isAccessibleForFree": true,
@@ -152,9 +159,9 @@
 	schema={{
 		"@context": "https://schema.org",
 		"@type": "Service",
-		name: "645.live Korean Lotto 6/45 statistics service",
+		name: "645.live 로또 6/45 통계 서비스",
 		description: pageDescription,
-		serviceType: "Lottery statistics and result checking",
+		serviceType: "로또 통계 및 결과 확인",
 		areaServed: "KR",
 		url: SITE_ORIGIN,
 		provider: {
@@ -182,17 +189,16 @@
 {#if data.agentMode}
 	<StructuredAgentPage page={data.agentPage} />
 {:else}
-	<div class="home-page-summary">
-		<StructuredAgentPage page={data.landingPage} />
-	</div>
+	<section class="home-page-summary sr-only">
+		<h1>{pageTitle}</h1>
+		<p>{pageDescription}</p>
+	</section>
 
 	<section class="space-y-4 px-6 pb-6">
 		<div class="rounded-[2rem] border border-base-300/70 bg-base-100/85 p-6 shadow-sm">
-			<p class="text-xs font-semibold uppercase tracking-[0.22em] text-base-content/45">Live scan board</p>
-			<h2 class="mt-2 text-2xl font-bold text-base-content">Real-time scan visibility for the latest Korean Lotto 6/45 round</h2>
-			<p class="mt-3 max-w-3xl text-sm leading-7 text-base-content/78">
-				The live scan board below keeps the existing 645.live experience intact. It shows the latest display round, highlights when scan data is still warming up, and links every ball to deeper number-level analysis. This remains backed by the current TrailBase-connected application logic rather than a parallel agent-only data source.
-			</p>
+			<p class="text-xs font-semibold uppercase tracking-[0.22em] text-base-content/45">실시간 스캔 현황</p>
+			<h2 class="mt-2 text-2xl font-bold text-base-content">최신 회차 로또 6/45 스캔 보드</h2>
+			<p class="sr-only">{pageDescription}</p>
 		</div>
 
 		<ScanStatusGrid
@@ -218,8 +224,8 @@
 
 	<section class="home-page-faq space-y-4 px-6 pb-8">
 		<div class="rounded-[2rem] border border-base-300/70 bg-base-100/85 p-6 shadow-sm">
-			<p class="text-xs font-semibold uppercase tracking-[0.22em] text-base-content/45">FAQ</p>
-			<h2 class="mt-2 text-2xl font-bold text-base-content">Questions agents and humans usually ask first</h2>
+			<p class="text-xs font-semibold uppercase tracking-[0.22em] text-base-content/45">자주 묻는 질문</p>
+			<h2 class="mt-2 text-2xl font-bold text-base-content">645.live 자주 묻는 질문</h2>
 			<div class="mt-4 grid gap-4 lg:grid-cols-3">
 				{#each homepageFaq as item (item.question)}
 					<article class="rounded-3xl border border-base-300/70 bg-base-200/60 p-5">
