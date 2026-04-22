@@ -4,6 +4,7 @@
 
 	let { page }: { page: AgentPage } = $props();
 	const resolveInternalHref = resolve as unknown as (href: string) => string;
+	const sectionLabel = $derived(page.key === "agent-home" ? "Section" : "섹션");
 </script>
 
 <div class="space-y-8 p-6">
@@ -24,7 +25,7 @@
 	{#each page.sections as section (`${page.key}-${section.title}`)}
 		<section class="space-y-4 rounded-[2rem] border border-base-300/70 bg-base-100/85 p-6 shadow-sm">
 			<div class="space-y-2">
-				<p class="text-xs font-semibold uppercase tracking-[0.22em] text-base-content/45">Section</p>
+				<p class="text-xs font-semibold tracking-[0.22em] text-base-content/45">{sectionLabel}</p>
 				<h2 class="text-2xl font-bold text-base-content">{section.title}</h2>
 			</div>
 
@@ -46,22 +47,22 @@
 
 			{#if section.table}
 				<div class="overflow-x-auto rounded-2xl border border-base-300/70">
-						<table class="table table-zebra">
-							<thead>
+					<table class="table table-zebra">
+						<thead>
+							<tr>
+								{#each section.table.headers as header, index (`${section.title}-header-${index}`)}
+									<th>{header}</th>
+								{/each}
+							</tr>
+						</thead>
+						<tbody>
+							{#each section.table.rows as row, rowIndex (`${section.title}-row-${rowIndex}`)}
 								<tr>
-									{#each section.table.headers as header, index (`${section.title}-header-${index}`)}
-										<th>{header}</th>
+									{#each row as cell, cellIndex (`${section.title}-cell-${rowIndex}-${cellIndex}`)}
+										<td>{cell}</td>
 									{/each}
 								</tr>
-							</thead>
-							<tbody>
-								{#each section.table.rows as row, rowIndex (`${section.title}-row-${rowIndex}`)}
-									<tr>
-										{#each row as cell, cellIndex (`${section.title}-cell-${rowIndex}-${cellIndex}`)}
-											<td>{cell}</td>
-										{/each}
-									</tr>
-								{/each}
+							{/each}
 						</tbody>
 					</table>
 				</div>

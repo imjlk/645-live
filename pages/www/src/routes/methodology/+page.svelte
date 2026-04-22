@@ -8,7 +8,7 @@
 </script>
 
 <MetaTags
-	title="Methodology"
+	title="운영 기준"
 	titleTemplate="%s | 645.live"
 	description={data.page.description}
 	canonical={absoluteUrl("/methodology")}

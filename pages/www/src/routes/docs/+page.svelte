@@ -8,7 +8,7 @@
 </script>
 
 <MetaTags
-	title="Developer Docs"
+	title="개발자 문서"
 	titleTemplate="%s | 645.live"
 	description={data.page.description}
 	canonical={absoluteUrl("/docs")}

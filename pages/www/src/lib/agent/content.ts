@@ -84,55 +84,55 @@ export const AGENT_CAPABILITIES = [
 ] as const;
 
 export const AUTH_SUMMARY_LINES = [
-	"Public read APIs do not require authentication.",
-	"Member scan actions use the existing Better Auth session cookie on 645.live.",
-	"Email/password login is available today. Configured social providers are surfaced at runtime from Better Auth settings.",
-	"OAuth/OIDC discovery metadata is intentionally deferred to a later Better Auth implementation phase.",
+	"공개 조회 API는 별도 인증 없이 사용할 수 있습니다.",
+	"회원 스캔 관련 작업은 645.live의 기존 Better Auth 세션 쿠키를 사용합니다.",
+	"현재 이메일/비밀번호 로그인을 지원하며, 소셜 로그인 제공자는 Better Auth 설정에 따라 런타임에 노출됩니다.",
+	"OAuth/OIDC 디스커버리 메타데이터는 추후 Better Auth 확장 단계에서 도입될 예정입니다.",
 ] as const;
 
 export const COMPARE_MATRIX: AgentTable = {
 	headers: [
-		"Category",
-		"Official checker",
-		"Random generator",
-		"Statistics archive",
+		"항목",
+		"공식 확인 서비스",
+		"번호 생성기",
+		"통계 아카이브",
 		"645.live",
 	],
 	rows: [
 		[
-			"Official draw verification",
-			"Strong",
-			"Limited",
-			"Usually delayed",
-			"Strong, with official draw snapshots and claim dates",
+			"공식 당첨 결과 확인",
+			"강함",
+			"제한적",
+			"대체로 지연",
+			"공식 추첨 스냅샷과 수령 기한까지 함께 제공",
 		],
 		[
-			"Real-time scan trend visibility",
-			"None",
-			"None",
-			"Usually none",
-			"Available through live scan and member scan surfaces",
+			"실시간 스캔 흐름 가시성",
+			"없음",
+			"없음",
+			"대체로 없음",
+			"실시간 스캔 및 회원 스캔 화면에서 확인 가능",
 		],
 		[
-			"Pattern analysis depth",
-			"Basic",
-			"Low",
-			"Medium",
-			"High across numbers, pairs, colors, odd/even, high/low, AC, and bonus",
+			"패턴 분석 깊이",
+			"기본",
+			"낮음",
+			"중간",
+			"번호·쌍·색상·홀짝·고저·AC·보너스까지 폭넓게 제공",
 		],
 		[
-			"Agent-readable discovery",
-			"Rare",
-			"Rare",
-			"Rare",
-			"Phase 1 adds llms, api-catalog, OpenAPI, MCP, WebMCP, and markdown negotiation",
+			"에이전트 친화적 디스커버리",
+			"드묾",
+			"드묾",
+			"드묾",
+			"llms, api-catalog, OpenAPI, MCP, WebMCP, 마크다운 협상 제공",
 		],
 		[
-			"Signed-in workflow support",
-			"Usually browser-only",
-			"No",
-			"No",
-			"Member scan summary and sync endpoints built on existing Better Auth + TrailBase workflows",
+			"로그인 사용자 흐름 지원",
+			"대체로 브라우저 전용",
+			"없음",
+			"없음",
+			"기존 Better Auth + TrailBase 기반 회원 스캔 요약·동기화 지원",
 		],
 	],
 };
@@ -171,24 +171,24 @@ export const AGENT_SKILLS: AgentSkillDefinition[] = [
 function getCommonLinks(): AgentLink[] {
 	return [
 		{
-			label: "Developer Docs",
+			label: "개발자 문서",
 			href: DISCOVERY_PATHS.docs,
-			description: "Public API, auth, MCP, WebMCP, and quickstart guidance.",
+			description: "공개 API, 인증, MCP, WebMCP, 빠른 시작 안내를 제공합니다.",
 		},
 		{
 			label: "OpenAPI",
 			href: DISCOVERY_PATHS.openApi,
-			description: "Machine-readable public REST surface for agents and SDKs.",
+			description: "기계가 읽을 수 있는 공개 REST 인터페이스 문서입니다.",
 		},
 		{
-			label: "MCP Endpoint",
+			label: "MCP 엔드포인트",
 			href: DISCOVERY_PATHS.mcp,
-			description: "Same-domain WebMCP/remote MCP endpoint for agent tool discovery.",
+			description: "같은 도메인에서 제공하는 WebMCP/원격 MCP 탐색 엔드포인트입니다.",
 		},
 		{
-			label: "Methodology",
+			label: "운영 기준",
 			href: DISCOVERY_PATHS.methodology,
-			description: "Explains how official results and scan-derived insights are combined.",
+			description: "공식 결과와 스캔 파생 신호를 어떻게 함께 보여주는지 설명합니다.",
 		},
 	];
 }
@@ -196,54 +196,54 @@ function getCommonLinks(): AgentLink[] {
 export function getHomePageContent(): AgentPage {
 	return {
 		key: "home",
-		eyebrow: "Korean Lotto 6/45 Intelligence",
-		title: "645.live is a Korean Lotto 6/45 real-time scan, QR checking, and statistics platform.",
+		eyebrow: "로또 6/45 통계 인사이트",
+		title: "645.live는 로또 6/45 실시간 스캔, QR 확인, 통계를 한곳에서 보는 플랫폼입니다.",
 		description:
-			"645.live helps people understand Korean Lotto 6/45 draws through official result snapshots, TrailBase-backed statistics, QR checking, and member scan workflows that are now being surfaced for AI agents as well as humans.",
+			"645.live는 공식 결과 스냅샷, TrailBase 기반 통계, QR 당첨 확인, 회원 스캔 흐름을 통해 로또 6/45 데이터를 더 쉽게 이해할 수 있도록 돕습니다.",
 		intro: [
-			"645.live combines official Korean Lotto 6/45 draw data with site-native scan and analysis signals so users can move from raw results to interpretable patterns quickly. Instead of only showing the winning numbers, the site highlights recent draw snapshots, number frequency shifts, bonus number behavior, color and section balances, and scan-driven interest signals gathered through the existing TrailBase-backed application.",
-			"For AI agents, the goal of this phase is discoverability and reliable execution. The homepage, docs, OpenAPI, llms files, API catalog, MCP endpoints, and WebMCP tools all describe the same product in the same terms: a Korean Lotto 6/45 statistics and QR checking product with public read APIs plus authenticated member scan workflows powered by Better Auth and TrailBase.",
+			"645.live는 공식 로또 6/45 추첨 데이터와 사이트 안에서 쌓이는 스캔·분석 신호를 함께 보여줘서, 사용자가 단순 결과 확인을 넘어 흐름과 패턴까지 빠르게 읽을 수 있게 구성되어 있습니다. 최신 회차 스냅샷, 번호 출현 변화, 보너스 번호 흐름, 색상·구간 균형, 스캔 기반 관심 신호까지 한 화면에서 이어집니다.",
+			"일반 사용자에게는 실시간 스캔과 통계 허브를, 연동이 필요한 사용자에게는 공개 조회 API와 문서를 함께 제공합니다. 같은 제품 설명이 홈페이지, 문서, OpenAPI, API 카탈로그, MCP 엔드포인트 전반에서 일관되게 이어지도록 정리했습니다.",
 		],
 		sections: [
 			{
-				title: "What 645.live does",
+				title: "645.live에서 할 수 있는 일",
 				bullets: [
-					"Shows recent Korean Lotto 6/45 draw snapshots with official winning numbers, bonus number, first-prize counts, and claim deadline dates.",
-					"Provides number frequency analysis, pattern comparisons, and statistics across odd/even, high/low, colors, sections, pairs, bonus numbers, and AC values.",
-					"Supports QR-based ticket checking and signed-in member scan history using the site's existing Better Auth and TrailBase workflow.",
-					"Publishes machine-readable discovery surfaces for agents, including llms files, OpenAPI, API catalog, MCP, WebMCP, and markdown negotiation.",
+					"최신 로또 6/45 회차의 공식 당첨번호, 보너스 번호, 1등 당첨자 수, 수령 기한 정보를 한눈에 보여줍니다.",
+					"번호 출현 빈도, 패턴 비교, 홀짝·고저·색상·구간·쌍·보너스·AC 통계를 함께 제공합니다.",
+					"QR 기반 티켓 확인과 로그인 회원의 스캔 이력 확인·동기화 흐름을 지원합니다.",
+					"공개 조회 API, OpenAPI, API 카탈로그, MCP, WebMCP 같은 기계 판독용 탐색 표면도 함께 제공합니다.",
 				],
 			},
 			{
-				title: "Agent-ready capabilities",
+				title: "연동 관점에서 볼 수 있는 기능",
 				table: {
-					headers: ["Capability", "Surface", "Why it matters"],
+					headers: ["기능", "경로", "의미"],
 					rows: [
 						[
-							"Recent draw lookup",
+							"최근 회차 조회",
 							"/api/lotto-draws-recent.json and /api/lotto-draws/[round].json",
-							"Agents can fetch structured, current Korean Lotto 6/45 round data without scraping HTML.",
+							"HTML을 직접 파싱하지 않아도 최신 로또 6/45 회차 데이터를 구조화된 형태로 가져올 수 있습니다.",
 						],
 						[
-							"Statistics overview",
+							"통계 개요",
 							"/stats, /api/stats/overview.json, MCP tools",
-							"Agents can summarize frequency analysis and recent pattern shifts in a stable format.",
+							"출현 빈도와 최근 패턴 변화를 안정적인 형식으로 요약할 수 있습니다.",
 						],
 						[
-							"Authentication visibility",
+							"인증 정보 확인",
 							"/api/auth/providers.json and /docs",
-							"Agents can understand which sign-in flows exist today before attempting member operations.",
+							"회원 기능을 시도하기 전에 현재 어떤 로그인 흐름을 제공하는지 확인할 수 있습니다.",
 						],
 						[
-							"Signed-in scan workflows",
+							"로그인 회원 스캔 흐름",
 							"/rpc and MCP member scan tools",
-							"Agents can use the existing Better Auth session-cookie flow for member scan summary, list, and sync operations.",
+							"기존 Better Auth 세션 쿠키 흐름을 이용해 회원 스캔 요약, 목록, 동기화 작업을 수행할 수 있습니다.",
 						],
 					],
 				},
 			},
 			{
-				title: "Start here",
+				title: "바로 가기",
 				links: getCommonLinks(),
 			},
 		],
@@ -303,65 +303,65 @@ export function getAgentHomePageContent(): AgentPage {
 export function getDocsPageContent(): AgentPage {
 	return {
 		key: "docs",
-		eyebrow: "Developer Docs",
-		title: "Build with 645.live",
+		eyebrow: "개발자 문서",
+		title: "645.live 연동 가이드",
 		description:
-			"645.live exposes public Korean Lotto 6/45 read APIs, markdown-friendly docs, same-domain MCP discovery, and signed-in member scan workflows built on the site's existing Better Auth and TrailBase stack.",
+			"645.live는 공개 로또 6/45 조회 API, 마크다운 대응 문서, 같은 도메인 MCP 탐색, 기존 Better Auth와 TrailBase 기반 회원 스캔 흐름을 제공합니다.",
 		intro: [
-			"Use the public REST API when you need stable machine-readable access to recent draw snapshots, statistics overviews, auth provider visibility, or site status. Use MCP when your agent platform already speaks MCP and you want the same core actions exposed as tools.",
-			"The current auth model is intentionally simple. Public read APIs are anonymous. Member scan actions require the user's existing Better Auth session cookie. OAuth discovery endpoints are reserved for a later phase and are not published yet.",
+			"최근 회차 스냅샷, 통계 개요, 로그인 제공자 정보, 서비스 상태를 안정적인 기계 판독 형식으로 가져오려면 공개 REST API를 사용하면 됩니다. MCP를 이미 지원하는 에이전트 플랫폼이라면 같은 핵심 기능을 도구 형태로 노출하는 MCP 엔드포인트를 사용할 수 있습니다.",
+			"현재 인증 모델은 단순하게 유지되어 있습니다. 공개 조회 API는 익명으로 사용할 수 있고, 회원 스캔 작업은 사용자의 기존 Better Auth 세션 쿠키가 필요합니다. OAuth 디스커버리 엔드포인트는 추후 단계에서 도입될 예정이며 아직 공개되지 않았습니다.",
 		],
 		sections: [
 			{
-				title: "Quickstart",
+				title: "빠른 시작",
 				bullets: [
-					`Fetch recent draw data from ${absoluteUrl(DISCOVERY_PATHS.recentDraws)}.`,
-					`Fetch high-level statistics from ${absoluteUrl(DISCOVERY_PATHS.statsOverview)}.`,
-					`Inspect auth provider availability from ${absoluteUrl(DISCOVERY_PATHS.authProviders)} before sending a user to login.`,
-					`Use ${absoluteUrl(DISCOVERY_PATHS.openApi)} to generate SDKs or function-calling schemas.`,
+					`${absoluteUrl(DISCOVERY_PATHS.recentDraws)}에서 최근 회차 데이터를 조회합니다.`,
+					`${absoluteUrl(DISCOVERY_PATHS.statsOverview)}에서 상위 통계 요약을 가져옵니다.`,
+					`사용자를 로그인으로 보내기 전에 ${absoluteUrl(DISCOVERY_PATHS.authProviders)}에서 현재 로그인 제공자를 확인합니다.`,
+					`${absoluteUrl(DISCOVERY_PATHS.openApi)}를 사용해 SDK나 함수 호출 스키마를 생성합니다.`,
 				],
 			},
 			{
-				title: "Public REST API",
+				title: "공개 REST API",
 				table: {
-					headers: ["Method", "Path", "Description"],
+					headers: ["메서드", "경로", "설명"],
 					rows: [
-						["GET", DISCOVERY_PATHS.recentDraws, "Recent Korean Lotto 6/45 draw snapshots"],
-						["GET", "/api/lotto-draws/{round}.json", "Structured snapshot for a single round"],
-						["GET", DISCOVERY_PATHS.statsOverview, "Statistics hub summary from existing TrailBase-backed services"],
-						["GET", DISCOVERY_PATHS.authProviders, "Runtime view of enabled Better Auth sign-in providers"],
-						["GET", DISCOVERY_PATHS.apiStatus, "Machine-readable service status"],
-						["GET", DISCOVERY_PATHS.openApi, "OpenAPI description for the public REST surface"],
+						["GET", DISCOVERY_PATHS.recentDraws, "최근 로또 6/45 회차 스냅샷"],
+						["GET", "/api/lotto-draws/{round}.json", "단일 회차 구조화 스냅샷"],
+						["GET", DISCOVERY_PATHS.statsOverview, "기존 TrailBase 기반 서비스에서 만든 통계 허브 요약"],
+						["GET", DISCOVERY_PATHS.authProviders, "현재 활성화된 Better Auth 로그인 제공자 목록"],
+						["GET", DISCOVERY_PATHS.apiStatus, "기계 판독용 서비스 상태 문서"],
+						["GET", DISCOVERY_PATHS.openApi, "공개 REST 인터페이스용 OpenAPI 설명서"],
 					],
 				},
 			},
 			{
-				title: "MCP and WebMCP",
+				title: "MCP와 WebMCP",
 				paragraphs: [
-					`Remote MCP discovery is available at ${absoluteUrl(DISCOVERY_PATHS.mcp)} with an alias at ${absoluteUrl(DISCOVERY_PATHS.mcpAlias)}. MCP Apps metadata uses ui:// resources so capable hosts can render lightweight UI surfaces for stats, draw details, and member scan data.`,
-					"WebMCP is also registered in the browser when navigator.modelContext is available. The browser-facing tools mirror the same capability model as the remote MCP server and stay bound to the user's real session state.",
+					`원격 MCP 탐색은 ${absoluteUrl(DISCOVERY_PATHS.mcp)}에서 제공되며 ${absoluteUrl(DISCOVERY_PATHS.mcpAlias)} 별칭도 함께 지원합니다. MCP Apps 메타데이터는 ui:// 리소스를 사용해, 지원하는 호스트에서 통계·회차 상세·회원 스캔 데이터를 가벼운 UI 표면으로 렌더링할 수 있습니다.`,
+					"navigator.modelContext를 사용할 수 있는 브라우저에서는 WebMCP도 함께 등록됩니다. 브라우저 쪽 도구는 원격 MCP 서버와 같은 기능 모델을 따르며, 사용자의 실제 세션 상태와 연결됩니다.",
 				],
 			},
 			{
-				title: "Authentication behavior",
+				title: "인증 동작",
 				bullets: [...AUTH_SUMMARY_LINES],
 			},
 			{
-				title: "Errors and support",
+				title: "오류와 지원",
 				bullets: [
-					"Public API errors return JSON with error, code, message, and hint fields instead of HTML fallback pages.",
-					"Use /api/status.json when an agent needs a machine-readable health check before retrying.",
-					"Use /contact for public support channels and implementation issue reporting.",
+					"공개 API 오류는 HTML 대체 페이지 대신 error, code, message, hint 필드를 가진 JSON으로 반환됩니다.",
+					"자동화 도구가 재시도 전에 상태를 확인해야 한다면 /api/status.json을 사용합니다.",
+					"공개 지원 채널과 구현 이슈 제보는 /contact를 사용합니다.",
 				],
 			},
 			{
-				title: "Related resources",
+				title: "관련 자료",
 				links: [
-					{ label: "Agent View", href: "/?mode=agent", description: "Compact AI-oriented homepage variant" },
-					{ label: "API Catalog", href: DISCOVERY_PATHS.apiCatalog, description: "RFC 9727 discovery document" },
-					{ label: "Methodology", href: DISCOVERY_PATHS.methodology, description: "How official and scan-derived data are combined" },
-					{ label: "Pricing", href: DISCOVERY_PATHS.pricing, description: "Machine-readable plan information" },
-					{ label: "Contact", href: DISCOVERY_PATHS.contact, description: "Public support and issue-reporting channels" },
+					{ label: "에이전트 보기", href: "/?mode=agent", description: "AI 중심 요약 화면" },
+					{ label: "API 카탈로그", href: DISCOVERY_PATHS.apiCatalog, description: "RFC 9727 디스커버리 문서" },
+					{ label: "운영 기준", href: DISCOVERY_PATHS.methodology, description: "공식 결과와 스캔 파생 데이터를 함께 해석하는 방식" },
+					{ label: "요금 정보", href: DISCOVERY_PATHS.pricing, description: "기계 판독용 플랜 정보" },
+					{ label: "문의", href: DISCOVERY_PATHS.contact, description: "공개 지원 채널과 이슈 제보 경로" },
 				],
 			},
 		],
@@ -371,33 +371,33 @@ export function getDocsPageContent(): AgentPage {
 export function getComparePageContent(): AgentPage {
 	return {
 		key: "compare",
-		eyebrow: "Positioning",
-		title: "Why choose 645.live for Korean Lotto 6/45 analysis",
+		eyebrow: "차별점",
+		title: "왜 645.live로 로또 6/45를 분석하나",
 		description:
-			"645.live is designed for people and agents who need more than a basic checker: it combines official result snapshots, TrailBase-backed scan trends, deep statistics, and machine-readable discovery surfaces in one product.",
+			"645.live는 단순 당첨 확인을 넘어 공식 결과 스냅샷, TrailBase 기반 스캔 흐름, 깊이 있는 통계, 기계 판독용 디스커버리 표면을 한 제품 안에 함께 담고 있습니다.",
 		intro: [
-			"Many lottery products fall into one narrow category. Some only verify winning numbers. Some only generate random tickets. Some only archive statistics without member workflows or modern agent discovery. 645.live aims to bridge those categories by combining official Korean Lotto 6/45 reference data, scan-derived interest signals, and an agent-friendly integration surface.",
+			"로또 서비스는 보통 한 가지 역할에만 집중되는 경우가 많습니다. 어떤 곳은 당첨번호 확인만 제공하고, 어떤 곳은 번호 생성만 지원하며, 어떤 곳은 통계를 쌓아두기만 하고 회원 흐름이나 현대적인 연동 표면은 제공하지 않습니다. 645.live는 공식 로또 6/45 기준 데이터, 스캔 기반 관심 신호, 연동 친화적 표면을 함께 묶어 그 사이를 연결하려고 합니다.",
 		],
 		sections: [
 			{
-				title: "Feature matrix",
+				title: "기능 비교표",
 				table: COMPARE_MATRIX,
 			},
 			{
-				title: "Differentiators",
+				title: "645.live의 차별점",
 				bullets: [
-					"TrailBase-backed scan and member flows coexist with public read APIs instead of being hidden behind browser-only UI.",
-					"Recent draw snapshots include claim window dates and are easy for agents to fetch without scraping.",
-					"The same product description is aligned across homepage metadata, docs, llms files, OpenAPI, MCP, and WebMCP.",
-					"Stats pages are not just archives; they explain frequency analysis and pattern shifts across multiple analytical views.",
+					"TrailBase 기반 스캔·회원 흐름이 브라우저 전용 화면 뒤에 숨지 않고, 공개 조회 API와 함께 공존합니다.",
+					"최근 회차 스냅샷에는 수령 기한까지 포함돼 있어, 스크래핑 없이도 필요한 데이터를 바로 가져올 수 있습니다.",
+					"홈페이지 메타데이터, 문서, llms 파일, OpenAPI, MCP, WebMCP 전반에서 같은 제품 설명을 유지합니다.",
+					"통계 페이지는 단순 아카이브가 아니라, 여러 분석 축을 통해 출현 빈도와 패턴 변화를 해설합니다.",
 				],
 			},
 			{
-				title: "Read more",
+				title: "더 읽어보기",
 				links: [
-					{ label: "Developer Docs", href: DISCOVERY_PATHS.docs },
-					{ label: "Methodology", href: DISCOVERY_PATHS.methodology },
-					{ label: "Guide", href: "/guide" },
+					{ label: "개발자 문서", href: DISCOVERY_PATHS.docs },
+					{ label: "운영 기준", href: DISCOVERY_PATHS.methodology },
+					{ label: "가이드", href: "/guide" },
 				],
 			},
 		],
@@ -407,31 +407,31 @@ export function getComparePageContent(): AgentPage {
 export function getStatusPageContent(): AgentPage {
 	return {
 		key: "status",
-		eyebrow: "Status",
-		title: "645.live public surface status",
+		eyebrow: "상태",
+		title: "645.live 공개 표면 상태",
 		description:
-			"This page explains the health and intended usage of the public 645.live read surfaces that are relevant to AI agents and developer integrations.",
+			"이 페이지는 645.live의 공개 조회 표면이 현재 어떤 상태인지와, 개발자 연동 관점에서 어떤 용도로 쓰이는지 설명합니다.",
 		intro: [
-			"Public read surfaces include the recent draw snapshot API, the statistics overview API, the docs and markdown-negotiated pages, the RFC 9727 API catalog, and the same-domain MCP discovery endpoint. Member scan write actions remain authenticated and depend on the user's Better Auth session state.",
+			"공개 조회 표면에는 최근 회차 스냅샷 API, 통계 개요 API, 마크다운 협상 문서, RFC 9727 API 카탈로그, 같은 도메인 MCP 탐색 엔드포인트가 포함됩니다. 회원 스캔 쓰기 작업은 계속 인증이 필요하며 사용자의 Better Auth 세션 상태에 따라 동작합니다.",
 		],
 		sections: [
 			{
-				title: "Surfaces monitored",
+				title: "모니터링 대상 표면",
 				bullets: [
-					"Homepage and agent mode view",
-					"Developer docs and markdown negotiation surfaces",
-					"Recent draw and stats overview APIs",
-					"Auth providers endpoint and Better Auth availability",
-					"MCP discovery endpoint and MCP server card",
+					"홈페이지와 에이전트 모드 화면",
+					"개발자 문서와 마크다운 협상 표면",
+					"최근 회차 및 통계 개요 API",
+					"로그인 제공자 엔드포인트와 Better Auth 가용성",
+					"MCP 탐색 엔드포인트와 MCP 서버 카드",
 				],
 			},
 			{
-				title: "Machine-readable status",
+				title: "기계 판독용 상태 문서",
 				links: [
 					{
-						label: "API Status JSON",
+						label: "API 상태 JSON",
 						href: DISCOVERY_PATHS.apiStatus,
-						description: "Machine-readable status document for automated agents",
+						description: "자동화 도구가 읽을 수 있는 상태 문서입니다.",
 					},
 				],
 			},
@@ -442,36 +442,36 @@ export function getStatusPageContent(): AgentPage {
 export function getMethodologyPageContent(): AgentPage {
 	return {
 		key: "methodology",
-		eyebrow: "Methodology",
-		title: "How 645.live combines official Lotto 6/45 results with scan-derived insight",
+		eyebrow: "운영 기준",
+		title: "645.live는 공식 로또 6/45 결과와 스캔 파생 신호를 어떻게 함께 보여주나",
 		description:
-			"645.live treats official Korean Lotto 6/45 draw results as the source of truth for winning data, while scan-derived data is used as an auxiliary signal for understanding user interest and short-term attention patterns.",
+			"645.live는 공식 로또 6/45 추첨 결과를 당첨 정보의 기준으로 삼고, 스캔 파생 데이터는 사용자 관심과 단기 주목 흐름을 이해하기 위한 보조 신호로 사용합니다.",
 		intro: [
-			"Official results remain the primary reference for winning numbers, bonus numbers, first-prize counts, and payout windows. These values are fetched from official public sources and normalized into the site's snapshot layer so they can be reused consistently across pages, APIs, and agent-facing tools.",
-			"Scan-derived data is different. It represents what people scanned, checked, or revisited through 645.live's existing application workflow. That makes it useful for observing attention, interest, and member activity patterns, but it should never be mistaken for predictive or authoritative winning data.",
+			"당첨번호, 보너스 번호, 1등 당첨자 수, 수령 기한 같은 값은 공식 결과를 최우선 기준으로 사용합니다. 이 값들은 공식 공개 소스에서 가져와 사이트의 스냅샷 계층으로 정규화한 뒤, 페이지·API·에이전트 도구 전반에서 일관되게 재사용합니다.",
+			"스캔 파생 데이터는 성격이 다릅니다. 이는 사용자가 645.live에서 무엇을 스캔하고 확인하고 다시 열어봤는지를 보여주는 흐름입니다. 따라서 관심도와 회원 활동 패턴을 읽는 데는 유용하지만, 예측용 당첨 데이터나 공식 결과처럼 해석해서는 안 됩니다.",
 		],
 		sections: [
 			{
-				title: "Data hierarchy",
+				title: "데이터 우선순위",
 				bullets: [
-					"Official public Lotto 6/45 results are the source of truth for winning outcomes and claim windows.",
-					"TrailBase-backed site data provides scan counts, member scan history, and derived analysis summaries.",
-					"Editorial and agent-facing summaries should explain the difference between those two layers clearly.",
+					"공식 공개 로또 6/45 결과는 당첨 여부와 수령 기한의 기준 데이터입니다.",
+					"TrailBase 기반 사이트 데이터는 스캔 횟수, 회원 스캔 이력, 파생 분석 요약을 제공합니다.",
+					"에디토리얼 요약과 연동용 설명에서는 이 두 계층의 차이를 명확히 구분해야 합니다.",
 				],
 			},
 			{
-				title: "How to interpret frequency analysis",
+				title: "출현 빈도 분석을 해석하는 방법",
 				paragraphs: [
-					"Frequency analysis helps users compare how often numbers, sections, colors, or pairings have appeared across historical draws. It is useful for explanation and exploration, not for guaranteed prediction. 645.live therefore frames these statistics as historical and behavioral signals rather than deterministic advice.",
+					"출현 빈도 분석은 번호, 구간, 색상, 번호쌍이 과거 회차에서 얼마나 자주 나왔는지 비교하는 데 도움을 줍니다. 설명과 탐색에는 유용하지만, 확정적인 예측 도구는 아닙니다. 645.live는 그래서 이 통계를 정답형 조언이 아니라 과거 기반·행동 기반 신호로 설명합니다.",
 				],
 			},
 			{
-				title: "Related pages",
+				title: "관련 페이지",
 				links: [
-					{ label: "Stats Hub", href: "/stats" },
-					{ label: "Guide", href: "/guide" },
-					{ label: "Data Sources", href: "/data-sources" },
-					{ label: "Editorial Policy", href: "/editorial-policy" },
+					{ label: "통계 허브", href: "/stats" },
+					{ label: "가이드", href: "/guide" },
+					{ label: "데이터 출처", href: "/data-sources" },
+					{ label: "편집 정책", href: "/editorial-policy" },
 				],
 			},
 		],
@@ -481,35 +481,35 @@ export function getMethodologyPageContent(): AgentPage {
 export function getContactPageContent(): AgentPage {
 	return {
 		key: "contact",
-		eyebrow: "Contact",
-		title: "How to contact 645.live",
+		eyebrow: "문의",
+		title: "645.live 문의 방법",
 		description:
-			"645.live currently handles support, issue reports, and integration questions through public web channels so agents and users can find a clear contact path.",
+			"645.live는 지원, 이슈 제보, 연동 문의를 공개 웹 채널로 받고 있으며, 사용자와 에이전트가 모두 같은 문의 경로를 찾을 수 있도록 운영합니다.",
 		intro: [
-			"If you need help with public API discovery, MCP integration, data corrections, or product questions, start with the public contact channels listed below. Phase 1 keeps support contact lightweight and public rather than introducing a separate ticket portal.",
+			"공개 API 탐색, MCP 연동, 데이터 수정 요청, 제품 문의가 필요하다면 아래 공개 채널부터 이용하면 됩니다. 현재 단계에서는 별도 티켓 포털 대신 가볍고 공개적인 문의 흐름을 유지하고 있습니다.",
 		],
 		sections: [
 			{
-				title: "Support channels",
+				title: "지원 채널",
 				links: [
 					{
 						label: "X",
 						href: `https://x.com/${SITE_TWITTER.replace(/^@/, "")}`,
-						description: "Public product updates and lightweight support contact.",
+						description: "제품 공지와 간단한 문의 응답을 위한 공개 채널입니다.",
 					},
 					{
 						label: "GitHub",
 						href: SITE_GITHUB,
-						description: "Repository, issue reporting, and implementation context.",
+						description: "저장소 확인, 이슈 제보, 구현 맥락 공유에 적합합니다.",
 					},
 				],
 			},
 			{
-				title: "What to include",
+				title: "함께 보내면 좋은 정보",
 				bullets: [
-					"Which URL or endpoint you were using when the issue happened.",
-					"Whether the issue affected the public API, docs, MCP, or signed-in member scan flow.",
-					"The Lotto 6/45 round number or stats page involved, if relevant.",
+					"문제가 발생한 페이지 URL 또는 엔드포인트 경로",
+					"공개 API, 문서, MCP, 로그인 회원 스캔 중 어느 흐름에서 발생했는지",
+					"관련된 로또 6/45 회차 번호나 통계 페이지가 있다면 함께 첨부",
 				],
 			},
 		],

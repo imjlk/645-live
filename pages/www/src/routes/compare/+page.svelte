@@ -8,7 +8,7 @@
 </script>
 
 <MetaTags
-	title="Why 645.live"
+	title="645.live를 선택해야 하는 이유"
 	titleTemplate="%s | 645.live"
 	description={data.page.description}
 	canonical={absoluteUrl("/compare")}

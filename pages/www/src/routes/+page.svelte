@@ -82,15 +82,14 @@
 	canonical={canonicalUrl}
 	keywords={[
 		"645.live",
-		"Korean Lotto 6/45",
-		"lottery number statistics",
-		"frequency analysis",
-		"QR checking",
-		"developer API",
 		"로또 6/45",
+		"한국 로또",
+		"로또 실시간 스캔",
+		"로또 QR 확인",
 		"로또 통계",
 		"로또 분석",
-		"로또 QR",
+		"번호별 통계",
+		"로또 당첨 확인",
 	]}
 	robots="index,follow"
 	openGraph={{
