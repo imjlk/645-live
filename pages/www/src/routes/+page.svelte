@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { browser } from "$app/environment";
 	import StructuredAgentPage from "$lib/components/agent/StructuredAgentPage.svelte";
 	import ScanStatusGrid from "$lib/modules/lotto/components/ScanStatusGrid.svelte";
 	import {
@@ -11,7 +10,6 @@
 		getSiteLogoUrl,
 	} from "$lib/seo/index.js";
 	import { JsonLd, MetaTags } from "svelte-meta-tags";
-	import { onMount } from "svelte";
 	import type { PageData } from "./$types";
 
 	let { data }: { data: PageData } = $props();
@@ -63,17 +61,6 @@
 		},
 	];
 
-	onMount(() => {
-		if (browser && "serviceWorker" in navigator) {
-			navigator.serviceWorker.ready
-				.then((registration) => {
-					registration.active?.postMessage({
-						type: "CLEANUP_CACHES",
-					});
-				})
-				.catch(console.warn);
-		}
-	});
 </script>
 
 <MetaTags
@@ -188,16 +175,20 @@
 {#if data.agentMode}
 	<StructuredAgentPage page={data.agentPage} />
 {:else}
-	<section class="home-page-summary sr-only">
-		<h1>{pageTitle}</h1>
-		<p>{pageDescription}</p>
-	</section>
-
 	<section class="space-y-4 px-6 pb-6">
 		<div class="rounded-[2rem] border border-base-300/70 bg-base-100/85 p-6 shadow-sm">
-			<p class="text-xs font-semibold uppercase tracking-[0.22em] text-base-content/45">실시간 스캔 현황</p>
-			<h2 class="mt-2 text-2xl font-bold text-base-content">최신 회차 로또 6/45 스캔 보드</h2>
-			<p class="sr-only">{pageDescription}</p>
+			<p class="text-xs font-semibold uppercase tracking-[0.22em] text-base-content/45">645.live overview</p>
+			<h1 class="mt-2 text-3xl font-black tracking-[-0.04em] text-base-content sm:text-4xl">
+				{pageTitle}
+			</h1>
+			<p class="mt-3 max-w-3xl text-sm leading-7 text-base-content/78">
+				{pageDescription} 최신 회차 기준 스캔 현황과 번호별 통계를 빠르게 훑어보고,
+				QR 확인과 회원 스캔 이력은 필요한 경우에만 선택적으로 사용할 수 있습니다.
+			</p>
+			<p class="home-page-summary mt-3 max-w-3xl text-sm leading-7 text-base-content/72">
+				645.live는 설치나 다운로드를 요구하지 않는 웹 기반 로또 6/45 정보 서비스입니다.
+				브라우저에서 바로 최신 당첨 결과, 번호 빈도, 패턴 통계, QR 확인 흐름을 확인할 수 있습니다.
+			</p>
 		</div>
 
 		<ScanStatusGrid

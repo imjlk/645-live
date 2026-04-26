@@ -44,7 +44,7 @@ const config = {
 			"@645/api": "../../packages/api/src/index.ts",
 		},
 		serviceWorker: {
-			register: process.env.NODE_ENV === "production",
+			register: false,
 		},
 		csrf: {
 			trustedOrigins: ["*"],

@@ -3,7 +3,7 @@
 	"short_name": "645.live",
 	"description": "실시간 로또 번호 분석, 통계, 생성 및 QR 스캔 서비스",
 	"start_url": "/",
-	"display": "standalone",
+	"display": "browser",
 	"background_color": "#667eea",
 	"theme_color": "#667eea",
 	"orientation": "portrait-primary",
@@ -42,76 +42,5 @@
 			"purpose": "maskable"
 		}
 	],
-	"shortcuts": [
-		{
-			"name": "번호 생성",
-			"short_name": "생성기",
-			"description": "AI 기반 로또 번호 생성",
-			"url": "/generator",
-			"icons": [
-				{
-					"src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text x='50' y='65' font-size='60' text-anchor='middle'>🎲</text></svg>",
-					"sizes": "any"
-				}
-			]
-		},
-		{
-			"name": "통계 분석",
-			"short_name": "통계",
-			"description": "로또 번호 통계 및 분석",
-			"url": "/stats",
-			"icons": [
-				{
-					"src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text x='50' y='65' font-size='60' text-anchor='middle'>📊</text></svg>",
-					"sizes": "any"
-				}
-			]
-		},
-		{
-			"name": "QR 스캔",
-			"short_name": "QR",
-			"description": "로또 용지 QR 코드 스캔",
-			"url": "/qr-scan",
-			"icons": [
-				{
-					"src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text x='50' y='65' font-size='60' text-anchor='middle'>📱</text></svg>",
-					"sizes": "any"
-				}
-			]
-		}
-	],
-	"prefer_related_applications": false,
-	"edge_side_panel": {
-		"preferred_width": 400
-	},
-	"file_handlers": [
-		{
-			"action": "/qr-scan",
-			"accept": {
-				"image/*": [".png", ".jpg", ".jpeg", ".gif", ".webp"]
-			}
-		}
-	],
-	"protocol_handlers": [
-		{
-			"protocol": "web+lotto",
-			"url": "/n/%s"
-		}
-	],
-	"share_target": {
-		"action": "/share",
-		"method": "POST",
-		"enctype": "multipart/form-data",
-		"params": {
-			"files": [
-				{
-					"name": "media",
-					"accept": ["image/*"]
-				}
-			]
-		}
-	},
-	"launch_handler": {
-		"client_mode": "focus-existing"
-	}
+	"prefer_related_applications": false
 }

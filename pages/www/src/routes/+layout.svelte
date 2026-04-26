@@ -7,8 +7,6 @@ import Header from "$lib/layout/Header.svelte";
 import MobileNavigation from "$lib/layout/MobileNavigation.svelte";
 import NavigationMenu from "$lib/layout/NavigationMenu.svelte";
 import Footer from "$lib/layout/Footer.svelte";
-import InstallPrompt from "$lib/components/ui/InstallPrompt.svelte";
-import UpdatePrompt from "$lib/components/ui/UpdatePrompt.svelte";
 import { syncWebMcpContext } from "$lib/agent/webmcp";
 import "../app.css";
 import { getTrailbaseBrowserBaseUrl } from "$lib/trailbase/browser-base";
@@ -17,7 +15,6 @@ import { SITE_ORIGIN } from "$lib/seo/index.js";
 
 let { data, children } = $props();
 import { preparePageTransition } from "$lib/layout/page-transition";
-import { initPWAPerformanceMonitor } from "$lib/utils/pwa-performance";
 import {
 	configureMemberScanSync,
 	registerMemberScanSyncLifecycle,
@@ -33,6 +30,9 @@ let currentAbsoluteUrl = $derived(
 	new URL(`${page.url.pathname}${page.url.search}`, SITE_ORIGIN).toString(),
 );
 const FORCE_SW_RESET_PARAM = "sw-reset";
+// Temporarily keep PWA surfaces dormant while clearing Search Console
+// "deceptive page" warnings and any stale service worker registrations.
+const SERVICE_WORKER_SAFETY_HOLD = true;
 
 async function resetServiceWorkersIfNeeded(): Promise<boolean> {
 	if (!browser || !("serviceWorker" in navigator)) {
@@ -40,13 +40,18 @@ async function resetServiceWorkersIfNeeded(): Promise<boolean> {
 	}
 
 	const forceReset = page.url.searchParams.has(FORCE_SW_RESET_PARAM);
-	const shouldReset = import.meta.env.DEV || forceReset;
+	const shouldReset =
+		import.meta.env.DEV || forceReset || SERVICE_WORKER_SAFETY_HOLD;
 
 	if (!shouldReset) {
 		return false;
 	}
 
-	const resetKey = forceReset ? "prod-sw-reset" : "dev-sw-reset";
+	const resetKey = forceReset
+		? "prod-sw-reset"
+		: SERVICE_WORKER_SAFETY_HOLD
+			? "safe-mode-sw-reset"
+			: "dev-sw-reset";
 	const registrations = await navigator.serviceWorker.getRegistrations();
 	const cacheNames = "caches" in window ? await caches.keys() : [];
 	const hasResetTargets = registrations.length > 0 || cacheNames.length > 0;
@@ -104,13 +109,6 @@ onMount(() => {
 			}
 		}
 
-		// PWA 성능 모니터링 초기화
-		try {
-			initPWAPerformanceMonitor();
-		} catch (error) {
-			console.warn("PWA 성능 모니터링 초기화 실패:", error);
-		}
-
 		// 실제 데이터가 있는 회차들을 가져오기
 		try {
 			const { initClient } = await import("trailbase");
@@ -160,7 +158,6 @@ $effect(() => {
 	<meta name="theme-color" content="#3b82f6" />
 	<link rel="alternate" hreflang="ko-KR" href={currentAbsoluteUrl} />
 	<link rel="alternate" hreflang="x-default" href={currentAbsoluteUrl} />
-	<meta name="google-adsense-account" content="ca-pub-4441205887996163">
 	<meta name="naver-site-verification" content="61430164e06bd982855b384e778a1c565ee14065" />
 	<!-- Google tag (gtag.js) -->
 	<script async src="https://www.googletagmanager.com/gtag/js?id=G-KEBJGHESGM"></script>
@@ -171,8 +168,6 @@ $effect(() => {
 
 		gtag('config', 'G-KEBJGHESGM');
 	</script>
-	<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-4441205887996163"
-     crossorigin="anonymous"></script>
 </svelte:head>
 
 <NuqsAdapter>
@@ -190,8 +185,5 @@ $effect(() => {
 		
 		<!-- 모바일 전용 하단 네비게이션 -->
 		<MobileNavigation />
-		
-		<InstallPrompt />
-		<UpdatePrompt />
 	</div>
 </NuqsAdapter>
