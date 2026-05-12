@@ -8,6 +8,7 @@ export type MyScanResultStatus =
 export type MyScanListItem = {
 	id: string;
 	ticketHash: string;
+	qrData: string;
 	round: number | null;
 	gamesCount: number | null;
 	resultStatus: MyScanResultStatus;

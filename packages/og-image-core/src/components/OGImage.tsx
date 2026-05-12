@@ -111,6 +111,14 @@ export const OGImage: React.FC<CustomLayoutOptions> = ({
 	const descriptionLines = descriptionText
 		? balanceText(descriptionText, layout === "news" ? 3 : 2)
 		: [];
+	const titleLineItems = titleLines.map((line, index) => ({
+		line,
+		key: `${titleLines.slice(0, index).join("\u0000")}\u0000${line}`,
+	}));
+	const descriptionLineItems = descriptionLines.map((line, index) => ({
+		line,
+		key: `${descriptionLines.slice(0, index).join("\u0000")}\u0000${line}`,
+	}));
 	const hasNewsMeta = (badgeText && badgeText.length > 0) || (metaText && metaText.length > 0);
 	const newsAccent = colors.accentColor;
 	const resolvedTitleFontSize =
@@ -165,9 +173,9 @@ export const OGImage: React.FC<CustomLayoutOptions> = ({
 					maxWidth: resolvedTitleMaxWidth,
 				}}
 			>
-				{titleLines.map((line, index) => (
+				{titleLineItems.map(({ line, key }) => (
 					<div
-						key={`${line}-${index}`}
+						key={key}
 						style={{
 							display: "block",
 							fontSize: resolvedTitleFontSize,
@@ -334,9 +342,9 @@ export const OGImage: React.FC<CustomLayoutOptions> = ({
 														: "1px solid rgba(15,23,42,0.08)",
 											}}
 										>
-											{descriptionLines.map((line, index) => (
+											{descriptionLineItems.map(({ line, key }) => (
 												<p
-													key={`${line}-${index}`}
+													key={key}
 													style={{
 													fontSize: resolvedDescriptionFontSize,
 														color: colors.textColor,

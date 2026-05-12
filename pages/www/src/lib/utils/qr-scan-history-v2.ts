@@ -321,7 +321,8 @@ export interface QRScanStorageProvider {
 	// 기본 CRUD 작업
 	getItems(filter?: QRScanHistoryFilter): Promise<QRScanHistoryItem[]>;
 	addItem(
-		item: Omit<QRScanHistoryItem, "id" | "scannedAt">,
+		item: Omit<QRScanHistoryItem, "id" | "scannedAt"> &
+			Partial<Pick<QRScanHistoryItem, "id" | "scannedAt">>,
 	): Promise<QRScanHistoryItem>;
 	updateItem(id: string, updates: Partial<QRScanHistoryItem>): Promise<boolean>;
 	removeItem(id: string): Promise<boolean>;
@@ -586,14 +587,15 @@ export class LocalStorageProvider implements QRScanStorageProvider {
 	}
 
 	async addItem(
-		item: Omit<QRScanHistoryItem, "id" | "scannedAt">,
+		item: Omit<QRScanHistoryItem, "id" | "scannedAt"> &
+			Partial<Pick<QRScanHistoryItem, "id" | "scannedAt">>,
 	): Promise<QRScanHistoryItem> {
 		const items = await this.loadFromStorage();
 
 		const newItem = this.normalizeItem({
 			...item,
-			id: this.generateId(),
-			scannedAt: new Date(),
+			id: item.id ?? this.generateId(),
+			scannedAt: item.scannedAt ?? new Date(),
 			syncStatus: item.syncStatus ?? "local",
 		});
 
@@ -736,7 +738,8 @@ export class ApiStorageProvider implements QRScanStorageProvider {
 	}
 
 	async addItem(
-		item: Omit<QRScanHistoryItem, "id" | "scannedAt">,
+		item: Omit<QRScanHistoryItem, "id" | "scannedAt"> &
+			Partial<Pick<QRScanHistoryItem, "id" | "scannedAt">>,
 	): Promise<QRScanHistoryItem> {
 		// TODO: API 호출 구현
 		throw new Error("API Provider 구현 예정");
@@ -1101,12 +1104,31 @@ export class QRScanHistoryManagerImpl implements QRScanHistoryManager {
 				stats.lastScanAt,
 			);
 
-			// 원격에서 가져온 항목들을 로컬에 추가
+			const existingItems = await provider.getItems();
+			const existingByTicketHash = new Map(
+				existingItems.map((item) => [item.ticketHash, item]),
+			);
+
+			// 원격에서 가져온 항목들을 로컬에 병합
 			for (const remoteItem of remoteItems) {
-				await provider.addItem({
+				const syncedItem = {
 					...remoteItem,
+					userId: this.currentUserId,
 					syncStatus: "synced",
-				});
+					lastSyncAt: new Date(),
+				} satisfies QRScanHistoryItem;
+				const existing = existingByTicketHash.get(remoteItem.ticketHash);
+
+				if (existing) {
+					await provider.updateItem(existing.id, {
+						...syncedItem,
+						id: existing.id,
+						scannedAt: syncedItem.scannedAt,
+					});
+					continue;
+				}
+
+				await provider.addItem(syncedItem);
 			}
 
 			return { success: true };

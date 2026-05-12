@@ -518,7 +518,6 @@ function buildAngleRecommendedStats(analysis, angle, scanSummary) {
 			push("pairs", "번호 쌍 통계", "연속 회차 사이 함께 등장한 번호 조합을 더 자세히 비교");
 			push("winning_stores", "당첨점 비교", "직전 회차와 판매점 분포 차이를 함께 체크");
 			break;
-		case "winner_payout":
 		default:
 			push("winning_stores", "당첨점 조회", "고액 당첨 회차의 판매점 분포와 선택 방식을 확인");
 			push("ac", "AC값 통계", "당첨자 수와 조합 복잡도의 관계를 함께 살펴볼 수 있음");
@@ -1038,7 +1037,6 @@ function buildAnglePayload(
 ) {
 	const round = analysis.round;
 	const bonus = safeInt(draw.bonus_number);
-	const drawDate = formatDate(draw.draw_date);
 	const scanNarrative = buildScanNarrative(scanSummary, analysis);
 	const previousNarrative = previous ? buildPreviousRoundSentence(previous) : "";
 	const selectionLead = getSelectionLead(analysis);
@@ -1153,7 +1151,6 @@ function buildAnglePayload(
 				scanNarrative || regionNarrative,
 			];
 			break;
-		case "winner_payout":
 		default:
 			title =
 				variant === "single_winner"
@@ -1640,7 +1637,7 @@ async function getExistingRounds() {
 	return existing;
 }
 
-function aiInputPayload(draw, stores, analysis, context = {}) {
+function aiInputPayload(draw, _stores, analysis, context = {}) {
 	const bonus = safeInt(draw.bonus_number);
 	return {
 		round: analysis.round,
@@ -2323,7 +2320,7 @@ async function main() {
 			"publishedAt",
 		);
 		const publishedAt =
-			existingPublishedAt && existingPublishedAt.startsWith(formatDate(draw.draw_date))
+			existingPublishedAt?.startsWith(formatDate(draw.draw_date))
 				? existingPublishedAt
 				: defaultPublishedAt;
 		const stableUpdatedAt =

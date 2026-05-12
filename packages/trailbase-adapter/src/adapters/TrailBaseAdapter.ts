@@ -15,43 +15,13 @@ import type {
 	SubscriptionOptions,
 } from "../types/index.js";
 import { TrailBaseAuthAdapter } from "./AuthAdapter.js";
+import type {
+	TrailBaseClient,
+	TrailBaseEvent,
+	TrailBaseRecordApi,
+} from "./client-types.js";
 import { TrailBaseCacheUtilities } from "./CacheUtilities.js";
 import { TrailBaseRecordUtilities } from "./RecordUtilities.js";
-
-// TrailBase specific types
-interface TrailBaseEvent {
-	Update?: unknown;
-	Insert?: unknown;
-	Delete?: unknown;
-	Error?: string;
-}
-
-interface TrailBaseListResult<T extends BaseRecord> {
-	records?: T[];
-	total?: number;
-	has_more?: boolean;
-}
-
-interface TrailBaseRecordApi<T extends BaseRecord> {
-	tableName?: string;
-	subscribe(channel: string): Promise<ReadableStream<TrailBaseEvent>>;
-	read(id: string): Promise<T | null>;
-	list(params: {
-		order?: string[];
-		pagination?: {
-			limit?: number;
-			offset?: number;
-		};
-		filter?: Record<string, unknown>;
-	}): Promise<TrailBaseListResult<T>>;
-	create(data: Partial<T>): Promise<T>;
-	update(id: string, data: Partial<T>): Promise<T>;
-	delete(id: string): Promise<void>;
-}
-
-interface TrailBaseClient<T extends BaseRecord> {
-	records(table: string): TrailBaseRecordApi<T>;
-}
 
 export class TrailBaseAdapter<
 	T extends BaseRecord = BaseRecord,

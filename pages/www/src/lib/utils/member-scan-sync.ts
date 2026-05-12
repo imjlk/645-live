@@ -1,4 +1,5 @@
 import type {
+	MyScanListItem,
 	MyScanUpsertInput,
 	MyScansUpsertPendingResult,
 } from "@645/shared";
@@ -9,6 +10,46 @@ import {
 	type QRScanSyncStrategy,
 	qrScanHistory,
 } from "$lib/utils/qr-scan-history.js";
+
+function parseRemoteDate(value: string | null | undefined): Date | undefined {
+	if (!value) {
+		return undefined;
+	}
+
+	const date = new Date(value);
+	return Number.isNaN(date.getTime()) ? undefined : date;
+}
+
+function toHistoryItem(item: MyScanListItem, userId: string): QRScanHistoryItem {
+	const scannedAt =
+		parseRemoteDate(item.createdAt) ??
+		parseRemoteDate(item.updatedAt) ??
+		new Date();
+	const updatedAt = parseRemoteDate(item.updatedAt);
+
+	return {
+		id: `remote-${item.id}`,
+		qrData: item.qrData,
+		ticketHash: item.ticketHash,
+		scannedAt,
+		round: item.round ?? undefined,
+		gamesCount: item.gamesCount ?? undefined,
+		resultStatus: item.resultStatus,
+		lastCheckedAt: parseRemoteDate(item.lastCheckedAt),
+		isWinner: item.resultStatus === "winner",
+		winningGrade: item.winningGrade ?? undefined,
+		claimStartAt: parseRemoteDate(item.claimStartAt),
+		claimDeadlineAt: parseRemoteDate(item.claimDeadlineAt),
+		summary: item.summary,
+		userId,
+		syncStatus: "synced",
+		lastSyncAt: new Date(),
+		metadata: {
+			remoteId: item.id,
+			remoteUpdatedAt: updatedAt?.toISOString() ?? null,
+		},
+	};
+}
 
 class RpcMemberScanSyncStrategy implements QRScanSyncStrategy {
 	name = "orpc-member-scan-sync";
@@ -53,8 +94,12 @@ class RpcMemberScanSyncStrategy implements QRScanSyncStrategy {
 		};
 	}
 
-	async downloadRemote(): Promise<QRScanHistoryItem[]> {
-		return [];
+	async downloadRemote(userId: string): Promise<QRScanHistoryItem[]> {
+		const items = (await rpcClient.myScans.list({
+			limit: 100,
+		})) as MyScanListItem[];
+
+		return items.map((item) => toHistoryItem(item, userId));
 	}
 }
 

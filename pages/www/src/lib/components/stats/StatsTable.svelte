@@ -1,21 +1,30 @@
-<script lang="ts">
+<script lang="ts" generics="Row extends object">
 interface TableColumn {
 	key: string;
 	title: string;
 	class?: string;
 	sticky?: boolean;
 	minWidth?: string;
-	render?: (value: any, row: any) => any;
+	render?: (value: string, row: Row) => string;
 }
 
 interface StatsTableProps {
 	columns: TableColumn[];
-	data: any[];
+	data: Row[];
 	zebra?: boolean;
 	title?: string;
 }
 
 let { columns, data, zebra = true, title }: StatsTableProps = $props();
+
+function getCellValue(row: Row, key: string): unknown {
+	return (row as Record<string, unknown>)[key];
+}
+
+function getRenderValue(row: Row, key: string): string {
+	const value = getCellValue(row, key);
+	return value === null || value === undefined ? "" : String(value);
+}
 </script>
 
 <section class="stats-table-shell">
@@ -30,7 +39,7 @@ let { columns, data, zebra = true, title }: StatsTableProps = $props();
     <table class="table w-full {zebra ? 'table-zebra' : ''}">
       <thead>
         <tr>
-          {#each columns as column}
+          {#each columns as column (column.key)}
             <th
               class="text-xs sm:text-sm {column.class || ''} {column.sticky ? 'sticky left-0 bg-base-100 z-10' : ''}"
               style={column.minWidth ? `min-width: ${column.minWidth}` : ''}
@@ -48,9 +57,9 @@ let { columns, data, zebra = true, title }: StatsTableProps = $props();
                 class="text-xs sm:text-sm {column.class || ''} {column.sticky ? 'sticky left-0 bg-base-100 z-10' : ''}"
               >
                 {#if column.render}
-                  {@html column.render(row[column.key], row)}
+                  {@html column.render(getRenderValue(row, column.key), row)}
                 {:else}
-                  {row[column.key]}
+                  {getCellValue(row, column.key)}
                 {/if}
               </td>
             {/each}

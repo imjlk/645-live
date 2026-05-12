@@ -2,7 +2,8 @@
  * Cache utilities for TrailBase adapter
  */
 
-import type { CacheUtilities, QueryOptions } from '../types/index.js';
+import type { CacheUtilities, QueryOptions, BaseRecord } from '../types/index.js';
+import type { TrailBaseClient } from './client-types.js';
 
 interface CacheEntry<T = unknown> {
 	data: T;
@@ -10,12 +11,12 @@ interface CacheEntry<T = unknown> {
 	ttl: number;
 }
 
-export class TrailBaseCacheUtilities implements CacheUtilities {
+export class TrailBaseCacheUtilities<T extends BaseRecord = BaseRecord> implements CacheUtilities {
 	private cache = new Map<string, CacheEntry>();
-	private client: any = null;
+	private client: TrailBaseClient<T>;
 	private defaultTTL: number;
 
-	constructor(client: any, defaultTTL: number = 5 * 60 * 1000) { // 5 minutes default
+	constructor(client: TrailBaseClient<T>, defaultTTL: number = 5 * 60 * 1000) { // 5 minutes default
 		this.client = client;
 		this.defaultTTL = defaultTTL;
 		

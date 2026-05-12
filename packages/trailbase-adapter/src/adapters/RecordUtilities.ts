@@ -10,11 +10,12 @@ import type {
 	BaseRecord,
 	AdapterError 
 } from '../types/index.js';
+import type { TrailBaseClient } from './client-types.js';
 
 export class TrailBaseRecordUtilities<T extends BaseRecord = BaseRecord> implements RecordUtilities<T> {
-	private client: any = null;
+	private client: TrailBaseClient<T>;
 
-	constructor(client: any) {
+	constructor(client: TrailBaseClient<T>) {
 		this.client = client;
 	}
 
@@ -33,7 +34,7 @@ export class TrailBaseRecordUtilities<T extends BaseRecord = BaseRecord> impleme
 			const offset = (page - 1) * size;
 
 			// Build query params
-			const queryParams: any = {
+			const queryParams: QueryOptions = {
 				...options,
 				pagination: {
 					limit: size,
@@ -82,7 +83,7 @@ export class TrailBaseRecordUtilities<T extends BaseRecord = BaseRecord> impleme
 				? { $or: searchFilters }
 				: searchFilters[0];
 
-			const queryParams: any = {
+			const queryParams: QueryOptions = {
 				filter,
 				pagination: {
 					limit,
@@ -106,7 +107,7 @@ export class TrailBaseRecordUtilities<T extends BaseRecord = BaseRecord> impleme
 				throw new Error('TrailBase client not initialized');
 			}
 
-			const queryParams: any = {
+			const queryParams: QueryOptions = {
 				pagination: { limit: 0 }, // Just get the count
 			};
 
@@ -138,7 +139,7 @@ export class TrailBaseRecordUtilities<T extends BaseRecord = BaseRecord> impleme
 				throw new Error('TrailBase client not initialized');
 			}
 
-			const queryParams: any = {
+			const queryParams: QueryOptions = {
 				...options,
 				pagination: { limit: 1 },
 			};
@@ -172,7 +173,7 @@ export class TrailBaseRecordUtilities<T extends BaseRecord = BaseRecord> impleme
 				throw new Error('TrailBase client not initialized');
 			}
 
-			const queryParams: any = {
+			const queryParams: QueryOptions = {
 				order: [`-${orderBy}`],
 				pagination: { limit },
 			};
@@ -191,11 +192,22 @@ export class TrailBaseRecordUtilities<T extends BaseRecord = BaseRecord> impleme
 		const utilityError: AdapterError = new Error(message);
 		
 		if (error && typeof error === 'object') {
-			const err = error as any;
-			utilityError.status = err.status || err.statusCode || 500;
-			utilityError.code = err.code || 'UTILITY_ERROR';
+			const err = error as {
+				status?: unknown;
+				statusCode?: unknown;
+				code?: unknown;
+				message?: unknown;
+			};
+			utilityError.status =
+				typeof err.status === 'number'
+					? err.status
+					: typeof err.statusCode === 'number'
+						? err.statusCode
+						: 500;
+			utilityError.code =
+				typeof err.code === 'string' ? err.code : 'UTILITY_ERROR';
 			
-			if (err.message) {
+			if (typeof err.message === 'string') {
 				utilityError.message = `${message}: ${err.message}`;
 			}
 		}

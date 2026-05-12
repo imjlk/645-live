@@ -35,6 +35,7 @@ function toListItem(
 	return {
 		id: row.id,
 		ticketHash: row.ticketHash,
+		qrData: row.qrData,
 		round: row.round ?? null,
 		gamesCount: row.gamesCount ?? null,
 		resultStatus: effectiveResultStatus,
