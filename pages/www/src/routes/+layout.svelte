@@ -158,6 +158,7 @@ $effect(() => {
 	<meta name="theme-color" content="#3b82f6" />
 	<link rel="alternate" hreflang="ko-KR" href={currentAbsoluteUrl} />
 	<link rel="alternate" hreflang="x-default" href={currentAbsoluteUrl} />
+	<meta name="google-adsense-account" content="ca-pub-4441205887996163" />
 	<meta name="naver-site-verification" content="61430164e06bd982855b384e778a1c565ee14065" />
 	<!-- Google tag (gtag.js) -->
 	<script async src="https://www.googletagmanager.com/gtag/js?id=G-KEBJGHESGM"></script>
@@ -168,6 +169,11 @@ $effect(() => {
 
 		gtag('config', 'G-KEBJGHESGM');
 	</script>
+	<script
+		async
+		src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-4441205887996163"
+		crossorigin="anonymous"
+	></script>
 </svelte:head>
 
 <NuqsAdapter>
