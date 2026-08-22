@@ -5,8 +5,9 @@
 	"compatibility_date": "2026-08-22",
 	"compatibility_flags": ["nodejs_compat"],
 	"vars": {
+		"INDEXNOW_DELIVERY_MODE": "relay",
 		"INDEXNOW_ENABLED": "true",
-		"INDEXNOW_ENDPOINT": "https://www.bing.com/indexnow",
+		"INDEXNOW_ENDPOINT": "https://api.indexnow.org/indexnow",
 		"SITE_BASE_URL": "https://645.live"
 	},
 	"secrets": {

@@ -19,7 +19,14 @@ const LEASE_MS = 2 * 60_000;
 const MANIFEST_TIMEOUT_MS = 15_000;
 const MANIFEST_MAX_BYTES = 256 * 1024;
 const RATE_LIMIT_MIN_RETRY_MS = 10 * 60_000;
+const RELAY_LEASE_MS = 10 * 60_000;
 const KEY_PATTERN = /^[A-Za-z0-9-]{8,128}$/;
+
+type RelayLease = {
+	claimId: string;
+	expiresAt: number;
+	operations: IndexNowOperation[];
+};
 
 type PendingBatch = {
 	attemptCount: number;
@@ -27,6 +34,7 @@ type PendingBatch = {
 	discoveredAt: number;
 	nextAttemptAt: number;
 	operations: IndexNowOperation[];
+	relayLease?: RelayLease;
 	signature: string;
 };
 
@@ -51,6 +59,7 @@ type RunOutcome =
 	| "busy"
 	| "disabled"
 	| "no-change"
+	| "relay-ready"
 	| "retry-scheduled"
 	| "submitted";
 
@@ -62,6 +71,7 @@ export type CoordinatorRunResult = {
 };
 
 export type CoordinatorStatus = {
+	deliveryMode: "direct" | "relay";
 	enabled: boolean;
 	endpointHost: string;
 	initializedAt: string | null;
@@ -78,6 +88,30 @@ export type CoordinatorStatus = {
 	pendingGroupCount: number;
 	pendingUrlCount: number;
 	publishedGroupCount: number;
+	relayLeaseExpiresAt: string | null;
+};
+
+export type RelayClaimResult =
+	| {
+			claimId: string;
+			endpoint: string;
+			host: string;
+			keyLocation: string;
+			outcome: "claimed";
+			urlList: string[];
+	  }
+	| {
+			outcome: "blocked" | "busy" | "no-change" | "retry-scheduled";
+	  };
+
+export type RelaySettlement = {
+	claimId: string;
+	retryAfter?: string;
+	status: number;
+};
+
+export type RelaySettlementResult = {
+	outcome: "blocked" | "busy" | "retry-scheduled" | "stale" | "submitted";
 };
 
 function initialState(): CoordinatorState {
@@ -156,6 +190,7 @@ export class IndexNowCoordinator extends DurableObject<Env> {
 							? previousPending.discoveredAt
 							: now,
 					operations,
+					relayLease: previousPending?.relayLease,
 					signature,
 				};
 				console.log({
@@ -175,9 +210,16 @@ export class IndexNowCoordinator extends DurableObject<Env> {
 			}
 			if (state.pending.nextAttemptAt > now) {
 				state.lastOutcome = "retry-scheduled";
-				await this.ctx.storage.setAlarm(state.pending.nextAttemptAt);
+				if (!this.usesRelay()) {
+					await this.ctx.storage.setAlarm(state.pending.nextAttemptAt);
+				}
 				await this.release(state);
 				return this.result(state, "retry-scheduled", 0);
+			}
+			if (this.usesRelay()) {
+				state.lastOutcome = "relay-ready";
+				await this.release(state);
+				return this.result(state, "relay-ready", 0);
 			}
 
 			return await this.submitPending(state, now);
@@ -193,6 +235,7 @@ export class IndexNowCoordinator extends DurableObject<Env> {
 			(await this.ctx.storage.get<CoordinatorState>(STATE_KEY)) ??
 			initialState();
 		return {
+			deliveryMode: this.usesRelay() ? "relay" : "direct",
 			enabled: this.isEnabled(),
 			endpointHost: this.indexNowEndpoint().hostname,
 			initializedAt: iso(state.initializedAt),
@@ -209,7 +252,173 @@ export class IndexNowCoordinator extends DurableObject<Env> {
 			pendingGroupCount: state.pending?.operations.length ?? 0,
 			pendingUrlCount: operationUrls(state.pending?.operations ?? []).length,
 			publishedGroupCount: Object.keys(state.published).length,
+			relayLeaseExpiresAt: iso(state.pending?.relayLease?.expiresAt),
 		};
+	}
+
+	async claimRelay(): Promise<RelayClaimResult> {
+		if (!this.usesRelay()) throw new Error("INDEXNOW_RELAY_DISABLED");
+		const discovery = await this.run("manual");
+		if (discovery.outcome === "busy") return { outcome: "busy" };
+
+		const now = Date.now();
+		const state = await this.claim(now);
+		if (!state) return { outcome: "busy" };
+		try {
+			const pending = state.pending;
+			if (!pending) {
+				await this.release(state);
+				return { outcome: "no-change" };
+			}
+			if (pending.blocked) {
+				await this.release(state);
+				return { outcome: "blocked" };
+			}
+			if (pending.nextAttemptAt > now) {
+				await this.release(state);
+				return { outcome: "retry-scheduled" };
+			}
+			if (
+				pending.relayLease !== undefined &&
+				pending.relayLease.expiresAt > now
+			) {
+				await this.release(state);
+				return { outcome: "busy" };
+			}
+
+			const claimId = crypto.randomUUID();
+			const urlList = operationUrls(pending.operations);
+			state.pending = {
+				...pending,
+				relayLease: {
+					claimId,
+					expiresAt: now + RELAY_LEASE_MS,
+					operations: pending.operations,
+				},
+			};
+			state.lastOutcome = "relay-ready";
+			await this.release(state);
+
+			const endpoint = this.indexNowEndpoint();
+			const site = new URL(this.env.SITE_BASE_URL);
+			console.log({
+				endpointHost: endpoint.hostname,
+				event: "indexnow.relay_claimed",
+				groupCount: pending.operations.length,
+				urlCount: urlList.length,
+			});
+			return {
+				claimId,
+				endpoint: endpoint.toString(),
+				host: site.host,
+				keyLocation: new URL(`/${this.env.INDEXNOW_KEY}.txt`, site).toString(),
+				outcome: "claimed",
+				urlList,
+			};
+		} catch (error) {
+			state.lastErrorCode = errorCode(error);
+			await this.release(state);
+			throw error;
+		}
+	}
+
+	async settleRelay(
+		settlement: RelaySettlement,
+	): Promise<RelaySettlementResult> {
+		if (!this.usesRelay()) throw new Error("INDEXNOW_RELAY_DISABLED");
+		if (
+			!/^[-0-9a-f]{36}$/i.test(settlement.claimId) ||
+			!Number.isInteger(settlement.status) ||
+			settlement.status < 100 ||
+			settlement.status > 599 ||
+			(settlement.retryAfter !== undefined &&
+				settlement.retryAfter.length > 128)
+		) {
+			throw new Error("INDEXNOW_RELAY_SETTLEMENT_INVALID");
+		}
+
+		const now = Date.now();
+		const state = await this.claim(now);
+		if (!state) return { outcome: "busy" };
+		try {
+			const pending = state.pending;
+			const relayLease = pending?.relayLease;
+			if (
+				!pending ||
+				!relayLease ||
+				relayLease.claimId !== settlement.claimId
+			) {
+				await this.release(state);
+				return { outcome: "stale" };
+			}
+
+			const urlCount = operationUrls(relayLease.operations).length;
+			const endpoint = this.indexNowEndpoint();
+			state.lastEndpointHost = endpoint.hostname;
+			state.lastResponseStatus = settlement.status;
+			state.lastRetryAfter = settlement.retryAfter;
+			state.pending = { ...pending, relayLease: undefined };
+
+			const outcome = classifyIndexNowStatus(settlement.status);
+			if (outcome === "success") {
+				state.published = applySuccessfulOperations(
+					state.published,
+					relayLease.operations,
+				);
+				state.pending = undefined;
+				state.lastErrorCode = undefined;
+				state.lastOutcome = "submitted";
+				state.lastSubmittedUrlCount = urlCount;
+				state.lastSuccessAt = now;
+				await this.release(state);
+				console.log({
+					endpointHost: endpoint.hostname,
+					event: "indexnow.relay_settled",
+					outcome,
+					status: settlement.status,
+					urlCount,
+				});
+				return { outcome: "submitted" };
+			}
+
+			if (outcome === "permanent-failure") {
+				state.pending = {
+					...state.pending,
+					attemptCount: pending.attemptCount + 1,
+					blocked: true,
+				};
+				state.lastErrorCode = `INDEXNOW_HTTP_${settlement.status}`;
+				state.lastOutcome = "blocked";
+				await this.release(state);
+				console.error({
+					endpointHost: endpoint.hostname,
+					event: "indexnow.relay_settled",
+					outcome,
+					status: settlement.status,
+					urlCount,
+				});
+				return { outcome: "blocked" };
+			}
+
+			const retryAfter = retryAfterAt(settlement.retryAfter ?? null, now);
+			const providerRetryAt =
+				settlement.status === 429
+					? Math.max(retryAfter ?? 0, now + RATE_LIMIT_MIN_RETRY_MS)
+					: retryAfter;
+			const result = await this.scheduleRetry(
+				state,
+				now,
+				settlement.status === 599
+					? "INDEXNOW_RELAY_NETWORK_ERROR"
+					: `INDEXNOW_HTTP_${settlement.status}`,
+				providerRetryAt,
+			);
+			return { outcome: result.outcome as "retry-scheduled" };
+		} catch (error) {
+			state.lastErrorCode = errorCode(error);
+			await this.release(state);
+			throw error;
+		}
 	}
 
 	override async alarm(): Promise<void> {
@@ -225,6 +434,10 @@ export class IndexNowCoordinator extends DurableObject<Env> {
 			if (state.initializedAt === undefined) {
 				await this.release(state);
 				await this.run("scheduled");
+				return;
+			}
+			if (this.usesRelay()) {
+				await this.release(state);
 				return;
 			}
 			if (!state.pending || state.pending.blocked) {
@@ -389,7 +602,9 @@ export class IndexNowCoordinator extends DurableObject<Env> {
 		};
 		state.lastErrorCode = code;
 		state.lastOutcome = "retry-scheduled";
-		await this.ctx.storage.setAlarm(nextAttemptAt);
+		if (!this.usesRelay()) {
+			await this.ctx.storage.setAlarm(nextAttemptAt);
+		}
 		await this.release(state);
 		console.warn({
 			attemptCount: state.pending.attemptCount,
@@ -402,6 +617,10 @@ export class IndexNowCoordinator extends DurableObject<Env> {
 
 	private isEnabled(): boolean {
 		return this.env.INDEXNOW_ENABLED === "true";
+	}
+
+	private usesRelay(): boolean {
+		return this.env.INDEXNOW_DELIVERY_MODE === "relay";
 	}
 
 	private indexNowEndpoint(): URL {
@@ -426,6 +645,10 @@ export class IndexNowCoordinator extends DurableObject<Env> {
 			endpoint.hash !== ""
 		) {
 			throw new Error("INDEXNOW_ENDPOINT_INVALID");
+		}
+		const deliveryMode: string = this.env.INDEXNOW_DELIVERY_MODE;
+		if (deliveryMode !== "direct" && deliveryMode !== "relay") {
+			throw new Error("INDEXNOW_DELIVERY_MODE_INVALID");
 		}
 	}
 

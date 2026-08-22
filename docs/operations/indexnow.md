@@ -6,7 +6,8 @@
 - 공개 변경 manifest: `https://645.live/api/indexnow-manifest.json`
 - 배치 Worker: `indexnow-645-live`
 - 주기: 15분
-- 제출 endpoint: `https://www.bing.com/indexnow`
+- 제출 relay: `.github/workflows/indexnow-relay.yml`
+- 제출 endpoint: `https://api.indexnow.org/indexnow`
 
 IndexNow 참여 endpoint의 성공 응답은 200 또는 202입니다. 한 endpoint로 보낸
 요청은 참여 검색 엔진에 공유되므로 Bing/Naver별 중복 IndexNow 요청은 만들지
@@ -15,9 +16,10 @@ IndexNow 참여 endpoint의 성공 응답은 200 또는 202입니다. 한 endpoi
 
 최초 실행은 manifest의 기존 그룹을 baseline으로만 저장하고 제출하지 않습니다.
 IndexNow 도입 이전 URL은 sitemap으로 발견되게 두고, baseline 이후 실제로 바뀐
-그룹만 전송합니다. Cloudflare 공유 egress에서 global endpoint의 429가 지속된
-경우에도 endpoint failover로 중복 제출하지 않고, 선택한 Bing 참여 endpoint 한
-곳만 사용합니다.
+그룹만 전송합니다. Cloudflare 공유 egress는 IndexNow endpoint에서 429로 제한될
+수 있으므로 Worker는 변경 감지, lease, 성공 watermark, backoff만 담당합니다.
+실제 POST는 보호된 claim/settle 프로토콜을 사용하는 GitHub Actions relay가 한
+endpoint로 전송합니다.
 
 ## 변경 감지 정책
 
@@ -40,9 +42,11 @@ mise exec -- bun run indexnow deploy:dry-run
 mise exec -- bun run indexnow deploy
 ```
 
-배포 전 `INDEXNOW_KEY`, `INDEXNOW_RUN_TOKEN` secret을 Worker에 등록합니다. 키나
-URL 목록은 로그에 기록하지 않습니다. `/health`에는 endpoint host, 초기화/성공
-시각, 대기 URL 수, 마지막 HTTP 상태와 `Retry-After`만 공개됩니다.
+배포 전 `INDEXNOW_KEY`, `INDEXNOW_RUN_TOKEN` secret을 Worker에 등록합니다.
+Worker의 `INDEXNOW_RUN_TOKEN`과 GitHub의 `INDEXNOW_RELAY_TOKEN`은 같은 32바이트
+이상 난수여야 하며, GitHub에도 `INDEXNOW_KEY`가 필요합니다. 키나 URL 목록은
+로그에 기록하지 않습니다. `/health`에는 delivery mode, endpoint host,
+초기화/성공 시각, 대기 URL 수, 마지막 HTTP 상태와 `Retry-After`만 공개됩니다.
 
 영구 실패(400/403/422)는 같은 버전의 반복 제출을 차단합니다. 5xx와 네트워크
 오류는 5분/15분/1시간/6시간 간격에 jitter를 더해 재시도합니다. 429는 최소

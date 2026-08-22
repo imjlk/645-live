@@ -1,0 +1,38 @@
+name: Relay IndexNow Changes
+
+on:
+  workflow_dispatch:
+    inputs:
+      probe_url:
+        description: "Optional canonical 645.live URL for an operator delivery probe"
+        required: false
+        type: string
+  schedule:
+    - cron: "8,23,38,53 * * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: indexnow-relay
+  cancel-in-progress: false
+
+jobs:
+  relay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Submit pending IndexNow changes
+        env:
+          INDEXNOW_KEY: ${{ secrets.INDEXNOW_KEY }}
+          INDEXNOW_PROBE_URL: ${{ inputs.probe_url || '' }}
+          INDEXNOW_RELAY_TOKEN: ${{ secrets.INDEXNOW_RELAY_TOKEN }}
+        run: node scripts/seo/relay-indexnow.mjs
