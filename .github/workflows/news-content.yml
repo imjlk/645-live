@@ -120,6 +120,8 @@ jobs:
         env:
           SITE_BASE_URL: https://645.live
           INDEXNOW_HOST: 645.live
+          # IndexNow is batched by indexnow-645-live after the deployment becomes visible.
+          INDEXNOW_ENABLED: "false"
           INDEXNOW_KEY: ${{ secrets.INDEXNOW_KEY }}
           INDEXNOW_KEY_LOCATION: ${{ vars.INDEXNOW_KEY_LOCATION }}
           INDEXNOW_ENDPOINT: ${{ vars.INDEXNOW_ENDPOINT }}

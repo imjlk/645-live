@@ -1,6 +1,7 @@
 export * from "./contracts/app";
 export * from "./contracts/my-scans";
 export * from "./contracts/viewer";
+export * from "./indexnow";
 export * from "./modules/my-scans/schema";
 export * from "./modules/my-scans/types";
 export * from "./modules/viewer/schema";

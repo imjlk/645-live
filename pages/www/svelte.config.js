@@ -40,6 +40,7 @@ const config = {
 			},
 		}),
 		alias: {
+			"@645/shared/indexnow": "../../packages/shared/src/indexnow.ts",
 			"@645/shared": "../../packages/shared/src/index.ts",
 			"@645/api": "../../packages/api/src/index.ts",
 		},

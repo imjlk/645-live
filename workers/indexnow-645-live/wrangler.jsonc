@@ -1,0 +1,42 @@
+{
+	"$schema": "../../node_modules/wrangler/config-schema.json",
+	"name": "indexnow-645-live",
+	"main": "src/index.ts",
+	"compatibility_date": "2026-08-22",
+	"compatibility_flags": ["nodejs_compat"],
+	"vars": {
+		"INDEXNOW_ENABLED": "true",
+		"SITE_BASE_URL": "https://645.live"
+	},
+	"secrets": {
+		"required": ["INDEXNOW_KEY", "INDEXNOW_RUN_TOKEN"]
+	},
+	"durable_objects": {
+		"bindings": [
+			{
+				"name": "INDEXNOW_COORDINATOR",
+				"class_name": "IndexNowCoordinator"
+			}
+		]
+	},
+	"migrations": [
+		{
+			"tag": "v1",
+			"new_sqlite_classes": ["IndexNowCoordinator"]
+		}
+	],
+	"triggers": {
+		"crons": ["*/15 * * * *"]
+	},
+	"observability": {
+		"enabled": true,
+		"logs": {
+			"enabled": true,
+			"head_sampling_rate": 1
+		},
+		"traces": {
+			"enabled": true,
+			"head_sampling_rate": 0.1
+		}
+	}
+}

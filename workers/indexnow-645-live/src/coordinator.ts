@@ -1,0 +1,394 @@
+import { DurableObject } from "cloudflare:workers";
+import {
+	applySuccessfulOperations,
+	classifyIndexNowStatus,
+	diffManifest,
+	type IndexNowOperation,
+	operationSignature,
+	operationUrls,
+	type PublishedGroups,
+	parseManifestText,
+	reconcileRetryReservation,
+	retryAfterAt,
+	retryDelayMs,
+} from "./policy";
+
+const STATE_KEY = "coordinator-state";
+const INDEXNOW_ENDPOINT = "https://api.indexnow.org/indexnow";
+const LEASE_MS = 2 * 60_000;
+const MANIFEST_TIMEOUT_MS = 15_000;
+const MANIFEST_MAX_BYTES = 256 * 1024;
+const RATE_LIMIT_MIN_RETRY_MS = 10 * 60_000;
+const KEY_PATTERN = /^[A-Za-z0-9-]{8,128}$/;
+
+type PendingBatch = {
+	attemptCount: number;
+	blocked: boolean;
+	discoveredAt: number;
+	nextAttemptAt: number;
+	operations: IndexNowOperation[];
+	signature: string;
+};
+
+type CoordinatorState = {
+	lastErrorCode?: string;
+	lastManifestAt?: number;
+	lastOutcome?: RunOutcome;
+	lastSubmittedUrlCount?: number;
+	lastSuccessAt?: number;
+	leaseUntil?: number;
+	pending?: PendingBatch;
+	published: PublishedGroups;
+};
+
+type RunOutcome =
+	| "blocked"
+	| "busy"
+	| "disabled"
+	| "no-change"
+	| "retry-scheduled"
+	| "submitted";
+
+export type CoordinatorRunResult = {
+	outcome: RunOutcome;
+	pendingGroupCount: number;
+	pendingUrlCount: number;
+	submittedUrlCount: number;
+};
+
+export type CoordinatorStatus = {
+	enabled: boolean;
+	lastErrorCode: string | null;
+	lastManifestAt: string | null;
+	lastOutcome: RunOutcome | null;
+	lastSubmittedUrlCount: number;
+	lastSuccessAt: string | null;
+	nextAttemptAt: string | null;
+	pendingAttemptCount: number;
+	pendingGroupCount: number;
+	pendingUrlCount: number;
+	publishedGroupCount: number;
+};
+
+function initialState(): CoordinatorState {
+	return { published: {} };
+}
+
+function iso(timestamp: number | undefined): string | null {
+	return timestamp === undefined ? null : new Date(timestamp).toISOString();
+}
+
+function errorCode(error: unknown): string {
+	if (error instanceof Error && /^[A-Z0-9_]+$/.test(error.message)) {
+		return error.message;
+	}
+	return "INDEXNOW_UNEXPECTED_ERROR";
+}
+
+function randomFraction(): number {
+	const values = new Uint32Array(1);
+	crypto.getRandomValues(values);
+	return (values[0] ?? 0) / 2 ** 32;
+}
+
+export class IndexNowCoordinator extends DurableObject<Env> {
+	async run(_trigger: "manual" | "scheduled"): Promise<CoordinatorRunResult> {
+		if (!this.isEnabled()) return this.emptyResult("disabled");
+		this.validateConfig();
+
+		const now = Date.now();
+		const state = await this.claim(now);
+		if (!state) return this.emptyResult("busy");
+
+		try {
+			const manifest = await this.fetchManifest();
+			const operations = diffManifest(manifest, state.published);
+			const signature = operationSignature(operations);
+			const previousPending = state.pending;
+			state.lastManifestAt = now;
+
+			if (operations.length === 0) {
+				state.pending = undefined;
+				state.lastErrorCode = undefined;
+				state.lastOutcome = "no-change";
+				await this.release(state);
+				return this.result(state, "no-change", 0);
+			}
+
+			if (previousPending?.signature === signature) {
+				state.pending = previousPending;
+			} else {
+				const reservation = reconcileRetryReservation(
+					previousPending,
+					signature,
+					now,
+				);
+				state.pending = {
+					...reservation,
+					discoveredAt:
+						previousPending && !previousPending.blocked
+							? previousPending.discoveredAt
+							: now,
+					operations,
+					signature,
+				};
+				console.log({
+					attemptCount: reservation.attemptCount,
+					event: "indexnow.pending_merged",
+					groupCount: operations.length,
+					retryFloorPreserved:
+						previousPending !== undefined && !previousPending.blocked,
+					urlCount: operationUrls(operations).length,
+				});
+			}
+
+			if (state.pending.blocked) {
+				state.lastOutcome = "blocked";
+				await this.release(state);
+				return this.result(state, "blocked", 0);
+			}
+			if (state.pending.nextAttemptAt > now) {
+				state.lastOutcome = "retry-scheduled";
+				await this.ctx.storage.setAlarm(state.pending.nextAttemptAt);
+				await this.release(state);
+				return this.result(state, "retry-scheduled", 0);
+			}
+
+			return await this.submitPending(state, now);
+		} catch (error) {
+			state.lastErrorCode = errorCode(error);
+			await this.release(state);
+			throw error;
+		}
+	}
+
+	async status(): Promise<CoordinatorStatus> {
+		const state =
+			(await this.ctx.storage.get<CoordinatorState>(STATE_KEY)) ??
+			initialState();
+		return {
+			enabled: this.isEnabled(),
+			lastErrorCode: state.lastErrorCode ?? null,
+			lastManifestAt: iso(state.lastManifestAt),
+			lastOutcome: state.lastOutcome ?? null,
+			lastSubmittedUrlCount: state.lastSubmittedUrlCount ?? 0,
+			lastSuccessAt: iso(state.lastSuccessAt),
+			nextAttemptAt: iso(state.pending?.nextAttemptAt),
+			pendingAttemptCount: state.pending?.attemptCount ?? 0,
+			pendingGroupCount: state.pending?.operations.length ?? 0,
+			pendingUrlCount: operationUrls(state.pending?.operations ?? []).length,
+			publishedGroupCount: Object.keys(state.published).length,
+		};
+	}
+
+	override async alarm(): Promise<void> {
+		if (!this.isEnabled()) return;
+		const now = Date.now();
+		const state = await this.claim(now);
+		if (!state) {
+			await this.ctx.storage.setAlarm(now + 60_000);
+			return;
+		}
+
+		try {
+			if (!state.pending || state.pending.blocked) {
+				await this.release(state);
+				return;
+			}
+			if (state.pending.nextAttemptAt > now) {
+				await this.ctx.storage.setAlarm(state.pending.nextAttemptAt);
+				await this.release(state);
+				return;
+			}
+			await this.submitPending(state, now);
+		} catch (error) {
+			state.lastErrorCode = errorCode(error);
+			await this.release(state);
+			throw error;
+		}
+	}
+
+	private async claim(now: number): Promise<CoordinatorState | undefined> {
+		return this.ctx.storage.transaction(async (transaction) => {
+			const state =
+				(await transaction.get<CoordinatorState>(STATE_KEY)) ?? initialState();
+			if (state.leaseUntil !== undefined && state.leaseUntil > now) {
+				return undefined;
+			}
+			const claimed = { ...state, leaseUntil: now + LEASE_MS };
+			await transaction.put(STATE_KEY, claimed);
+			return claimed;
+		});
+	}
+
+	private async release(state: CoordinatorState): Promise<void> {
+		const { leaseUntil: _leaseUntil, ...released } = state;
+		await this.ctx.storage.put(STATE_KEY, released);
+	}
+
+	private async fetchManifest() {
+		const response = await fetch(
+			new URL("/api/indexnow-manifest.json", this.env.SITE_BASE_URL),
+			{
+				headers: { accept: "application/json" },
+				redirect: "manual",
+				signal: AbortSignal.timeout(MANIFEST_TIMEOUT_MS),
+			},
+		);
+		if (!response.ok) throw new Error("INDEXNOW_MANIFEST_FETCH_FAILED");
+		const contentLength = Number(response.headers.get("content-length") ?? 0);
+		if (contentLength > MANIFEST_MAX_BYTES) {
+			throw new Error("INDEXNOW_MANIFEST_TOO_LARGE");
+		}
+		const text = await response.text();
+		return parseManifestText(text, this.env.SITE_BASE_URL);
+	}
+
+	private async submitPending(
+		state: CoordinatorState,
+		now: number,
+	): Promise<CoordinatorRunResult> {
+		const pending = state.pending;
+		if (!pending) return this.result(state, "no-change", 0);
+		const urls = operationUrls(pending.operations);
+		let response: Response;
+
+		try {
+			const site = new URL(this.env.SITE_BASE_URL);
+			response = await fetch(INDEXNOW_ENDPOINT, {
+				method: "POST",
+				headers: { "content-type": "application/json; charset=utf-8" },
+				body: JSON.stringify({
+					host: site.host,
+					key: this.env.INDEXNOW_KEY,
+					keyLocation: new URL(
+						`/${this.env.INDEXNOW_KEY}.txt`,
+						site,
+					).toString(),
+					urlList: urls,
+				}),
+				signal: AbortSignal.timeout(15_000),
+			});
+		} catch {
+			return await this.scheduleRetry(state, now, "INDEXNOW_NETWORK_ERROR");
+		}
+
+		const outcome = classifyIndexNowStatus(response.status);
+		if (outcome === "success") {
+			state.published = applySuccessfulOperations(
+				state.published,
+				pending.operations,
+			);
+			state.pending = undefined;
+			state.lastErrorCode = undefined;
+			state.lastOutcome = "submitted";
+			state.lastSubmittedUrlCount = urls.length;
+			state.lastSuccessAt = now;
+			await this.release(state);
+			console.log({
+				event: "indexnow.submission",
+				groupCount: pending.operations.length,
+				outcome,
+				status: response.status,
+				urlCount: urls.length,
+			});
+			return this.result(state, "submitted", urls.length);
+		}
+
+		if (outcome === "permanent-failure") {
+			state.pending = {
+				...pending,
+				attemptCount: pending.attemptCount + 1,
+				blocked: true,
+			};
+			state.lastErrorCode = `INDEXNOW_HTTP_${response.status}`;
+			state.lastOutcome = "blocked";
+			await this.release(state);
+			console.error({
+				event: "indexnow.submission",
+				groupCount: pending.operations.length,
+				outcome,
+				status: response.status,
+				urlCount: urls.length,
+			});
+			return this.result(state, "blocked", 0);
+		}
+
+		const retryAfter = retryAfterAt(response.headers.get("retry-after"), now);
+		const providerRetryAt =
+			response.status === 429
+				? Math.max(retryAfter ?? 0, now + RATE_LIMIT_MIN_RETRY_MS)
+				: retryAfter;
+		return await this.scheduleRetry(
+			state,
+			now,
+			`INDEXNOW_HTTP_${response.status}`,
+			providerRetryAt,
+		);
+	}
+
+	private async scheduleRetry(
+		state: CoordinatorState,
+		now: number,
+		code: string,
+		retryAfter?: number,
+	): Promise<CoordinatorRunResult> {
+		const pending = state.pending;
+		if (!pending) return this.result(state, "no-change", 0);
+		const calculatedRetryAt =
+			now + retryDelayMs(pending.attemptCount, randomFraction());
+		const nextAttemptAt = Math.max(calculatedRetryAt, retryAfter ?? 0);
+		state.pending = {
+			...pending,
+			attemptCount: pending.attemptCount + 1,
+			nextAttemptAt,
+		};
+		state.lastErrorCode = code;
+		state.lastOutcome = "retry-scheduled";
+		await this.ctx.storage.setAlarm(nextAttemptAt);
+		await this.release(state);
+		console.warn({
+			attemptCount: state.pending.attemptCount,
+			event: "indexnow.retry_scheduled",
+			nextAttemptAt: new Date(nextAttemptAt).toISOString(),
+			urlCount: operationUrls(pending.operations).length,
+		});
+		return this.result(state, "retry-scheduled", 0);
+	}
+
+	private isEnabled(): boolean {
+		return this.env.INDEXNOW_ENABLED === "true";
+	}
+
+	private validateConfig(): void {
+		if (!KEY_PATTERN.test(this.env.INDEXNOW_KEY)) {
+			throw new Error("INDEXNOW_KEY_INVALID");
+		}
+		const site = new URL(this.env.SITE_BASE_URL);
+		if (site.protocol !== "https:" || site.pathname !== "/") {
+			throw new Error("INDEXNOW_SITE_BASE_URL_INVALID");
+		}
+	}
+
+	private emptyResult(outcome: RunOutcome): CoordinatorRunResult {
+		return {
+			outcome,
+			pendingGroupCount: 0,
+			pendingUrlCount: 0,
+			submittedUrlCount: 0,
+		};
+	}
+
+	private result(
+		state: CoordinatorState,
+		outcome: RunOutcome,
+		submittedUrlCount: number,
+	): CoordinatorRunResult {
+		return {
+			outcome,
+			pendingGroupCount: state.pending?.operations.length ?? 0,
+			pendingUrlCount: operationUrls(state.pending?.operations ?? []).length,
+			submittedUrlCount,
+		};
+	}
+}

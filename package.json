@@ -6,6 +6,7 @@
 	"scripts": {
 		"www": "bun --cwd pages/www --",
 		"og": "bun --cwd workers/og-645-live --",
+		"indexnow": "bun --cwd workers/indexnow-645-live --",
 		"sdk": "bun --cwd packages/sdk --",
 		"cli": "bun --cwd packages/cli --",
 		"format": "biome check --write package.json biome.json && biome check --write pages && biome check --write workers && biome check --write packages && biome check --write scripts",

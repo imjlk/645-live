@@ -24,6 +24,7 @@ export default defineConfig(async ({ command }) => {
 		],
 		resolve: {
 			alias: {
+				"@645/shared/indexnow": path.resolve(__dirname, "../../packages/shared/src/indexnow.ts"),
 				"@645/shared": path.resolve(__dirname, "../../packages/shared/src/index.ts"),
 				"@645/api": path.resolve(__dirname, "../../packages/api/src/index.ts"),
 			},

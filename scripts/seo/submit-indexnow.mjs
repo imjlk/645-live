@@ -16,6 +16,7 @@ const INDEXNOW_KEY_LOCATION = (
 	process.env.INDEXNOW_KEY_LOCATION || (INDEXNOW_KEY ? `${SITE_BASE_URL}/${INDEXNOW_KEY}.txt` : '')
 ).trim();
 const INDEXNOW_MAX_URLS = safePositiveInt(process.env.INDEXNOW_MAX_URLS, 100);
+const INDEXNOW_ENABLED = parseBool(process.env.INDEXNOW_ENABLED, true);
 
 const GOOGLE_INDEXING_ENABLED = parseBool(process.env.GOOGLE_INDEXING_ENABLED, true);
 const GOOGLE_INDEXING_SERVICE_ACCOUNT_JSON = process.env.GOOGLE_INDEXING_SERVICE_ACCOUNT_JSON || '';
@@ -124,6 +125,10 @@ async function buildUrlTargets() {
 }
 
 async function submitIndexNow(urlList) {
+	if (!INDEXNOW_ENABLED) {
+		console.log('[indexnow] skip: batched Cloudflare delivery is enabled.');
+		return;
+	}
 	if (!INDEXNOW_KEY) {
 		console.log('[indexnow] skip: INDEXNOW_KEY is not configured.');
 		return;
