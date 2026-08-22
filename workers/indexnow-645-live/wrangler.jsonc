@@ -6,6 +6,7 @@
 	"compatibility_flags": ["nodejs_compat"],
 	"vars": {
 		"INDEXNOW_ENABLED": "true",
+		"INDEXNOW_ENDPOINT": "https://www.bing.com/indexnow",
 		"SITE_BASE_URL": "https://645.live"
 	},
 	"secrets": {

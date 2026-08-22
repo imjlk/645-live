@@ -6,12 +6,18 @@
 - 공개 변경 manifest: `https://645.live/api/indexnow-manifest.json`
 - 배치 Worker: `indexnow-645-live`
 - 주기: 15분
-- 제출 endpoint: `https://api.indexnow.org/indexnow`
+- 제출 endpoint: `https://www.bing.com/indexnow`
 
-IndexNow global endpoint의 성공 응답은 200 또는 202입니다. 한 endpoint로 보낸
+IndexNow 참여 endpoint의 성공 응답은 200 또는 202입니다. 한 endpoint로 보낸
 요청은 참여 검색 엔진에 공유되므로 Bing/Naver별 중복 IndexNow 요청은 만들지
 않습니다. Sitemap은 전체 URL inventory 역할을 계속 담당하고, IndexNow에는
 실제 변경된 canonical page URL만 보냅니다.
+
+최초 실행은 manifest의 기존 그룹을 baseline으로만 저장하고 제출하지 않습니다.
+IndexNow 도입 이전 URL은 sitemap으로 발견되게 두고, baseline 이후 실제로 바뀐
+그룹만 전송합니다. Cloudflare 공유 egress에서 global endpoint의 429가 지속된
+경우에도 endpoint failover로 중복 제출하지 않고, 선택한 Bing 참여 endpoint 한
+곳만 사용합니다.
 
 ## 변경 감지 정책
 
@@ -35,8 +41,8 @@ mise exec -- bun run indexnow deploy
 ```
 
 배포 전 `INDEXNOW_KEY`, `INDEXNOW_RUN_TOKEN` secret을 Worker에 등록합니다. 키나
-URL 목록은 로그에 기록하지 않습니다. `/health`에는 성공 시각, 대기 URL 수,
-마지막 오류 코드만 공개됩니다.
+URL 목록은 로그에 기록하지 않습니다. `/health`에는 endpoint host, 초기화/성공
+시각, 대기 URL 수, 마지막 HTTP 상태와 `Retry-After`만 공개됩니다.
 
 영구 실패(400/403/422)는 같은 버전의 반복 제출을 차단합니다. 5xx와 네트워크
 오류는 5분/15분/1시간/6시간 간격에 jitter를 더해 재시도합니다. 429는 최소

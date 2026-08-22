@@ -150,6 +150,17 @@ export function diffManifest(
 	);
 }
 
+/**
+ * Records the deployment-time inventory without reporting old URLs as fresh.
+ * IndexNow should receive changes observed after adoption, while the sitemap
+ * remains the complete historical inventory.
+ */
+export function baselinePublishedGroups(
+	manifest: IndexNowManifest,
+): PublishedGroups {
+	return Object.fromEntries(manifest.groups.map((group) => [group.id, group]));
+}
+
 export function operationUrls(
 	operations: readonly IndexNowOperation[],
 ): string[] {

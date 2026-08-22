@@ -5,6 +5,7 @@ import {
 } from "@645/shared/indexnow";
 import {
 	applySuccessfulOperations,
+	baselinePublishedGroups,
 	classifyIndexNowStatus,
 	diffManifest,
 	operationUrls,
@@ -95,6 +96,16 @@ describe("IndexNow manifest policy", () => {
 		expect(
 			applySuccessfulOperations(published, operations)["scan:missing-source"],
 		).toBeDefined();
+	});
+
+	test("baselines existing content without creating an initial submission", () => {
+		const published = baselinePublishedGroups(manifest);
+
+		expect(Object.keys(published)).toEqual([
+			"news:lotto-1234",
+			"scan:overview",
+		]);
+		expect(diffManifest(manifest, published)).toEqual([]);
 	});
 
 	test("classifies responses and calculates bounded retries", () => {

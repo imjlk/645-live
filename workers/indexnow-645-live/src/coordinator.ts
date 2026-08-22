@@ -1,6 +1,7 @@
 import { DurableObject } from "cloudflare:workers";
 import {
 	applySuccessfulOperations,
+	baselinePublishedGroups,
 	classifyIndexNowStatus,
 	diffManifest,
 	type IndexNowOperation,
@@ -14,7 +15,6 @@ import {
 } from "./policy";
 
 const STATE_KEY = "coordinator-state";
-const INDEXNOW_ENDPOINT = "https://api.indexnow.org/indexnow";
 const LEASE_MS = 2 * 60_000;
 const MANIFEST_TIMEOUT_MS = 15_000;
 const MANIFEST_MAX_BYTES = 256 * 1024;
@@ -31,9 +31,13 @@ type PendingBatch = {
 };
 
 type CoordinatorState = {
+	initializedAt?: number;
+	lastEndpointHost?: string;
 	lastErrorCode?: string;
 	lastManifestAt?: number;
 	lastOutcome?: RunOutcome;
+	lastResponseStatus?: number;
+	lastRetryAfter?: string;
 	lastSubmittedUrlCount?: number;
 	lastSuccessAt?: number;
 	leaseUntil?: number;
@@ -43,6 +47,7 @@ type CoordinatorState = {
 
 type RunOutcome =
 	| "blocked"
+	| "bootstrapped"
 	| "busy"
 	| "disabled"
 	| "no-change"
@@ -58,9 +63,14 @@ export type CoordinatorRunResult = {
 
 export type CoordinatorStatus = {
 	enabled: boolean;
+	endpointHost: string;
+	initializedAt: string | null;
+	lastEndpointHost: string | null;
 	lastErrorCode: string | null;
 	lastManifestAt: string | null;
 	lastOutcome: RunOutcome | null;
+	lastResponseStatus: number | null;
+	lastRetryAfter: string | null;
 	lastSubmittedUrlCount: number;
 	lastSuccessAt: string | null;
 	nextAttemptAt: string | null;
@@ -102,11 +112,27 @@ export class IndexNowCoordinator extends DurableObject<Env> {
 
 		try {
 			const manifest = await this.fetchManifest();
+			state.lastManifestAt = now;
+			if (state.initializedAt === undefined) {
+				state.initializedAt = now;
+				state.published = baselinePublishedGroups(manifest);
+				state.pending = undefined;
+				state.lastEndpointHost = undefined;
+				state.lastErrorCode = undefined;
+				state.lastOutcome = "bootstrapped";
+				state.lastResponseStatus = undefined;
+				state.lastRetryAfter = undefined;
+				await this.ctx.storage.deleteAlarm();
+				await this.release(state);
+				console.log({
+					event: "indexnow.baseline_initialized",
+					groupCount: manifest.groups.length,
+				});
+				return this.result(state, "bootstrapped", 0);
+			}
 			const operations = diffManifest(manifest, state.published);
 			const signature = operationSignature(operations);
 			const previousPending = state.pending;
-			state.lastManifestAt = now;
-
 			if (operations.length === 0) {
 				state.pending = undefined;
 				state.lastErrorCode = undefined;
@@ -168,9 +194,14 @@ export class IndexNowCoordinator extends DurableObject<Env> {
 			initialState();
 		return {
 			enabled: this.isEnabled(),
+			endpointHost: this.indexNowEndpoint().hostname,
+			initializedAt: iso(state.initializedAt),
+			lastEndpointHost: state.lastEndpointHost ?? null,
 			lastErrorCode: state.lastErrorCode ?? null,
 			lastManifestAt: iso(state.lastManifestAt),
 			lastOutcome: state.lastOutcome ?? null,
+			lastResponseStatus: state.lastResponseStatus ?? null,
+			lastRetryAfter: state.lastRetryAfter ?? null,
 			lastSubmittedUrlCount: state.lastSubmittedUrlCount ?? 0,
 			lastSuccessAt: iso(state.lastSuccessAt),
 			nextAttemptAt: iso(state.pending?.nextAttemptAt),
@@ -191,6 +222,11 @@ export class IndexNowCoordinator extends DurableObject<Env> {
 		}
 
 		try {
+			if (state.initializedAt === undefined) {
+				await this.release(state);
+				await this.run("scheduled");
+				return;
+			}
 			if (!state.pending || state.pending.blocked) {
 				await this.release(state);
 				return;
@@ -251,11 +287,15 @@ export class IndexNowCoordinator extends DurableObject<Env> {
 		const pending = state.pending;
 		if (!pending) return this.result(state, "no-change", 0);
 		const urls = operationUrls(pending.operations);
+		const endpoint = this.indexNowEndpoint();
 		let response: Response;
 
 		try {
 			const site = new URL(this.env.SITE_BASE_URL);
-			response = await fetch(INDEXNOW_ENDPOINT, {
+			state.lastEndpointHost = endpoint.hostname;
+			state.lastResponseStatus = undefined;
+			state.lastRetryAfter = undefined;
+			response = await fetch(endpoint, {
 				method: "POST",
 				headers: { "content-type": "application/json; charset=utf-8" },
 				body: JSON.stringify({
@@ -273,6 +313,8 @@ export class IndexNowCoordinator extends DurableObject<Env> {
 			return await this.scheduleRetry(state, now, "INDEXNOW_NETWORK_ERROR");
 		}
 
+		state.lastResponseStatus = response.status;
+		state.lastRetryAfter = response.headers.get("retry-after") ?? undefined;
 		const outcome = classifyIndexNowStatus(response.status);
 		if (outcome === "success") {
 			state.published = applySuccessfulOperations(
@@ -286,6 +328,7 @@ export class IndexNowCoordinator extends DurableObject<Env> {
 			state.lastSuccessAt = now;
 			await this.release(state);
 			console.log({
+				endpointHost: endpoint.hostname,
 				event: "indexnow.submission",
 				groupCount: pending.operations.length,
 				outcome,
@@ -305,6 +348,7 @@ export class IndexNowCoordinator extends DurableObject<Env> {
 			state.lastOutcome = "blocked";
 			await this.release(state);
 			console.error({
+				endpointHost: endpoint.hostname,
 				event: "indexnow.submission",
 				groupCount: pending.operations.length,
 				outcome,
@@ -360,6 +404,10 @@ export class IndexNowCoordinator extends DurableObject<Env> {
 		return this.env.INDEXNOW_ENABLED === "true";
 	}
 
+	private indexNowEndpoint(): URL {
+		return new URL(this.env.INDEXNOW_ENDPOINT);
+	}
+
 	private validateConfig(): void {
 		if (!KEY_PATTERN.test(this.env.INDEXNOW_KEY)) {
 			throw new Error("INDEXNOW_KEY_INVALID");
@@ -367,6 +415,17 @@ export class IndexNowCoordinator extends DurableObject<Env> {
 		const site = new URL(this.env.SITE_BASE_URL);
 		if (site.protocol !== "https:" || site.pathname !== "/") {
 			throw new Error("INDEXNOW_SITE_BASE_URL_INVALID");
+		}
+		const endpoint = this.indexNowEndpoint();
+		if (
+			endpoint.protocol !== "https:" ||
+			endpoint.username !== "" ||
+			endpoint.password !== "" ||
+			endpoint.pathname.toLowerCase() !== "/indexnow" ||
+			endpoint.search !== "" ||
+			endpoint.hash !== ""
+		) {
+			throw new Error("INDEXNOW_ENDPOINT_INVALID");
 		}
 	}
 
