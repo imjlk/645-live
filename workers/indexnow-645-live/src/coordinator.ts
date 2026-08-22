@@ -476,14 +476,19 @@ export class IndexNowCoordinator extends DurableObject<Env> {
 	}
 
 	private async fetchManifest() {
-		const response = await fetch(
-			new URL("/api/indexnow-manifest.json", this.env.SITE_BASE_URL),
-			{
-				headers: { accept: "application/json" },
-				redirect: "manual",
-				signal: AbortSignal.timeout(MANIFEST_TIMEOUT_MS),
-			},
+		const manifestUrl = new URL(
+			"/api/indexnow-manifest.json",
+			this.env.SITE_BASE_URL,
 		);
+		// This is an operational delta feed, not a public cache artifact. A unique
+		// poll key also bypasses any older CDN entry created before no-store was set.
+		manifestUrl.searchParams.set("poll", Date.now().toString());
+		const response = await fetch(manifestUrl, {
+			cache: "no-store",
+			headers: { accept: "application/json" },
+			redirect: "manual",
+			signal: AbortSignal.timeout(MANIFEST_TIMEOUT_MS),
+		});
 		if (!response.ok) throw new Error("INDEXNOW_MANIFEST_FETCH_FAILED");
 		const contentLength = Number(response.headers.get("content-length") ?? 0);
 		if (contentLength > MANIFEST_MAX_BYTES) {
