@@ -1,0 +1,181 @@
+---
+title: "제1239회 로또 번호 패턴 분석, 연속번호 1쌍"
+date: "2026-08-29"
+publishedAt: "2026-08-29T21:21:00+09:00"
+updatedAt: "2026-08-30T01:49:10.948+09:00"
+category: "로또분석"
+tags: ["로또", "1239회", "당첨번호", "당첨점", "번호패턴"]
+description: "연속번호와 홀짝, 번호대 분포를 중심으로 제1239회 로또 패턴을 해석했습니다."
+author: "645.live 자동뉴스"
+thumbnail: "/og/news/lotto-1239?rev=2026-03-25-2&v=2026-08-30T01%3A49%3A10.948%2B09%3A00"
+---
+
+<script>
+  import LottoNumbers from '$lib/components/news/LottoNumbers.svelte';
+  import Card from '$lib/ui/Card.svelte';
+  import Alert from '$lib/components/news/Alert.svelte';
+  import Table from '$lib/components/news/Table.svelte';
+  import Tabs from '$lib/components/news/Tabs.svelte';
+  import TabsList from '$lib/components/news/TabsList.svelte';
+  import TabsTrigger from '$lib/components/news/TabsTrigger.svelte';
+  import TabsContent from '$lib/components/news/TabsContent.svelte';
+</script>
+
+## 이번 회차 핵심 요약
+
+<Card variant="bordered">
+  <ul>
+    <li><strong>추첨일</strong>: 2026-08-29</li>
+    <li><strong>당첨번호</strong>: 11, 13, 22, 32, 33, 36 + 보너스 8</li>
+    <li><strong>1등 당첨자</strong>: 13명</li>
+    <li><strong>1인당 1등 당첨금</strong>: 2,214,789,375원</li>
+    <li><strong>총 판매액</strong>: 58,883,645,203원</li>
+  </ul>
+</Card>
+
+제1239회 로또는 연속번호 1쌍이 한 회차에 겹치며 조합 구조가 유독 강하게 눈에 들어온 추첨이었습니다. 당첨번호는 11, 13, 22, 32, 33, 36이고 1등 당첨자는 13명입니다.
+
+이런 회차는 “무작위 결과”라는 사실은 그대로 유지되지만, 사람들이 실제로 조합을 만들 때 의식하는 규칙과 결과가 얼마나 자주 충돌하는지를 보여준다는 점에서 해석 가치가 큽니다.
+
+직전 1238회와 겹친 번호는 13, 32 2개, 1등 당첨자는 직전보다 10명 줄었습니다.
+
+## 당첨번호
+
+<LottoNumbers numbers={[11, 13, 22, 32, 33, 36]} bonus={8} round={1239} />
+
+## 특이점 분석
+
+- 당첨번호는 11, 13, 22, 32, 33, 36 + 보너스 8입니다.
+- 연속번호 1쌍이 동시에 나타났습니다.
+- 홀짝은 3:3, 저번호/고번호는 0:0 분포입니다.
+- 직전 1238회와 겹친 번호는 13, 32 2개, 1등 당첨자는 직전보다 10명 줄었습니다.
+
+패턴형 회차는 보통 과도하게 의미를 부여하기 쉽지만, 장기 통계를 함께 보면 오히려 자주 반복되는 축과 드문 조합을 구분하기 좋습니다. 연속번호와 홀짝 편중, 번호대 집중은 각각 따로도 보지만 한 회차 안에서 동시에 나타날 때 체감 반응이 더 커집니다.
+
+이번 회차는 번호 구성은 홀짝 3:3, 저번호/고번호 0:0로 정리되고 연속번호 1쌍 흐름이 동시에 관측됐습니다.
+
+직전 1238회와 겹친 번호는 13, 32 2개, 1등 당첨자는 직전보다 10명 줄었습니다.
+
+## 지역별 당첨점 현황 (상위)
+
+<Table>
+  <thead>
+    <tr>
+      <th>지역</th>
+      <th>1등</th>
+      <th>2등</th>
+      <th>합계</th>
+    </tr>
+  </thead>
+  <tbody>
+      <tr><td>경기</td><td>1</td><td>14</td><td>15</td></tr>
+      <tr><td>서울</td><td>2</td><td>10</td><td>12</td></tr>
+      <tr><td>인천</td><td>1</td><td>8</td><td>9</td></tr>
+      <tr><td>전남광주</td><td>2</td><td>6</td><td>8</td></tr>
+      <tr><td>충남</td><td>1</td><td>6</td><td>7</td></tr>
+      <tr><td>경북</td><td>1</td><td>5</td><td>6</td></tr>
+      <tr><td>대구</td><td>1</td><td>3</td><td>4</td></tr>
+      <tr><td>전북</td><td>1</td><td>3</td><td>4</td></tr>
+      <tr><td>충북</td><td>0</td><td>4</td><td>4</td></tr>
+      <tr><td>경남</td><td>0</td><td>4</td><td>4</td></tr>
+  </tbody>
+</Table>
+
+## 주소 기반 당첨점 집중 구역 (상위)
+
+<Table>
+  <thead>
+    <tr>
+      <th>구역</th>
+      <th>1등</th>
+      <th>2등</th>
+      <th>합계</th>
+    </tr>
+  </thead>
+  <tbody>
+      <tr><td>전남광주 서구</td><td>1</td><td>2</td><td>3</td></tr>
+      <tr><td>충남 아산시</td><td>1</td><td>2</td><td>3</td></tr>
+      <tr><td>인천 부평구</td><td>0</td><td>3</td><td>3</td></tr>
+      <tr><td>전남광주 광산구</td><td>0</td><td>3</td><td>3</td></tr>
+      <tr><td>강원 속초시</td><td>2</td><td>0</td><td>2</td></tr>
+      <tr><td>인천 미추홀구</td><td>1</td><td>1</td><td>2</td></tr>
+      <tr><td>경기 수원시</td><td>1</td><td>1</td><td>2</td></tr>
+      <tr><td>서울 영등포구</td><td>0</td><td>2</td><td>2</td></tr>
+      <tr><td>서울 서초구</td><td>0</td><td>2</td><td>2</td></tr>
+      <tr><td>대구 달서구</td><td>0</td><td>2</td><td>2</td></tr>
+      <tr><td>경기 평택시</td><td>0</td><td>2</td><td>2</td></tr>
+      <tr><td>경기 의정부시</td><td>0</td><td>2</td><td>2</td></tr>
+  </tbody>
+</Table>
+
+<Tabs defaultValue="insight">
+  <TabsList>
+    <TabsTrigger value="insight">요약 인사이트</TabsTrigger>
+    <TabsTrigger value="stores">당첨점 규모</TabsTrigger>
+  </TabsList>
+  <TabsContent value="insight">
+    <p>패턴형 회차는 보통 과도하게 의미를 부여하기 쉽지만, 장기 통계를 함께 보면 오히려 자주 반복되는 축과 드문 조합을 구분하기 좋습니다. 연속번호와 홀짝 편중, 번호대 집중은 각각 따로도 보지만 한 회차 안에서 동시에 나타날 때 체감 반응이 더 커집니다. 이번 회차는 번호 구성은 홀짝 3:3, 저번호/고번호 0:0로 정리되고 연속번호 1쌍 흐름이 동시에 관측됐습니다. 직전 1238회와 겹친 번호는 13, 32 2개, 1등 당첨자는 직전보다 10명 줄었습니다.</p>
+  </TabsContent>
+  <TabsContent value="stores">
+    <p>제1239회는 총 80개 당첨점이 집계되었습니다. 집계 데이터는 이후 정정될 수 있습니다.</p>
+  </TabsContent>
+</Tabs>
+
+## 이번 회차에서 이어서 볼 통계
+
+이번 회차 특징과 맞는 통계를 카드에서 바로 이동해 확인해보세요.
+
+<div class="not-prose grid grid-cols-1 md:grid-cols-2 gap-3 my-6">
+<a href="/stats" class="group block rounded-2xl border border-base-300 bg-gradient-to-br from-base-100 to-base-200/70 p-0.5 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all no-underline">
+  <div class="h-full rounded-2xl bg-base-100 p-4">
+    <div class="flex items-start gap-3">
+      <span class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-lg">📊</span>
+      <div class="min-w-0 flex-1">
+        <h3 class="text-base font-semibold text-base-content group-hover:text-primary transition-colors">전체 통계 메인</h3>
+        <p class="mt-1 text-sm leading-relaxed text-base-content/70">이번 회차 해석을 장기 흐름과 바로 연결해서 보기 좋은 기준 페이지</p>
+      </div>
+      <span class="text-base-content/40 group-hover:text-primary transition-colors">↗</span>
+    </div>
+  </div>
+</a>
+<a href="/stats/odd-even" class="group block rounded-2xl border border-base-300 bg-gradient-to-br from-base-100 to-base-200/70 p-0.5 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all no-underline">
+  <div class="h-full rounded-2xl bg-base-100 p-4">
+    <div class="flex items-start gap-3">
+      <span class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-lg">⚖️</span>
+      <div class="min-w-0 flex-1">
+        <h3 class="text-base font-semibold text-base-content group-hover:text-primary transition-colors">홀짝 분석</h3>
+        <p class="mt-1 text-sm leading-relaxed text-base-content/70">이번 회차의 홀짝 비율이 평균 패턴에서 얼마나 벗어났는지 확인</p>
+      </div>
+      <span class="text-base-content/40 group-hover:text-primary transition-colors">↗</span>
+    </div>
+  </div>
+</a>
+<a href="/stats/high-low" class="group block rounded-2xl border border-base-300 bg-gradient-to-br from-base-100 to-base-200/70 p-0.5 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all no-underline">
+  <div class="h-full rounded-2xl bg-base-100 p-4">
+    <div class="flex items-start gap-3">
+      <span class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-lg">📈</span>
+      <div class="min-w-0 flex-1">
+        <h3 class="text-base font-semibold text-base-content group-hover:text-primary transition-colors">고저번대 통계</h3>
+        <p class="mt-1 text-sm leading-relaxed text-base-content/70">저번호·고번호 쏠림을 장기 데이터와 비교</p>
+      </div>
+      <span class="text-base-content/40 group-hover:text-primary transition-colors">↗</span>
+    </div>
+  </div>
+</a>
+<a href="/stats/repeat" class="group block rounded-2xl border border-base-300 bg-gradient-to-br from-base-100 to-base-200/70 p-0.5 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all no-underline">
+  <div class="h-full rounded-2xl bg-base-100 p-4">
+    <div class="flex items-start gap-3">
+      <span class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-lg">🔁</span>
+      <div class="min-w-0 flex-1">
+        <h3 class="text-base font-semibold text-base-content group-hover:text-primary transition-colors">연속 중복 통계</h3>
+        <p class="mt-1 text-sm leading-relaxed text-base-content/70">연속번호와 반복 출현 흐름을 함께 확인</p>
+      </div>
+      <span class="text-base-content/40 group-hover:text-primary transition-colors">↗</span>
+    </div>
+  </div>
+</a>
+</div>
+
+<Alert type="info">
+  복권은 건전한 오락으로 즐겨주세요. 과도한 구매는 경제적 부담을 유발할 수 있습니다.
+</Alert>
