@@ -36,21 +36,23 @@ const checkedAtLabel = $derived(
 	robots="index,follow"
 />
 
-<div class="content-page space-y-6">
-	<section class="rounded-xl border border-base-300/70 bg-base-100/85 p-6 shadow-sm">
-		<p class="text-xs font-semibold tracking-[0.22em] text-base-content/45">실시간 상태</p>
-		<div class="mt-3 flex flex-wrap items-center gap-3">
-			<h1 class="text-3xl font-black tracking-[-0.04em] text-base-content">
-				서비스 상태: {statusLabel}
-			</h1>
-			<span class={`badge badge-lg ${data.status.status === "ok" ? "badge-success" : "badge-warning"}`}>
-				{statusLabel}
-			</span>
-		</div>
-		<p class="mt-3 max-w-3xl text-sm leading-7 text-base-content/75">
-			마지막 확인 시각은 {checkedAtLabel}입니다. 공개 결과와 통계는 로그인 없이 조회할 수 있습니다. 회원 스캔 기록을 이용하려면 로그인해주세요.
-		</p>
-		<div class="mt-5 grid gap-4 md:grid-cols-3">
+<div class="content-page status-page">
+	<section class="status-overview">
+		<header class="page-header">
+			<p class="text-xs font-semibold tracking-[0.22em] text-base-content/45">실시간 상태</p>
+			<div class="mt-3 flex flex-wrap items-center gap-3">
+				<h1 class="page-title text-base-content">
+					서비스 상태: {statusLabel}
+				</h1>
+				<span class={`badge badge-lg ${data.status.status === "ok" ? "badge-success" : "badge-warning"}`}>
+					{statusLabel}
+				</span>
+			</div>
+			<p class="status-description text-base-content/75">
+				마지막 확인 시각은 {checkedAtLabel}입니다. 공개 결과와 통계는 로그인 없이 조회할 수 있습니다. 회원 스캔 기록을 이용하려면 로그인해주세요.
+			</p>
+		</header>
+		<div class="grid gap-4 md:grid-cols-3">
 			<div class="rounded-lg border border-base-300/70 bg-base-200/60 p-4">
 				<p class="text-xs tracking-[0.2em] text-base-content/45">데이터베이스</p>
 				<p class="mt-2 text-xl font-semibold text-base-content">{databaseLabel}</p>
@@ -78,3 +80,10 @@ const checkedAtLabel = $derived(
 
 	<StructuredAgentPage page={data.page} headingLevel={2} />
 </div>
+
+<style>
+.status-page { display: flex; flex-direction: column; gap: var(--section-space); }
+.status-overview { min-width: 0; }
+.page-header > p:first-child { margin-top: 0; font-size: .75rem; line-height: 1.4; }
+.status-description { max-width: var(--reading-width); overflow-wrap: anywhere; }
+</style>

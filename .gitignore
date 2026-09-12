@@ -45,3 +45,4 @@ _docs/
 
 # Playwright investigation artifacts
 .playwright-cli/
+output/playwright/

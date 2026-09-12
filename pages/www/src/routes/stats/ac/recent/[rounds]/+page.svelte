@@ -186,12 +186,11 @@ const pageDescription = $derived(
 	<!-- Breadcrumbs -->
 	<Breadcrumbs items={breadcrumbItems} />
 
-	<StatsFreshnessNotice freshness={data.freshness} />
-
 	<!-- 페이지 헤더 -->
 	<header class="stats-recent-heading space-y-2">
 		<h1 class="font-bold">최근 {data.selectedRounds}회 AC값 분포</h1>
 		<p>번호 간 차이로 계산한 복잡도와 회차별 분포를 확인하세요.</p>
+		<StatsFreshnessNotice freshness={data.freshness} />
 	</header>
 
 	<RecentAnalysisInput

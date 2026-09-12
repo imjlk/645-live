@@ -203,7 +203,7 @@ const pageDescription = $derived(
 				minWidth: "60px",
 				render: (value, row) => `
 					<div class="flex items-center">
-						<a href="/stats/numbers/${row.number}" class="inline-flex items-center justify-center w-7 h-7 rounded-full font-bold text-xs ${getColorClass(row.color)} hover:scale-110 transition-transform duration-200 cursor-pointer">
+						<a href="/stats/numbers/${row.number}" class="inline-flex items-center justify-center w-11 h-11 rounded-full font-bold text-sm ${getColorClass(row.color)} hover:scale-110 transition-transform duration-200 cursor-pointer">
 							${row.number}
 						</a>
 					</div>

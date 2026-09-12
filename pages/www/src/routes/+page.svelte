@@ -278,7 +278,7 @@ const faq = [
  .home-primary { min-width: 0; }
  .result-context { display: flex; gap: 1rem; flex-wrap: wrap; color: var(--text-muted); font-size: 0.8125rem; }
  .result-context>span { font-weight: 600; }
- h1 { margin-block: 0.6rem 1rem; font-size: clamp(1.4rem,2.7vw,2rem); font-weight: 780; letter-spacing: -0.05em; line-height: 1.25; }
+ h1 { margin-block: 0.6rem 1rem; font-size: var(--page-title-size); font-weight: var(--page-title-weight); letter-spacing: var(--page-title-tracking); line-height: var(--page-title-line-height); }
  .winning-numbers { display: flex; align-items: start; gap: 0.6rem; margin-bottom: 1rem; }
  .bonus { display: flex; align-items: center; flex-direction: column; gap: 0.5rem; }
  .bonus>span { color: var(--text-muted); font-size: 0.75rem; }

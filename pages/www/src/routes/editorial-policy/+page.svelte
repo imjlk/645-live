@@ -1,7 +1,7 @@
 <script lang="ts">
-import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
-import { EDITORIAL_POLICY_PATH, absoluteUrl } from "$lib/seo/index.js";
+import { absoluteUrl, EDITORIAL_POLICY_PATH } from "$lib/seo/index.js";
 import MetaTags from "$lib/seo/PageMeta.svelte";
+import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
 
 const breadcrumbItems = [
 	{ label: "홈", href: "/" },
@@ -17,18 +17,18 @@ const breadcrumbItems = [
 	robots="index,follow"
 />
 
-<div class="content-page space-y-6">
+<div class="content-page">
 	<Breadcrumbs items={breadcrumbItems} />
 
-	<div class="page-header space-y-2">
-		<h1 class="text-3xl font-bold text-primary">편집 원칙</h1>
+	<div class="page-header">
+		<h1 class="page-title">편집 원칙</h1>
 		<p class="text-base-content/70">
 			645.live는 공식 발표와 자체 데이터에 기반해 자동화된 기사와 통계를 제공하지만, 원본성·명확성·시의성을 가장 중요한 기준으로 둡니다.
 		</p>
 	</div>
 
 	<div class="card bg-base-100 shadow-sm">
-		<div class="card-body prose prose-sm sm:prose max-w-none">
+		<div class="card-body editorial-prose prose prose-sm sm:prose max-w-none">
 			<h2>1. 기사 생성 기준</h2>
 			<p>
 				뉴스 초안은 자동 생성될 수 있으며, 제목·요약·본문은 회차 결과와 자체 분석 규칙을 바탕으로 구성됩니다. 동일한 결과를 반복 나열하기보다 회차별 특징과 차이를 강조하도록 템플릿을 관리합니다.
@@ -56,3 +56,12 @@ const breadcrumbItems = [
 		</div>
 	</div>
 </div>
+
+<style>
+.page-header { margin-top: .75rem; }
+.card, .card-body { min-width: 0; }
+.card-body { padding: clamp(1rem, 2.4vw, 1.75rem); }
+.editorial-prose > h2 { margin-top: 1.75rem; margin-bottom: .75rem; font-size: var(--section-title-size); line-height: 1.5; }
+.editorial-prose > h2:first-child { margin-top: 0; }
+.editorial-prose > p { max-width: var(--reading-width); font-size: var(--body-copy-size); line-height: var(--body-copy-line-height); overflow-wrap: anywhere; }
+</style>

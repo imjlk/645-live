@@ -149,23 +149,23 @@ const Content = $derived(data.content);
 	<span>{round ? `제${round}회` : '회차 해설'}</span>
 </nav>
 
-<div class="article-layout">
-	<article class="article-main">
-		<header class="article-heading">
-			<p class="article-category">회차별 결과 해설</p>
-			<h1>{postTitle}</h1>
-			<p class="article-summary">{summary}</p>
-			<div class="article-byline">
-				<a href={resolve(AUTO_NEWS_AUTHOR_PATH)}>{authorName}</a>
-				{#if datePublishedIso && publishedLabel}
-					<time datetime={datePublishedIso}>발행 {publishedLabel}</time>
-				{/if}
-				{#if dateModifiedIso && modifiedLabel && dateModifiedIso !== datePublishedIso}
-					<time datetime={dateModifiedIso}>수정 {modifiedLabel}</time>
-				{/if}
-			</div>
-		</header>
+<article class="article-layout">
+	<header class="article-heading page-header">
+		<p class="article-category">회차별 결과 해설</p>
+		<h1 class="page-title">{postTitle}</h1>
+		<p class="article-summary">{summary}</p>
+		<div class="article-byline">
+			<a href={resolve(AUTO_NEWS_AUTHOR_PATH)}>{authorName}</a>
+			{#if datePublishedIso && publishedLabel}
+				<time datetime={datePublishedIso}>발행 {publishedLabel}</time>
+			{/if}
+			{#if dateModifiedIso && modifiedLabel && dateModifiedIso !== datePublishedIso}
+				<time datetime={dateModifiedIso}>수정 {modifiedLabel}</time>
+			{/if}
+		</div>
+	</header>
 
+	<div class="article-main">
 		<NewsLayout><Content /></NewsLayout>
 
 		<footer class="article-footer">
@@ -177,7 +177,7 @@ const Content = $derived(data.content);
 			</div>
 			<a class="back-link" href={resolve('/news')}><span aria-hidden="true">←</span> 뉴스 목록으로</a>
 		</footer>
-	</article>
+	</div>
 
 	<aside class="article-aside" aria-label="관련 정보">
 		<div class="aside-content">
@@ -194,18 +194,18 @@ const Content = $derived(data.content);
 			<p class="aside-note">스캔 집계는 이 사이트에 등록된 데이터만 반영합니다.</p>
 		</div>
 	</aside>
-</div>
+</article>
 
 <style>
-	.article-breadcrumb { display: flex; align-items: center; gap: 10px; margin-bottom: 24px; font-size: 0.8125rem; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); }
+	.article-breadcrumb { display: flex; align-items: center; gap: 10px; margin-bottom: .75rem; font-size: 0.8125rem; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); }
 	.article-breadcrumb a { display: inline-flex; align-items: center; min-height: 32px; color: inherit; text-decoration: none; }
 	.article-breadcrumb a:hover { color: var(--color-primary); }
-	.article-layout { display: grid; grid-template-columns: minmax(0, 760px) minmax(200px, 256px); gap: 56px; align-items: start; }
+	.article-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(240px, 280px); gap: var(--page-header-space) clamp(1.5rem, 4vw, 3rem); align-items: start; }
 	.article-main { min-width: 0; }
-	.article-heading { padding-bottom: 28px; }
+	.article-heading { grid-column: 1 / -1; min-width: 0; margin-bottom: 0; }
 	.article-category { margin: 0 0 12px; font-size: 0.75rem; font-weight: 700; color: var(--color-primary); }
-	h1 { margin: 0; font-size: clamp(1.75rem, 3.5vw, 2.625rem); line-height: 1.35; font-weight: 800; letter-spacing: -0.045em; text-wrap: pretty; }
-	.article-summary { margin: 16px 0; font-size: 1.0625rem; line-height: 1.7; color: color-mix(in oklab, var(--color-base-content) 70%, transparent); }
+	.article-heading h1 { text-wrap: pretty; overflow-wrap: anywhere; }
+	.article-summary { max-width: var(--reading-width); margin: 12px 0; font-size: var(--body-copy-size); line-height: var(--body-copy-line-height); color: color-mix(in oklab, var(--color-base-content) 70%, transparent); }
 	.article-byline { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); font-size: 0.75rem; line-height: 1.7; }
 	.article-byline a { color: inherit; text-underline-offset: 3px; }
 	.article-aside { align-self: stretch; min-width: 0; }
@@ -218,21 +218,16 @@ const Content = $derived(data.content);
 	.article-aside nav a:hover { color: var(--color-primary); }
 	.article-aside nav span { color: color-mix(in oklab, var(--color-base-content) 45%, transparent); }
 	.aside-note { margin-top: 16px; font-size: 0.75rem; line-height: 1.7; color: color-mix(in oklab, var(--color-base-content) 55%, transparent); }
-	.article-footer { margin-top: 36px; padding-top: 24px; border-top: 1px solid var(--color-base-300); }
+	.article-footer { margin-top: var(--section-space); padding-top: var(--page-header-space); border-top: 1px solid var(--color-base-300); }
 	.article-footer p { margin: 0; font-size: 0.8125rem; line-height: 1.8; color: color-mix(in oklab, var(--color-base-content) 65%, transparent); }
 	.source-links { display: flex; flex-wrap: wrap; gap: 8px 20px; margin-top: 8px; }
 	.source-links a { display: inline-flex; align-items: center; min-height: 44px; color: var(--color-primary); font-size: 0.8125rem; text-underline-offset: 4px; }
 	.back-link { display: inline-flex; align-items: center; min-height: 44px; gap: 12px; margin-top: 20px; color: var(--color-base-content); font-size: 0.875rem; font-weight: 650; text-decoration: none; }
 	.back-link:hover { color: var(--color-primary); }
 	@media (max-width: 1023px) {
-		.article-layout { grid-template-columns: minmax(0, 760px); gap: 40px; justify-content: center; }
+		.article-layout { grid-template-columns: minmax(0, 1fr); gap: var(--page-header-space); }
 		.aside-content { position: static; padding: 24px 0 0; border-top: 1px solid var(--color-base-300); }
 		figure { max-width: 320px; }
-		.article-heading { padding-bottom: 24px; }
-	}
-	@media (max-width: 767px) {
-		.article-breadcrumb { margin-bottom: 16px; }
-		.article-summary { font-size: 1rem; }
 	}
 	@media (prefers-reduced-motion: reduce) {
 		.article-aside nav a { transition: none; }

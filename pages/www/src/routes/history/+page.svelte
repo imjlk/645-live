@@ -78,7 +78,7 @@ const ogImage = getGenericOgImage({
 
 <div class="content-page history-page">
 	<header class="page-header">
-		<div><p class="eyebrow">로또 6/45</p><h1>회차별 당첨 결과</h1><p>발표된 당첨번호와 1등 당첨금을 확인하세요.</p></div>
+		<div><h1>회차별 당첨 결과</h1><p>발표된 당첨번호와 1등 당첨금을 확인하세요.</p></div>
 		<a href={resolve("/qr-scan")} class="btn btn-primary">내 용지 QR 확인</a>
 	</header>
 	{#if data.error}
@@ -124,19 +124,20 @@ const ogImage = getGenericOgImage({
 </div>
 
 <style>
-.page-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; }
+.page-header { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 1rem; }
+.page-header > div { min-width: 0; flex: 1 1 20rem; }
+.history-page .btn, .round-controls .select { min-height: 2.75rem; }
 .section-heading p { margin-top: .4rem; font-size: .8rem; line-height: 1.7; color: color-mix(in oklch, var(--color-base-content) 65%, transparent); }
-.history-page { max-width: 1120px; margin-inline: auto; }
-.eyebrow { color: var(--color-primary); font-size: .75rem; font-weight: 700; letter-spacing: .06em; }
-.round-controls { display: flex; align-items: center; flex-wrap: wrap; gap: .75rem; padding: 1rem 0 1.5rem; }
-.round-controls label { font-size: .875rem; font-weight: 600; }
+.round-controls { display: flex; align-items: center; flex-wrap: wrap; gap: .75rem; padding-bottom: var(--page-header-space); }
+.round-controls label { flex-basis: 100%; font-size: .875rem; font-weight: 600; }
 .round-controls .select { width: auto; min-width: 10rem; flex: 1; max-width: 20rem; }
 .draw-result { padding: 1.5rem 0 2rem; border-block: 1px solid var(--color-base-300); }
 .draw-balls { display: flex; flex-wrap: wrap; gap: 1rem 1.5rem; align-items: center; margin: 1.5rem 0 2rem; }
 .main-balls { display: flex; gap: clamp(.35rem, 1.2vw, .85rem); }
 .bonus-ball { display: flex; gap: .65rem; align-items: center; }
 .bonus-ball > span { color: color-mix(in oklch, var(--color-base-content) 65%, transparent); font-size: .75rem; }
-.prize-summary { display: grid; gap: 1.25rem; grid-template-columns: 1fr 1fr; margin: 0 0 1.5rem; }
+.prize-summary { display: grid; gap: 1.25rem; grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 0 0 1.5rem; }
+.prize-summary > div { min-width: 0; }
 .prize-summary > div:first-child { grid-column: 1 / -1; }
 dt { font-size: .8rem; color: color-mix(in oklch, var(--color-base-content) 65%, transparent); margin-bottom: .4rem; }
 dd { margin: 0; font-size: 1.5rem; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -.04em; }
@@ -145,7 +146,7 @@ dd.sales { font-size: clamp(.95rem, 2vw, 1.5rem); overflow-wrap: anywhere; }
 dd > span { font-size: .8rem; font-weight: 500; margin-left: .25rem; letter-spacing: 0; }
 .text-link { display: inline-flex; gap: 1rem; align-items: center; min-height: 44px; font-size: .875rem; font-weight: 650; color: var(--color-primary); }
 .text-link:hover { text-decoration: underline; text-underline-offset: 4px; }
-.scan-section { padding-top: 2rem; }
+.scan-section { padding-top: var(--section-space); }
 .scan-count { font-size: .875rem; font-weight: 600; white-space: nowrap; }
 .scan-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 1.25rem .5rem; margin: 1.5rem 0; }
 .scan-grid > div { display: flex; flex-direction: column; align-items: center; gap: .4rem; font-size: .8rem; font-variant-numeric: tabular-nums; }
@@ -153,6 +154,7 @@ dd > span { font-size: .8rem; font-weight: 500; margin-left: .25rem; letter-spac
 .footnote, .empty-state { color: color-mix(in oklch, var(--color-base-content) 65%, transparent); font-size: .875rem; line-height: 1.7; }
 .footnote { margin-top: .75rem; }
 .empty-state { padding: 1.5rem 0; }
-@media(max-width: 639px) { .draw-balls { flex-wrap: nowrap; gap: .75rem; align-items: flex-end; } .draw-balls :global(.simple-ball.md) { width: clamp(2.35rem, 10vw, 3rem); height: clamp(2.35rem, 10vw, 3rem); } .bonus-ball { flex-direction: column; gap: .35rem; } }
-@media(min-width: 640px) { .scan-grid { grid-template-columns: repeat(9, minmax(0, 1fr)); } .prize-summary { grid-template-columns: 1.2fr .65fr 1fr; } .prize-summary > div:first-child { grid-column: auto; } }
+@media(max-width: 639px) { .draw-balls { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); width: min(100%, 25rem); gap: clamp(.25rem, 1vw, .5rem); align-items: end; } .main-balls { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); grid-column: span 6; gap: inherit; } .draw-balls :global(.simple-ball.md) { width: 100%; height: auto; aspect-ratio: 1; } .bonus-ball { flex-direction: column; gap: .35rem; } }
+@media(min-width: 480px) { .round-controls label { flex-basis: auto; } }
+@media(min-width: 640px) { .scan-grid { grid-template-columns: repeat(9, minmax(0, 1fr)); } .prize-summary { grid-template-columns: minmax(0, 1.2fr) minmax(0, .65fr) minmax(0, 1fr); } .prize-summary > div:first-child { grid-column: auto; } }
 </style>

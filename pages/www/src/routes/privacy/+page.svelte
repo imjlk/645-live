@@ -34,7 +34,7 @@ const sections = [
 	<Breadcrumbs items={breadcrumbItems} />
 	<header class="page-header">
 		<p class="section-label">서비스 이용 안내</p>
-		<h1>개인정보 처리방침</h1>
+		<h1 class="page-title">개인정보 처리방침</h1>
 		<p>1990컴퍼니는 645.live에서 어떤 정보를 왜 처리하는지, 이용자가 이를 어떻게 관리할 수 있는지 안내합니다.</p>
 		<p class="effective-date">시행일: <time datetime="2026-09-12">2026년 9월 12일</time></p>
 	</header>
@@ -168,22 +168,22 @@ const sections = [
 </div>
 
 <style>
-.privacy-page { max-width: 58rem; margin-inline: auto; }
-.privacy-page .page-header { margin-top: 1.75rem; }
-.privacy-page .page-header p { max-width: 44rem; }
+.privacy-page .page-header { margin-top: .75rem; }
+.privacy-page .page-header p { max-width: var(--reading-width); }
 .privacy-page .page-header .effective-date { font-size: .8125rem; margin-top: 1rem; }
-.privacy-summary { margin-block: 1.75rem; padding: 1.25rem; border-left: 3px solid var(--color-primary); background: var(--color-base-200); font-size: .875rem; line-height: 1.8; }
+.privacy-summary { margin-block: var(--page-header-space); padding: 1.25rem; border-left: 3px solid var(--color-primary); background: var(--color-base-200); font-size: .875rem; line-height: 1.8; }
+.privacy-summary p { max-width: var(--reading-width); overflow-wrap: anywhere; }
 .privacy-summary p + p { margin-top: .75rem; }
 .privacy-summary a[href^="tel:"] { white-space: nowrap; }
 .privacy-contents { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .25rem 1.5rem; padding-block: 1.25rem; border-block: 1px solid var(--color-base-300); }
-.privacy-contents a { display: flex; gap: .75rem; padding-block: .5rem; font-size: .875rem; line-height: 1.5; text-decoration: none; }
+.privacy-contents a { display: flex; align-items: center; gap: .75rem; min-height: 44px; padding-block: .5rem; font-size: .875rem; line-height: 1.5; text-decoration: none; }
 .privacy-contents a span { color: var(--color-primary); font-variant-numeric: tabular-nums; }
 .privacy-contents a:hover { color: var(--color-primary); }
-.policy-content section { padding-block: 2rem; scroll-margin-top: 6rem; border-bottom: 1px solid var(--color-base-300); }
+.policy-content section { padding-block: var(--section-space); scroll-margin-top: 6rem; border-bottom: 1px solid var(--color-base-300); }
 .policy-content section:last-child { border-bottom: 0; }
-.policy-content h2 { font-size: 1.25rem; font-weight: 700; line-height: 1.5; margin-bottom: 1rem; letter-spacing: -.02em; }
+.policy-content h2 { font-size: var(--section-title-size); font-weight: 700; line-height: 1.5; margin-bottom: 1rem; letter-spacing: -.02em; }
 .policy-content h3 { font-size: 1rem; font-weight: 650; margin-top: 1.5rem; margin-bottom: .625rem; }
-.policy-content p, .policy-content li, .policy-content dd { font-size: .9375rem; line-height: 1.9; color: color-mix(in oklch, var(--color-base-content) 85%, transparent); overflow-wrap: anywhere; }
+.policy-content p, .policy-content li, .policy-content dd { max-width: var(--reading-width); font-size: var(--body-copy-size); line-height: var(--body-copy-line-height); color: color-mix(in oklch, var(--color-base-content) 85%, transparent); overflow-wrap: anywhere; }
 .policy-content p + p, .policy-content p + ul, .policy-content ul + p { margin-top: 1rem; }
 .policy-content ul { padding-left: 1.25rem; list-style: disc; }
 .policy-content li + li { margin-top: .625rem; }
@@ -196,5 +196,5 @@ const sections = [
 .contact-details { display: grid; gap: .75rem; margin-block: 1.25rem; }
 .contact-details > div { display: grid; grid-template-columns: 6.25rem minmax(0, 1fr); gap: 1rem; align-items: baseline; }
 .contact-details dt { font-size: .875rem; color: var(--color-muted-content); }
-@media (max-width: 540px) { .privacy-contents { grid-template-columns: 1fr; gap: 0; } .policy-content section { padding-block: 1.75rem; } .privacy-summary { padding: 1rem; } }
+@media (max-width: 540px) { .privacy-contents { grid-template-columns: 1fr; gap: 0; } .privacy-summary { padding: 1rem; } }
 </style>

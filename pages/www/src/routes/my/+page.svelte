@@ -183,9 +183,9 @@ function getStatusBadgeClass(item: MyScanListItem): string {
 />
 
 <div class="content-page my-page">
+	<header class="page-header"><div><h1>내 스캔 기록</h1><p>{auth.session ? `${auth.session.user.name ?? "회원"}님의 저장한 티켓과 당첨 확인 상태입니다.` : "계정에 저장한 티켓과 당첨 확인 상태를 모아 볼 수 있습니다."}</p></div><a href={resolve("/qr-scan")} class="btn btn-primary">새 용지 QR 확인</a></header>
 	<p class="privacy-update">개인정보 처리방침이 2026년 9월 12일 개정되었습니다. <a class="link" href={resolve("/privacy")}>수집 항목과 보관·삭제 방법을 확인하세요.</a></p>
 	{#if accountDeleted}<p class="alert alert-success" role="status">탈퇴가 완료되었습니다. 계정과 저장한 기록, 이 브라우저에 남은 해당 계정의 기록을 삭제했습니다.</p>{/if}
-	<header class="page-header"><div><h1>내 스캔 기록</h1><p>{auth.session ? `${auth.session.user.name ?? "회원"}님의 저장한 티켓과 당첨 확인 상태입니다.` : "계정에 저장한 티켓과 당첨 확인 상태를 모아 볼 수 있습니다."}</p></div><a href={resolve("/qr-scan")} class="btn btn-primary">새 용지 QR 확인</a></header>
 
  {#if auth.status === "loading"}
   <p class="account-state" role="status">{auth.signingOut ? "로그아웃 중입니다…" : "로그인 상태를 확인하고 있습니다…"}</p>
@@ -243,32 +243,35 @@ function getStatusBadgeClass(item: MyScanListItem): string {
 </dialog>
 
 <style>
-.page-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; }
+.page-header { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 1rem; }
+.page-header > div { min-width: 0; flex: 1 1 20rem; }
+.page-header p { overflow-wrap: anywhere; }
+.btn, .input { min-height: 2.75rem; }
 .account-state { padding-block: 2rem; line-height: 1.8; }
 .account-state .btn { margin-top: 1rem; }
-.account-settings { border-top: 1px solid var(--color-base-300); padding-top: 1.5rem; margin-top: 2rem; }
-.privacy-update { margin-bottom: 1.5rem; font-size: .8rem; line-height: 1.8; color: var(--text-muted); }
-.account-settings h2 { font-size: 1rem; font-weight: 700; }
+.account-settings { border-top: 1px solid var(--color-base-300); padding-top: var(--page-header-space); margin-top: var(--section-space); }
+.privacy-update { max-width: var(--reading-width); margin-bottom: var(--page-header-space); font-size: .8rem; line-height: 1.8; color: var(--text-muted); }
+.account-settings h2 { font-size: var(--section-title-size); font-weight: 700; }
 .account-settings p { margin-block: .5rem; color: var(--text-muted); font-size: .85rem; line-height: 1.8; }
 .delete-form { display: grid; gap: .75rem; margin-top: 1.5rem; font-size: .85rem; }
 .delete-confirmation { display: flex; align-items: center; gap: .75rem; min-height: 44px; line-height: 1.7; }
-.my-page { max-width: 1040px; margin-inline: auto; }
-.account-summary { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem 1rem; border-block: 1px solid var(--color-base-300); padding-block: 1.5rem; margin: 1.5rem 0 2rem; }
+.account-summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.5rem 1rem; border-block: 1px solid var(--color-base-300); padding-block: 1.5rem; margin: 0 0 var(--section-space); }
 dt { font-size: .8rem; color: color-mix(in oklch, var(--color-base-content) 65%, transparent); }
-dd { margin: .4rem 0 0; font-size: 2rem; font-weight: 750; font-variant-numeric: tabular-nums; letter-spacing: -.04em; }
+dd { margin: .4rem 0 0; font-size: 2rem; font-weight: 750; font-variant-numeric: tabular-nums; letter-spacing: -.04em; overflow-wrap: anywhere; }
 dd span { font-size: .85rem; font-weight: 400; margin-left: .25rem; }
 dd.last-scan { font-size: 1rem; line-height: 1.7; letter-spacing: 0; }
 .ticket-list { list-style: none; padding: 0; margin: 1rem 0 0; }
 .ticket-list li { padding: 1.4rem 0; border-bottom: 1px solid var(--color-base-300); }
 .ticket-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .75rem; }
+.ticket-heading > div { min-width: 0; }
 .round-link { display: inline-flex; align-items: center; min-height: 44px; font-weight: 700; }
 .round-link:hover { color: var(--color-primary); text-decoration: underline; text-underline-offset: 4px; }
 .game-count { margin-left: .75rem; font-size: .8rem; color: color-mix(in oklch, var(--color-base-content) 60%, transparent); }
-.ticket-summary { margin-top: .4rem; font-size: .9rem; line-height: 1.6; }
+.ticket-summary { margin-top: .4rem; font-size: .9rem; line-height: 1.6; overflow-wrap: anywhere; }
 .ticket-date { font-size: .75rem; color: color-mix(in oklch, var(--color-base-content) 60%, transparent); margin-top: .5rem; }
 .empty-state { padding: 2.5rem 0; }
-.empty-state h3 { font-size: 1.2rem; font-weight: 650; }
-.empty-state p { margin-top: .75rem; font-size: .9rem; color: color-mix(in oklch, var(--color-base-content) 65%, transparent); line-height: 1.8; max-width: 34rem; }
+.empty-state h2, .empty-state h3 { font-size: var(--section-title-size); font-weight: 650; }
+.empty-state p { margin-top: .75rem; font-size: var(--body-copy-size); color: color-mix(in oklch, var(--color-base-content) 65%, transparent); line-height: var(--body-copy-line-height); max-width: var(--reading-width); }
 .empty-actions { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1.5rem; }
 @media(min-width: 768px) { .account-summary { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 2rem; padding-block: 2rem; } }
 </style>

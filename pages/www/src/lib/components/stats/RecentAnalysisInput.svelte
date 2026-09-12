@@ -97,7 +97,7 @@ async function navigateToAnalysis(event: SubmitEvent) {
 </section>
 
 <style>
-	.range-control { padding-block: 0.25rem; }
+	.range-control { min-width: 0; padding-block: 0.25rem; }
 	.range-heading { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.5rem 0.75rem; margin-bottom: 0.6rem; }
 	h2 { font-size: 0.875rem; font-weight: 700; }
 	.range-heading span, .empty { font-size: 0.8125rem; color: color-mix(in oklab, var(--color-base-content) 70%, transparent); }
@@ -105,14 +105,16 @@ async function navigateToAnalysis(event: SubmitEvent) {
 	a, summary, button { display: inline-flex; align-items: center; justify-content: center; min-height: 2.75rem; padding: 0.6rem 0.8rem; border: 1px solid var(--color-base-300); border-radius: 0.5rem; background: var(--color-base-100); color: var(--color-base-content); font-size: 0.8125rem; font-weight: 600; cursor: pointer; text-decoration: none; transition: background 140ms ease, border-color 140ms ease; }
 	a:hover, summary:hover { background: var(--color-base-200); border-color: var(--color-primary); }
 	a.active, button { background: var(--color-primary); border-color: var(--color-primary); color: var(--color-primary-content); }
-	details { position: relative; }
+	details { position: relative; min-width: 0; max-width: 100%; }
+	details[open] { flex-basis: 100%; }
 	summary { list-style: none; }
 	summary::-webkit-details-marker { display: none; }
-	form { margin-top: 0.5rem; min-width: 15rem; padding: 0.75rem; border: 1px solid var(--color-base-300); border-radius: 0.6rem; background: var(--color-base-100); }
+	form { width: min(100%, 24rem); margin-top: 0.5rem; min-width: 0; padding: 0.75rem; border: 1px solid var(--color-base-300); border-radius: 0.6rem; background: var(--color-base-100); }
 	label { display: block; font-size: 0.8125rem; font-weight: 600; margin-bottom: 0.45rem; }
-	.custom-field { display: flex; gap: 0.4rem; }
-	input { width: 7rem; min-height: 2.75rem; padding: 0.5rem 0.75rem; border: 1px solid var(--color-base-300); border-radius: 0.5rem; background: var(--color-base-100); color: var(--color-base-content); font-size: 1rem; }
-	.error { max-width: 15rem; margin-top: 0.5rem; font-size: 0.8125rem; color: var(--color-error); }
+	.custom-field { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+	input { flex: 1 1 6rem; width: 7rem; min-width: 0; min-height: 2.75rem; padding: 0.5rem 0.75rem; border: 1px solid var(--color-base-300); border-radius: 0.5rem; background: var(--color-base-100); color: var(--color-base-content); font-size: 1rem; }
+	.custom-field button { flex: 1 1 auto; }
+	.error { margin-top: 0.5rem; font-size: 0.8125rem; line-height: 1.5; color: var(--color-error); }
 	a:focus-visible, summary:focus-visible, input:focus-visible, button:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
 	@media (prefers-reduced-motion: reduce) { a, summary, button { transition: none; } }
 </style>

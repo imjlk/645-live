@@ -37,15 +37,15 @@ afterNavigate(() => {
 </header>
 <style>
  .site-header { border-bottom: 1px solid var(--color-base-300); background: var(--color-base-100); }
- .header-inner { min-height: 80px; max-width: 1240px; margin-inline: auto; padding-inline: var(--page-gutter); display: flex; align-items: center; gap: 1.5rem; }
+ .header-inner { min-height: 80px; max-width: var(--page-max-width); margin-inline: auto; padding-inline: var(--page-gutter); display: flex; align-items: center; gap: 1.5rem; }
  .wordmark { font-size: 1.8rem; font-weight: 850; letter-spacing: -0.09em; white-space: nowrap; }
  .wordmark span { color: var(--color-primary); }
  .desktop-menu { flex: 1; }
  .header-actions { margin-left: auto; display: flex; align-items: center; gap: 0.75rem; }
- .account-link { font-size: 0.875rem; font-weight: 600; white-space: nowrap; padding-block: 0.7rem; color: var(--color-primary); }
+ .account-link { font-size: 0.875rem; font-weight: 600; white-space: nowrap; display: inline-flex; align-items: center; min-height: 44px; padding-block: 0.7rem; color: var(--color-primary); }
  .menu-toggle { display: none; align-items: center; justify-content: center; background: transparent; border: 0; padding: 0.5rem; min-height: 44px; min-width: 44px; }
- .mobile-menu { max-width: 1240px; margin-inline: auto; padding: 0.5rem var(--page-gutter) 1rem; border-top: 1px solid var(--color-base-300); }
- .auth-error { max-width: 1240px; margin-inline: auto; padding: .5rem var(--page-gutter); font-size: .8rem; color: var(--color-error-content); background: var(--color-error); }
+ .mobile-menu { max-width: var(--page-max-width); margin-inline: auto; padding: 0.5rem var(--page-gutter) 1rem; border-top: 1px solid var(--color-base-300); }
+ .auth-error { max-width: var(--page-max-width); margin-inline: auto; padding: .5rem var(--page-gutter); font-size: .8rem; color: var(--color-error-content); background: var(--color-error); }
  @media (max-width: 1100px) { .desktop-menu, .desktop-sign-out { display: none; } .menu-toggle { display: flex; } }
  @media (max-width: 767px) { .header-inner { min-height: 68px; gap: 0.5rem; } .wordmark { font-size: 1.65rem; } .header-actions { gap: 0.5rem; } }
 </style>

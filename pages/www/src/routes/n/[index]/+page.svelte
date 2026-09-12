@@ -177,7 +177,7 @@ function handleKeydown(event: KeyboardEvent) {
 <div class="content-page number-page">
 	<nav class="breadcrumb" aria-label="현재 위치"><a href={resolve("/")}>홈</a><span aria-hidden="true">/</span><span>{ballNumber}번 스캔 집계</span></nav>
 	<header class="number-heading">
-		<div class="heading-copy"><LottoBall number={ballNumber} size="large" viewTransitionName={`ball-${ballNumber}`} /><div><p class="eyebrow">이 사이트에 등록된 스캔 기준</p><h1>{ballNumber}번 스캔 집계</h1></div></div>
+		<div class="heading-copy"><LottoBall number={ballNumber} size="large" viewTransitionName={`ball-${ballNumber}`} /><div><p class="eyebrow">이 사이트에 등록된 스캔 기준</p><h1 class="page-title">{ballNumber}번 스캔 집계</h1></div></div>
 		<nav class="number-nav" aria-label="다른 번호 보기">
 			{#if ballNumber > 1}<a href={resolve("/n/[index]", { index: String(ballNumber - 1) })} aria-label={`${ballNumber - 1}번 스캔 집계`}>← {ballNumber - 1}번</a>{/if}
 			{#if ballNumber < 45}<a href={resolve("/n/[index]", { index: String(ballNumber + 1) })} aria-label={`${ballNumber + 1}번 스캔 집계`}>{ballNumber + 1}번 →</a>{/if}
@@ -241,22 +241,23 @@ function handleKeydown(event: KeyboardEvent) {
 </div>
 
 <style>
-	.number-page { display: grid; gap: 1.75rem; min-width: 0; }
+	.number-page { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--page-header-space); }
 	.breadcrumb { display: flex; flex-wrap: wrap; gap: 0.5rem; font-size: 0.8125rem; color: color-mix(in oklab, var(--color-base-content) 65%, transparent); }
 	.number-heading, .heading-copy { display: flex; align-items: center; gap: 1rem; }
 	.number-heading { flex-wrap: wrap; justify-content: space-between; }
+	.heading-copy, .heading-copy > div { min-width: 0; }
 	.eyebrow { font-size: 0.8125rem; color: var(--color-primary); font-weight: 650; }
-	h1 { margin-top: 0.25rem; font-size: clamp(1.5rem, 3vw, 2.2rem); line-height: 1.25; font-weight: 800; letter-spacing: -0.035em; }
-	.number-nav { display: flex; gap: 0.5rem; }
+	h1 { margin-top: 0.25rem; }
+	.number-nav { display: flex; flex-wrap: wrap; gap: 0.5rem; }
 	.number-nav a { display: inline-flex; align-items: center; min-height: 2.75rem; padding: 0.5rem 0.75rem; border: 1px solid var(--color-base-300); border-radius: 0.5rem; font-size: 0.8125rem; }
 	.scan-summary { display: grid; gap: 1.25rem; padding: 1.25rem; background: var(--color-base-200); border-radius: 0.8rem; }
-	h2 { font-size: 1.125rem; font-weight: 700; line-height: 1.4; letter-spacing: -0.02em; }
+	h2 { font-size: var(--section-title-size); font-weight: 700; line-height: 1.4; letter-spacing: -0.02em; }
 	.scan-summary h2 { font-size: 0.875rem; font-weight: 600; }
 	.scan-count { margin-top: 0.5rem; font-size: 3rem; font-weight: 800; line-height: 1.1; font-variant-numeric: tabular-nums; letter-spacing: -0.04em; }
 	.scan-count span { margin-left: 0.3rem; font-size: 1rem; font-weight: 500; }
 	.scan-context { display: grid; align-content: center; gap: 0.6rem; font-size: 0.875rem; line-height: 1.65; }
 	.muted { font-size: 0.8125rem; line-height: 1.65; color: color-mix(in oklab, var(--color-base-content) 70%, transparent); }
-	.action-link { font-size: 0.8125rem; font-weight: 650; color: var(--color-primary); }
+	.action-link { display: inline-flex; align-items: center; justify-self: start; min-height: 2.75rem; font-size: 0.8125rem; font-weight: 650; color: var(--color-primary); }
 	.section-heading { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0.5rem; margin-bottom: 1rem; }
 	.section-heading > p { font-size: 0.8125rem; color: color-mix(in oklab, var(--color-base-content) 68%, transparent); }
 	.history-note { margin-top: .75rem; }
@@ -269,7 +270,7 @@ function handleKeydown(event: KeyboardEvent) {
 	dt { font-size: 0.8125rem; color: color-mix(in oklab, var(--color-base-content) 70%, transparent); }
 	.draw-metrics dd { margin-top: 0.35rem; font-size: 1.6rem; font-weight: 750; line-height: 1.2; font-variant-numeric: tabular-nums; }
 	.draw-metrics dd span { font-size: 0.875rem; margin-left: 0.2rem; font-weight: 500; }
-	.pair-columns { display: grid; gap: 1.75rem; }
+	.pair-columns { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--page-header-space); }
 	.pair-line { display: flex; align-items: center; gap: 0.75rem; min-height: 3.5rem; padding-block: 0.35rem; border-bottom: 1px solid var(--color-base-300); font-size: 0.875rem; }
 	.pair-line strong { margin-left: auto; font-weight: 650; font-variant-numeric: tabular-nums; }
 	.number-properties { border-block: 1px solid var(--color-base-300); }
@@ -277,6 +278,7 @@ function handleKeydown(event: KeyboardEvent) {
 	.number-properties dl { padding-bottom: 1rem; display: grid; gap: 0.75rem; }
 	.number-properties dl div { display: flex; justify-content: space-between; font-size: 0.875rem; }
 	.footer-links { display: flex; flex-wrap: wrap; gap: 1rem; color: var(--color-primary); font-size: 0.875rem; font-weight: 600; }
+	.footer-links a { display: inline-flex; align-items: center; min-height: 2.75rem; }
 	a:focus-visible, summary:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 3px; }
-	@media (min-width: 640px) { .scan-summary { grid-template-columns: minmax(12rem, 0.6fr) 1fr; padding: 1.5rem; } .history-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); } .history-grid > div { display: grid; gap: 0.3rem; } .draw-metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); } .pair-columns { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2rem; } }
+	@media (min-width: 640px) { .scan-summary { grid-template-columns: minmax(12rem, 0.6fr) minmax(0, 1fr); padding: 1.5rem; } .history-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); } .history-grid > div { display: grid; gap: 0.3rem; } .draw-metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); } .pair-columns { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2rem; } }
 </style>

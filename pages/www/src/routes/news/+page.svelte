@@ -26,7 +26,9 @@ const pageTitle = $derived(
 );
 const pagePath = $derived(hrefForPage(currentPage));
 const canonicalUrl = $derived(absoluteUrl(pagePath));
-const articleRange = $derived(`${roundLabel(posts[0]?.slug)}${posts.length > 1 ? `부터 ${roundLabel(posts.at(-1)?.slug)}까지` : ""}`);
+const articleRange = $derived(
+	`${roundLabel(posts[0]?.slug)}${posts.length > 1 ? `부터 ${roundLabel(posts.at(-1)?.slug)}까지` : ""}`,
+);
 const pageDescription = $derived(
 	currentPage > 1
 		? `로또 뉴스 ${currentPage}페이지에서 ${articleRange}의 결과를 확인하세요. 회차별 당첨번호와 1등 당첨금, 당첨자 수, 지역별 판매점 분포를 정리했습니다. 공식 추첨 결과와 645.live 등록 스캔 집계를 구분해 해설합니다.`
@@ -108,10 +110,10 @@ function dateLabel(date: string): string {
 <JsonLd schema={itemListSchema} />
 <JsonLd schema={breadcrumbSchema} />
 
-<header class="page-heading">
+<header class="page-heading page-header">
 	<div>
 		<p class="eyebrow">회차별 결과 해설</p>
-		<h1>로또 뉴스</h1>
+		<h1 class="page-title">로또 뉴스</h1>
 		<p class="intro">당첨번호와 당첨금, 지역별 판매점 정보를 함께 살펴보세요.</p>
 	</div>
 	<a class="text-link" href={resolve('/history')}>회차별 결과 <span aria-hidden="true">→</span></a>
@@ -192,15 +194,15 @@ function dateLabel(date: string): string {
 </footer>
 
 <style>
-	.page-heading { display: flex; justify-content: space-between; align-items: end; gap: 24px; padding-bottom: 28px; border-bottom: 1px solid var(--color-base-300); }
+	.page-heading { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: end; gap: 16px 24px; margin-bottom: 0; padding-bottom: var(--page-header-space); border-bottom: 1px solid var(--color-base-300); }
 	.eyebrow { margin: 0 0 8px; color: var(--color-primary); font-size: 0.75rem; font-weight: 700; letter-spacing: 0.04em; }
-	h1 { margin: 0; font-size: clamp(2rem, 4vw, 3rem); line-height: 1.12; letter-spacing: -0.055em; font-weight: 800; }
-	.intro { margin: 12px 0 0; color: color-mix(in oklab, var(--color-base-content) 65%, transparent); font-size: 0.9375rem; line-height: 1.6; }
+	.page-heading > div, .feature-copy, .story-copy { min-width: 0; }
+	.intro { margin: 0.6rem 0 0; color: var(--text-muted); font-size: var(--body-copy-size); line-height: var(--body-copy-line-height); }
 	.text-link { display: inline-flex; align-items: center; min-height: 44px; gap: 12px; font-size: 0.875rem; font-weight: 650; color: var(--color-primary); text-decoration: none; white-space: nowrap; }
 	.text-link:hover { text-decoration: underline; text-underline-offset: 5px; }
 	.text-link span { transition: transform 160ms ease; }
 	.text-link:hover span { transform: translateX(3px); }
-	.featured-story { display: grid; grid-template-columns: 1.15fr 1fr; gap: 36px; align-items: center; padding-block: 32px 40px; }
+	.featured-story { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: clamp(1.5rem, 3vw, 2.25rem); align-items: center; padding-block: var(--page-header-space) var(--section-space); }
 	.feature-image, .story-image { display: block; overflow: hidden; border-radius: 8px; background: var(--color-base-200); }
 	img { width: 100%; height: auto; aspect-ratio: 1200 / 630; object-fit: cover; transition: transform 240ms ease; }
 	.feature-image:hover img, .story-image:hover img { transform: scale(1.025); }
@@ -209,25 +211,25 @@ function dateLabel(date: string): string {
 	h2, h3 { color: var(--color-base-content); font-weight: 750; }
 	h2 a, h3 a { color: inherit; text-decoration: none; }
 	h2 a:hover, h3 a:hover { color: var(--color-primary); }
-	.feature-copy h2 { margin: 12px 0; font-size: clamp(1.5rem, 2.8vw, 2.125rem); line-height: 1.4; letter-spacing: -0.04em; text-wrap: pretty; }
+	.feature-copy h2 { margin: 12px 0; font-size: clamp(1.25rem, 2.2vw, 1.625rem); line-height: 1.4; letter-spacing: -0.04em; text-wrap: pretty; }
 	.feature-copy p { margin: 0 0 16px; font-size: 0.9375rem; line-height: 1.7; color: color-mix(in oklab, var(--color-base-content) 70%, transparent); }
-	.section-heading { display: flex; align-items: baseline; justify-content: space-between; padding-block: 0 16px; border-bottom: 2px solid var(--color-base-content); }
-	.section-heading h2 { margin: 0; font-size: 1.125rem; }
+	.section-heading { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 16px; margin-bottom: 0; padding-block: 0 16px; border-bottom: 2px solid var(--color-base-content); }
+	.section-heading h2 { margin: 0; font-size: var(--section-title-size); }
 	.section-heading span { color: color-mix(in oklab, var(--color-base-content) 55%, transparent); font-size: 0.8125rem; }
 	.story-row { display: grid; grid-template-columns: 190px minmax(0, 1fr) 44px; gap: 28px; align-items: center; padding-block: 24px; border-bottom: 1px solid var(--color-base-300); }
 	.story-copy h3 { margin: 8px 0; font-size: 1.1875rem; letter-spacing: -0.025em; line-height: 1.5; }
 	.story-copy p { margin: 0; color: color-mix(in oklab, var(--color-base-content) 65%, transparent); font-size: 0.875rem; line-height: 1.65; }
 	.row-arrow { display: grid; place-items: center; min-width: 44px; min-height: 44px; color: color-mix(in oklab, var(--color-base-content) 55%, transparent); font-size: 1.5rem; text-decoration: none; border-radius: 50%; transition: background 160ms ease, color 160ms ease; }
 	.row-arrow:hover { background: var(--color-base-200); color: var(--color-primary); }
-	.pagination { display: flex; align-items: center; justify-content: center; gap: 24px; margin-top: 32px; font-size: 0.875rem; }
+	.pagination { display: flex; align-items: center; justify-content: center; gap: 24px; margin-top: var(--page-header-space); font-size: 0.875rem; }
 	.page-numbers { display: flex; gap: 4px; }
 	.pagination a, .page-direction { display: grid; place-items: center; min-width: 44px; min-height: 44px; color: inherit; text-decoration: none; border-radius: 6px; }
 	.pagination a:hover { background: var(--color-base-200); }
 	.pagination a.current { background: var(--color-primary); color: var(--color-primary-content); font-weight: 700; }
 	.disabled { opacity: 0.35; }
-	.editorial-footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 24px; margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--color-base-300); color: color-mix(in oklab, var(--color-base-content) 60%, transparent); font-size: 0.8125rem; line-height: 1.7; }
+	.editorial-footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 24px; margin-top: var(--section-space); padding-top: var(--page-header-space); border-top: 1px solid var(--color-base-300); color: color-mix(in oklab, var(--color-base-content) 60%, transparent); font-size: 0.8125rem; line-height: 1.7; }
 	.editorial-footer p { margin: 0; }
-	.editorial-footer nav { display: flex; gap: 20px; }
+	.editorial-footer nav { display: flex; flex-wrap: wrap; gap: 8px 20px; }
 	.editorial-footer a { display: inline-flex; align-items: center; min-height: 32px; text-decoration: none; color: inherit; }
 	.editorial-footer a:hover { color: var(--color-primary); text-decoration: underline; }
 	.empty-state { padding-block: 64px; }
@@ -235,9 +237,9 @@ function dateLabel(date: string): string {
 	.empty-state p { color: color-mix(in oklab, var(--color-base-content) 65%, transparent); }
 	@media (max-width: 767px) {
 		.page-heading { gap: 16px; align-items: start; }
-		.page-heading > .text-link { display: none; }
+		.page-heading > .text-link { align-self: start; }
 		.featured-story { grid-template-columns: 1fr; gap: 20px; padding-block: 24px 32px; }
-		.feature-copy h2 { font-size: 1.5rem; }
+		.feature-copy h2 { font-size: 1.25rem; }
 		.feature-copy p { margin-bottom: 8px; }
 		.story-row { grid-template-columns: minmax(0, 1fr) 96px; gap: 16px; padding-block: 20px; align-items: start; }
 		.story-image { grid-column: 2; grid-row: 1; margin-top: 4px; }
@@ -245,7 +247,13 @@ function dateLabel(date: string): string {
 		.story-copy h3 { font-size: 1rem; margin-bottom: 0; }
 		.story-copy p, .row-arrow { display: none; }
 		.pagination { gap: 8px; }
-		.editorial-footer { margin-top: 32px; }
+	}
+	@media (max-width: 479px) {
+		.pagination { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+		.page-numbers { grid-column: 1 / -1; grid-row: 1; justify-content: center; flex-wrap: wrap; }
+		.page-direction { grid-row: 2; }
+		.page-direction:first-child { justify-self: start; }
+		.page-direction:last-child { justify-self: end; }
 	}
 	@media (prefers-reduced-motion: reduce) {
 		img, .text-link span, .row-arrow { transition: none; }

@@ -1,7 +1,7 @@
 <script lang="ts">
-import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
-import { DATA_SOURCES_PATH, absoluteUrl } from "$lib/seo/index.js";
+import { absoluteUrl, DATA_SOURCES_PATH } from "$lib/seo/index.js";
 import MetaTags from "$lib/seo/PageMeta.svelte";
+import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
 
 const breadcrumbItems = [
 	{ label: "홈", href: "/" },
@@ -17,11 +17,11 @@ const breadcrumbItems = [
 	robots="index,follow"
 />
 
-<div class="content-page space-y-6">
+<div class="content-page">
 	<Breadcrumbs items={breadcrumbItems} />
 
-	<div class="page-header space-y-2">
-		<h1 class="text-3xl font-bold text-primary">데이터 출처</h1>
+	<div class="page-header">
+		<h1 class="page-title">데이터 출처</h1>
 		<p class="text-base-content/70">
 			기본 데이터는 공식 발표를 우선 기준으로 삼고, 645.live 내부 스캔 데이터는 별도 분석 레이어로 사용합니다.
 		</p>
@@ -29,7 +29,7 @@ const breadcrumbItems = [
 
 	<div class="grid gap-6 lg:grid-cols-2">
 		<section class="card bg-base-100 shadow-sm">
-			<div class="card-body prose prose-sm sm:prose max-w-none">
+			<div class="card-body editorial-prose prose prose-sm sm:prose max-w-none">
 				<h2>공식 발표 데이터</h2>
 				<ul>
 					<li>로또 회차 결과: 동행복권 공식 발표 기준</li>
@@ -43,7 +43,7 @@ const breadcrumbItems = [
 		</section>
 
 		<section class="card bg-base-100 shadow-sm">
-			<div class="card-body prose prose-sm sm:prose max-w-none">
+			<div class="card-body editorial-prose prose prose-sm sm:prose max-w-none">
 				<h2>645.live 자체 데이터</h2>
 				<ul>
 					<li>QR 스캔 결과와 번호 선택 흐름에서 집계되는 스캔 현황</li>
@@ -57,3 +57,12 @@ const breadcrumbItems = [
 		</section>
 	</div>
 </div>
+
+<style>
+.page-header { margin-top: .75rem; }
+.card, .card-body { min-width: 0; }
+.card-body { padding: clamp(1rem, 2.4vw, 1.75rem); }
+.editorial-prose > h2 { margin-top: 1.75rem; margin-bottom: .75rem; font-size: var(--section-title-size); line-height: 1.5; }
+.editorial-prose > h2:first-child { margin-top: 0; }
+.editorial-prose > p, .editorial-prose > ul { max-width: var(--reading-width); font-size: var(--body-copy-size); line-height: var(--body-copy-line-height); overflow-wrap: anywhere; }
+</style>

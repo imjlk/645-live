@@ -402,19 +402,19 @@ const guideSection = [
 	}}
 />
 
-<div class="content-page max-w-4xl mx-auto space-y-6">
+<div class="content-page guide-page">
 	<!-- Breadcrumbs -->
 	<Breadcrumbs items={breadcrumbItems} />
 
 	<!-- 페이지 헤더 -->
-	<div class="text-center space-y-3 sm:space-y-4">
-		<h1 class="text-2xl sm:text-3xl lg:text-4xl font-bold text-primary">로또 6/45 완전 가이드</h1>
-		<p class="text-base sm:text-lg text-base-content/70 leading-relaxed">
+	<div class="page-header">
+		<h1 class="page-title">로또 6/45 완전 가이드</h1>
+		<p class="text-base-content/70">
 			로또를 처음 시작하는 분들을 위한 <strong class="text-primary">종합 안내서</strong>입니다.<br />
 			게임 방법부터 당첨금 수령까지 모든 과정을 쉽게 설명합니다.
 		</p>
 		
-		<div class="flex flex-wrap justify-center gap-2 sm:gap-3 mt-4">
+		<div class="guide-actions flex flex-wrap gap-2 sm:gap-3 mt-4">
 			<LinkButton href="/qr-scan" class="btn btn-primary btn-sm">
 				로또 QR 스캔으로 당첨 확인하기
 			</LinkButton>
@@ -458,13 +458,13 @@ const guideSection = [
 					{section.title}
 				</h2>
 				
-				<div class="space-y-4 sm:space-y-6">
+				<div class="guide-items grid gap-4 sm:gap-6 lg:grid-cols-2">
 					{#each section.items as item (item.title)}
 						<div class="border-l-4 border-primary/30 pl-4 sm:pl-6">
 							<h3 class="font-semibold text-base sm:text-lg text-secondary mb-2 sm:mb-3">
 								{item.title}
 							</h3>
-							<p class="text-sm sm:text-base text-base-content/80 leading-relaxed">
+							<p class="guide-copy text-base-content/80">
 								{item.content}
 							</p>
 							{#if item.title === "보너스 번호"}
@@ -562,6 +562,14 @@ const guideSection = [
 </div>
 
 <style>
+.page-header { margin-top: .75rem; }
+.guide-page > .card { margin-top: var(--section-space); }
+.guide-page > .page-header + .card { margin-top: 0; }
+.card, .card-body, .guide-items > div { min-width: 0; }
+.card-title { font-size: var(--section-title-size); line-height: 1.5; }
+.guide-copy { max-width: var(--reading-width); font-size: var(--body-copy-size); line-height: var(--body-copy-line-height); overflow-wrap: anywhere; }
+.guide-page :global(.btn) { min-height: 44px; height: auto; padding-block: .65rem; white-space: normal; text-align: left; }
+.guide-actions :global(.btn) { font-size: .8125rem; }
 /* 부드러운 스크롤 및 앵커 오프셋 */
 :global(html) {
 	scroll-behavior: smooth;
@@ -578,10 +586,6 @@ a[href^="#"]:hover {
 
 /* 반응형 텍스트 크기 조정 */
 @media (max-width: 640px) {
-	h1 {
-		line-height: 1.2;
-	}
-	
 	.card-body {
 		padding: 1rem;
 	}

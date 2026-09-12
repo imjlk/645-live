@@ -10,22 +10,26 @@ let { children }: { children: Snippet } = $props();
 
 <style>
 	.stats-area { min-width: 0; }
-	.stats-area :global(.stats-page) { display: grid; gap: 1.5rem; min-width: 0; }
+	.stats-area :global(.stats-page) { display: grid; gap: 0; min-width: 0; }
 	.stats-area :global(.stats-page > *) { min-width: 0; }
+	.stats-area :global(.stats-page > * + *) { margin-top: var(--section-space); }
+	.stats-area :global(.stats-page > .breadcrumbs + header), .stats-area :global(.stats-page > .breadcrumb + header) { margin-top: 0.75rem; }
+	.stats-area :global(.grid > *), .stats-area :global(.card-body > *) { min-width: 0; }
 	.stats-area :global(.card) { border-radius: 0; border: 0; border-top: 1px solid var(--color-base-300); background: transparent; box-shadow: none; }
-	.stats-area :global(.card-body) { gap: 1rem; padding: 1.5rem 0 0; min-width: 0; }
-	.stats-area :global(.card-title) { font-size: 1.125rem; line-height: 1.5; }
+	.stats-area :global(.card-body) { gap: 1rem; padding: var(--page-header-space) 0 0; min-width: 0; }
+	.stats-area :global(.card-title) { flex-wrap: wrap; gap: 0.35rem 0.75rem; font-size: var(--section-title-size); line-height: 1.4; font-weight: 750; letter-spacing: -0.02em; }
 	.stats-area :global(.stat) { min-width: 0; min-height: auto; padding: 1rem; border: 1px solid var(--color-base-300); border-radius: 0.75rem; background: var(--color-base-100); color: var(--color-base-content); }
 	.stats-area :global(.stat-title), .stats-area :global(.stat-desc) { color: color-mix(in oklab, var(--color-base-content) 72%, transparent); white-space: normal; }
 	.stats-area :global(.stat-value) { color: var(--color-base-content); font-variant-numeric: tabular-nums; }
+	.stats-area :global(.overflow-x-auto) { min-width: 0; max-width: 100%; margin-inline: 0; }
 	.stats-area :global(.table) { font-variant-numeric: tabular-nums; }
 	.stats-area :global(.table th), .stats-area :global(.table td) { padding: 0.8rem; font-size: 0.875rem; }
 	.stats-area :global(.table th) { color: color-mix(in oklab, var(--color-base-content) 78%, transparent); }
 	.stats-area :global(.table-zebra tbody tr:nth-child(even)) { background: var(--color-base-200); }
-	.stats-area :global(.stats-recent-heading) { text-align: left; }
-	.stats-area :global(.stats-recent-heading h1) { padding: 0; color: var(--color-base-content); font-size: clamp(1.5rem, 3vw, 2.1rem); line-height: 1.35; letter-spacing: -0.035em; }
-	.stats-area :global(.stats-recent-heading p) { max-width: 65ch; color: color-mix(in oklab, var(--color-base-content) 75%, transparent); font-size: 0.9375rem; line-height: 1.6; }
-	.stats-area :global(.stats-recent-heading > div) { justify-content: flex-start; padding: 0; }
+	.stats-area :global(.stats-recent-heading) { display: grid; gap: 0.65rem; text-align: left; }
+	.stats-area :global(.stats-recent-heading > *) { margin: 0; }
+	.stats-area :global(.stats-recent-heading h1) { padding: 0; color: var(--color-base-content); font-size: var(--page-title-size); line-height: var(--page-title-line-height); font-weight: var(--page-title-weight); letter-spacing: var(--page-title-tracking); text-wrap: balance; }
+	.stats-area :global(.stats-recent-heading > p) { max-width: var(--reading-width); color: color-mix(in oklab, var(--color-base-content) 75%, transparent); font-size: var(--body-copy-size); line-height: var(--body-copy-line-height); }
 
 	.stats-area :global(.text-blue-600), .stats-area :global(.text-blue-500) { color: var(--color-primary); }
 	.stats-area :global(.text-red-600), .stats-area :global(.text-rose-600) { color: var(--color-error); }
@@ -42,9 +46,6 @@ let { children }: { children: Snippet } = $props();
 	.stats-area :global(.bg-indigo-500.text-white) { background: color-mix(in oklab, var(--color-indigo-500) 20%, var(--color-base-100)); color: var(--color-base-content); }
 	.stats-area :global(.bg-teal-500.text-white) { background: color-mix(in oklab, var(--color-teal-500) 20%, var(--color-base-100)); color: var(--color-base-content); }
 	@media (max-width: 640px) {
-		.stats-area :global(.stats-page) { gap: 1.25rem; }
-		.stats-area :global(.card-body) { padding-top: 1.25rem; }
-		.stats-area :global(.overflow-x-auto) { margin-inline: 0; }
 		.stats-area :global(.btn-sm), .stats-area :global(.input-sm) { min-height: 2.75rem; }
 	}
 </style>

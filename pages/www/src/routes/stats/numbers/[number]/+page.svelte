@@ -140,22 +140,24 @@ const dateFormatter = new Intl.DateTimeFormat("ko-KR", {
 	.number-controls { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: flex-start; justify-content: space-between; }
 	.number-controls nav { display: flex; flex-wrap: wrap; gap: 0.4rem; }
 	.number-controls nav a, summary { display: inline-flex; align-items: center; min-height: 2.75rem; padding: 0.6rem 0.8rem; border: 1px solid var(--color-base-300); border-radius: 0.5rem; font-size: 0.8125rem; font-weight: 600; cursor: pointer; }
-	.number-picker { display: grid; grid-template-columns: repeat(6, 2.75rem); gap: 0.35rem; padding-top: 0.75rem; }
+	.number-controls details { min-width: 0; max-width: 100%; }
+	.number-controls details[open] { flex-basis: 19rem; }
+	.number-picker { display: grid; grid-template-columns: repeat(auto-fit, minmax(2.75rem, 1fr)); gap: 0.35rem; padding-top: 0.75rem; }
 	.number-picker a { display: grid; place-items: center; min-height: 2.75rem; border: 1px solid var(--color-base-300); border-radius: 0.5rem; font-size: 0.875rem; font-weight: 600; font-variant-numeric: tabular-nums; }
 	.number-picker .current { background: var(--color-primary); border-color: var(--color-primary); color: var(--color-primary-content); }
 	.section-heading { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0.4rem 1rem; margin-bottom: 1rem; }
-	h2 { font-size: 1.125rem; font-weight: 700; letter-spacing: -0.02em; }
+	h2 { font-size: var(--section-title-size); line-height: 1.4; font-weight: 750; letter-spacing: -0.02em; }
 	.section-heading p, .section-heading a { font-size: 0.8125rem; }
 	.section-heading p { color: color-mix(in oklab, var(--color-base-content) 68%, transparent); }
 	.section-heading a { color: var(--color-primary); font-weight: 600; }
-	.draw-table-scroll { overflow-x: auto; border-block: 1px solid var(--color-base-300); }
+	.draw-table-scroll { min-width: 0; max-width: 100%; overflow-x: auto; border-block: 1px solid var(--color-base-300); }
 	.draw-table { min-width: 29rem; }
 	.draw-table th { white-space: nowrap; }
 	.draw-table th a { color: var(--color-primary); }
 	.draw-table small { display: block; margin-top: 0.3rem; color: color-mix(in oklab, var(--color-base-content) 65%, transparent); font-size: 0.75rem; font-weight: 400; }
 	.winning-numbers { display: flex; align-items: center; gap: 0.4rem; }
 	.highlight { display: inline-flex; outline: 2px solid var(--color-primary); outline-offset: 2px; border-radius: 50%; }
-	.analysis-columns { display: grid; gap: 1.5rem; }
+	.analysis-columns { display: grid; gap: var(--section-space); }
 	.comparison-list > div { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; padding-block: 0.85rem; border-bottom: 1px solid var(--color-base-300); }
 	dt { font-size: 0.875rem; color: color-mix(in oklab, var(--color-base-content) 75%, transparent); }
 	dd { font-weight: 650; font-size: 0.9375rem; font-variant-numeric: tabular-nums; white-space: nowrap; }

@@ -45,11 +45,11 @@ let {
 </header>
 
 <style>
-	.stats-page-hero { display: grid; gap: 1rem; }
+	.stats-page-hero { display: grid; gap: 1rem; min-width: 0; }
 	.eyebrow { color: var(--color-primary); font-size: 0.8125rem; font-weight: 700; }
-	h1 { margin-top: 0.3rem; font-size: clamp(1.6rem, 3vw, 2.3rem); line-height: 1.3; font-weight: 800; letter-spacing: -0.04em; color: var(--color-base-content); text-wrap: balance; }
-	.description { margin-top: 0.55rem; max-width: 68ch; font-size: 0.9375rem; line-height: 1.65; color: color-mix(in oklab, var(--color-base-content) 75%, transparent); }
-	.metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border-block: 1px solid var(--color-base-300); }
+	h1 { margin-top: 0.3rem; font-size: var(--page-title-size); line-height: var(--page-title-line-height); font-weight: var(--page-title-weight); letter-spacing: var(--page-title-tracking); color: var(--color-base-content); text-wrap: balance; }
+	.description { margin-top: 0.65rem; max-width: var(--reading-width); font-size: var(--body-copy-size); line-height: var(--body-copy-line-height); color: color-mix(in oklab, var(--color-base-content) 75%, transparent); }
+	.metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: calc(var(--page-header-space) - 1rem); border-block: 1px solid var(--color-base-300); }
 	.metric { padding: 1rem 0.75rem 1rem 0; min-width: 0; }
 	dt { font-size: 0.8125rem; color: color-mix(in oklab, var(--color-base-content) 72%, transparent); }
 	dd { margin-top: 0.35rem; font-size: clamp(1.3rem, 2.5vw, 1.75rem); font-weight: 750; line-height: 1.2; font-variant-numeric: tabular-nums; color: var(--color-base-content); }

@@ -74,8 +74,8 @@ function getRenderValue(row: Row, key: string): string {
 <style>
   .stats-table-shell { min-width: 0; background: var(--color-base-100); }
   .stats-table-shell__head { margin-bottom: 0.85rem; }
-  .stats-table-shell__title { font-size: 1.125rem; font-weight: 700; color: var(--color-base-content); }
-  .stats-table-shell__scroll { overflow-x: auto; border-block: 1px solid var(--color-base-300); }
+  .stats-table-shell__title { font-size: var(--section-title-size); line-height: 1.4; font-weight: 750; letter-spacing: -0.02em; color: var(--color-base-content); }
+  .stats-table-shell__scroll { min-width: 0; max-width: 100%; overflow-x: auto; border-block: 1px solid var(--color-base-300); }
   .stats-table-shell :global(thead th) { background: var(--color-base-200); color: color-mix(in oklab, var(--color-base-content) 78%, transparent); font-weight: 650; }
   .stats-table-shell :global(tbody td) { vertical-align: middle; }
 </style>

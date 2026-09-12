@@ -390,22 +390,20 @@ const pageDescription = $derived(
 
 	.lotto-ball-mobile {
 		display: inline-flex;
+		flex-shrink: 0;
 		align-items: center;
 		justify-content: center;
-		width: 1.75rem;
-		height: 1.75rem;
+		width: 2.75rem;
+		height: 2.75rem;
 		border-radius: 50%;
 		color: inherit;
 		font-weight: bold;
-		font-size: 0.75rem;
+		font-size: 0.875rem;
 	}
 
-	@media (min-width: 640px) {
-		.lotto-ball-mobile {
-			width: 2rem;
-			height: 2rem;
-			font-size: 0.875rem;
-		}
+	.lotto-ball-mobile:focus-visible {
+		outline: 2px solid var(--color-primary);
+		outline-offset: 3px;
 	}
 
 	.pagination-link {

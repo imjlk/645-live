@@ -1,8 +1,8 @@
 <script lang="ts">
 import { resolve } from "$app/paths";
-import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
 import { absoluteUrl } from "$lib/seo/index.js";
 import MetaTags from "$lib/seo/PageMeta.svelte";
+import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
 
 // Breadcrumbs 데이터
 const breadcrumbItems = [
@@ -19,13 +19,13 @@ const breadcrumbItems = [
 	robots="index,follow"
 />
 
-<div class="content-page space-y-6">
+<div class="content-page">
 	<!-- Breadcrumbs -->
 	<Breadcrumbs items={breadcrumbItems} />
 
 	<!-- 페이지 헤더 -->
-	<div class="page-header space-y-2">
-		<h1 class="text-3xl font-bold text-primary">서비스 이용약관</h1>
+	<div class="page-header">
+		<h1 class="page-title">서비스 이용약관</h1>
 		<p class="text-base-content/70">
 			645.live 서비스 이용과 관련한 기본 조건을 안내합니다.
 		</p>
@@ -33,7 +33,7 @@ const breadcrumbItems = [
 
 	<div class="card bg-base-100 shadow-sm">
 		<div class="card-body">
-			<div class="prose prose-sm sm:prose max-w-none">
+			<div class="editorial-prose prose prose-sm sm:prose max-w-none">
 				<p class="text-base-content/70">
 					시행일: 2026년 3월 1일
 				</p>
@@ -96,3 +96,12 @@ const breadcrumbItems = [
 		</div>
 	</div>
 </div>
+
+<style>
+.page-header { margin-top: .75rem; }
+.card, .card-body { min-width: 0; }
+.card-body { padding: clamp(1rem, 2.4vw, 1.75rem); }
+.editorial-prose > h2 { margin-top: 1.75rem; margin-bottom: .75rem; font-size: var(--section-title-size); line-height: 1.5; }
+.editorial-prose > h2:first-child { margin-top: 0; }
+.editorial-prose > p, .editorial-prose > ul { max-width: var(--reading-width); font-size: var(--body-copy-size); line-height: var(--body-copy-line-height); overflow-wrap: anywhere; }
+</style>

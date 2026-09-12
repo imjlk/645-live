@@ -170,11 +170,11 @@ async function signInSocial(provider: SocialProviderId) {
 />
 
 <div class="content-page">
- <div class="login-panel">
-  <header class="page-header">
+ <header class="page-header">
    <h1>{mode === "signIn" ? "로그인" : "회원가입"}</h1>
    <p>스캔 기록을 저장하고, 다른 기기에서도 이어서 확인하세요.</p>
-  </header>
+ </header>
+ <div class="login-panel">
   <div class="auth-tabs" aria-label="계정 시작 방법">
    <button type="button" class:active={mode === "signIn"} disabled={!ready || busy} aria-pressed={mode === "signIn"} onclick={() => changeMode("signIn")}>로그인</button>
    <button type="button" class:active={mode === "signUp"} disabled={!ready || busy} aria-pressed={mode === "signUp"} onclick={() => changeMode("signUp")}>회원가입</button>
@@ -216,16 +216,15 @@ async function signInSocial(provider: SocialProviderId) {
 </div>
 
 <style>
- .login-panel { width: 100%; max-width: 420px; margin-inline: auto; padding-block: 1rem 2rem; }
- .page-header { text-align: center; margin-bottom: 1.75rem; }
- .page-header p { margin-top: .75rem; line-height: 1.7; }
- .auth-tabs { display: grid; grid-template-columns: 1fr 1fr; border-bottom: 1px solid var(--color-base-300); margin-bottom: 1.5rem; }
- .auth-tabs button { padding: .8rem .5rem; border-bottom: 2px solid transparent; color: var(--text-muted); font-size: .9rem; }
+ .login-panel { width: 100%; max-width: var(--form-width); min-width: 0; }
+ .auth-tabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border-bottom: 1px solid var(--color-base-300); margin-bottom: 1.5rem; }
+ .auth-tabs button { min-height: 2.75rem; padding: .8rem .5rem; border-bottom: 2px solid transparent; color: var(--text-muted); font-size: .9rem; }
  .auth-tabs button.active { border-color: var(--color-primary); color: var(--color-primary); font-weight: 700; }
  .social-options { display: grid; gap: .6rem; }
  .signup-notice { display: grid; gap: .7rem; margin-bottom: 1.5rem; padding: 1rem; background: var(--color-base-200); font-size: .78rem; line-height: 1.8; }
  .age-confirmation { display: flex; align-items: center; gap: .75rem; font-size: .85rem; font-weight: 650; min-height: 44px; }
- .auth-form { display: grid; gap: .6rem; }
+ .auth-form { display: grid; grid-template-columns: minmax(0, 1fr); gap: .6rem; }
+ .input, .btn { min-width: 0; min-height: 2.75rem; }
  .auth-form label { font-size: .85rem; font-weight: 650; margin-top: .5rem; }
  .auth-form button[type="submit"] { margin-top: .8rem; }
  .field-note, .policy-note, .provider-error { font-size: .78rem; color: var(--text-muted); line-height: 1.8; }

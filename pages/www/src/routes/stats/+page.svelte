@@ -390,12 +390,11 @@ const statsCategories = [
 </div>
 
 <style>
-	.stats-hub { gap: 2rem; }
 	.analysis-nav { display: flex; gap: 0.4rem; overflow-x: auto; padding-bottom: 0.3rem; scrollbar-width: thin; }
 	.analysis-nav a { display: inline-flex; align-items: center; flex-shrink: 0; min-height: 2.75rem; padding: 0.65rem 0.85rem; border: 1px solid var(--color-base-300); border-radius: 0.5rem; font-size: 0.8125rem; font-weight: 600; background: var(--color-base-100); transition: background 140ms ease; }
 	.analysis-nav a:hover { background: var(--color-base-200); color: var(--color-primary); }
 	.section-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0.4rem 1rem; margin-bottom: 1rem; }
-	.section-head h2 { font-size: 1.15rem; font-weight: 750; line-height: 1.4; letter-spacing: -0.02em; }
+	.section-head h2 { font-size: var(--section-title-size); font-weight: 750; line-height: 1.4; letter-spacing: -0.02em; }
 	.section-head p { margin-top: 0.3rem; font-size: 0.8125rem; color: color-mix(in oklab, var(--color-base-content) 68%, transparent); }
 	.section-head a, .snapshot-links a { font-size: 0.8125rem; font-weight: 600; color: var(--color-primary); }
 	.frequency-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
@@ -411,9 +410,9 @@ const statsCategories = [
 	.snapshot-tabs { display: flex; flex-wrap: wrap; gap: 0.4rem; }
 	.snapshot-tabs button { min-height: 2.75rem; border-radius: 0.5rem; padding: 0.6rem 0.75rem; font-size: 0.8125rem; font-weight: 600; background: var(--color-base-200); transition: background 140ms ease; cursor: pointer; }
 	.snapshot-tabs .active { background: var(--color-primary); color: var(--color-primary-content); }
-	.snapshot-copy { margin-top: 1rem; max-width: 74ch; font-size: 0.9375rem; line-height: 1.75; }
+	.snapshot-copy { margin-top: 1rem; max-width: var(--reading-width); font-size: var(--body-copy-size); line-height: var(--body-copy-line-height); }
 	.snapshot-links { margin-top: 0.75rem; display: flex; flex-wrap: wrap; gap: 1rem; }
-	.detail-columns { display: grid; gap: 2rem; }
+	.detail-columns { display: grid; gap: var(--section-space); }
 	.data-row { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; min-height: 3.25rem; padding-block: 0.35rem; border-bottom: 1px solid var(--color-base-300); font-size: 0.875rem; font-variant-numeric: tabular-nums; }
 	.data-row strong { font-weight: 600; }
 	.color-row, .pair-row { display: flex; align-items: center; gap: 0.4rem; }
@@ -422,7 +421,7 @@ const statsCategories = [
 	.faq-list { border-top: 1px solid var(--color-base-300); }
 	details { border-bottom: 1px solid var(--color-base-300); }
 	summary { padding-block: 1rem; cursor: pointer; font-size: 0.9375rem; font-weight: 600; }
-	details p { max-width: 80ch; padding-bottom: 1rem; font-size: 0.9375rem; line-height: 1.75; color: color-mix(in oklab, var(--color-base-content) 76%, transparent); }
+	details p { max-width: var(--reading-width); padding-bottom: 1rem; font-size: var(--body-copy-size); line-height: var(--body-copy-line-height); color: color-mix(in oklab, var(--color-base-content) 76%, transparent); }
 	.tools-links { display: grid; gap: 0.75rem; }
 	.tools-links a { display: grid; gap: 0.4rem; padding: 1rem; background: var(--color-base-200); border-radius: 0.65rem; }
 	.tools-links strong { font-size: 0.9375rem; }

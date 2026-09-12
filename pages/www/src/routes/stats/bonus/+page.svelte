@@ -686,7 +686,7 @@ function rankDeltaLabel(value: number | undefined): string {
 	<section class="rounded-xl border border-base-300/60 bg-base-200 p-5 shadow-sm sm:p-6">
 		<div class="max-w-3xl">
 			<p class="text-xs font-semibold uppercase tracking-[0.22em] text-warning">통계 읽는 법</p>
-			<h2 class="mt-3 text-2xl font-black tracking-[-0.04em] text-base-content sm:text-3xl">
+			<h2 class="card-title mt-3 text-base-content">
 				보너스 번호를 읽는 방법
 			</h2>
 			<p class="mt-3 text-sm leading-7 text-base-content/72 sm:text-base">
@@ -697,7 +697,7 @@ function rankDeltaLabel(value: number | undefined): string {
 		<div class="mt-5 grid gap-3">
 			{#each insightCards as card (card.step)}
 				<article class="rounded-xl border border-base-300/60 bg-base-100/90 p-4 shadow-sm sm:p-5">
-					<div class="flex items-start gap-4">
+					<div class="flex flex-col items-start gap-3 sm:flex-row sm:gap-4">
 						<div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-warning text-warning-content">
 							<span class="text-sm font-black tracking-[0.08em]">{card.step}</span>
 						</div>
@@ -787,7 +787,7 @@ function rankDeltaLabel(value: number | undefined): string {
 			<div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
 				<div>
 					<p class="text-xs font-semibold uppercase tracking-[0.2em] text-base-content/45">FAQ</p>
-					<h2 class="mt-2 text-2xl font-bold text-base-content">자주 묻는 질문</h2>
+					<h2 class="card-title mt-2 text-base-content">자주 묻는 질문</h2>
 				</div>
 				<LinkButton href="/stats" class="btn btn-outline btn-sm">
 					전체 통계 허브로 돌아가기

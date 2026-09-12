@@ -1,13 +1,13 @@
 <script lang="ts">
 import { resolve } from "$app/paths";
-import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
 import {
 	ABOUT_PATH,
+	absoluteUrl,
 	SITE_GITHUB,
 	SITE_TWITTER,
-	absoluteUrl,
 } from "$lib/seo/index.js";
 import MetaTags from "$lib/seo/PageMeta.svelte";
+import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
 
 const breadcrumbItems = [
 	{ label: "홈", href: "/" },
@@ -25,19 +25,19 @@ const twitterUrl = `https://x.com/${SITE_TWITTER.replace(/^@/, "")}`;
 	robots="index,follow"
 />
 
-<div class="content-page space-y-6">
+<div class="content-page">
 	<Breadcrumbs items={breadcrumbItems} />
 
-	<div class="page-header space-y-2">
-		<h1 class="text-3xl font-bold text-primary">645.live 소개</h1>
+	<div class="page-header">
+		<h1 class="page-title">645.live 소개</h1>
 		<p class="text-base-content/70">
 			동행복권 공식 발표와 645.live 자체 스캔 데이터를 함께 정리해, 최근 회차를 빠르게 이해할 수 있도록 돕는 정보 서비스입니다.
 		</p>
 	</div>
 
-	<div class="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+	<div class="grid gap-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
 		<section class="card bg-base-100 shadow-sm">
-			<div class="card-body prose prose-sm sm:prose max-w-none">
+			<div class="card-body editorial-prose prose prose-sm sm:prose max-w-none">
 				<h2>무엇을 제공하나요?</h2>
 				<p>
 					645.live는 추첨 결과, 당첨점 정보, 번호별 스캔 현황, 회차별 통계와 함께 최신 로또 뉴스를 제공합니다. 단순 결과 나열보다 “이번 회차에서 실제로 무엇이 달랐는지”를 빠르게 파악할 수 있도록 돕는 것이 목표입니다.
@@ -91,3 +91,12 @@ const twitterUrl = `https://x.com/${SITE_TWITTER.replace(/^@/, "")}`;
 		</aside>
 	</div>
 </div>
+
+<style>
+.page-header { margin-top: .75rem; }
+.card, .card-body { min-width: 0; }
+.card-body { padding: clamp(1rem, 2.4vw, 1.75rem); }
+.editorial-prose > h2 { margin-top: 1.75rem; margin-bottom: .75rem; font-size: var(--section-title-size); line-height: 1.5; }
+.editorial-prose > h2:first-child { margin-top: 0; }
+.editorial-prose > p { max-width: var(--reading-width); font-size: var(--body-copy-size); line-height: var(--body-copy-line-height); overflow-wrap: anywhere; }
+</style>

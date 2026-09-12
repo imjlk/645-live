@@ -42,3 +42,10 @@ const breadcrumbSchema = $derived({
 		{/each}
 	</ul>
 </div>
+
+<style>
+	.breadcrumbs { min-width: 0; max-width: 100%; padding: 0; font-size: 0.8125rem; line-height: 1.6; }
+	ul { width: auto; max-width: 100%; flex-wrap: wrap; row-gap: 0.25rem; }
+	li, a, span { min-width: 0; }
+	a, span { white-space: normal; overflow-wrap: anywhere; }
+</style>

@@ -22,7 +22,7 @@ const breadcrumbItems = [
 
 <div class="content-page contact-page">
 	<Breadcrumbs items={breadcrumbItems} />
-	<header class="page-header"><div><h1>문의·개인정보 요청</h1><p>서비스 이용 중 불편한 점이나 개인정보에 관한 요청을 보내주세요.</p></div></header>
+	<header class="page-header"><div><h1 class="page-title">문의·개인정보 요청</h1><p>서비스 이용 중 불편한 점이나 개인정보에 관한 요청을 보내주세요.</p></div></header>
 
 	<div class="contact-columns">
 		<section aria-labelledby="private-contact-heading">
@@ -49,14 +49,13 @@ const breadcrumbItems = [
 </div>
 
 <style>
-.contact-page { max-width: 1080px; margin-inline: auto; }
-.page-header { margin-top: 1.5rem; }
-.contact-columns { display: grid; gap: 2.5rem; }
-.contact-columns > section { padding-top: 1.5rem; border-top: 1px solid var(--color-base-300); }
-h2 { font-size: 1.35rem; font-weight: 700; margin-block: .65rem 1rem; letter-spacing: -.025em; }
+.page-header { margin-top: .75rem; }
+.contact-columns { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--section-space); }
+.contact-columns > section { min-width: 0; padding-top: 1.5rem; border-top: 1px solid var(--color-base-300); }
+h2 { font-size: var(--section-title-size); font-weight: 700; margin-block: .65rem 1rem; letter-spacing: -.025em; }
 h3 { font-size: .95rem; font-weight: 650; margin-top: 1.5rem; }
-p, li { font-size: .9rem; line-height: 1.85; color: var(--text-muted); }
-.contact-email { display: inline-flex; align-items: center; gap: .8rem; margin-block: 1.25rem; color: var(--color-primary); font-size: clamp(1.3rem, 4vw, 1.65rem); font-weight: 700; }
+p, li { font-size: var(--body-copy-size); line-height: var(--body-copy-line-height); overflow-wrap: anywhere; color: var(--text-muted); }
+.contact-email { display: inline-flex; align-items: center; gap: .8rem; margin-block: 1.25rem; color: var(--color-primary); font-size: clamp(1.3rem, 4vw, 1.65rem); font-weight: 700; min-height: 44px; overflow-wrap: anywhere; }
 .contact-email:hover, .text-link:hover { text-decoration: underline; }
 .contact-details { margin-block: .25rem 1.25rem; }
 .contact-details > div { display: flex; flex-wrap: wrap; gap: .4rem 1.25rem; font-size: .875rem; padding-block: .5rem; }
@@ -67,6 +66,6 @@ p, li { font-size: .9rem; line-height: 1.85; color: var(--text-muted); }
 .btn { margin-top: 1.25rem; }
 ul { list-style: disc; padding-left: 1.2rem; margin-top: .6rem; }
 .contact-links { display: flex; flex-wrap: wrap; gap: 1rem; margin-top: 1.5rem; }
-.text-link { color: var(--color-primary); font-size: .875rem; font-weight: 550; }
-@media (min-width: 850px) { .contact-columns { grid-template-columns: 1fr 1fr; gap: 3rem; } }
+.text-link { display: inline-flex; align-items: center; min-height: 44px; color: var(--color-primary); font-size: .875rem; font-weight: 550; }
+@media (min-width: 850px) { .contact-columns { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--section-space); } }
 </style>

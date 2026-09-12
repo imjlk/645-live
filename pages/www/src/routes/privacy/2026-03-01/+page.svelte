@@ -19,13 +19,13 @@ const breadcrumbItems = [
 	robots="noindex,follow"
 />
 
-<div class="content-page privacy-archive space-y-6">
+<div class="content-page privacy-archive">
 	<!-- Breadcrumbs -->
 	<Breadcrumbs items={breadcrumbItems} />
 
 	<!-- 페이지 헤더 -->
-	<div class="page-header space-y-2">
-		<h1 class="text-3xl font-bold text-primary">이전 개인정보 처리방침</h1>
+	<div class="page-header">
+		<h1 class="page-title">이전 개인정보 처리방침</h1>
 		<p class="text-base-content/70">
 			2026년 3월 1일부터 9월 11일까지 적용된 방침입니다. <a class="link link-primary" href={resolve("/privacy")}>현재 개인정보 처리방침 보기</a>
 		</p>
@@ -100,9 +100,11 @@ const breadcrumbItems = [
 </div>
 
 <style>
-.privacy-archive { max-width: 58rem; margin-inline: auto; }
-.privacy-archive .prose h2 { margin-top: 1.75rem; margin-bottom: .625rem; font-size: 1.0625rem; font-weight: 650; line-height: 1.6; }
-.privacy-archive .prose p, .privacy-archive .prose li { font-size: .9375rem; line-height: 1.85; overflow-wrap: anywhere; }
+.privacy-archive .page-header { margin-top: .75rem; }
+.privacy-archive .card-body { min-width: 0; padding: clamp(1rem, 2.4vw, 1.75rem); }
+.privacy-archive .prose { max-width: var(--reading-width); }
+.privacy-archive .prose h2 { margin-top: 1.75rem; margin-bottom: .625rem; font-size: var(--section-title-size); font-weight: 650; line-height: 1.6; }
+.privacy-archive .prose p, .privacy-archive .prose li { font-size: var(--body-copy-size); line-height: var(--body-copy-line-height); overflow-wrap: anywhere; }
 .privacy-archive .prose p, .privacy-archive .prose ul { margin-block: .625rem; }
 .privacy-archive .prose ul { padding-left: 1.25rem; list-style: disc; }
 .privacy-archive .prose li + li { margin-top: .5rem; }
