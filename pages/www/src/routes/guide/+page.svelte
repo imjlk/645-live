@@ -1,8 +1,9 @@
 <script lang="ts">
+import { JsonLd } from "svelte-meta-tags";
+import { getGenericOgImage, getGenericOgUrl } from "$lib/seo";
+import MetaTags from "$lib/seo/PageMeta.svelte";
 import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
 import LinkButton from "$lib/ui/LinkButton.svelte";
-import { JsonLd } from "svelte-meta-tags";
-import MetaTags from "$lib/seo/PageMeta.svelte";
 
 // Breadcrumbs 데이터
 const breadcrumbItems = [
@@ -293,13 +294,15 @@ const guideSection = [
 		title: '로또 6/45 완전 가이드 | 초보자를 위한 로또 이용법',
 		description: '로또 6/45 초보자를 위한 완전 가이드. 게임 방법부터 당첨금 수령까지 모든 정보를 제공합니다.',
 		locale: 'ko_KR',
-		images: [{
-			url: `https://645.live/og?title=${encodeURIComponent('로또 6/45 완전 가이드')}&description=${encodeURIComponent('초보자를 위한 로또 이용법 - 게임방법, 확률, 구매팁, 당첨수령까지')}&layout=hero&theme=dark`,
-			width: 1200,
-			height: 630,
-			alt: '로또 6/45 완전 가이드',
-			type: 'image/svg+xml'
-		}],
+		images: [
+			getGenericOgImage({
+				title: '로또 6/45 완전 가이드',
+				description: '초보자를 위한 로또 이용법 - 게임방법, 확률, 구매팁, 당첨수령까지',
+				layout: 'hero',
+				theme: 'dark',
+				alt: '로또 6/45 완전 가이드',
+			}),
+		],
 		siteName: '645.live',
 		article: {
 			section: '로또 가이드',
@@ -313,7 +316,12 @@ const guideSection = [
 		site: '@645live',
 		title: '로또 6/45 완전 가이드',
 		description: '초보자를 위한 로또 이용법 - 게임방법부터 당첨금 수령까지',
-		image: `https://645.live/og?title=${encodeURIComponent('로또 6/45 완전 가이드')}&description=${encodeURIComponent('초보자를 위한 로또 이용법')}&layout=hero&theme=dark`,
+		image: getGenericOgUrl({
+			title: '로또 6/45 완전 가이드',
+			description: '초보자를 위한 로또 이용법',
+			layout: 'hero',
+			theme: 'dark',
+		}),
 		imageAlt: '로또 6/45 완전 가이드'
 	}}
 />
@@ -357,7 +365,11 @@ const guideSection = [
 		'@type': 'HowTo',
 		name: '로또 6/45 이용 방법',
 		description: '로또 6/45를 처음 시작하는 분들을 위한 단계별 가이드',
-		image: `https://645.live/og?title=로또%206/45%20완전%20가이드&layout=hero&theme=dark`,
+		image: getGenericOgUrl({
+			title: '로또 6/45 완전 가이드',
+			layout: 'hero',
+			theme: 'dark',
+		}),
 		totalTime: 'PT10M',
 		estimatedCost: {
 			'@type': 'MonetaryAmount',

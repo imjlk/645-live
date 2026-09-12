@@ -1,6 +1,7 @@
 <script lang="ts">
 import { JsonLd, MetaTags } from "svelte-meta-tags";
 import { RecentAnalysisInput } from "$lib/components/stats";
+import { getGenericOgImage, getGenericOgUrl } from "$lib/seo";
 import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
 import type { PageData } from "./$types";
 
@@ -146,13 +147,15 @@ const pageDescription = $derived(
 		title: pageTitle,
 		description: pageDescription,
 		locale: 'ko_KR',
-		images: [{
-			url: `https://645.live/og?title=${encodeURIComponent(`끝자리수 분석 (최근 ${data.selectedRounds}회차)`)}&description=${encodeURIComponent(`0-9 끝자리 분포 분석 - 가장 많은 끝자리: ${data.unitDigitStats.summary.mostFrequentDigit[0]} (${data.unitDigitStats.summary.mostFrequentDigit[1]}개)`)}&layout=minimal&theme=dark`,
-			width: 1200,
-			height: 630,
-			alt: `로또 6/45 끝자리수 ${data.selectedRounds}회차 분석`,
-			type: 'image/svg+xml'
-		}],
+		images: [
+			getGenericOgImage({
+				title: `끝자리수 분석 (최근 ${data.selectedRounds}회차)`,
+				description: `0-9 끝자리 분포 분석 - 가장 많은 끝자리: ${data.unitDigitStats.summary.mostFrequentDigit[0]} (${data.unitDigitStats.summary.mostFrequentDigit[1]}개)`,
+				layout: 'minimal',
+				theme: 'dark',
+				alt: `로또 6/45 끝자리수 ${data.selectedRounds}회차 분석`,
+			}),
+		],
 		siteName: '645.live',
 		article: {
 			section: '로또 통계',
@@ -164,7 +167,12 @@ const pageDescription = $derived(
 		site: '@645live',
 		title: pageTitle,
 		description: pageDescription,
-		image: `https://645.live/og?title=${encodeURIComponent(`끝자리수 분석 (최근 ${data.selectedRounds}회차)`)}&description=${encodeURIComponent(`0-9 끝자리 분포 분석 - 가장 많은 끝자리: ${data.unitDigitStats.summary.mostFrequentDigit[0]} (${data.unitDigitStats.summary.mostFrequentDigit[1]}개)`)}&layout=minimal&theme=dark`,
+		image: getGenericOgUrl({
+			title: `끝자리수 분석 (최근 ${data.selectedRounds}회차)`,
+			description: `0-9 끝자리 분포 분석 - 가장 많은 끝자리: ${data.unitDigitStats.summary.mostFrequentDigit[0]} (${data.unitDigitStats.summary.mostFrequentDigit[1]}개)`,
+			layout: 'minimal',
+			theme: 'dark',
+		}),
 		imageAlt: '로또 6/45 끝자리수 분석 통계'
 	}}
 />

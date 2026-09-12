@@ -6,6 +6,7 @@ import {
 	StatsPageHero,
 	StatsSummary,
 } from "$lib/components/stats";
+import { getGenericOgImage, getGenericOgUrl } from "$lib/seo";
 import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
 import type { PageData } from "./$types";
 
@@ -99,19 +100,15 @@ const pageDescription = $derived(
 		title: pageTitle,
 		description: pageDescription,
 		locale: 'ko_KR',
-		images: [{
-			url: `https://645.live/og?${new URLSearchParams({
-				title: encodeURIComponent('로또 6/45 번호쌍 분석'),
-				description: encodeURIComponent(`총 ${data.totalPairs}개 번호쌍 | 최대 동반출현 ${data.maxPairCount}회 | 평균 ${data.averagePairCount || '0.0'}회`),
+		images: [
+			getGenericOgImage({
+				title: '로또 6/45 번호쌍 분석',
+				description: `총 ${data.totalPairs}개 번호쌍 | 최대 동반출현 ${data.maxPairCount}회 | 평균 ${data.averagePairCount || '0.0'}회`,
 				layout: 'minimal',
 				theme: 'dark',
-				format: 'svg'
-			}).toString()}`,
-			width: 1200,
-			height: 630,
-			alt: '로또 6/45 번호쌍 분석 통계',
-			type: 'image/svg+xml'
-		}],
+				alt: '로또 6/45 번호쌍 분석 통계',
+			}),
+		],
 		siteName: '645.live',
 		article: {
 			section: '로또 통계',
@@ -123,13 +120,12 @@ const pageDescription = $derived(
 		site: '@645live',
 		title: pageTitle,
 		description: pageDescription,
-		image: `https://645.live/og?${new URLSearchParams({
-			title: encodeURIComponent('로또 6/45 번호쌍 분석'),
-			description: encodeURIComponent(`${data.totalPairs}개 번호쌍 동반출현 패턴 분석`),
+		image: getGenericOgUrl({
+			title: '로또 6/45 번호쌍 분석',
+			description: `${data.totalPairs}개 번호쌍 동반출현 패턴 분석`,
 			layout: 'minimal',
 			theme: 'dark',
-			format: 'svg'
-		}).toString()}`,
+		}),
 		imageAlt: '로또 6/45 번호쌍 분석 통계'
 	}}
 />

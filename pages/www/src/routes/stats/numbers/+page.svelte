@@ -7,6 +7,7 @@ import {
 	StatsSummary,
 	StatsTable,
 } from "$lib/components/stats";
+import { getGenericOgImage, getGenericOgUrl } from "$lib/seo";
 import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
 import type { PageData } from "./$types";
 
@@ -76,20 +77,27 @@ const pageDescription = $derived(
 		description: pageDescription,
 		siteName: "645.live",
 		locale: "ko_KR",
-		images: [{
-			url: `https://645.live/og?title=${encodeURIComponent('로또 6/45 번호별 출현 통계')}&description=${encodeURIComponent(numberStatsOgDescription)}&layout=blog&theme=light`,
-			width: 1200,
-			height: 630,
-			alt: "로또 6/45 번호별 출현 통계",
-			type: "image/svg+xml"
-		}]
+		images: [
+			getGenericOgImage({
+				title: "로또 6/45 번호별 출현 통계",
+				description: numberStatsOgDescription,
+				layout: 'blog',
+				theme: 'light',
+				alt: "로또 6/45 번호별 출현 통계",
+			}),
+		]
 	}}
 	twitter={{
 		cardType: "summary_large_image",
 		site: "@645live",
 		title: pageTitle,
 		description: pageDescription,
-		image: `https://645.live/og?title=${encodeURIComponent('로또 6/45 번호별 출현 통계')}&description=${encodeURIComponent(numberStatsOgDescription)}&layout=blog&theme=light`,
+		image: getGenericOgUrl({
+			title: "로또 6/45 번호별 출현 통계",
+			description: numberStatsOgDescription,
+			layout: 'blog',
+			theme: 'light',
+		}),
 		imageAlt: "로또 6/45 번호별 출현 통계"
 	}}
 	additionalMetaTags={[

@@ -7,6 +7,7 @@ import {
 	RecentAnalysisInput,
 	StatsFreshnessNotice,
 } from "$lib/components/stats";
+import { getGenericOgImage, getGenericOgUrl } from "$lib/seo";
 import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
 import type { PageData } from "./$types";
 
@@ -105,19 +106,15 @@ const pageDescription = $derived(
 		title: pageTitle,
 		description: pageDescription,
 		locale: 'ko_KR',
-		images: [{
-			url: `https://645.live/og?${new URLSearchParams({
-				title: encodeURIComponent(`AC값 분석 (최근 ${data.selectedRounds}회차)`),
-				description: encodeURIComponent(`평균 ${data.acStats.summary.avgAC.toFixed(2)} | 최대 ${data.acStats.summary.maxAC} | 최소 ${data.acStats.summary.minAC} | 총 ${data.acStats.summary.totalDraws}회 분석`),
+		images: [
+			getGenericOgImage({
+				title: `AC값 분석 (최근 ${data.selectedRounds}회차)`,
+				description: `평균 ${data.acStats.summary.avgAC.toFixed(2)} | 최대 ${data.acStats.summary.maxAC} | 최소 ${data.acStats.summary.minAC} | 총 ${data.acStats.summary.totalDraws}회 분석`,
 				layout: 'minimal',
 				theme: 'dark',
-				format: 'svg'
-			}).toString()}`,
-			width: 1200,
-			height: 630,
-			alt: `로또 6/45 AC값 ${data.selectedRounds}회차 분석`,
-			type: 'image/svg+xml'
-		}],
+				alt: `로또 6/45 AC값 ${data.selectedRounds}회차 분석`,
+			}),
+		],
 		siteName: '645.live',
 		article: {
 			section: '로또 통계',
@@ -129,13 +126,12 @@ const pageDescription = $derived(
 		site: '@645live',
 		title: pageTitle,
 		description: pageDescription,
-		image: `https://645.live/og?${new URLSearchParams({
-			title: encodeURIComponent(`AC값 분석 (${data.selectedRounds}회차)`),
-			description: encodeURIComponent(`평균 ${data.acStats.summary.avgAC.toFixed(2)} | 범위 ${data.acStats.summary.minAC}-${data.acStats.summary.maxAC}`),
+		image: getGenericOgUrl({
+			title: `AC값 분석 (${data.selectedRounds}회차)`,
+			description: `평균 ${data.acStats.summary.avgAC.toFixed(2)} | 범위 ${data.acStats.summary.minAC}-${data.acStats.summary.maxAC}`,
 			layout: 'minimal',
 			theme: 'dark',
-			format: 'svg'
-		}).toString()}`,
+		}),
 		imageAlt: `로또 6/45 AC값 ${data.selectedRounds}회차 분석`
 	}}
 />

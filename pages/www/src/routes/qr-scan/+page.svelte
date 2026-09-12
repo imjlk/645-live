@@ -19,6 +19,7 @@ import { useBrowserSession } from "$lib/auth/session.svelte";
 import QRScanHistory from "$lib/components/qr-scan/QRScanHistory.svelte";
 import SimpleBall from "$lib/components/SimpleBall.svelte";
 import ScanStatusGrid from "$lib/modules/lotto/components/ScanStatusGrid.svelte";
+import { getGenericOgImage, getGenericOgUrl } from "$lib/seo";
 import type { QrScanResponse } from "$lib/server/qr-scan-service";
 import type { ScanRecordPayload } from "$lib/server/scan-record";
 import { trackEvent } from "$lib/utils/analytics";
@@ -903,19 +904,21 @@ onMount(() => {
 		type: "website",
 		siteName: "645.live",
 		images: [
-			{
-				url: `https://645.live/og?title=${encodeURIComponent('로또 QR 스캔')}&description=${encodeURIComponent('즉시 당첨 확인')}`,
-				width: 1200,
-				height: 630,
-				alt: "로또 QR 코드 스캔"
-			}
+			getGenericOgImage({
+				title: "로또 QR 스캔",
+				description: "QR로 내 번호를 확인하고, 실시간 스캔 현황을 함께 보세요.",
+				alt: "로또 QR 코드 스캔",
+			}),
 		]
 	}}
 	twitter={{
 		cardType: "summary_large_image",
 		title: "로또 QR 스캔 | QR 코드로 당첨 확인",
 		description: pageDescription,
-		image: `https://645.live/og?title=${encodeURIComponent('로또 QR 스캔')}&description=${encodeURIComponent('즉시 당첨 확인')}`,
+		image: getGenericOgUrl({
+			title: "로또 QR 스캔",
+			description: "QR로 내 번호를 확인하고, 실시간 스캔 현황을 함께 보세요.",
+		}),
 		imageAlt: "로또 QR 코드 스캔"
 	}}
 	additionalMetaTags={[
@@ -932,7 +935,10 @@ onMount(() => {
 		"@type": "HowTo",
 		name: "로또 QR 스캔으로 당첨 확인하는 방법",
 		description: "카메라 권한 허용부터 QR 인식, 저장된 스캔 결과 확인까지 로또 QR 스캔 사용 방법을 안내합니다.",
-		image: `https://645.live/og?title=${encodeURIComponent("로또 QR 스캔")}&description=${encodeURIComponent("QR 코드로 당첨 확인")}`,
+		image: getGenericOgUrl({
+			title: "로또 QR 스캔",
+			description: "QR로 내 번호를 확인하고, 실시간 스캔 현황을 함께 보세요.",
+		}),
 		totalTime: "PT1M",
 		step: [
 			{

@@ -1,5 +1,6 @@
 import { readdir, readFile } from "node:fs/promises";
 import { unflatten } from "devalue";
+import { OG_DESIGN_VERSION } from "../../config/og.mjs";
 import { getPublicDataRevision } from "./public-data.mjs";
 
 const root = new URL(
@@ -43,6 +44,26 @@ for (const name of [
 	if (!contents.includes("<h1") || !contents.includes('name="description"'))
 		throw new Error(`Missing static body or metadata: ${name}`);
 }
+let ogImagesChecked = 0;
+for (const file of html) {
+	const contents = await readFile(file, "utf8");
+	for (const [tag] of contents.matchAll(/<meta\b[^>]*>/g)) {
+		if (!/\s(?:property|name)=["'](?:og:image|twitter:image)["']/.test(tag))
+			continue;
+		const content = tag.match(/\scontent=(["'])(.*?)\1/)?.[2];
+		if (!content) continue;
+		// Svelte emits quoted metadata attributes and escapes query separators.
+		const url = new URL(content.replaceAll("&amp;", "&"), "https://645.live");
+		if (
+			url.origin !== "https://645.live" ||
+			!/^\/og(?:\/|$)/.test(url.pathname)
+		)
+			continue;
+		if (url.searchParams.get("rev") !== OG_DESIGN_VERSION)
+			throw new Error(`Stale/unversioned OG image in ${file.pathname}: ${url}`);
+		ogImagesChecked++;
+	}
+}
 let checked = 0;
 for (const file of files.filter((entry) =>
 	entry.pathname.endsWith("/__data.json"),
@@ -81,5 +102,5 @@ for (const path of ["/winning-stores", "/history", "/news"]) {
 		throw new Error(`Client navigation cannot reach server data: ${dataPath}`);
 }
 console.log(
-	`[ssg] Validated ${html.length} static HTML files and ${checked} data payloads against published round ${revision.latestRound}`,
+	`[ssg] Validated ${html.length} static HTML files, ${ogImagesChecked} OG image references and ${checked} data payloads against published round ${revision.latestRound}`,
 );

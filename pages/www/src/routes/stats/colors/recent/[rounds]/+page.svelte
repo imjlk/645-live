@@ -4,6 +4,7 @@
 
 import { JsonLd, MetaTags } from "svelte-meta-tags";
 import { RecentAnalysisInput } from "$lib/components/stats";
+import { getGenericOgImage, getGenericOgUrl } from "$lib/seo";
 import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
 import type { PageData } from "./$types";
 
@@ -116,19 +117,15 @@ const pageDescription = $derived(
 		title: pageTitle,
 		description: pageDescription,
 		locale: 'ko_KR',
-		images: [{
-			url: `https://645.live/og?${new URLSearchParams({
-				title: encodeURIComponent(`색상 분석 (최근 ${data.selectedRounds}회차)`),
-				description: encodeURIComponent(`노랑 ${data.colorStats.summary.colorAverages.yellow}개 | 파랑 ${data.colorStats.summary.colorAverages.blue}개 | 빨강 ${data.colorStats.summary.colorAverages.red}개 | 회색 ${data.colorStats.summary.colorAverages.grey}개 | 초록 ${data.colorStats.summary.colorAverages.green}개`),
+		images: [
+			getGenericOgImage({
+				title: `색상 분석 (최근 ${data.selectedRounds}회차)`,
+				description: `노랑 ${data.colorStats.summary.colorAverages.yellow}개 | 파랑 ${data.colorStats.summary.colorAverages.blue}개 | 빨강 ${data.colorStats.summary.colorAverages.red}개 | 회색 ${data.colorStats.summary.colorAverages.grey}개 | 초록 ${data.colorStats.summary.colorAverages.green}개`,
 				layout: 'minimal',
 				theme: 'light',
-				format: 'svg'
-			}).toString()}`,
-			width: 1200,
-			height: 630,
-			alt: `로또 6/45 색상 분석 ${data.selectedRounds}회차 분석`,
-			type: 'image/svg+xml'
-		}],
+				alt: `로또 6/45 색상 분석 ${data.selectedRounds}회차 분석`,
+			}),
+		],
 		siteName: '645.live',
 		article: {
 			section: '로또 통계',
@@ -140,13 +137,12 @@ const pageDescription = $derived(
 		site: '@645live',
 		title: pageTitle,
 		description: pageDescription,
-		image: `https://645.live/og?${new URLSearchParams({
-			title: encodeURIComponent(`색상 분석 (${data.selectedRounds}회차)`),
-			description: encodeURIComponent(`5색 구간별 평균 분포 분석`),
+		image: getGenericOgUrl({
+			title: `색상 분석 (${data.selectedRounds}회차)`,
+			description: `5색 구간별 평균 분포 분석`,
 			layout: 'minimal',
 			theme: 'light',
-			format: 'svg'
-		}).toString()}`,
+		}),
 		imageAlt: `로또 6/45 색상 분석 ${data.selectedRounds}회차 분석`
 	}}
 />

@@ -1,6 +1,7 @@
 <script lang="ts">
 import { JsonLd, MetaTags } from "svelte-meta-tags";
 import { RecentAnalysisInput } from "$lib/components/stats";
+import { getGenericOgImage, getGenericOgUrl } from "$lib/seo";
 import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
 import type { PageData } from "./$types";
 
@@ -86,19 +87,15 @@ const pageDescription = $derived(
 		title: pageTitle,
 		description: pageDescription,
 		locale: 'ko_KR',
-		images: [{
-			url: `https://645.live/og?${new URLSearchParams({
-				title: encodeURIComponent(`고저 분석 (최근 ${data.selectedRounds}회차)`),
-				description: encodeURIComponent(`저구간 평균 ${data.highLowStats.summary.lowAverage}개 | 고구간 평균 ${data.highLowStats.summary.highAverage}개 | 저구간 ${lowPercentage}% | 고구간 ${highPercentage}%`),
+		images: [
+			getGenericOgImage({
+				title: `고저 분석 (최근 ${data.selectedRounds}회차)`,
+				description: `저구간 평균 ${data.highLowStats.summary.lowAverage}개 | 고구간 평균 ${data.highLowStats.summary.highAverage}개 | 저구간 ${lowPercentage}% | 고구간 ${highPercentage}%`,
 				layout: 'minimal',
 				theme: 'dark',
-				format: 'svg'
-			}).toString()}`,
-			width: 1200,
-			height: 630,
-			alt: '로또 6/45 고저 분석 통계',
-			type: 'image/svg+xml'
-		}],
+				alt: '로또 6/45 고저 분석 통계',
+			}),
+		],
 		siteName: '645.live',
 		article: {
 			section: '로또 통계',
@@ -110,13 +107,12 @@ const pageDescription = $derived(
 		site: '@645live',
 		title: pageTitle,
 		description: pageDescription,
-		image: `https://645.live/og?${new URLSearchParams({
-			title: encodeURIComponent(`고저 분석 (${data.selectedRounds}회차)`),
-			description: encodeURIComponent(`저구간 ${lowPercentage}% | 고구간 ${highPercentage}%`),
+		image: getGenericOgUrl({
+			title: `고저 분석 (${data.selectedRounds}회차)`,
+			description: `저구간 ${lowPercentage}% | 고구간 ${highPercentage}%`,
 			layout: 'minimal',
 			theme: 'dark',
-			format: 'svg'
-		}).toString()}`,
+		}),
 		imageAlt: '로또 6/45 고저 분석 통계'
 	}}
 />

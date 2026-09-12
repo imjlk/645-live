@@ -1,6 +1,7 @@
 <script lang="ts">
 import { JsonLd, MetaTags } from "svelte-meta-tags";
 import { RecentAnalysisInput, StatsPageHero } from "$lib/components/stats";
+import { getGenericOgImage, getGenericOgUrl } from "$lib/seo";
 import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
 import type { PageData } from "./$types";
 
@@ -121,19 +122,15 @@ const pageDescription = $derived(
 		title: pageTitle,
 		description: pageDescription,
 		locale: 'ko_KR',
-		images: [{
-			url: `https://645.live/og?${new URLSearchParams({
-				title: encodeURIComponent('로또 6/45 홀짝 분석'),
-				description: encodeURIComponent(`홀수/짝수 분포 패턴 분석`),
+		images: [
+			getGenericOgImage({
+				title: '로또 6/45 홀짝 분석',
+				description: `홀수/짝수 분포 패턴 분석`,
 				layout: 'blog',
 				theme: 'dark',
-				format: 'svg'
-			}).toString()}`,
-			width: 1200,
-			height: 630,
-			alt: '로또 6/45 홀짝 분석 통계',
-			type: 'image/svg+xml'
-		}],
+				alt: '로또 6/45 홀짝 분석 통계',
+			}),
+		],
 		siteName: '645.live',
 		article: {
 			section: '로또 통계',
@@ -145,13 +142,12 @@ const pageDescription = $derived(
 		site: '@645live',
 		title: pageTitle,
 		description: pageDescription,
-		image: `https://645.live/og?${new URLSearchParams({
-			title: encodeURIComponent('로또 6/45 홀짝 분석'),
-			description: encodeURIComponent(`홀수/짝수 분포 패턴 분석`),
+		image: getGenericOgUrl({
+			title: '로또 6/45 홀짝 분석',
+			description: `홀수/짝수 분포 패턴 분석`,
 			layout: 'blog',
 			theme: 'dark',
-			format: 'svg'
-		}).toString()}`,
+		}),
 		imageAlt: '로또 6/45 홀짝 분석 통계'
 	}}
 />

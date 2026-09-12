@@ -1,6 +1,7 @@
 <script lang="ts">
 import { JsonLd, MetaTags } from "svelte-meta-tags";
 import { RecentAnalysisInput, StatsPageHero } from "$lib/components/stats";
+import { getGenericOgImage, getGenericOgUrl } from "$lib/seo";
 import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
 import LinkButton from "$lib/ui/LinkButton.svelte";
 import type { PageData } from "./$types";
@@ -157,13 +158,15 @@ const pageDescription = $derived(
 		title: pageTitle,
 		description: pageDescription,
 		locale: 'ko_KR',
-		images: [{
-			url: `https://645.live/og?title=${encodeURIComponent('로또 6/45 끝수 분석')}&description=${encodeURIComponent(`0-9 끝자리 완전분석 - 최다: ${safeMostFrequentDigit[0]} (${safeMostFrequentDigit[1]}회) - 최소: ${safeLeastFrequentDigit[0]} (${safeLeastFrequentDigit[1]}회)`)}&layout=minimal&theme=dark`,
-			width: 1200,
-			height: 630,
-			alt: '로또 6/45 끝수 분석 통계',
-			type: 'image/svg+xml'
-		}],
+		images: [
+			getGenericOgImage({
+				title: '로또 6/45 끝수 분석',
+				description: `0-9 끝자리 완전분석 - 최다: ${safeMostFrequentDigit[0]} (${safeMostFrequentDigit[1]}회) - 최소: ${safeLeastFrequentDigit[0]} (${safeLeastFrequentDigit[1]}회)`,
+				layout: 'minimal',
+				theme: 'dark',
+				alt: '로또 6/45 끝수 분석 통계',
+			}),
+		],
 		siteName: '645.live',
 		article: {
 			section: '로또 통계',
@@ -175,7 +178,12 @@ const pageDescription = $derived(
 		site: '@645live',
 		title: pageTitle,
 		description: pageDescription,
-		image: `https://645.live/og?title=${encodeURIComponent('로또 6/45 끝수 분석')}&description=${encodeURIComponent(`0-9 끝자리 완전분석 - 최다: ${safeMostFrequentDigit[0]} (${safeMostFrequentDigit[1]}회) - 최소: ${safeLeastFrequentDigit[0]} (${safeLeastFrequentDigit[1]}회)`)}&layout=minimal&theme=dark`,
+		image: getGenericOgUrl({
+			title: '로또 6/45 끝수 분석',
+			description: `0-9 끝자리 완전분석 - 최다: ${safeMostFrequentDigit[0]} (${safeMostFrequentDigit[1]}회) - 최소: ${safeLeastFrequentDigit[0]} (${safeLeastFrequentDigit[1]}회)`,
+			layout: 'minimal',
+			theme: 'dark',
+		}),
 		imageAlt: '로또 6/45 끝수 분석 통계'
 	}}
 />
