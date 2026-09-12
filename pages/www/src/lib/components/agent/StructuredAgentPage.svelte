@@ -48,7 +48,7 @@ const sectionLabel = $derived(page.key === "agent-home" ? "Section" : "섹션");
 
 			{#if section.table}
 				<!-- svelte-ignore a11y_no_noninteractive_tabindex (The region provides keyboard scrolling for wide tables.) -->
-				<div class="table-scroll overflow-x-auto rounded-lg border border-base-300/70" role="region" aria-label={`${section.title} 표, 가로 스크롤 가능`} tabindex="0">
+				<div class="table-scroll overflow-x-auto rounded-lg border border-base-300/70" role="region" aria-label={section.title} tabindex="0">
 					<table class="table table-zebra min-w-[36rem]">
 						<thead>
 							<tr>
