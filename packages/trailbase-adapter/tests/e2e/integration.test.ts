@@ -3,7 +3,7 @@
  * Tests the complete flow from adapter creation to data operations
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { createAdapter, getAdapter, resetAdapter } from '../../src/adapters/index.js';
 import { MockAdapter } from '../mocks/MockAdapter.js';
 import {
@@ -205,6 +205,7 @@ describe('E2E Integration Tests', () => {
 		});
 
 		it('should handle network latency gracefully', async () => {
+			vi.useFakeTimers();
 			// Create adapter with higher latency
 			const slowAdapter = new MockAdapter<LottoDrawScanCount>({
 				autoConnect: true,
@@ -225,14 +226,20 @@ describe('E2E Integration Tests', () => {
 				},
 			});
 
-			const startTime = Date.now();
-			const result = await slowAdapter.findOne('lotto_draw_scan_counts', 1);
-			const endTime = Date.now();
-
-			expect(result).toBeTruthy();
-			expect(endTime - startTime).toBeGreaterThanOrEqual(100);
-
-			await slowAdapter.destroy();
+			try {
+				let settled = false;
+				const pending = slowAdapter.findOne('lotto_draw_scan_counts', 1).then((result) => {
+					settled = true;
+					return result;
+				});
+				await vi.advanceTimersByTimeAsync(99);
+				expect(settled).toBe(false);
+				await vi.advanceTimersByTimeAsync(1);
+				expect(await pending).toMatchObject({ id: 1, round: 1 });
+			} finally {
+				await slowAdapter.destroy();
+				vi.useRealTimers();
+			}
 		});
 	});
 
