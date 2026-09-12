@@ -39,6 +39,13 @@ jobs:
       - name: Test news generation
         run: node --test scripts/news/generate-news-content.test.mjs
 
+      - name: Validate news scheduler
+        working-directory: workers/news-scheduler-645-live
+        run: |
+          bun run check
+          bun run test
+          bun run deploy:dry-run
+
       - name: Build web app
         run: bun run www build
 

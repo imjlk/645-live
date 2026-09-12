@@ -1,0 +1,21 @@
+{
+	"$schema": "./node_modules/wrangler/config-schema.json",
+	"name": "news-scheduler-645-live",
+	"account_id": "4b52b10fcdc584e22a0c5cd61d153bbd",
+	"main": "src/index.ts",
+	"compatibility_date": "2026-09-12",
+	"compatibility_flags": ["nodejs_compat"],
+	"workers_dev": true,
+	"preview_urls": false,
+	"secrets": {
+		"required": ["GITHUB_ACTIONS_TOKEN", "NEWS_RUN_TOKEN"]
+	},
+	"triggers": {
+		// Saturday 21:21 and 22:21 in Korea. Cloudflare Cron uses UTC.
+		"crons": ["21 12 * * SAT", "21 13 * * SAT"]
+	},
+	"observability": {
+		"enabled": true,
+		"head_sampling_rate": 1
+	}
+}

@@ -1,0 +1,18 @@
+{
+	"name": "@645/news-scheduler-645-live",
+	"version": "0.0.1",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"dev": "wrangler dev --test-scheduled",
+		"cf-typegen": "wrangler types src/worker-configuration.d.ts",
+		"check": "bun run cf-typegen && tsc --noEmit",
+		"test": "bun test",
+		"deploy": "wrangler deploy --minify",
+		"deploy:dry-run": "wrangler deploy --dry-run --outdir .wrangler/dry-run"
+	},
+	"devDependencies": {
+		"typescript": "^5.9.3",
+		"wrangler": "4.131.1"
+	}
+}
