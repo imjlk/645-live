@@ -50,7 +50,7 @@
 		"trailbase": "^0.10.0",
 		"typescript": "^5.9.3",
 		"vite": "catalog:",
-		"wrangler": "^4.74.0"
+		"wrangler": "4.74.0"
 	},
 	"peerDependencies": {
 		"typescript": "^5.0.0"

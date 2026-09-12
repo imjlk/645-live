@@ -81,3 +81,37 @@ export function normalizeOgLayout(
 		? (value as LayoutType)
 		: fallback;
 }
+
+export function readOgText(
+	params: URLSearchParams,
+	key: string,
+	limit = 240,
+): string | undefined {
+	let value = params.get(key);
+	if (!value) return undefined;
+	// Compatibility for links previously generated with an extra encodeURIComponent.
+	if (params.get("rev") === "2026-03-25-1") {
+		try {
+			value = decodeURIComponent(value);
+		} catch {
+			/* Keep literal percent signs. */
+		}
+	}
+	return (
+		Array.from(value.normalize("NFC").replace(/\s+/g, " ").trim())
+			.slice(0, limit)
+			.join("") || undefined
+	);
+}
+
+export function parseDrawNumbers(raw: string | null): number[] | undefined {
+	if (!raw) return undefined;
+	const parts = raw.trim().split(/[,\s]+/);
+	if (parts.length !== 6 || parts.some((part) => !/^\d{1,2}$/.test(part)))
+		return undefined;
+	const numbers = parts.map(Number);
+	return new Set(numbers).size === 6 &&
+		numbers.every((number) => number >= 1 && number <= 45)
+		? numbers
+		: undefined;
+}

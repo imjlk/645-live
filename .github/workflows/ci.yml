@@ -39,6 +39,14 @@ jobs:
       - name: Build web app
         run: bun run www build
 
+      - name: Validate OG renderer
+        run: |
+          bun run og check
+          bun --cwd packages/og-image-core check
+          bun --cwd packages/og-image-core build
+          bun test packages/og-image-core/src workers/og-645-live/src pages/www/src/lib/seo/og.test.ts pages/www/src/lib/server/og-proxy.test.ts
+          bun run og deploy --dry-run
+
       - name: Test static serving and request boundaries
         run: bun test pages/www/adapter/worker.test.ts pages/www/src/lib/server/request-policy.test.ts pages/www/src/routes/qr-scan/scan-service.test.ts pages/www/src/lib/utils/qr-scan-identity.test.ts pages/www/src/lib/utils/lotto-round.test.ts
 

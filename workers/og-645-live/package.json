@@ -8,6 +8,8 @@
 	},
 	"scripts": {
 		"dev": "wrangler dev",
+		"check": "tsc --noEmit",
+		"test": "bun test src",
 		"deploy": "wrangler deploy --minify",
 		"cf-typegen": "wrangler types --env-interface CloudflareBindings"
 	},
@@ -17,6 +19,6 @@
 		"@645/og-image-core": "workspace:*"
 	},
 	"devDependencies": {
-		"wrangler": "catalog:"
+		"wrangler": "4.131.1"
 	}
 }

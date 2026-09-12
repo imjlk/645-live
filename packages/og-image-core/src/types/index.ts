@@ -11,6 +11,8 @@ export interface OGImageOptions {
 	badgeText?: string;
 	metaText?: string;
 	highlightText?: string;
+	numbers?: number[];
+	bonusNumber?: number;
 }
 
 export interface LayoutStyles {
@@ -41,6 +43,9 @@ export interface ThemeColors {
 	backgroundColor: string;
 	textColor: string;
 	accentColor: string;
+	mutedColor: string;
+	borderColor: string;
+	surfaceColor: string;
 }
 
 export interface GradientBackground {

@@ -34,6 +34,17 @@ beforeEach(() => {
 });
 
 describe("createCacheKey", () => {
+	it("shares reordered query keys but preserves literal escaped text and duplicate values", async () => {
+		expect(await createCacheKey("https://worker/?title=A&theme=dark")).toBe(
+			await createCacheKey("https://worker/?theme=dark&title=A"),
+		);
+		expect(await createCacheKey("https://worker/?title=%2541")).not.toBe(
+			await createCacheKey("https://worker/?title=A"),
+		);
+		expect(await createCacheKey("https://worker/?title=A&title=B")).not.toBe(
+			await createCacheKey("https://worker/?title=B"),
+		);
+	});
 	it("normalizes encoded query values consistently", async () => {
 		const encoded = await createCacheKey(
 			"https://worker/news/lotto-1216?title=%EB%A1%9C%EB%98%90%206%2F45",

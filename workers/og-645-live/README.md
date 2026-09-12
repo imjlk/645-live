@@ -1,114 +1,56 @@
-# OG Image Worker (`workers/og-645-live`)
+# OG Image Worker
 
-Cloudflare Worker 기반 OG 이미지 생성 서비스입니다.
+`645.live/og`와 `645.live/og/news/:slug`에서 쓰는 1200×630 공유 이미지를 생성합니다. Pages는 `OG_645_LIVE` 서비스 바인딩으로 이 워커를 호출하며, 실제 이미지 구성은 `packages/og-image-core`에 있습니다.
 
-## 역할
+## 디자인
 
-- 일반 OG 이미지 생성 (`GET /*`)
-- 뉴스 전용 OG 이미지 생성 (`GET /news/*`)
-- JSON payload 기반 생성 (`POST /generate`)
-- 뉴스 경로 전용 Worker Cache API + 응답 헤더 기반 CDN 캐시 제어
+- 사이트의 라이트·다크 바탕색, 글자색, 파란 브랜드 색상을 사용합니다.
+- 모든 이미지에 645.live 브랜드와 제목, 짧은 설명을 표시합니다.
+- 로또 1–10 / 11–20 / 21–30 / 31–40 / 41–45 구간을 사이트와 같은 색의 원형 볼로 표현합니다. 일반 이미지에는 구간 범위를 표시하므로 당첨번호와 혼동하지 않습니다.
+- 뉴스에는 회차와 날짜를 함께 표시합니다. 명시적인 `numbers` 6개와 선택적인 `bonus`가 있으면 해당 번호를 볼로 표시합니다. 번호가 없으면 구간 범위를 사용하며, 워커가 추첨 결과를 추정하지 않습니다.
+- 한글 제목·설명은 최대 두 줄로 배치하고, 긴 단어와 부가 정보는 이미지 밖으로 넘치지 않도록 줄이거나 말줄임합니다.
+- Pretendard Regular/Bold 폰트를 번들에 포함합니다. 폰트 출처와 라이선스는 `src/assets/README.md`를 참고하세요. 렌더링 중 폰트·이모지를 외부 서버에서 받지 않습니다.
 
-## 로컬 실행
+## 요청
 
-루트에서:
+일반: `GET /?title=...&description=...&theme=light`
 
-```bash
-bun install
-cp workers/og-645-live/.env.example workers/og-645-live/.env
-bun run og dev
+뉴스: `GET /news/lotto-1240?title=...&date=2026-09-05&numbers=11,13,19,20,31,44&bonus=27`
+
+공통 옵션은 `theme=light|dark`, `format=png|svg`, `width`, `height`입니다. 크기는 800–2400 × 418–1260 범위로 제한하고, 표준 캔버스 비율을 유지해 가운데 배치합니다. 기존 `layout` 이름은 호환을 위해 허용하며 같은 브랜드 템플릿을 사용합니다. 원격 배경 이미지·로고와 임의 스타일은 이 템플릿에 반영하지 않습니다.
+
+`POST /generate`는 같은 기본 옵션의 JSON을 받으며 `title`이 필요합니다. 추가로 `badgeText`, `metaText`, `highlightText`, `numbers`, `bonusNumber`를 지원합니다. 본문은 16 KiB로 제한하며 잘못된 JSON은 400을 반환합니다.
+
+쿼리는 `URLSearchParams`로 한 번 인코딩합니다. 과거 웹사이트가 생성한 `rev=2026-03-25-1` 링크의 이중 인코딩도 지원합니다.
+
+## 캐시와 변경 반영
+
+GET PNG는 일반·뉴스 모두 Cache API로 3시간 재사용합니다. SVG와 POST 응답은 저장하지 않습니다. 캐시 키에는 경로와 정렬한 전체 쿼리가 포함되며, 중복 쿼리와 리터럴 `%`도 구별합니다.
+
+새 디자인 배포 시 `CACHE_KEY_PREFIX`, `X-OG-Design-Version`, 웹의 `NEWS_OG_CACHE_BUSTER` / `GENERIC_OG_CACHE_BUSTER`를 함께 갱신하세요. Pages 프록시는 디자인 버전 헤더를 전달합니다. 공유 서비스가 이미 저장한 미리보기의 재수집 시점은 해당 서비스에 따라 다릅니다.
+
+## 개발과 검증
+
+저장소 루트에서 실행합니다.
+
+```sh
+bun run og dev --port 8896
+bun run og check
+bun run og test
+bun --cwd packages/og-image-core check
+bun --cwd packages/og-image-core build
+bun scripts/og/smoke.mjs http://127.0.0.1:8896 /tmp/645-og-previews
 ```
 
-또는 워커 디렉터리에서:
+스모크 검사는 로컬 워커에서만 실행하며 일반·뉴스·다크·긴 제목·번호 볼의 PNG를 저장합니다. PNG 규격, 일반 이미지 캐시 HIT, SVG, 잘못된 JSON, 요청 본문 제한, POST 크기 제한도 확인합니다.
 
-```bash
-bun run dev
-```
+호환 날짜 `2026-09-12`를 검증하려면 이를 지원하는 Wrangler/workerd를 사용하세요. 오래된 Wrangler는 더 이전 런타임으로 폴백할 수 있습니다.
 
-## 배포
+이 워크스페이스는 Wrangler 4.131.1을 별도로 고정합니다. 공용 catalog는 기존 Pages 빌드에 검증된 4.74.0을 유지합니다. 4.131.1이 Pages 어댑터에도 공유되면 병렬 prerender의 로컬 저장소에서 SQLite 잠금 오류가 재현되므로, 두 도구 버전을 함께 올릴 때는 웹 빌드까지 확인해야 합니다.
 
-루트에서:
-
-```bash
+```sh
+bun run og cf-typegen
 bun run og deploy
 ```
 
-## 엔드포인트
-
-### 1) `GET /*`
-
-쿼리 기반 일반 OG 생성.
-
-주요 쿼리:
-
-- `title`
-- `description`
-- `theme` (`light` | `dark`)
-- `layout` (`default` 등, `@645/og-image-core` 레이아웃)
-- `width`, `height`
-- `format` (`png` | `svg`)
-
-예시:
-
-```text
-GET /?title=Hello&description=World&layout=hero&format=png
-```
-
-### 2) `GET /news/*`
-
-뉴스 전용 레이아웃(`layout = news`) OG 생성.
-
-추가 쿼리:
-
-- `round`: 로또 회차(제목 보정에 사용)
-
-예시:
-
-```text
-GET /news/lotto-1186?title=당첨%20결과&round=1186
-```
-
-### 3) `POST /generate`
-
-JSON body로 생성 옵션 전달.
-
-예시:
-
-```json
-{
-	"title": "Hello World",
-	"description": "OG description",
-	"layout": "default",
-	"theme": "light",
-	"format": "png"
-}
-```
-
-## 캐시 설정
-
-뉴스 OG(`GET /news/*`)는 Worker 내부 `Cache API`와 응답 헤더를 함께 사용합니다.
-
-- 내부 캐시는 `CACHE_KEY_PREFIX`가 포함된 키로 저장되어, 필요할 때 프리픽스만 바꿔도 논리적으로 캐시를 비울 수 있습니다.
-- `CACHE_MAX_AGE`가 지나면 내부 캐시는 자동 폐기 후 재생성됩니다.
-- 외부로는 `Cache-Control` 헤더를 기준으로 Cloudflare CDN과 브라우저가 동작합니다.
-- 무효화는 URL의 `rev` 파라미터 변경, `CACHE_KEY_PREFIX` 변경, Cloudflare 존 캐시 퍼지로 처리합니다.
-
-환경 변수:
-
-- `CACHE_ENABLED` (`true` | `false`)
-- `CACHE_MAX_AGE` (초)
-- `CACHE_KEY_PREFIX` (캐시 네임스페이스 버전)
-
-## 코드 구조
-
-- `src/index.tsx`: Hono 앱 엔트리
-- `src/routes/wildcard.tsx`: 일반 GET 라우트
-- `src/routes/news.tsx`: 뉴스 전용 라우트
-- `src/routes/generate.tsx`: POST 라우트
-- `src/middleware/cache.ts`: 뉴스 OG Cache API 처리
-
-공용 렌더러는 `packages/og-image-core`를 사용합니다.
-
-## 연동
-
-`pages/www/wrangler.jsonc`에서 서비스 바인딩 `OG_645_LIVE`로 연결되어 있습니다.
+Pages의 메인 푸시는 웹을 자동 배포합니다. OG 워커는 별도로 배포해야 하며, 워커를 먼저 배포한 뒤 새 OG 버전이 포함된 Pages를 배포하면 새 링크가 준비되지 않은 렌더러를 참조하지 않습니다.

@@ -8,8 +8,8 @@ export const ABOUT_PATH = "/about";
 export const CONTACT_PATH = "/contact";
 export const EDITORIAL_POLICY_PATH = "/editorial-policy";
 export const DATA_SOURCES_PATH = "/data-sources";
-export const NEWS_OG_CACHE_BUSTER = "2026-09-12-1";
-export const GENERIC_OG_CACHE_BUSTER = "2026-03-25-1";
+export const NEWS_OG_CACHE_BUSTER = "2026-09-12-balls-v1";
+export const GENERIC_OG_CACHE_BUSTER = "2026-09-12-balls-v1";
 
 export function absoluteUrl(path: string): string {
 	return new URL(path, SITE_ORIGIN).toString();
@@ -61,7 +61,9 @@ export function getCanonicalNewsOgPath(
 
 	const query = params.toString();
 	const encodedSlug = encodeURIComponent(slug);
-	return query.length > 0 ? `/og/news/${encodedSlug}?${query}` : `/og/news/${encodedSlug}`;
+	return query.length > 0
+		? `/og/news/${encodedSlug}?${query}`
+		: `/og/news/${encodedSlug}`;
 }
 
 export function getCanonicalNewsOgUrl(
@@ -90,9 +92,9 @@ type GenericOgOptions = {
 export function getGenericOgPath(options: GenericOgOptions): string {
 	const params = new URLSearchParams();
 	params.set("rev", GENERIC_OG_CACHE_BUSTER);
-	params.set("title", encodeURIComponent(options.title));
+	params.set("title", options.title);
 	if (options.description) {
-		params.set("description", encodeURIComponent(options.description));
+		params.set("description", options.description);
 	}
 	params.set("layout", options.layout || "default");
 	params.set("theme", options.theme || "light");
@@ -127,9 +129,7 @@ export function toIsoDateTime(value?: string): string | undefined {
 		return `${trimmed}T00:00:00+09:00`;
 	}
 
-	if (
-		/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/.test(trimmed)
-	) {
+	if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/.test(trimmed)) {
 		return `${trimmed}+09:00`;
 	}
 
@@ -194,10 +194,7 @@ export function createOrganizationSchema() {
 			"@type": "ImageObject",
 			url: getSiteLogoUrl(),
 		},
-		sameAs: [
-			`https://x.com/${SITE_TWITTER.replace(/^@/, "")}`,
-			SITE_GITHUB,
-		],
+		sameAs: [`https://x.com/${SITE_TWITTER.replace(/^@/, "")}`, SITE_GITHUB],
 		contactPoint: [
 			{
 				"@type": "ContactPoint",

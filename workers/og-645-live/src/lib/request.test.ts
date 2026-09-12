@@ -8,8 +8,40 @@ import {
 	MIN_OG_WIDTH,
 	normalizeOgFormat,
 	normalizeOgLayout,
+	parseDrawNumbers,
 	parseOgDimensions,
+	readOgText,
 } from "./request.js";
+
+describe("OG query text", () => {
+	it("preserves percent signs and already-decoded query text", () => {
+		const params = new URLSearchParams({
+			title: "100% 확인 · %41 그대로",
+			rev: "2026-09-12-balls-v1",
+		});
+		expect(readOgText(params, "title")).toBe("100% 확인 · %41 그대로");
+	});
+	it("supports previously double-encoded links", () => {
+		const params = new URLSearchParams({
+			title: encodeURIComponent("로또 6/45"),
+			rev: "2026-03-25-1",
+		});
+		expect(readOgText(params, "title")).toBe("로또 6/45");
+	});
+	it("rejects incomplete or duplicate winning combinations", () => {
+		for (const input of [
+			"1,2,3",
+			"1,1,2,3,4,5",
+			"1x,2,3,4,5,6",
+			"0,2,3,4,5,6",
+			"1,2,3,4,5,46",
+		])
+			expect(parseDrawNumbers(input)).toBeUndefined();
+		expect(parseDrawNumbers("11,13,19,20,31,44")).toEqual([
+			11, 13, 19, 20, 31, 44,
+		]);
+	});
+});
 
 describe("parseOgDimensions", () => {
 	it("clamps width and height into the supported range", () => {

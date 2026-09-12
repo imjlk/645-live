@@ -1,490 +1,323 @@
 import type * as React from "react";
-import { getLayoutStyles } from "../layouts/index.js";
 import type { CustomLayoutOptions } from "../types/index.js";
-import { getThemeColors } from "../utils/theme.js";
-import { Background } from "./Background.js";
-import { Brand } from "./Brand.js";
+import { fitText } from "../utils/text.js";
+import { getBallColors, getThemeColors, LOTTO_RANGES } from "../utils/theme.js";
 
-function normalizeWhitespace(value: string): string {
-	return value.replace(/\s+/g, " ").trim();
-}
-
-function scoreBalancedLines(lines: string[]): number {
-	const lengths = lines.map((line) => line.length);
-	const maxLength = Math.max(...lengths);
-	const minLength = Math.min(...lengths);
-	let score = maxLength - minLength;
-
-	const lastLineWords = lines.at(-1)?.split(" ").filter(Boolean).length ?? 0;
-	if (lastLineWords === 1) {
-		score += 24;
-	}
-
-	const lastLineLength = lines.at(-1)?.length ?? 0;
-	if (lastLineLength > 0 && lastLineLength < Math.ceil(maxLength * 0.42)) {
-		score += 12;
-	}
-
-	return score;
-}
-
-function balanceText(text: string, maxLines: number): string[] {
-	const normalized = normalizeWhitespace(text);
-	if (!normalized) {
-		return [text];
-	}
-
-	const words = normalized.split(" ");
-	if (words.length <= 2 || maxLines <= 1) {
-		return [normalized];
-	}
-
-	let bestLines = [normalized];
-	let bestScore = Number.POSITIVE_INFINITY;
-	const lastWordIndex = words.length - 1;
-
-	const tryBreaks = (breaks: number[], startIndex: number, remaining: number) => {
-		if (remaining === 0) {
-			const indices = [...breaks, words.length];
-			let previous = 0;
-			const lines = indices.map((index) => {
-				const line = words.slice(previous, index).join(" ");
-				previous = index;
-				return line;
-			});
-
-			const score = scoreBalancedLines(lines);
-			if (score < bestScore) {
-				bestScore = score;
-				bestLines = lines;
-			}
-			return;
-		}
-
-		for (let index = startIndex; index <= lastWordIndex - remaining; index += 1) {
-			tryBreaks([...breaks, index], index + 1, remaining - 1);
-		}
-	};
-
-	for (let lines = 2; lines <= Math.min(maxLines, words.length); lines += 1) {
-		tryBreaks([], 1, lines - 1);
-	}
-
-	return bestLines;
-}
-
-function balanceTitle(text: string, layout: CustomLayoutOptions["layout"]): string[] {
-	const normalized = normalizeWhitespace(text);
-
-	if (layout === "news") {
-		return balanceText(normalized, 3);
-	}
-
-	return balanceText(
-		normalized,
-		layout === "hero" || layout === "centered" ? 2 : 3,
-	);
-}
-
+/** One canvas system for the website, article previews, and existing layout aliases. */
 export const OGImage: React.FC<CustomLayoutOptions> = ({
 	title,
 	description,
 	theme = "light",
-	backgroundImage,
-	gradientBackground,
-	logo,
+	width = 1200,
+	height = 630,
 	layout = "default",
-	customStyles,
-	brandColors,
 	badgeText,
 	metaText,
 	highlightText,
+	numbers,
+	bonusNumber,
 }) => {
-	const baseLayoutStyles = getLayoutStyles(layout);
-	const layoutStyles = customStyles
-		? { ...baseLayoutStyles, ...customStyles }
-		: baseLayoutStyles;
-	const themeColors = getThemeColors(theme);
-	const colors = brandColors ? { ...themeColors, ...brandColors } : themeColors;
-	const titleLines = balanceTitle(title, layout);
-	const descriptionText = description ? normalizeWhitespace(description) : undefined;
-	const descriptionLines = descriptionText
-		? balanceText(descriptionText, layout === "news" ? 3 : 2)
-		: [];
-	const titleLineItems = titleLines.map((line, index) => ({
-		line,
-		key: `${titleLines.slice(0, index).join("\u0000")}\u0000${line}`,
-	}));
-	const descriptionLineItems = descriptionLines.map((line, index) => ({
-		line,
-		key: `${descriptionLines.slice(0, index).join("\u0000")}\u0000${line}`,
-	}));
-	const hasNewsMeta = (badgeText && badgeText.length > 0) || (metaText && metaText.length > 0);
-	const newsAccent = colors.accentColor;
-	const resolvedTitleFontSize =
-		layout === "news"
-			? title.length > 40
-				? "48px"
-				: title.length > 28
-					? "54px"
-					: layoutStyles.title.fontSize
-			: layout === "hero"
-				? title.length > 18
-					? "78px"
-					: title.length > 12
-						? "84px"
-						: layoutStyles.title.fontSize
-			: layoutStyles.title.fontSize;
-	const resolvedDescriptionFontSize =
-		layout === "news" && descriptionText && descriptionText.length > 24
-			? "24px"
-			: layoutStyles.description.fontSize;
-	const resolvedTitleMaxWidth =
-		layout === "news"
-			? "700px"
-			: layout === "hero"
-				? "940px"
-				: "100%";
-	const titleBlock =
-		layout === "news" ? (
-			<h1
-				style={{
-					fontSize: resolvedTitleFontSize,
-					fontWeight: layoutStyles.title.fontWeight ?? "700",
-					color: colors.textColor,
-					lineHeight: "1.16",
-					letterSpacing: "-0.04em",
-					margin: 0,
-					marginBottom: layoutStyles.title.marginBottom,
-					maxWidth: resolvedTitleMaxWidth,
-				}}
-			>
-				{title}
-			</h1>
-		) : (
-			<div
-				style={{
-					marginBottom: layoutStyles.title.marginBottom,
-					display: "flex",
-					flexDirection: "column",
-					alignItems: layout === "hero" || layout === "centered" ? "center" : "flex-start",
-					gap: "0px",
-					width: "100%",
-					maxWidth: resolvedTitleMaxWidth,
-				}}
-			>
-				{titleLineItems.map(({ line, key }) => (
-					<div
-						key={key}
-						style={{
-							display: "block",
-							fontSize: resolvedTitleFontSize,
-							fontWeight: layoutStyles.title.fontWeight ?? "700",
-							color: colors.textColor,
-							lineHeight: layoutStyles.title.lineHeight ?? "1.2",
-							letterSpacing: layoutStyles.title.letterSpacing ?? "-0.02em",
-							margin: 0,
-						}}
-					>
-						{line}
-					</div>
-				))}
-			</div>
-		);
+	const colors = getThemeColors(theme);
+	const scale = Math.min(width / 1200, height / 630);
+	const px = (value: number) => value * scale;
+	const contentWidth = 1088;
+	const largeHeading = fitText(title, contentWidth, [72], 2);
+	const heading =
+		largeHeading.lines.length <= 1
+			? largeHeading
+			: fitText(title, contentWidth, [64, 56, 48], 2);
+	const summary = fitText(description ?? "", contentWidth, [26], 2);
+	const hasDraw =
+		numbers?.length === 6 &&
+		new Set(numbers).size === 6 &&
+		numbers.every((n) => Number.isInteger(n) && n >= 1 && n <= 45);
+	const drawNumbers = hasDraw ? numbers : [];
+	const hasBonus =
+		hasDraw &&
+		bonusNumber !== undefined &&
+		Number.isInteger(bonusNumber) &&
+		bonusNumber >= 1 &&
+		bonusNumber <= 45 &&
+		!drawNumbers.includes(bonusNumber);
+	const balls = hasDraw
+		? drawNumbers.map((number) => ({ number, label: String(number) }))
+		: LOTTO_RANGES.map((range) => ({
+				number: range.from,
+				label: `${range.from}–${range.to}`,
+			}));
+	const section =
+		fitText(
+			badgeText || (layout === "news" ? "회차별 소식" : "로또 6/45"),
+			320,
+			[22],
+			1,
+		).lines[0] ?? "";
+	const meta = fitText(metaText ?? "", 320, [22], 1).lines[0] ?? "";
+	const footer =
+		fitText(
+			highlightText ||
+				(hasDraw
+					? "로또 6/45 · 당첨번호 확인"
+					: "당첨 결과 · QR 확인 · 번호 통계"),
+			700,
+			[20],
+			1,
+		).lines[0] ?? "";
 
 	return (
 		<div
 			style={{
 				display: "flex",
-				flexDirection: "column",
 				width: "100%",
 				height: "100%",
-				position: "relative",
-				fontFamily: "Arial, sans-serif",
 				backgroundColor: colors.backgroundColor,
-				padding: layoutStyles.container.padding,
-				justifyContent: layoutStyles.container.justifyContent,
-				alignItems: layoutStyles.container.alignItems,
-				overflow: "hidden",
+				justifyContent: "center",
+				alignItems: "center",
+				fontFamily: "Pretendard",
+				color: colors.textColor,
 			}}
 		>
-			<Background
-				backgroundColor={colors.backgroundColor}
-				backgroundImage={backgroundImage}
-				gradientBackground={gradientBackground}
-			/>
-
 			<div
 				style={{
 					display: "flex",
 					flexDirection: "column",
-					gap: "20px",
-					maxWidth: layoutStyles.content.maxWidth,
-					textAlign: layoutStyles.content.textAlign,
+					width: px(1200),
+					height: px(630),
 					position: "relative",
-					width: "100%",
+					padding: px(56),
+					overflow: "hidden",
 				}}
 			>
-				{logo && (
-					<div
-						style={{
-							display: "flex",
-							alignItems: "center",
-							marginBottom: "40px",
-						}}
-					>
-						<img
-							src={logo}
-							alt="Logo"
+				<div
+					style={{
+						display: "flex",
+						position: "absolute",
+						left: 0,
+						top: 0,
+						width: "100%",
+						height: px(8),
+					}}
+				>
+					{LOTTO_RANGES.map((range) => (
+						<div
+							key={range.from}
 							style={{
-								width: "60px",
-								height: "60px",
-								borderRadius: "8px",
+								display: "flex",
+								width: "20%",
+								height: "100%",
+								backgroundColor: theme === "dark" ? range.darkInk : range.ink,
 							}}
 						/>
-					</div>
-				)}
-
-				{layout === "news" ? (
+					))}
+				</div>
+				<div
+					style={{
+						display: "flex",
+						alignItems: "center",
+						justifyContent: "space-between",
+						height: px(81),
+						paddingBottom: px(24),
+						borderBottom: `${px(1)}px solid ${colors.borderColor}`,
+						flexShrink: 0,
+					}}
+				>
 					<div
 						style={{
 							display: "flex",
-							flexDirection: "column",
-							gap: "30px",
-							width: "100%",
+							fontSize: px(46),
+							fontWeight: 700,
+							letterSpacing: px(-2),
+							color: colors.textColor,
 						}}
 					>
-						{hasNewsMeta && (
-							<div
-								style={{
-									display: "flex",
-									justifyContent: "space-between",
-									alignItems: "center",
-									gap: "20px",
-								}}
-							>
+						645<span style={{ color: colors.accentColor }}>.live</span>
+					</div>
+					<div
+						style={{
+							display: "flex",
+							gap: px(20),
+							alignItems: "center",
+							fontSize: px(22),
+							color: colors.mutedColor,
+						}}
+					>
+						<span>{section}</span>
+						{meta && <span style={{ color: colors.mutedColor }}>{meta}</span>}
+					</div>
+				</div>
+				<div
+					style={{
+						display: "flex",
+						flexDirection: "column",
+						position: "absolute",
+						top: px(171),
+						left: px(56),
+						width: px(contentWidth),
+					}}
+				>
+					{heading.lines.map((line, index) => (
+						<div
+							key={heading.lines.slice(0, index + 1).join("\n")}
+							style={{
+								display: "flex",
+								fontSize: px(heading.fontSize),
+								fontWeight: 700,
+								lineHeight: 1.16,
+								letterSpacing: px(-1.6),
+							}}
+						>
+							{line}
+						</div>
+					))}
+					{summary.lines.length > 0 && (
+						<div
+							style={{
+								display: "flex",
+								flexDirection: "column",
+								marginTop: px(18),
+								color: colors.mutedColor,
+							}}
+						>
+							{summary.lines.map((line, index) => (
 								<div
+									key={summary.lines.slice(0, index + 1).join("\n")}
 									style={{
 										display: "flex",
-										alignItems: "center",
-										gap: "14px",
+										fontSize: px(summary.fontSize),
+										lineHeight: 1.4,
 									}}
 								>
-									{badgeText && (
-										<div
-											style={{
-												display: "flex",
-												alignItems: "center",
-												padding: "12px 22px",
-												borderRadius: "999px",
-												backgroundColor: newsAccent,
-												color: "#08111f",
-												fontSize: "24px",
-												fontWeight: "800",
-												letterSpacing: "-0.03em",
-											}}
-										>
-											{badgeText}
-										</div>
-									)}
+									{line}
 								</div>
-								{metaText && (
-									<div
-										style={{
-											fontSize: "21px",
-											color: colors.textColor,
-											opacity: 0.82,
-											textAlign: "right",
-										}}
-									>
-										{metaText}
-									</div>
-								)}
+							))}
+						</div>
+					)}
+				</div>
+				<div
+					style={{
+						display: "flex",
+						alignItems: "center",
+						position: "absolute",
+						left: px(56),
+						bottom: px(115),
+						gap: px(18),
+						width: px(contentWidth),
+					}}
+				>
+					{balls.map(({ number, label }) => {
+						const ball = getBallColors(number, theme);
+						return (
+							<div
+								key={number}
+								style={{
+									display: "flex",
+									alignItems: "center",
+									justifyContent: "center",
+									width: px(88),
+									height: px(88),
+									borderRadius: "50%",
+									backgroundColor: ball.background,
+									color: ball.color,
+									fontSize: px(hasDraw ? 36 : 25),
+									fontWeight: 700,
+									flexShrink: 0,
+								}}
+							>
+								{label}
 							</div>
-						)}
-
+						);
+					})}
+					{hasBonus && (
+						<>
 							<div
 								style={{
 									display: "flex",
-									justifyContent: "space-between",
-									alignItems: "stretch",
-									gap: "34px",
-									width: "100%",
+									alignItems: "center",
+									justifyContent: "center",
+									width: px(32),
+									height: px(88),
+									fontSize: px(32),
+									color: colors.mutedColor,
+									marginLeft: px(4),
+									marginRight: px(4),
 								}}
 							>
-									<div
-										style={{
-											display: "flex",
-											flexDirection: "column",
-											justifyContent: "space-between",
-											gap: "24px",
-											flex: "1 1 auto",
-											maxWidth: "62%",
-										}}
-									>
-										{titleBlock}
-
-									{descriptionLines.length > 0 && (
-										<div
-											style={{
-												display: "flex",
-												flexDirection: "column",
-												gap: "10px",
-												padding: "24px 28px",
-												borderRadius: "28px",
-												backgroundColor:
-													theme === "dark"
-														? "rgba(8,17,31,0.64)"
-														: "rgba(255,255,255,0.92)",
-												border:
-													theme === "dark"
-														? "1px solid rgba(148,163,184,0.18)"
-														: "1px solid rgba(15,23,42,0.08)",
-											}}
-										>
-											{descriptionLineItems.map(({ line, key }) => (
-												<p
-													key={key}
-													style={{
-													fontSize: resolvedDescriptionFontSize,
-														color: colors.textColor,
-													opacity: "0.96",
-														margin: 0,
-													lineHeight:
-														layoutStyles.description.lineHeight ?? "1.38",
-												}}
-											>
-												{line}
-											</p>
-										))}
-									</div>
-								)}
+								+
 							</div>
-
 							<div
 								style={{
 									display: "flex",
 									flexDirection: "column",
-									justifyContent: "space-between",
-									gap: "18px",
-									width: "236px",
+									position: "relative",
 								}}
 							>
-								<div
-									style={{
-										display: "flex",
-										flexDirection: "column",
-										justifyContent: "space-between",
-										padding: "26px 24px",
-										borderRadius: "32px",
-										background:
-											theme === "dark"
-												? "rgba(7, 12, 24, 0.78)"
-												: "rgba(255,255,255,0.86)",
-										border:
-											theme === "dark"
-												? "1px solid rgba(148,163,184,0.22)"
-												: "1px solid rgba(15,23,42,0.08)",
-										minHeight: "252px",
-									}}
-								>
-									<div
-										style={{
-											fontSize: "18px",
-											color: colors.textColor,
-											opacity: 0.64,
-											textTransform: "uppercase",
-											letterSpacing: "0.18em",
-										}}
-									>
-										Lotto News
-									</div>
-									<div
-										style={{
-											fontSize: "88px",
-											fontWeight: "800",
-											lineHeight: "0.95",
-											letterSpacing: "-0.05em",
-											color: colors.textColor,
-										}}
-									>
-										{badgeText?.includes("회")
-											? badgeText.replace(/[^\d]/g, "") || "645"
-											: "645"}
-									</div>
-									<div
-										style={{
-											fontSize: "24px",
-											color: colors.textColor,
-											opacity: 0.76,
-										}}
-									>
-										{badgeText || "뉴스 브리프"}
-									</div>
-								</div>
-
 								<div
 									style={{
 										display: "flex",
 										alignItems: "center",
-										gap: "12px",
-										padding: "16px 18px",
-										borderRadius: "24px",
-										backgroundColor:
-											theme === "dark"
-												? "rgba(8,17,31,0.72)"
-												: "rgba(255,255,255,0.84)",
-										border:
-											theme === "dark"
-												? "1px solid rgba(148,163,184,0.18)"
-												: "1px solid rgba(15,23,42,0.08)",
+										justifyContent: "center",
+										width: px(88),
+										height: px(88),
+										borderRadius: "50%",
+										backgroundColor: getBallColors(bonusNumber, theme)
+											.background,
+										color: getBallColors(bonusNumber, theme).color,
+										fontSize: px(36),
+										fontWeight: 700,
 									}}
 								>
-									<div
-										style={{
-											width: "12px",
-											height: "12px",
-											borderRadius: "999px",
-											backgroundColor: newsAccent,
-										}}
-									/>
-									<div
-										style={{
-											fontSize: "19px",
-											color: colors.textColor,
-											opacity: 0.9,
-										}}
-									>
-										{highlightText || "당첨 흐름 요약"}
-									</div>
+									{bonusNumber}
 								</div>
+								<span
+									style={{
+										position: "absolute",
+										top: px(94),
+										width: "100%",
+										textAlign: "center",
+										fontSize: px(15),
+										lineHeight: 1,
+										color: colors.mutedColor,
+									}}
+								>
+									보너스
+								</span>
 							</div>
-						</div>
-					</div>
-				) : (
-					<>
-						{titleBlock}
-
-						{descriptionText && (
-							<p
-								style={{
-									fontSize: layoutStyles.description.fontSize,
-									color: colors.textColor,
-									opacity: layoutStyles.description.opacity ?? "0.84",
-									margin: 0,
-									lineHeight: layoutStyles.description.lineHeight ?? "1.4",
-								}}
-							>
-								{descriptionText}
-							</p>
-						)}
-					</>
-				)}
+						</>
+					)}
+					{!hasDraw && (
+						<span
+							style={{
+								display: "flex",
+								marginLeft: px(12),
+								color: colors.mutedColor,
+								fontSize: px(24),
+							}}
+						>
+							1–45 번호별 통계
+						</span>
+					)}
+				</div>
+				<div
+					style={{
+						display: "flex",
+						position: "absolute",
+						bottom: px(40),
+						left: px(56),
+						width: px(contentWidth),
+						paddingTop: px(20),
+						borderTop: `${px(1)}px solid ${colors.borderColor}`,
+						justifyContent: "space-between",
+						alignItems: "center",
+						fontSize: px(20),
+						color: colors.mutedColor,
+					}}
+				>
+					<span>{footer}</span>
+					<span style={{ color: colors.accentColor, fontWeight: 700 }}>
+						645.live에서 확인하세요 →
+					</span>
+				</div>
 			</div>
-
-			{layout !== "news" && (
-				<Brand accentColor={colors.accentColor} textColor={colors.textColor} />
-			)}
 		</div>
 	);
 };

@@ -29,7 +29,7 @@ export const GET: RequestHandler = async ({ platform, url, params }) => {
 	const highlight = url.searchParams.get("highlight") || undefined;
 	const round =
 		url.searchParams.get("round") || params.slug.replace(/[^0-9]/g, "");
-	const theme = url.searchParams.get("theme") || "news";
+	const theme = url.searchParams.get("theme") || "light";
 	const format = url.searchParams.get("format") || "png";
 
 	if (!platform?.env?.OG_645_LIVE) {

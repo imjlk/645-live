@@ -1,7 +1,7 @@
 const PUBLIC_OG_WORKER_ORIGIN = "https://og-645-live.645.workers.dev";
 const SERVICE_BINDING_RETRY_DELAY_MS = 120;
 
-export const PAGES_OG_PROXY_VERSION = "2026-03-25-3";
+export const PAGES_OG_PROXY_VERSION = "2026-09-12-1";
 
 export type OgUpstreamMode = "binding" | "public";
 export type OgWorkerBinding = Pick<Env["OG_645_LIVE"], "fetch">;
@@ -125,6 +125,8 @@ export async function createProxiedImageResponse(
 		"x-og-cache-key",
 		"x-og-source",
 		"x-cache",
+		"x-og-design-version",
+		"x-content-type-options",
 	]) {
 		const value = upstream.headers.get(name);
 		if (value) {

@@ -7,7 +7,6 @@ export interface CacheConfig {
 }
 
 const CACHE_NAME = "og-images";
-const NEWS_PATH_PREFIX = "/news/";
 const DEFAULT_STALE_WHILE_REVALIDATE = 604800;
 
 const buildCacheRequest = (cacheKey: string) =>
@@ -39,10 +38,6 @@ const ensureOgHeaders = (
 	}
 };
 
-function isNewsPath(url: string): boolean {
-	return new URL(url).pathname.startsWith(NEWS_PATH_PREFIX);
-}
-
 function getCachedAt(headers: Headers): number | null {
 	const cachedAt = headers.get("X-OG-Cached-At");
 	if (!cachedAt) {
@@ -67,15 +62,8 @@ export const createCacheKey = async (
 	prefix = "og-image",
 ): Promise<string> => {
 	const normalizedUrl = new URL(url);
-	const params = new URLSearchParams();
-
-	for (const [key, value] of normalizedUrl.searchParams) {
-		try {
-			params.set(key, decodeURIComponent(value));
-		} catch {
-			params.set(key, value);
-		}
-	}
+	const params = new URLSearchParams(normalizedUrl.searchParams);
+	params.sort();
 
 	const normalizedUrlString = `${normalizedUrl.pathname}?${params.toString()}`;
 	const encoder = new TextEncoder();
@@ -94,7 +82,7 @@ export const getCacheConfig = (c: Context): CacheConfig => {
 	return {
 		enabled: env.CACHE_ENABLED === "true",
 		maxAge: Number.parseInt(env.CACHE_MAX_AGE || "10800", 10),
-		keyPrefix: env.CACHE_KEY_PREFIX || "og-news-v1",
+		keyPrefix: env.CACHE_KEY_PREFIX || "og-balls-v1",
 	};
 };
 
@@ -167,7 +155,10 @@ export const storeInCache = async (
 
 export const cacheMiddleware = () => {
 	return async (c: Context, next: Next) => {
-		if (!isNewsPath(c.req.url)) {
+		if (
+			c.req.method !== "GET" ||
+			new URL(c.req.url).searchParams.get("format") === "svg"
+		) {
 			return next();
 		}
 
@@ -227,7 +218,7 @@ export const cacheMiddleware = () => {
 				"ExecutionContext.waitUntil unavailable, writing cache inline:",
 				error,
 			);
-			void cacheWrite;
+			await cacheWrite;
 		}
 
 		return c.res;

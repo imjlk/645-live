@@ -1,14 +1,11 @@
-import {
-	type CustomLayoutOptions,
-	OGImage,
-	validateOGImageOptions,
-} from "@645/og-image-core";
-import { ImageResponse } from "@cf-wasm/og";
+import { validateOGImageOptions } from "@645/og-image-core";
 import type { Context } from "hono";
+import { renderOgImage } from "../lib/render.js";
+import { normalizeOgFormat, parseOgDimensions } from "../lib/request.js";
 
 export const handleGenerate = async (c: Context) => {
 	try {
-		const body = await c.req.json();
+		const body: unknown = await c.req.json().catch(() => null);
 
 		if (!validateOGImageOptions(body)) {
 			return c.json(
@@ -17,22 +14,21 @@ export const handleGenerate = async (c: Context) => {
 			);
 		}
 
-		const options = body as CustomLayoutOptions;
-		const format = (options.format as "png" | "svg") || "png";
-
-		// Determine content type based on format
-		const contentType = format === "svg" ? "image/svg+xml" : "image/png";
-
-		const response = new ImageResponse(<OGImage {...options} />, {
-			width: options.width || 1200,
-			height: options.height || 630,
-			format,
-			headers: {
-				"Content-Type": contentType,
-				"Cache-Control": "public, max-age=86400",
+		const dimensions = parseOgDimensions(
+			new URLSearchParams({
+				width: String(body.width ?? 1200),
+				height: String(body.height ?? 630),
+			}),
+		);
+		const response = await renderOgImage(
+			{
+				...body,
+				...dimensions,
+				format: normalizeOgFormat(body.format ?? null),
 			},
-		});
-
+			"custom-generated",
+		);
+		response.headers.set("Cache-Control", "no-store");
 		return response;
 	} catch (error) {
 		console.error("Error generating OG image:", error);

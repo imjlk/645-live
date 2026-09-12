@@ -1,230 +1,55 @@
-import { OGImage, pathToTitle } from "@645/og-image-core";
-import { ImageResponse } from "@cf-wasm/og";
 import type { Context } from "hono";
+import { renderOgImage } from "../lib/render.js";
 import {
-	DEFAULT_OG_FORMAT,
 	normalizeOgFormat,
 	normalizeOgTheme,
-	parseIntWithRange,
+	parseDrawNumbers,
+	parseOgDimensions,
+	readOgText,
 } from "../lib/request.js";
-
-const NEWS_GRADIENTS = [
-	["#0f172a", "#1d4ed8", "#38bdf8"],
-	["#1e293b", "#7c3aed", "#a78bfa"],
-	["#111827", "#059669", "#34d399"],
-	["#1f2937", "#b45309", "#f59e0b"],
-];
-
-function safeDecode(value: string | null): string | undefined {
-	if (!value) {
-		return undefined;
-	}
-
-	try {
-		return decodeURIComponent(value).trim();
-	} catch {
-		return value.trim();
-	}
-}
-
-function parseRoundFromPath(path: string): string | undefined {
-	const match = path.match(/(?:^|\/|-)lotto-(\d{3,5})(?:$|[/.])/i);
-	if (match?.[1]) {
-		return match[1];
-	}
-
-	const fallback = path.match(/(?:^|\/|-)(\d{3,5})(?:$|[/.])/);
-	return fallback?.[1];
-}
-
-function parseNumbers(raw: string | undefined): number[] {
-	if (!raw) {
-		return [];
-	}
-
-	return raw
-		.split(/[, ]+/)
-		.map((v) => Number.parseInt(v.trim(), 10))
-		.filter((v) => Number.isInteger(v) && v >= 1 && v <= 45)
-		.slice(0, 6);
-}
-
-function normalizeRound(
-	path: string,
-	roundQuery: string | null,
-): string | undefined {
-	const queryRound = roundQuery?.trim();
-	if (queryRound && /^\d{3,5}$/.test(queryRound)) {
-		return queryRound;
-	}
-	return parseRoundFromPath(path);
-}
-
-function pickGradient(round: string | undefined): string[] {
-	if (!round) {
-		return NEWS_GRADIENTS[0];
-	}
-	const idx = Number.parseInt(round, 10) % NEWS_GRADIENTS.length;
-	return NEWS_GRADIENTS[idx];
-}
-
-function buildTitle(
-	path: string,
-	rawTitle: string | undefined,
-	round: string | undefined,
-): string {
-	const baseTitle = rawTitle || pathToTitle(path) || "로또 뉴스";
-	if (round && !baseTitle.includes(round)) {
-		return `제${round}회 로또 ${baseTitle}`;
-	}
-	return baseTitle;
-}
-
-function buildDescription(params: {
-	rawDescription: string | undefined;
-	round: string | undefined;
-	winnerCount: string | undefined;
-	firstPrize: string | undefined;
-	numbers: number[];
-	bonus: number | null;
-}): string {
-	if (params.rawDescription) {
-		return params.rawDescription;
-	}
-
-	const chunks: string[] = [];
-	if (params.round) {
-		chunks.push(`제${params.round}회`);
-	}
-
-	if (params.numbers.length === 6) {
-		const numbersText = params.numbers.join(", ");
-		const bonusText = params.bonus ? ` + ${params.bonus}` : "";
-		chunks.push(`당첨번호 ${numbersText}${bonusText}`);
-	}
-
-	if (params.winnerCount) {
-		chunks.push(`1등 ${params.winnerCount}명`);
-	}
-
-	if (params.firstPrize) {
-		chunks.push(`1인당 ${params.firstPrize}`);
-	}
-
-	if (chunks.length === 0) {
-		return "로또 당첨 결과 분석과 통계 정보";
-	}
-
-	return `${chunks.join(" · ")} 분석`;
-}
-
-function formatMetaDate(value: string): string {
-	const trimmed = value.trim();
-	if (!trimmed) {
-		return "최신 업데이트";
-	}
-
-	if (trimmed.includes("T")) {
-		return trimmed.split("T")[0] ?? trimmed;
-	}
-
-	return trimmed;
-}
 
 export const handleNews = async (c: Context) => {
 	try {
 		const url = new URL(c.req.url);
-		const path = url.pathname;
-
-		const rawTitle = safeDecode(url.searchParams.get("title"));
-		const rawDescription = safeDecode(url.searchParams.get("description"));
-		const round = normalizeRound(path, url.searchParams.get("round"));
-		const category = safeDecode(url.searchParams.get("category")) || "로또분석";
-		const date = safeDecode(url.searchParams.get("date")) || "최신 업데이트";
-		const highlight = safeDecode(url.searchParams.get("highlight"));
-		const winnerCount = safeDecode(url.searchParams.get("winnerCount"));
-		const firstPrize = safeDecode(url.searchParams.get("firstPrize"));
-		const numbers = parseNumbers(safeDecode(url.searchParams.get("numbers")));
-		const bonus = Number.parseInt(url.searchParams.get("bonus") ?? "", 10);
+		const params = url.searchParams;
+		const rawRound =
+			params.get("round") ||
+			url.pathname.match(/(?:lotto-|\/)(\d{1,5})(?:$|[/.])/)?.[1];
+		const round =
+			rawRound && /^\d{1,5}$/.test(rawRound) && Number(rawRound) > 0
+				? Number(rawRound)
+				: undefined;
+		const title =
+			readOgText(params, "title", 160) ||
+			(round ? `제${round}회 로또 당첨 결과` : "회차별 로또 소식");
+		const description =
+			readOgText(params, "description") ||
+			"당첨 결과와 번호 통계, 지역별 당첨 판매점을 확인하세요.";
+		const numbers = parseDrawNumbers(params.get("numbers"));
+		const rawBonus = params.get("bonus");
 		const bonusNumber =
-			Number.isInteger(bonus) && bonus >= 1 && bonus <= 45 ? bonus : null;
-
-		const title = buildTitle(path, rawTitle, round);
-		const description = buildDescription({
-			rawDescription,
-			round,
-			winnerCount,
-			firstPrize,
-			numbers,
-			bonus: bonusNumber,
-		});
-
-		const theme = normalizeOgTheme(url.searchParams.get("theme"));
-		const width = parseIntWithRange(
-			url.searchParams.get("width"),
-			1200,
-			800,
-			2400,
-		);
-		const height = parseIntWithRange(
-			url.searchParams.get("height"),
-			630,
-			418,
-			1260,
-		);
-		const format = normalizeOgFormat(
-			url.searchParams.get("format") ?? DEFAULT_OG_FORMAT,
-		);
-		const cacheControl =
-			format === "png"
-				? "public, max-age=10800, stale-while-revalidate=604800"
-				: "no-store";
-
-		const layout = "news";
-		const contentType = format === "svg" ? "image/svg+xml" : "image/png";
-		const gradientColors = pickGradient(round);
-
-		const customOptions = {
-			backgroundImage: url.searchParams.get("backgroundImage") || undefined,
-			logo: url.searchParams.get("logo") || undefined,
-			badgeText: round ? `제${round}회` : category,
-			metaText: formatMetaDate(date),
-			highlightText: highlight || category,
-			gradientBackground: {
-				type: "linear" as const,
-				colors: gradientColors,
-				direction: "135deg",
-			},
-			brandColors: {
-				backgroundColor: theme === "dark" ? "#0f172a" : "#f8fafc",
-				textColor: theme === "dark" ? "#e2e8f0" : "#0f172a",
-				accentColor: gradientColors[1],
-			},
-		};
-
-		const response = new ImageResponse(
-			<OGImage
-				title={title}
-				description={description}
-				theme={theme}
-				layout={layout}
-				width={width}
-				height={height}
-				{...customOptions}
-			/>,
+			rawBonus && /^\d{1,2}$/.test(rawBonus) ? Number(rawBonus) : undefined;
+		const date = readOgText(params, "date", 28)?.split("T")[0];
+		return await renderOgImage(
 			{
-				width,
-				height,
-				format,
-				headers: {
-					"Content-Type": contentType,
-					"Cache-Control": cacheControl,
-					"X-OG-Source": "news-generated",
-				},
+				title,
+				description,
+				numbers,
+				bonusNumber,
+				...parseOgDimensions(params),
+				format: normalizeOgFormat(params.get("format")),
+				theme: normalizeOgTheme(params.get("theme")),
+				layout: "news",
+				badgeText: round
+					? `제${round}회`
+					: readOgText(params, "category", 24) || "회차별 소식",
+				metaText: date,
+				highlightText:
+					readOgText(params, "highlight", 48) ||
+					"회차별 소식 · 당첨 결과와 판매점",
 			},
+			"news-generated",
 		);
-
-		return response;
 	} catch (error) {
 		console.error("Error generating news OG image:", error);
 		return c.json({ error: "Failed to generate news OG image" }, 500);
