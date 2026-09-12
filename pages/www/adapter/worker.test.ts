@@ -80,4 +80,56 @@ describe("Pages static boundary", () => {
 		expect(routing.exclude).toContain("/stats/ac/recent/10");
 		expect(routing.exclude).not.toContain("/");
 	});
+	test.each([
+		"/winning-stores",
+		"/history",
+		"/news",
+	])("client navigation to %s reaches the server data endpoint", (id) => {
+		const routing = runtimeRouting(
+			[{ id, prerender: false, page: { methods: ["GET"] } }],
+			[],
+		);
+		expect(routing.include).toContain(`${id}/__data.json`);
+		expect(routing.include).toContain(id);
+		expect(routing.include).toContain(`${id}/`);
+		expect(routing.include).not.toContain(`${id}/*`);
+		expect(routing.exclude).not.toContain(`${id}/__data.json`);
+	});
+	test("only runtime page data adds function rules, including grouped and root pages", () => {
+		const routing = runtimeRouting(
+			[
+				{ id: "/", prerender: false, page: { methods: ["GET"] } },
+				{
+					id: "/(public)/winning-stores",
+					prerender: false,
+					page: { methods: ["GET"] },
+				},
+				{ id: "/report.html", prerender: false, page: { methods: ["GET"] } },
+				{ id: "/docs", prerender: "auto", page: { methods: ["GET"] } },
+				{ id: "/my", prerender: true, page: { methods: ["GET"] } },
+				{
+					id: "/feed.xml",
+					prerender: false,
+					page: { methods: [] },
+					api: { methods: ["GET"] },
+				},
+				{
+					id: "/stats/ac/recent/[rounds]",
+					prerender: "auto",
+					page: { methods: ["GET"] },
+				},
+			],
+			["/docs", "/docs/__data.json", "/my", "/my/__data.json"],
+		);
+		expect(routing.include).toContain("/__data.json");
+		expect(routing.include).toContain("/winning-stores/__data.json");
+		expect(routing.include).toContain("/report.html__data.json");
+		expect(routing.include).not.toContain("/docs/__data.json");
+		expect(routing.include).not.toContain("/my/__data.json");
+		expect(routing.include).not.toContain("/feed.xml/__data.json");
+		expect(routing.include).toContain("/stats/ac/recent/*");
+		expect(routing.include).not.toContain(
+			"/stats/ac/recent/[rounds]/__data.json",
+		);
+	});
 });

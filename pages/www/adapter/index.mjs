@@ -18,6 +18,13 @@ export function runtimeRouting(routes, prerenderedPaths) {
 		else {
 			rules.add(id);
 			if (id !== "/") rules.add(`${id}/`);
+			// Client navigation requests server load data separately from the HTML.
+			if (route.page?.methods.includes("GET")) {
+				const dataPath = id.endsWith(".html")
+					? `${id}__data.json`
+					: `${id.replace(/\/$/, "")}/__data.json`;
+				if (!prerenderedPaths.includes(dataPath)) rules.add(dataPath);
+			}
 		}
 	}
 	const include = [...rules].filter(

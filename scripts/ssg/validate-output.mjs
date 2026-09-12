@@ -71,6 +71,15 @@ const routing = JSON.parse(
 );
 if (routing.include.length + routing.exclude.length > 100)
 	throw new Error("Cloudflare routing limit exceeded");
+for (const path of ["/winning-stores", "/history", "/news"]) {
+	const dataPath = `${path}/__data.json`;
+	const matches = (rule) =>
+		rule.endsWith("*")
+			? dataPath.startsWith(rule.slice(0, -1))
+			: dataPath === rule;
+	if (!routing.include.some(matches) || routing.exclude.some(matches))
+		throw new Error(`Client navigation cannot reach server data: ${dataPath}`);
+}
 console.log(
 	`[ssg] Validated ${html.length} static HTML files and ${checked} data payloads against published round ${revision.latestRound}`,
 );
