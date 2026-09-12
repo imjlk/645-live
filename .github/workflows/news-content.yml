@@ -38,7 +38,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: lotto-news-content
+  group: lotto-public-content
   cancel-in-progress: false
 
 jobs:
@@ -63,7 +63,8 @@ jobs:
           INPUT_USE_AI: ${{ github.event.inputs.use_ai || 'true' }}
           ZAI_API_KEY: ${{ secrets.ZAI_API_KEY }}
           ZAI_BASE_URL: ${{ vars.ZAI_BASE_URL }}
-          ZAI_MODEL: ${{ vars.ZAI_MODEL }}
+          ZAI_MODEL: ${{ vars.ZAI_MODEL || 'glm-5.3' }}
+          ZAI_REASONING_EFFORT: ${{ vars.ZAI_REASONING_EFFORT || 'low' }}
           NEWS_SCHEDULE_LOOKBACK_ROUNDS: ${{ vars.NEWS_SCHEDULE_LOOKBACK_ROUNDS || '10' }}
           NEWS_SCHEDULE_USE_AI: ${{ vars.NEWS_SCHEDULE_USE_AI || 'true' }}
           NEWS_SCHEDULE_MAX_GENERATE_ROUNDS: ${{ vars.NEWS_SCHEDULE_MAX_GENERATE_ROUNDS || '10' }}
