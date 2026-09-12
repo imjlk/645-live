@@ -101,9 +101,15 @@ async function main() {
 			"../../pages/www/src/lib/generated/public-data-revision.json",
 			import.meta.url,
 		);
-		const next = `${JSON.stringify(revision, null, 2)}\n`;
+		const next = `${JSON.stringify(revision, null, "\t")}\n`;
 		const previous = await readFile(filename, "utf8").catch(() => "");
-		if (next !== previous) {
+		let previousRevision;
+		try {
+			previousRevision = JSON.parse(previous);
+		} catch {
+			/* First run or invalid revision file. */
+		}
+		if (JSON.stringify(revision) !== JSON.stringify(previousRevision)) {
 			await mkdir(new URL(".", filename), { recursive: true });
 			await writeFile(filename, next);
 			console.log(
