@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
+import { OG_DESIGN_VERSION } from "../../config/og.mjs";
 
 const REPO_ROOT = process.cwd();
 const NEWS_DIR = path.join(REPO_ROOT, "pages/www/src/content/news");
@@ -10,7 +11,10 @@ const SITE_BASE_URL = normalizeBaseUrl(
 );
 const CHANGED_NEWS_FILES = parseCsv(process.env.CHANGED_NEWS_FILES || "");
 const PREWARM_MAX_NEWS = safePositiveInt(process.env.PREWARM_MAX_NEWS, 10);
-const PREWARM_TIMEOUT_MS = safePositiveInt(process.env.PREWARM_TIMEOUT_MS, 15000);
+const PREWARM_TIMEOUT_MS = safePositiveInt(
+	process.env.PREWARM_TIMEOUT_MS,
+	15000,
+);
 const PREWARM_RETRY_ROUNDS = safePositiveInt(
 	process.env.PREWARM_RETRY_ROUNDS,
 	8,
@@ -23,7 +27,7 @@ const PREWARM_USER_AGENT =
 	process.env.PREWARM_USER_AGENT ||
 	"Mozilla/5.0 (compatible; 645live-prewarm/1.0; +https://645.live)";
 const NEWS_OG_CACHE_BUSTER =
-	process.env.NEWS_OG_CACHE_BUSTER || "2026-03-25-2";
+	process.env.NEWS_OG_CACHE_BUSTER || OG_DESIGN_VERSION;
 
 function normalizeBaseUrl(raw) {
 	try {
@@ -86,7 +90,8 @@ async function readNewsVersion(slug) {
 		const source = await fs.readFile(filePath, "utf8");
 		const updatedAt =
 			source.match(/^updatedAt:\s*["']?([^"'\n]+)["']?/m)?.[1] || undefined;
-		const date = source.match(/^date:\s*["']?([^"'\n]+)["']?/m)?.[1] || undefined;
+		const date =
+			source.match(/^date:\s*["']?([^"'\n]+)["']?/m)?.[1] || undefined;
 		return updatedAt || date || undefined;
 	} catch {
 		return undefined;
@@ -141,7 +146,8 @@ async function fetchWithTimeout(url) {
 			method: "GET",
 			headers: {
 				"user-agent": PREWARM_USER_AGENT,
-				accept: "text/html,application/xhtml+xml,application/xml,image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
+				accept:
+					"text/html,application/xhtml+xml,application/xml,image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
 			},
 			signal: controller.signal,
 		});

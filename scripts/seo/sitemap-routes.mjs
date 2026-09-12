@@ -2,12 +2,24 @@ import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { OG_DESIGN_VERSION } from "../../config/og.mjs";
+
+/**
+ * @typedef {object} SitemapEntry
+ * @property {string} path
+ * @property {string} changefreq
+ * @property {string} priority
+ * @property {string} [source]
+ * @property {string} [lastmod]
+ * @property {string} [image]
+ * @property {string} [imageTitle]
+ */
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..");
 const WEB_ROOT = path.join(REPO_ROOT, "pages", "www");
 const NEWS_ROOT = path.join(WEB_ROOT, "src", "content", "news");
-const NEWS_OG_CACHE_BUSTER = "2026-09-12-1";
+const NEWS_OG_CACHE_BUSTER = OG_DESIGN_VERSION;
 const RECENT_ROUNDS = [10, 20, 50, 100];
 const RECENT_SECTIONS = [
 	"ac",
@@ -261,13 +273,15 @@ export function buildSitemapEntries() {
 		imageTitle: item.title || undefined,
 	}));
 
-	const entries = [
+	/** @type {SitemapEntry[]} */
+	const routeEntries = [
 		...staticEntries,
 		...liveNumberEntries,
 		...statsNumberEntries,
 		...statsRecentEntries,
 		...newsEntries,
-	]
+	];
+	const entries = routeEntries
 		.map((entry) => {
 			const sourcePath = entry.source
 				? path.join(WEB_ROOT, entry.source)

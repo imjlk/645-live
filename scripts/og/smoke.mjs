@@ -133,6 +133,12 @@ for (const body of [
 	'{"title":',
 	JSON.stringify({ title: "제목", description: false }),
 	JSON.stringify({ title: " " }),
+	JSON.stringify({
+		title: "로또",
+		numbers: [11, 13, 19, 20, 31, 44],
+		bonusNumber: 11,
+	}),
+	JSON.stringify({ title: "로또", bonusNumber: 27 }),
 ]) {
 	const response = await fetch(new URL("/generate", base), {
 		method: "POST",

@@ -9,9 +9,21 @@ import {
 	normalizeOgFormat,
 	normalizeOgLayout,
 	parseDrawNumbers,
+	parseNewsRound,
 	parseOgDimensions,
 	readOgText,
 } from "./request.js";
+
+describe("news rounds", () => {
+	it("prefers the lotto slug to date segments and falls back from invalid query rounds", () => {
+		for (const query of [null, "invalid", "202609121154", "0"])
+			expect(parseNewsRound("/news/2026/09/12/lotto-1154", query)).toBe(1154);
+		expect(parseNewsRound("/news/2026/09/12/1154", null)).toBe(1154);
+		expect(parseNewsRound("/news/lotto-1154", "1240")).toBe(1240);
+		expect(parseNewsRound("/news/LOTTO-1", null)).toBe(1);
+		expect(parseNewsRound("/news/latest", null)).toBeUndefined();
+	});
+});
 
 describe("OG query text", () => {
 	it("preserves percent signs and already-decoded query text", () => {

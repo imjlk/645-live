@@ -27,9 +27,11 @@
 
 GET PNG는 일반·뉴스 모두 Cache API로 3시간 재사용합니다. SVG와 POST 응답은 저장하지 않습니다. 캐시 키에는 경로와 정렬한 전체 쿼리가 포함되며, 중복 쿼리와 리터럴 `%`도 구별합니다.
 
-새 디자인 배포 시 `CACHE_KEY_PREFIX`, `X-OG-Design-Version`, 웹의 `NEWS_OG_CACHE_BUSTER` / `GENERIC_OG_CACHE_BUSTER`를 함께 갱신하세요. Pages 프록시는 디자인 버전 헤더를 전달합니다. 공유 서비스가 이미 저장한 미리보기의 재수집 시점은 해당 서비스에 따라 다릅니다.
+디자인 버전은 `config/og.mjs` 한 곳에서 관리하며 웹·워커·사이트맵·뉴스 생성·예열 스크립트가 함께 사용합니다. 새 디자인 배포 시 이 버전과 `CACHE_KEY_PREFIX`를 갱신하세요. Pages 프록시는 디자인 버전 헤더를 전달합니다. 공유 서비스가 이미 저장한 미리보기의 재수집 시점은 해당 서비스에 따라 다릅니다.
 
 ## 개발과 검증
+
+렌더러는 `@cf-wasm/satori 0.4.0`(Satori 0.29.0)과 `@cf-wasm/resvg 0.4.0`(resvg WASM 2.6.2)의 명시적인 `/workerd` 진입점을 사용합니다. `@cf-wasm/og 0.5.0`도 내부적으로 구형 `/legacy/workerd`(WASM 2.4.1)를 사용하므로, 최신 PNG 엔진을 사용하기 위해 Satori의 SVG 출력을 resvg로 직접 전달합니다. 폰트는 SVG 경로로 포함하며, PNG 생성 뒤 WASM 객체를 해제합니다.
 
 저장소 루트에서 실행합니다.
 

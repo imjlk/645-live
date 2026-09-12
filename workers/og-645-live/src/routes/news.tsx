@@ -4,6 +4,7 @@ import {
 	normalizeOgFormat,
 	normalizeOgTheme,
 	parseDrawNumbers,
+	parseNewsRound,
 	parseOgDimensions,
 	readOgText,
 } from "../lib/request.js";
@@ -12,13 +13,7 @@ export const handleNews = async (c: Context) => {
 	try {
 		const url = new URL(c.req.url);
 		const params = url.searchParams;
-		const rawRound =
-			params.get("round") ||
-			url.pathname.match(/(?:lotto-|\/)(\d{1,5})(?:$|[/.])/)?.[1];
-		const round =
-			rawRound && /^\d{1,5}$/.test(rawRound) && Number(rawRound) > 0
-				? Number(rawRound)
-				: undefined;
+		const round = parseNewsRound(url.pathname, params.get("round"));
 		const title =
 			readOgText(params, "title", 160) ||
 			(round ? `제${round}회 로또 당첨 결과` : "회차별 로또 소식");

@@ -115,3 +115,15 @@ export function parseDrawNumbers(raw: string | null): number[] | undefined {
 		? numbers
 		: undefined;
 }
+
+export function parseNewsRound(
+	pathname: string,
+	query: string | null,
+): number | undefined {
+	if (query && /^\d{1,5}$/.test(query) && Number(query) > 0)
+		return Number(query);
+	const matched =
+		pathname.match(/(?:^|\/|-)lotto-(\d{1,5})(?=$|[/.])/i)?.[1] ||
+		[...pathname.matchAll(/\/(\d{1,5})(?=$|[/.])/g)].at(-1)?.[1];
+	return matched && Number(matched) > 0 ? Number(matched) : undefined;
+}

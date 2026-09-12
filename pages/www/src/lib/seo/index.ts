@@ -1,3 +1,5 @@
+import { OG_DESIGN_VERSION } from "../../../../../config/og.mjs";
+
 export const SITE_ORIGIN = "https://645.live";
 export const SITE_NAME = "645.live";
 export const SITE_TWITTER = "@645live";
@@ -8,8 +10,8 @@ export const ABOUT_PATH = "/about";
 export const CONTACT_PATH = "/contact";
 export const EDITORIAL_POLICY_PATH = "/editorial-policy";
 export const DATA_SOURCES_PATH = "/data-sources";
-export const NEWS_OG_CACHE_BUSTER = "2026-09-12-balls-v1";
-export const GENERIC_OG_CACHE_BUSTER = "2026-09-12-balls-v1";
+export const NEWS_OG_CACHE_BUSTER = OG_DESIGN_VERSION;
+export const GENERIC_OG_CACHE_BUSTER = OG_DESIGN_VERSION;
 
 export function absoluteUrl(path: string): string {
 	return new URL(path, SITE_ORIGIN).toString();

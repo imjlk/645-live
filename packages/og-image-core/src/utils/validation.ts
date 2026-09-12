@@ -40,7 +40,9 @@ export const validateOGImageOptions = (
 		opts.bonusNumber !== undefined &&
 		(!Number.isInteger(opts.bonusNumber) ||
 			Number(opts.bonusNumber) < 1 ||
-			Number(opts.bonusNumber) > 45)
+			Number(opts.bonusNumber) > 45 ||
+			!Array.isArray(opts.numbers) ||
+			opts.numbers.includes(opts.bonusNumber))
 	)
 		return false;
 	if (

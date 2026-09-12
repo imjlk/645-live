@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
+import { OG_DESIGN_VERSION } from "../../config/og.mjs";
 
 const REPO_ROOT = process.cwd();
 const NEWS_DIR = path.join(REPO_ROOT, "pages/www/src/content/news");
@@ -2266,7 +2267,7 @@ function renderMdx(draw, analysis, payload, metadata = {}) {
 	const drawDate = formatDate(draw.draw_date);
 	const publishedAt = metadata.publishedAt || `${drawDate}T21:21:00+09:00`;
 	const updatedAt = metadata.updatedAt || publishedAt;
-	const ogCacheBuster = "2026-09-12-1";
+	const ogCacheBuster = OG_DESIGN_VERSION;
 	const finalTitle = normalizeLine(payload.title, `제${round}회 로또 분석`);
 	const copy = normalizePayloadDescriptions(payload, {
 		...payload,

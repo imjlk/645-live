@@ -1,10 +1,23 @@
 import { expect, test } from "bun:test";
+import { buildSitemapEntries } from "../../../../../scripts/seo/sitemap-routes.mjs";
 import {
 	GENERIC_OG_CACHE_BUSTER,
 	getCanonicalNewsOgUrl,
 	getGenericOgUrl,
 	NEWS_OG_CACHE_BUSTER,
 } from "./index.js";
+
+test("sitemap images use the same revision as canonical page metadata", () => {
+	const news = buildSitemapEntries().flatMap((entry) =>
+		entry.image ? [entry.image] : [],
+	);
+	expect(news.length).toBeGreaterThan(0);
+	for (const image of news) {
+		expect(new URL(image, "https://645.live").searchParams.get("rev")).toBe(
+			NEWS_OG_CACHE_BUSTER,
+		);
+	}
+});
 
 test("OG links encode Korean and percent characters once and version both image families", () => {
 	const title = "로또 6/45 · 100% 확인 · %41";
