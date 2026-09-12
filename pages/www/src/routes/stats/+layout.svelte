@@ -32,9 +32,9 @@ let { children }: { children: Snippet } = $props();
 	.stats-area :global(.stats-recent-heading > p) { max-width: var(--reading-width); color: color-mix(in oklab, var(--color-base-content) 75%, transparent); font-size: var(--body-copy-size); line-height: var(--body-copy-line-height); }
 
 	.stats-area :global(.text-blue-600), .stats-area :global(.text-blue-500) { color: var(--color-primary); }
-	.stats-area :global(.text-red-600), .stats-area :global(.text-rose-600) { color: var(--color-error); }
-	.stats-area :global(.text-green-600), .stats-area :global(.text-emerald-600) { color: var(--color-success); }
-	.stats-area :global(.text-yellow-600), .stats-area :global(.text-orange-600) { color: var(--color-warning); }
+	.stats-area :global(.text-red-600), .stats-area :global(.text-rose-600) { color: var(--color-error-content); }
+	.stats-area :global(.text-green-600), .stats-area :global(.text-emerald-600) { color: var(--color-success-content); }
+	.stats-area :global(.text-yellow-600), .stats-area :global(.text-orange-600) { color: var(--color-warning-content); }
 	.stats-area :global(.stats-ball-yellow), .stats-area :global(.bg-yellow-500.text-white) { background: var(--lotto-yellow); color: var(--lotto-yellow-content); }
 	.stats-area :global(.stats-ball-blue), .stats-area :global(.bg-blue-500.text-white) { background: var(--lotto-blue); color: var(--lotto-blue-content); }
 	.stats-area :global(.stats-ball-red), .stats-area :global(.bg-red-500.text-white) { background: var(--lotto-red); color: var(--lotto-red-content); }
