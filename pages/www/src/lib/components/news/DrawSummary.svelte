@@ -24,7 +24,7 @@ const won = (amount: number) => `${amount.toLocaleString("ko-KR")}원`;
 	<LottoNumbers {round} {numbers} {bonus} heading={false} />
 	<dl class="prize-summary">
 		<div class="main-prize">
-			<dt>1게임당 당첨금</dt>
+			<dt>1등 1게임당 당첨금</dt>
 			<dd>{won(prize)}</dd>
 		</div>
 		<div>
