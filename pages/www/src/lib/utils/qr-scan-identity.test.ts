@@ -5,7 +5,9 @@ import type {
 } from "./qr-scan-history-v2";
 
 mock.module("$app/environment", () => ({ browser: true }));
+const originalLottoCommon = { ...(await import("./lotto-common.js")) };
 mock.module("./lotto-common.js", () => ({
+	...originalLottoCommon,
 	getLatestLottoRoundFromAPI: async () => ({ drwNo: 1240 }),
 	getLottoNumbersFromAPI: async () => null,
 }));
@@ -33,6 +35,7 @@ afterAll(() => {
 	if (originalStorage)
 		Object.defineProperty(globalThis, "localStorage", originalStorage);
 	else Reflect.deleteProperty(globalThis, "localStorage");
+	mock.module("./lotto-common.js", () => originalLottoCommon);
 	mock.restore();
 });
 
