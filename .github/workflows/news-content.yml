@@ -49,6 +49,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # Include articles committed by an earlier run while this one was queued.
+          ref: ${{ github.ref }}
 
       - name: Setup Node
         uses: actions/setup-node@v4
