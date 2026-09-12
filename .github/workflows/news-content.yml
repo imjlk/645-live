@@ -83,6 +83,7 @@ jobs:
 
           export LOOKBACK_ROUNDS FORCE USE_AI MAX_GENERATE_ROUNDS
           echo "Generate config: event=$GITHUB_EVENT_NAME lookback=$LOOKBACK_ROUNDS use_ai=$USE_AI max_generate_rounds=$MAX_GENERATE_ROUNDS force=$FORCE round=$ROUND"
+          node --test scripts/news/generate-news-content.test.mjs
           node scripts/news/generate-news-content.mjs
 
       - name: Commit and Push
