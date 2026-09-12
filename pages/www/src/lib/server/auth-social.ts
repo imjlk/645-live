@@ -1,5 +1,5 @@
-import { env } from "$env/dynamic/private";
 import type { RequestEvent } from "@sveltejs/kit";
+import { env } from "$env/dynamic/private";
 
 export const SOCIAL_PROVIDER_IDS = ["google", "kakao", "naver"] as const;
 
@@ -17,14 +17,17 @@ type SocialProviderConfigMap = {
 		clientId: string;
 		clientSecret: string;
 		prompt: "select_account";
+		disableImplicitSignUp: true;
 	};
 	kakao?: {
 		clientId: string;
 		clientSecret?: string;
+		disableImplicitSignUp: true;
 	};
 	naver?: {
 		clientId: string;
 		clientSecret: string;
+		disableImplicitSignUp: true;
 	};
 };
 
@@ -60,12 +63,14 @@ export function getBetterAuthSocialProviders(
 			clientId: googleClientId,
 			clientSecret: googleClientSecret,
 			prompt: "select_account",
+			disableImplicitSignUp: true,
 		};
 	}
 
 	if (kakaoClientId) {
 		providers.kakao = {
 			clientId: kakaoClientId,
+			disableImplicitSignUp: true,
 			...(kakaoClientSecret ? { clientSecret: kakaoClientSecret } : {}),
 		};
 	}
@@ -73,6 +78,7 @@ export function getBetterAuthSocialProviders(
 	if (naverClientId && naverClientSecret) {
 		providers.naver = {
 			clientId: naverClientId,
+			disableImplicitSignUp: true,
 			clientSecret: naverClientSecret,
 		};
 	}

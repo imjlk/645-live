@@ -1,10 +1,8 @@
 import type { Handle } from "@sveltejs/kit";
 import { svelteKitHandler } from "better-auth/svelte-kit";
 import { building } from "$app/environment";
-import {
-	getAgentManifest,
-	getAgentPageForRequest,
-} from "$lib/agent/content";
+import { env } from "$env/dynamic/private";
+import { getAgentManifest, getAgentPageForRequest } from "$lib/agent/content";
 import {
 	acceptsJson,
 	acceptsMarkdown,
@@ -12,43 +10,28 @@ import {
 	createMarkdownResponse,
 } from "$lib/agent/http";
 import { getPublicAuthSummary } from "$lib/server/agent-api";
-import { env } from "$env/dynamic/private";
-import type { DrizzleClient } from "$lib/db";
+import {
+	hasSessionCookie,
+	isCrossOriginMutation,
+	isPrivateEndpoint,
+	needsMemberDatabase,
+} from "$lib/server/request-policy";
 
 function getDatabaseUrl(event: Parameters<Handle>[0]["event"]): string {
-	if (env.DATABASE_URL) {
-		return env.DATABASE_URL;
-	}
-
-	if (event.platform?.env?.HYPERDRIVE?.connectionString) {
-		return event.platform.env.HYPERDRIVE.connectionString;
-	}
-
-	throw new Error(
-		"No database connection available. Expected env.DATABASE_URL or platform.env.HYPERDRIVE.connectionString.",
-	);
+	const url =
+		env.DATABASE_URL || event.platform?.env?.HYPERDRIVE?.connectionString;
+	if (!url) throw new Error("Member database binding is unavailable");
+	return url;
 }
 
-function describeDatabaseBootstrapError(error: unknown): string {
-	if (error instanceof Error) {
-		return `${error.name}: ${error.message}`;
-	}
-
-	return String(error);
-}
-
-async function maybeHandleNegotiatedAgentResponse(
+function negotiatedResponse(
 	event: Parameters<Handle>[0]["event"],
-): Promise<Response | null> {
+): Response | null {
+	if (!["GET", "HEAD"].includes(event.request.method)) return null;
 	const page = getAgentPageForRequest(event.url);
-	if (!page) {
-		return null;
-	}
-
-	if (acceptsMarkdown(event.request)) {
+	if (!page) return null;
+	if (acceptsMarkdown(event.request))
 		return createMarkdownResponse(event.request, page);
-	}
-
 	if (
 		event.url.pathname === "/" &&
 		event.url.searchParams.get("mode") === "agent" &&
@@ -63,57 +46,74 @@ async function maybeHandleNegotiatedAgentResponse(
 			}),
 		);
 	}
-
 	return null;
 }
 
 export const handle: Handle = async ({ event, resolve }) => {
-	if (building) {
-		return resolve(event);
+	if (building) return resolve(event);
+	const negotiated = negotiatedResponse(event);
+	if (negotiated) return negotiated;
+
+	const pathname = event.url.pathname;
+	const privateEndpoint = isPrivateEndpoint(pathname);
+	const finish = (response: Response) => {
+		const result = applyAgentResponseHeaders(event.request, response);
+		result.headers.set("referrer-policy", "strict-origin-when-cross-origin");
+		result.headers.set("x-content-type-options", "nosniff");
+		if (privateEndpoint)
+			result.headers.set("cache-control", "private, no-store");
+		return result;
+	};
+	if (privateEndpoint && isCrossOriginMutation(event.request)) {
+		return finish(
+			Response.json(
+				{ message: "Cross-origin requests are not allowed" },
+				{ status: 403 },
+			),
+		);
 	}
+	// An anonymous visitor has no session to look up. Never read or expose HttpOnly tokens in JS.
+	if (
+		pathname === "/auth/get-session" &&
+		event.request.method === "GET" &&
+		!hasSessionCookie(event.request.headers.get("cookie"))
+	) {
+		return finish(Response.json(null));
+	}
+	if (!needsMemberDatabase(pathname)) return finish(await resolve(event));
 
 	try {
 		const [{ createAuth }, { createDrizzleClient }] = await Promise.all([
 			import("$lib/auth"),
 			import("$lib/db"),
 		]);
-
-		const databaseUrl = getDatabaseUrl(event);
-		event.locals.db = createDrizzleClient(databaseUrl);
-		event.locals.dbBootstrapError = undefined;
-
-		const auth = createAuth(event.locals.db, event);
-		event.locals.auth = auth;
-
-		const negotiatedResponse = await maybeHandleNegotiatedAgentResponse(event);
-		if (negotiatedResponse) {
-			return negotiatedResponse;
-		}
-
-		const resolveWithDiscoveryHeaders: typeof resolve = async (incomingEvent, opts) => {
-			const response = await resolve(incomingEvent, opts);
-			return applyAgentResponseHeaders(incomingEvent.request, response);
-		};
-
-		return await svelteKitHandler({
-			event,
-			resolve: resolveWithDiscoveryHeaders,
-			auth,
-			building,
-		});
-	} catch (error) {
-		const summary = describeDatabaseBootstrapError(error);
-		console.error(`[db bootstrap] ${summary}`, error);
-		(event.locals as { db?: DrizzleClient }).db = undefined;
+		event.locals.db = createDrizzleClient(getDatabaseUrl(event));
+		event.locals.auth = createAuth(event.locals.db, event);
+	} catch {
+		// Do not publish connection strings or turn failed authenticated writes into guest writes.
+		console.error("[auth] Member database/auth configuration is unavailable");
+		event.locals.db = undefined;
 		event.locals.auth = undefined;
-		event.locals.dbBootstrapError = summary;
-
-		const negotiatedResponse = await maybeHandleNegotiatedAgentResponse(event);
-		if (negotiatedResponse) {
-			return negotiatedResponse;
-		}
-
-		const response = await resolve(event);
-		return applyAgentResponseHeaders(event.request, response);
+		event.locals.dbBootstrapError = "Authentication is temporarily unavailable";
+		if (privateEndpoint)
+			return finish(
+				Response.json(
+					{ message: event.locals.dbBootstrapError },
+					{ status: 503 },
+				),
+			);
 	}
+
+	// Keep resolution outside the bootstrap catch: a failed mutation must never execute twice.
+	if (event.locals.auth) {
+		return finish(
+			await svelteKitHandler({
+				event,
+				resolve,
+				auth: event.locals.auth,
+				building,
+			}),
+		);
+	}
+	return finish(await resolve(event));
 };

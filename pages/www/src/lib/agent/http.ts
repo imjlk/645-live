@@ -1,11 +1,19 @@
 import {
+	type AgentPage,
 	estimateMarkdownTokens,
 	getDiscoveryLinkHeaderTargets,
-	type AgentPage,
 	serializeAgentPageMarkdown,
 } from "$lib/agent/content";
 
-const MARKDOWN_PATHS = new Set(["/", "/docs", "/developers", "/compare", "/status"]);
+const MARKDOWN_PATHS = new Set([
+	"/",
+	"/docs",
+	"/developers",
+	"/compare",
+	"/status",
+	"/methodology",
+	"/contact",
+]);
 
 export function acceptsMarkdown(request: Request): boolean {
 	return request.headers.get("accept")?.includes("text/markdown") ?? false;
@@ -60,7 +68,10 @@ export function applyAgentResponseHeaders(
 	});
 }
 
-export function createMarkdownResponse(request: Request, page: AgentPage): Response {
+export function createMarkdownResponse(
+	request: Request,
+	page: AgentPage,
+): Response {
 	const markdown = serializeAgentPageMarkdown(page);
 	const headers = new Headers({
 		"content-type": "text/markdown; charset=utf-8",

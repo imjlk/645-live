@@ -1,3 +1,6 @@
+import { building } from "$app/environment";
+export const prerender = "auto";
+
 import {
 	getAgentHomePageContent,
 	getHomePageContent,
@@ -20,12 +23,14 @@ export const load: PageServerLoad = async ({ url }) => {
 	const latestDraw = latestInfo
 		? await getLottoNumbers(latestInfo.drwNo).catch(() => null)
 		: null;
+	if (building && !latestDraw)
+		throw new Error("Cannot prerender home without a published draw");
 	return {
 		latestDraw,
 		latestRound: latestDraw?.drwNo ?? latestInfo?.drwNo ?? displayRound,
 		latestRoundDate: latestDraw?.drwNoDate ?? null,
 		displayRound,
-		agentMode: url.searchParams.get("mode") === "agent",
+		agentMode: !building && url.searchParams.get("mode") === "agent",
 		landingPage: getHomePageContent(),
 		agentPage: getAgentHomePageContent(),
 		newsPosts: getAllNewsPosts().slice(0, 3),

@@ -1,7 +1,7 @@
-import { createOrpcFetchHandler, createAppRouter } from "@645/api";
+import { createAppRouter, createOrpcFetchHandler } from "@645/api";
+import type { RequestHandler } from "@sveltejs/kit";
 import { createMyScansService } from "$lib/server/my-scans";
 import { toPublicSession, toPublicUser } from "$lib/server/session";
-import type { RequestHandler } from "@sveltejs/kit";
 
 const runHandler: RequestHandler = async (event) => {
 	const sessionValue = event.locals.auth
@@ -10,6 +10,24 @@ const runHandler: RequestHandler = async (event) => {
 			})
 		: null;
 	const session = toPublicSession(sessionValue);
+	const expectedMember = event.request.headers.get("x-645-member-id");
+	if (
+		event.url.pathname.startsWith("/rpc/myScans/") &&
+		expectedMember &&
+		expectedMember !== session?.user.id
+	) {
+		return Response.json(
+			{
+				json: {
+					defined: false,
+					code: "CONFLICT",
+					status: 409,
+					message: "로그인 계정이 변경됐습니다. 다시 확인해주세요.",
+				},
+			},
+			{ status: 409 },
+		);
+	}
 	const router = createAppRouter();
 	const handle = createOrpcFetchHandler(router, {
 		prefix: "/rpc",

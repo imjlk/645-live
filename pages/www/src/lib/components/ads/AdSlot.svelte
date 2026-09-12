@@ -1,7 +1,7 @@
 <script lang="ts">
 import { dev } from "$app/environment";
 import { page } from "$app/state";
-import { env } from "$env/dynamic/public";
+import * as publicEnv from "$env/static/public";
 import AdUnit from "./AdUnit.svelte";
 
 let {
@@ -15,7 +15,11 @@ let {
 } = $props();
 const slot = $derived.by(() => {
 	try {
-		const configuration = JSON.parse(env.PUBLIC_ADSENSE_SLOTS || "{}");
+		const configuration = JSON.parse(
+			Object.entries(publicEnv).find(
+				([key]) => key === "PUBLIC_ADSENSE_SLOTS",
+			)?.[1] || "{}",
+		);
 		const id = configuration?.[placement];
 		return typeof id === "string" && /^\d+$/.test(id) ? id : null;
 	} catch {

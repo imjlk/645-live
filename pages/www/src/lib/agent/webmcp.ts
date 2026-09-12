@@ -1,8 +1,8 @@
 import type {
-	MyScanUpsertInput,
 	MyScansUpsertPendingResult,
+	MyScanUpsertInput,
 } from "@645/shared";
-import { rpcClient } from "$lib/rpc/client";
+import { createMemberRpcClient } from "$lib/auth/session-rpc";
 
 type WebMcpToolResult = {
 	content: Array<{
@@ -12,17 +12,18 @@ type WebMcpToolResult = {
 	structuredContent?: Record<string, unknown>;
 };
 
-type WebMcpToolDefinition = NonNullable<Navigator["modelContext"]> extends {
-	provideContext(context: { tools: infer T }): unknown;
-}
-	? T extends Array<infer Tool>
-		? Tool
-		: never
-	: never;
+type WebMcpToolDefinition =
+	NonNullable<Navigator["modelContext"]> extends {
+		provideContext(context: { tools: infer T }): unknown;
+	}
+		? T extends Array<infer Tool>
+			? Tool
+			: never
+		: never;
 
 type SyncWebMcpContextOptions = {
 	pathname: string;
-	isSignedIn: boolean;
+	userId: string | null;
 };
 
 const READ_ONLY_PATHS = [
@@ -37,7 +38,9 @@ const MEMBER_PATHS = [
 ];
 
 function supportsWebMcp(): boolean {
-	return typeof navigator !== "undefined" && !!navigator.modelContext?.provideContext;
+	return (
+		typeof navigator !== "undefined" && !!navigator.modelContext?.provideContext
+	);
 }
 
 function isReadOnlyPath(pathname: string): boolean {
@@ -63,7 +66,10 @@ async function fetchJson<T>(path: string): Promise<T> {
 			const error = (await response.json()) as {
 				message?: string;
 			};
-			if (typeof error.message === "string" && error.message.trim().length > 0) {
+			if (
+				typeof error.message === "string" &&
+				error.message.trim().length > 0
+			) {
 				message = error.message;
 			}
 		} catch {
@@ -113,8 +119,11 @@ function createReadOnlyTools(): WebMcpToolDefinition[] {
 					latestRound: number;
 					rounds: Array<Record<string, unknown>>;
 				}>("/api/lotto-draws-recent.json");
-				const rawLimit = typeof input.limit === "number" ? input.limit : undefined;
-				const limit = rawLimit ? Math.max(1, Math.min(20, Math.floor(rawLimit))) : 10;
+				const rawLimit =
+					typeof input.limit === "number" ? input.limit : undefined;
+				const limit = rawLimit
+					? Math.max(1, Math.min(20, Math.floor(rawLimit)))
+					: 10;
 				const rounds = snapshot.rounds.slice(0, limit);
 
 				return createTextResult(
@@ -128,7 +137,8 @@ function createReadOnlyTools(): WebMcpToolDefinition[] {
 		},
 		{
 			name: "get_draw",
-			description: "Get a single Korean Lotto 6/45 draw snapshot by round number.",
+			description:
+				"Get a single Korean Lotto 6/45 draw snapshot by round number.",
 			inputSchema: {
 				type: "object",
 				properties: {
@@ -160,7 +170,8 @@ function createReadOnlyTools(): WebMcpToolDefinition[] {
 		},
 		{
 			name: "get_stats_overview",
-			description: "Get the public TrailBase-backed 645.live statistics overview.",
+			description:
+				"Get the public TrailBase-backed 645.live statistics overview.",
 			inputSchema: {
 				type: "object",
 				properties: {},
@@ -198,7 +209,8 @@ function createReadOnlyTools(): WebMcpToolDefinition[] {
 		},
 		{
 			name: "get_status",
-			description: "Get the machine-readable status document for the public 645.live agent surface.",
+			description:
+				"Get the machine-readable status document for the public 645.live agent surface.",
 			inputSchema: {
 				type: "object",
 				properties: {},
@@ -217,7 +229,8 @@ function createReadOnlyTools(): WebMcpToolDefinition[] {
 	];
 }
 
-function createMemberTools(): WebMcpToolDefinition[] {
+function createMemberTools(userId: string): WebMcpToolDefinition[] {
+	const rpcClient = createMemberRpcClient(userId);
 	return [
 		{
 			name: "get_my_scan_summary",
@@ -251,13 +264,19 @@ function createMemberTools(): WebMcpToolDefinition[] {
 				},
 			},
 			execute: async (input) => {
-				const rawLimit = typeof input.limit === "number" ? input.limit : undefined;
-				const limit = rawLimit ? Math.max(1, Math.min(100, Math.floor(rawLimit))) : 20;
+				const rawLimit =
+					typeof input.limit === "number" ? input.limit : undefined;
+				const limit = rawLimit
+					? Math.max(1, Math.min(100, Math.floor(rawLimit)))
+					: 20;
 				const scans = await rpcClient.myScans.list({ limit });
 
-				return createTextResult(`Returning ${scans.length} signed-in member scan records.`, {
-					items: scans as unknown as Record<string, unknown>[],
-				});
+				return createTextResult(
+					`Returning ${scans.length} signed-in member scan records.`,
+					{
+						items: scans as unknown as Record<string, unknown>[],
+					},
+				);
 			},
 		},
 		{
@@ -303,7 +322,9 @@ function createMemberTools(): WebMcpToolDefinition[] {
 			},
 			execute: async (input) => {
 				if (!Array.isArray(input.items) || input.items.length === 0) {
-					throw new Error("The items input must contain at least one pending scan.");
+					throw new Error(
+						"The items input must contain at least one pending scan.",
+					);
 				}
 
 				const result = (await rpcClient.myScans.upsertPending({
@@ -319,15 +340,20 @@ function createMemberTools(): WebMcpToolDefinition[] {
 	];
 }
 
-function getToolsForPath(options: SyncWebMcpContextOptions): WebMcpToolDefinition[] {
+function getToolsForPath(
+	options: SyncWebMcpContextOptions,
+): WebMcpToolDefinition[] {
 	const tools: WebMcpToolDefinition[] = [];
 
-	if (isReadOnlyPath(options.pathname) || (isMemberPath(options.pathname) && options.isSignedIn)) {
+	if (
+		isReadOnlyPath(options.pathname) ||
+		(isMemberPath(options.pathname) && options.userId)
+	) {
 		tools.push(...createReadOnlyTools());
 	}
 
-	if (options.isSignedIn && isMemberPath(options.pathname)) {
-		tools.push(...createMemberTools());
+	if (options.userId && isMemberPath(options.pathname)) {
+		tools.push(...createMemberTools(options.userId));
 	}
 
 	return tools;

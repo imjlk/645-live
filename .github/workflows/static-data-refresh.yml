@@ -1,0 +1,45 @@
+name: Refresh Static Lotto Pages
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Saturday 20:07–Sunday 00:52 KST; catches the draw, aggregation and sales-round rollover.
+    - cron: '7,22,37,52 11-15 * * 6'
+    # Daily 01:17 KST catches source corrections outside the draw window.
+    - cron: '17 16 * * *'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: lotto-public-content
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check published draw and completed statistics
+        env:
+          TRAILBASE_URL: https://trail.645.live
+        run: node scripts/ssg/public-data.mjs --write
+      - name: Publish a revision only when public data changes
+        run: |
+          git add pages/www/src/lib/generated/public-data-revision.json
+          if git diff --cached --quiet; then
+            echo 'Public data unchanged; no deployment needed.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'chore(ssg): refresh published lotto data revision'
+          git pull --rebase origin main
+          git push origin HEAD:main

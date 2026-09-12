@@ -5,6 +5,24 @@ type AnalyticsWindow = Window & {
 	gtag?: (...args: unknown[]) => void;
 };
 
+function safePageContext() {
+	let referrer = "";
+	try {
+		referrer = document.referrer ? new URL(document.referrer).origin : "";
+	} catch {}
+	return {
+		page_location: `${window.location.origin}${window.location.pathname}`,
+		page_path: window.location.pathname,
+		page_title: "645.live",
+		page_referrer: referrer,
+	};
+}
+
+export function trackPageView(): void {
+	if (!browser || !import.meta.env.PROD) return;
+	(window as AnalyticsWindow).gtag?.("event", "page_view", safePageContext());
+}
+
 /** Keep ticket contents, account IDs and URL queries out of product analytics. */
 export function trackEvent(
 	name: string,
@@ -12,7 +30,7 @@ export function trackEvent(
 ): void {
 	if (!browser || !import.meta.env.PROD) return;
 	(window as AnalyticsWindow).gtag?.("event", name, {
-		page_path: window.location.pathname,
+		...safePageContext(),
 		...parameters,
 	});
 }

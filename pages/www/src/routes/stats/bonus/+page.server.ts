@@ -2,7 +2,7 @@ import { getBonusAnalysis } from "$lib/trailbase/stats";
 import { getStatsFreshness } from "$lib/trailbase/stats-freshness";
 import type { PageServerLoad } from "./$types";
 
-export const prerender = false;
+export const prerender = true;
 
 export const load: PageServerLoad = async () => {
 	try {

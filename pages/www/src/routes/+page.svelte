@@ -1,6 +1,9 @@
 <script lang="ts">
-import { resolve } from "$app/paths";
+import { onMount } from "svelte";
 import { JsonLd, MetaTags } from "svelte-meta-tags";
+import { browser } from "$app/environment";
+import { resolve } from "$app/paths";
+import { page } from "$app/state";
 import AdSlot from "$lib/components/ads/AdSlot.svelte";
 import StructuredAgentPage from "$lib/components/agent/StructuredAgentPage.svelte";
 import SimpleBall from "$lib/components/SimpleBall.svelte";
@@ -12,10 +15,134 @@ import {
 	SITE_NAME,
 	SITE_ORIGIN,
 } from "$lib/seo";
+import {
+	calculateExpectedLatestRound,
+	type LottoDrawResult,
+} from "$lib/utils/lotto-common";
 import type { PageData } from "./$types";
 
 let { data }: { data: PageData } = $props();
-const draw = $derived(data.latestDraw);
+type HomeDraw = Omit<LottoDrawResult, "totSellamnt">;
+let liveDraw = $state<HomeDraw | null>(null);
+let clientDisplayRound = $state<number | null>(null);
+let scanExpanded = $state(false);
+const displayRound = $derived(clientDisplayRound ?? data.displayRound);
+const draw = $derived(
+	liveDraw && (!data.latestDraw || liveDraw.drwNo >= data.latestDraw.drwNo)
+		? liveDraw
+		: data.latestDraw,
+);
+const latestRound = $derived(Math.max(draw?.drwNo ?? 0, data.latestRound ?? 0));
+const agentMode = $derived(
+	data.agentMode || (browser && page.url.searchParams.get("mode") === "agent"),
+);
+
+function parseLatestDraw(snapshot: unknown): HomeDraw | null {
+	if (!snapshot || typeof snapshot !== "object") return null;
+	const payload = snapshot as { latestRound?: unknown; rounds?: unknown };
+	if (!Number.isInteger(payload.latestRound) || !Array.isArray(payload.rounds))
+		return null;
+	const row = payload.rounds.find(
+		(item) => item?.round === payload.latestRound,
+	);
+	if (
+		!row ||
+		row.round < 1 ||
+		!Array.isArray(row.numbers) ||
+		row.numbers.length !== 6
+	)
+		return null;
+	const numbers = row.numbers as unknown[];
+	if (
+		!numbers.every(
+			(number) =>
+				Number.isInteger(number) && Number(number) >= 1 && Number(number) <= 45,
+		) ||
+		new Set(numbers).size !== 6
+	)
+		return null;
+	if (
+		!Number.isInteger(row.bonusNumber) ||
+		row.bonusNumber < 1 ||
+		row.bonusNumber > 45 ||
+		numbers.includes(row.bonusNumber)
+	)
+		return null;
+	if (
+		typeof row.drawDate !== "string" ||
+		!/^\d{4}-\d{2}-\d{2}$/.test(row.drawDate) ||
+		!Number.isFinite(Date.parse(row.drawDate))
+	)
+		return null;
+	if (
+		!Number.isFinite(row.firstPrizeAmount) ||
+		row.firstPrizeAmount < 0 ||
+		!Number.isInteger(row.firstPrizeWinnerCount) ||
+		row.firstPrizeWinnerCount < 0
+	)
+		return null;
+	if (row.firstPrizeWinnerCount > 0 && row.firstPrizeAmount === 0) return null;
+	const [drwtNo1, drwtNo2, drwtNo3, drwtNo4, drwtNo5, drwtNo6] =
+		numbers as number[];
+	return {
+		drwNo: row.round,
+		drwNoDate: row.drawDate,
+		drwtNo1,
+		drwtNo2,
+		drwtNo3,
+		drwtNo4,
+		drwtNo5,
+		drwtNo6,
+		bnusNo: row.bonusNumber,
+		firstWinamnt: row.firstPrizeAmount,
+		firstPrzwnerCo: row.firstPrizeWinnerCount,
+	};
+}
+
+onMount(() => {
+	let activeRequest: AbortController | null = null;
+	let lastRequestedAt = 0;
+	const refresh = async () => {
+		clientDisplayRound = calculateExpectedLatestRound();
+		if (activeRequest || Date.now() - lastRequestedAt < 60_000) return;
+		lastRequestedAt = Date.now();
+		const controller = new AbortController();
+		activeRequest = controller;
+		const timeout = setTimeout(() => controller.abort(), 10_000);
+		try {
+			const response = await fetch(resolve("/api/lotto-draws-recent.json"), {
+				signal: controller.signal,
+				cache: "no-cache",
+			});
+			if (!response.ok) return;
+			const latest = parseLatestDraw(await response.json());
+			if (
+				latest &&
+				!controller.signal.aborted &&
+				latest.drwNo >= (draw?.drwNo ?? 0)
+			)
+				liveDraw = latest;
+		} catch {
+			// Keep the complete draw embedded in static HTML during transient API failures.
+		} finally {
+			clearTimeout(timeout);
+			activeRequest = null;
+		}
+	};
+	const onFocus = () => {
+		if (document.visibilityState === "visible") void refresh();
+	};
+	void refresh();
+	window.addEventListener("focus", onFocus);
+	window.addEventListener("online", onFocus);
+	document.addEventListener("visibilitychange", onFocus);
+	return () => {
+		activeRequest?.abort();
+		window.removeEventListener("focus", onFocus);
+		window.removeEventListener("online", onFocus);
+		document.removeEventListener("visibilitychange", onFocus);
+	};
+});
 const numbers = $derived(
 	draw
 		? [
@@ -29,17 +156,17 @@ const numbers = $derived(
 		: [],
 );
 const pageTitle = $derived(
-	data.agentMode
+	agentMode
 		? "645.live API·에이전트 연동 안내"
 		: "로또 당첨번호·QR 확인·번호 통계 | 645.live",
 );
 const description = $derived(
-	data.agentMode
+	agentMode
 		? "645.live 공개 로또 조회 API와 MCP, 데이터 출처, 회원 스캔 연동 경로를 확인하세요. 최근 회차 결과와 번호 통계를 구조화된 형식으로 조회하고, 서비스 문서와 인증 안내에서 필요한 연동 정보를 찾을 수 있습니다."
 		: "645.live에서 로또 6/45 최신 당첨번호와 회차별 결과, 번호 통계, 당첨 판매점 정보를 확인하세요. 용지 QR 스캔이나 사진으로 당첨 여부를 확인하고, 로그인하면 스캔 내역을 계정에 저장할 수 있습니다.",
 );
 const canonical = $derived(
-	data.agentMode ? `${SITE_ORIGIN}/?mode=agent` : SITE_ORIGIN,
+	agentMode ? `${SITE_ORIGIN}/?mode=agent` : SITE_ORIGIN,
 );
 const ogImage = $derived(
 	getGenericOgImage({
@@ -75,11 +202,11 @@ const faq = [
 	},
 ];
 </script>
-<MetaTags title={pageTitle} {description} {canonical} robots={data.agentMode ? "noindex,follow" : "index,follow"}
+<MetaTags title={pageTitle} {description} {canonical} robots={agentMode ? "noindex,follow" : "index,follow"}
  openGraph={{type:"website",url:canonical,title:pageTitle,description,siteName:SITE_NAME,locale:"ko_KR",images:[ogImage]}}
  twitter={{cardType:"summary_large_image",title:pageTitle,description,image:ogImage.url,imageAlt:ogImage.alt}} />
 <JsonLd schema={createOrganizationSchema()} /><JsonLd schema={createWebSiteSchema()} />
-{#if data.agentMode}
+{#if agentMode}
  <div class="content-page"><StructuredAgentPage page={data.agentPage} /></div>
 {:else}
  <div class="content-page home-page">
@@ -99,16 +226,13 @@ const faq = [
       <div class="empty-result"><p>당첨 결과를 불러오지 못했어요.</p><a class="link link-primary" href={resolve("/history")}>회차별 결과 확인하기</a></div>
      {/if}
      <div class="primary-actions"><a class="btn btn-primary" href={resolve("/qr-scan")}>QR로 당첨 확인</a><a class="btn btn-outline" href={resolve("/generator")}>번호 만들기</a></div>
-     <p class="data-note">공식 추첨 결과 기준 · <a href={resolve("/data-sources")}>데이터 출처</a>{#if draw}<a href={`${resolve("/history")}?round=${draw.drwNo}`}>회차 상세 보기 ↗</a>{/if}</p>
+     <p class="data-note">공식 추첨 결과 기준 · <a href={resolve("/data-sources")}>데이터 출처</a>{#if draw}<a href={resolve(`/history?round=${draw.drwNo}`)}>회차 상세 보기 ↗</a>{/if}</p>
     </section>
     <AdSlot placement="home-inline" format="horizontal" />
     <section class="home-section" aria-labelledby="scan-heading">
-     <div class="section-heading"><h2 id="scan-heading">이번 회차 스캔 현황</h2><span class="section-label">{data.displayRound}회 · 사이트 등록 기준</span></div>
-     {#if data.latestRoundHasScanData}
-      <details class="scan-details"><summary>번호별 스캔 집계 보기</summary><ScanStatusGrid initialRound={data.displayRound} latestRound={data.latestRound} headlineRound={data.displayRound} latestRoundHasScanData={true} allowFallbackPreview={false} showHeader={true} forceClientRefresh={true} gridColumns={{mobile:5,tablet:9,desktop:9,large:9}} /></details>
-     {:else}
-      <div class="empty-scan"><strong>아직 등록된 스캔이 없어요</strong><p>첫 스캔이 등록되면 번호별 집계가 표시됩니다.</p><a href={resolve("/qr-scan")} class="link link-primary">내 로또 확인하기 →</a></div>
-     {/if}
+     <div class="section-heading"><h2 id="scan-heading">이번 회차 스캔 현황</h2><span class="section-label">{displayRound}회 · 사이트 등록 기준</span></div>
+     <p class="scan-description">현재 판매 회차에 이 사이트로 등록된 번호별 스캔 집계를 확인하세요.</p>
+     <details class="scan-details" bind:open={scanExpanded}><summary>번호별 스캔 집계 보기</summary>{#if scanExpanded}<ScanStatusGrid initialRound={displayRound} {latestRound} headlineRound={displayRound} latestRoundHasScanData={displayRound === data.displayRound && data.latestRoundHasScanData} allowFallbackPreview={false} showHeader={true} forceClientRefresh={true} gridColumns={{mobile:5,tablet:9,desktop:9,large:9}} />{/if}</details>
     </section>
     <section class="home-section" aria-labelledby="explore-heading">
      <div class="section-heading"><h2 id="explore-heading">숫자로 보는 로또</h2><a href={resolve("/stats")} class="text-link">전체 통계 ↗</a></div>
@@ -123,7 +247,7 @@ const faq = [
     {/if}
    </div>
    <aside class="home-aside" aria-label="회차 안내와 광고">
-    <section class="round-context"><span class="section-label">스캔 집계 회차</span><h2>제{data.displayRound}회</h2><p>구매한 용지의 QR로 당첨 여부와 스캔 기록을 확인하세요.</p><a class="text-link" href={resolve("/qr-scan")}>내 로또 확인하기 →</a></section>
+    <section class="round-context"><span class="section-label">스캔 집계 회차</span><h2>제{displayRound}회</h2><p>구매한 용지의 QR로 당첨 여부와 스캔 기록을 확인하세요.</p><a class="text-link" href={resolve("/qr-scan")}>내 로또 확인하기 →</a></section>
     <AdSlot placement="home-rail" format="rectangle" />
     <div class="trust-note"><strong>데이터를 구분해서 봅니다</strong><p>당첨 통계는 추첨 결과,<br />스캔 현황은 이용자 등록 데이터입니다.</p><a href={resolve("/methodology")}>통계 기준과 읽는 법 ↗</a></div>
    </aside>
@@ -152,10 +276,7 @@ const faq = [
  .data-note { display: flex; flex-wrap: wrap; gap: 0.5rem; font-size: 0.75rem; color: var(--text-muted); margin-top: 1rem; line-height: 1.75; }
  .data-note a:hover { text-decoration: underline; }
  .home-section { margin-top: var(--section-space); padding-top: 1.75rem; border-top: 1px solid var(--color-base-300); }
- .empty-scan { padding: 1.5rem; border-radius: 0.75rem; background: var(--color-base-200); }
- .empty-scan strong { font-size: 0.9375rem; }
- .empty-scan p { color: var(--text-muted); font-size: 0.875rem; line-height: 1.75; margin-top: 0.4rem; }
- .empty-scan a { display: inline-block; margin-top: 0.8rem; font-size: 0.875rem; }
+ .scan-description { color: var(--text-muted); font-size: 0.875rem; line-height: 1.75; }
  .empty-result { padding: 2rem 0; line-height: 2; }
  .text-link { color: var(--color-primary); font-size: 0.875rem; font-weight: 600; }
  .explore-links a { display: grid; grid-template-columns: 1fr auto; padding-block: 1rem; gap: 0.3rem 1rem; border-bottom: 1px solid var(--color-base-300); }

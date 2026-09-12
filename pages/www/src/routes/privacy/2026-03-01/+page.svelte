@@ -1,0 +1,110 @@
+<script lang="ts">
+import { resolve } from "$app/paths";
+import { absoluteUrl } from "$lib/seo/index.js";
+import MetaTags from "$lib/seo/PageMeta.svelte";
+import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
+
+// Breadcrumbs 데이터
+const breadcrumbItems = [
+	{ label: "홈", href: "/" },
+	{ label: "개인정보 처리방침", current: true },
+];
+</script>
+
+<MetaTags
+	title="이전 개인정보 처리방침 (2026년 3월 1일)"
+	titleTemplate="%s | 645.live"
+	description="645.live 서비스에서 개인정보를 수집하고 이용하는 목적, 보관과 파기 기준을 확인하세요. 회원 정보와 서비스 이용 기록의 처리 방식, 이용자의 권리와 행사 방법, 개인정보 보호에 관한 안내를 제공합니다."
+	canonical={absoluteUrl("/privacy/2026-03-01")}
+	robots="noindex,follow"
+/>
+
+<div class="content-page privacy-archive space-y-6">
+	<!-- Breadcrumbs -->
+	<Breadcrumbs items={breadcrumbItems} />
+
+	<!-- 페이지 헤더 -->
+	<div class="page-header space-y-2">
+		<h1 class="text-3xl font-bold text-primary">이전 개인정보 처리방침</h1>
+		<p class="text-base-content/70">
+			2026년 3월 1일부터 9월 11일까지 적용된 방침입니다. <a class="link link-primary" href={resolve("/privacy")}>현재 개인정보 처리방침 보기</a>
+		</p>
+	</div>
+
+	<div class="card bg-base-100 shadow-sm">
+		<div class="card-body">
+			<div class="prose prose-sm sm:prose max-w-none">
+				<p class="text-base-content/70">
+					적용기간: 2026년 3월 1일~2026년 9월 11일
+				</p>
+
+				<h2>1. 처리 목적</h2>
+				<p>
+					645.live는 로또 통계·분석 정보 제공, 서비스 운영 안정화, 문의 대응, 부정 이용 방지 및 서비스 품질 개선을 위해 필요한 범위에서 개인정보를 처리합니다.
+				</p>
+
+				<h2>2. 처리하는 개인정보 항목</h2>
+				<ul>
+					<li>서비스 이용 과정에서 자동 수집될 수 있는 정보: 접속 로그, IP 주소, 브라우저/기기 정보, 이용 기록</li>
+					<li>문의 또는 제보 시 이용자가 직접 제공하는 정보(해당 시): 이름(또는 닉네임), 이메일, 문의 내용</li>
+				</ul>
+
+				<h2>3. 개인정보의 처리 및 보유 기간</h2>
+				<ul>
+					<li>서비스 제공 및 운영 목적 달성 시까지 보유합니다.</li>
+					<li>관계 법령에서 보관 의무가 있는 경우 해당 법령에서 정한 기간 동안 보관합니다.</li>
+					<li>보유 기간 경과 또는 처리 목적 달성 시 지체 없이 파기합니다.</li>
+				</ul>
+
+				<h2>4. 제3자 제공</h2>
+				<p>
+					645.live는 원칙적으로 이용자의 개인정보를 외부에 제공하지 않습니다. 다만, 법령에 근거가 있거나 수사기관의 적법한 요청이 있는 경우에는 예외로 할 수 있습니다.
+				</p>
+
+				<h2>5. 처리 위탁</h2>
+				<p>
+					서비스 운영을 위해 인프라, 로그 분석, 배포 등 일부 업무를 외부 서비스 사업자에게 위탁할 수 있으며, 필요한 경우 관련 법령에 따라 수탁자 관리·감독을 수행합니다.
+				</p>
+
+				<h2>6. 개인정보 파기 절차 및 방법</h2>
+				<ul>
+					<li>파기 사유가 발생한 개인정보는 지체 없이 파기합니다.</li>
+					<li>전자적 파일 형태 정보는 복구가 어려운 기술적 방법으로 삭제합니다.</li>
+					<li>출력물 등 문서 형태 정보는 분쇄 또는 소각 등의 방식으로 파기합니다.</li>
+				</ul>
+
+				<h2>7. 이용자 권리와 행사 방법</h2>
+				<ul>
+					<li>이용자는 개인정보 열람, 정정, 삭제, 처리정지 등을 요청할 수 있습니다.</li>
+					<li>요청은 서비스 내 운영 채널을 통해 접수할 수 있으며, 관련 법령에 따라 처리합니다.</li>
+				</ul>
+
+				<h2>8. 개인정보 보호를 위한 안전성 확보 조치</h2>
+				<ul>
+					<li>접근 권한 최소화 및 권한 관리</li>
+					<li>보안 업데이트, 접근 통제, 로그 모니터링 등 기술적·관리적 조치</li>
+				</ul>
+
+				<h2>9. 개인정보 처리방침 변경</h2>
+				<p>
+					본 방침은 법령, 정책 또는 서비스 변경에 따라 수정될 수 있으며, 변경 시 시행일과 함께 서비스 내에 공지합니다.
+				</p>
+
+				<h2>10. 문의</h2>
+				<p>
+					개인정보 처리와 관련한 문의는 <a href={resolve("/about")}>소개 페이지</a>에 안내된 공개 운영 채널을 통해 접수할 수 있습니다.
+				</p>
+			</div>
+		</div>
+	</div>
+</div>
+
+<style>
+.privacy-archive { max-width: 58rem; margin-inline: auto; }
+.privacy-archive .prose h2 { margin-top: 1.75rem; margin-bottom: .625rem; font-size: 1.0625rem; font-weight: 650; line-height: 1.6; }
+.privacy-archive .prose p, .privacy-archive .prose li { font-size: .9375rem; line-height: 1.85; overflow-wrap: anywhere; }
+.privacy-archive .prose p, .privacy-archive .prose ul { margin-block: .625rem; }
+.privacy-archive .prose ul { padding-left: 1.25rem; list-style: disc; }
+.privacy-archive .prose li + li { margin-top: .5rem; }
+.privacy-archive .prose a { color: var(--color-primary); text-decoration: underline; text-underline-offset: .2em; }
+</style>

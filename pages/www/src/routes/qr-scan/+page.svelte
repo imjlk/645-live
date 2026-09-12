@@ -9,14 +9,16 @@ import {
 	type DetectedBarcode,
 } from "barqode";
 import { onMount } from "svelte";
+import { SvelteMap, SvelteSet } from "svelte/reactivity";
 import { JsonLd, MetaTags } from "svelte-meta-tags";
 import { Toaster, toast } from "svelte-sonner";
 import { browser } from "$app/environment";
-import { enhance } from "$app/forms";
 import { resolve } from "$app/paths";
+import { useBrowserSession } from "$lib/auth/session.svelte";
 import QRScanHistory from "$lib/components/qr-scan/QRScanHistory.svelte";
 import SimpleBall from "$lib/components/SimpleBall.svelte";
 import ScanStatusGrid from "$lib/modules/lotto/components/ScanStatusGrid.svelte";
+import type { QrScanResponse } from "$lib/server/qr-scan-service";
 import type { ScanRecordPayload } from "$lib/server/scan-record";
 import { trackEvent } from "$lib/utils/analytics";
 import { calculateExpectedLatestRound } from "$lib/utils/lotto-common.js";
@@ -26,10 +28,15 @@ import {
 	generateTicketHash,
 	qrScanHistory,
 } from "$lib/utils/qr-scan-history.js";
-import type { ActionData, PageData } from "./$types";
 
-// Props
-const { data, form }: { data: PageData; form: ActionData } = $props();
+const auth = useBrowserSession();
+const sessionOwner = $derived(
+	auth.status === "anonymous"
+		? null
+		: auth.status === "authenticated"
+			? auth.session?.user.id
+			: undefined,
+);
 
 // ===== TYPE DEFINITIONS =====
 interface ExtendedMediaTrackCapabilities extends MediaTrackCapabilities {
@@ -57,20 +64,29 @@ let showPermissionModal = $state(false);
 // Camera States
 let videoDevices = $state<MediaDeviceInfo[]>([]);
 let selectedDeviceId = $state("");
-let cameraFOVs = $state<Map<string, number | null>>(new Map());
 
 // Detection Results
 let lastDetected = $state("");
-let isSubmittingForm = $state(false);
+let isSubmitting = $state(false);
 
-// Form element reference for programmatic submission
-let scanForm: HTMLFormElement;
-let qrDataInput: HTMLInputElement;
+let scanError = $state("");
+let resultNotice = $state("");
+let latestRound = $state<number | null>(null);
+let activeRequest: AbortController | null = null;
 
 // Scan status grid reference for round updates
 let scanStatusGrid = $state<ScanStatusGrid>();
 let historyModal = $state();
-let latestScan = $state<ScanRecordPayload | null>(null);
+let latestScanData = $state<ScanRecordPayload | null>(null);
+let latestScanOwner = $state<string | null | undefined>(undefined);
+const latestScan = $derived(
+	latestScanOwner !== undefined &&
+		((auth.status === "anonymous" && latestScanOwner === null) ||
+			(auth.status === "authenticated" &&
+				latestScanOwner === auth.session?.user.id))
+		? latestScanData
+		: null,
+);
 let latestGames = $state<number[][]>([]);
 let activeScanSource = $state<"camera" | "image">("camera");
 let showScanStats = $state(false);
@@ -124,7 +140,7 @@ async function onDetect(detectedCodes: DetectedBarcode[]) {
 	if (detectedCodes.length > 0) {
 		lastDetected = detectedCodes[0].rawValue;
 
-		// 서버 액션을 통해 처리
+		// 스캔 API를 통해 처리
 		await submitQRData(lastDetected);
 	}
 }
@@ -139,26 +155,25 @@ async function onDetectUploaded(detectedCodes: DetectedBarcode[]) {
 			duration: 3000,
 		});
 
-		// 서버 액션을 통해 처리
+		// 스캔 API를 통해 처리
 		await submitQRData(qrData, "image");
 	}
 }
 
 // 현재 처리 중인 QR 데이터 추적 (중복 제출 방지)
 let processingQRData = $state<string | null>(null);
-let processingTicketHash = $state<string | null>(null);
 
 const QR_SCAN_COOLDOWN_MS = 500;
 const HISTORY_REFRESH_INTERVAL_MS = 30_000;
 
 // 최근 처리한 티켓 해시들 (짧은 재감지 쿨다운용)
-let recentScannedTicketHashes = $state(new Set<string>());
+const recentScannedTicketHashes = new SvelteSet<string>();
 
 // 현재 세션에서 저장 완료된 티켓 해시들
-let sessionStoredTicketHashes = $state(new Set<string>());
+const sessionStoredTicketHashes = new SvelteSet<string>();
 
 // 같은 이유의 토스트를 짧은 시간 안에 중복 표시하지 않기 위한 캐시
-const recentToastKeys = new Map<string, number>();
+const recentToastKeys = new SvelteMap<string, number>();
 const TOAST_DEDUP_MS = QR_SCAN_COOLDOWN_MS;
 const PROCESSING_TOAST_DEDUP_MS = 800;
 let lastHistoryRefreshAt = 0;
@@ -178,13 +193,16 @@ function shouldShowToast(key: string, dedupMs = TOAST_DEDUP_MS) {
 
 function rememberRecentTicket(ticketHash: string) {
 	recentScannedTicketHashes.add(ticketHash);
-	recentScannedTicketHashes = new Set(recentScannedTicketHashes);
 	clearQRCooldown(ticketHash);
 }
 
+function storedTicketKey(ticketHash: string) {
+	return JSON.stringify([sessionOwner, ticketHash]);
+}
+
 function markStoredTicket(ticketHash: string) {
-	sessionStoredTicketHashes.add(ticketHash);
-	sessionStoredTicketHashes = new Set(sessionStoredTicketHashes);
+	if (sessionOwner !== undefined)
+		sessionStoredTicketHashes.add(storedTicketKey(ticketHash));
 }
 
 function notifyStoredDuplicate(ticketHash: string) {
@@ -228,7 +246,6 @@ function notifyProcessingDuplicate(ticketHash: string) {
 function clearQRCooldown(ticketHash: string) {
 	setTimeout(() => {
 		recentScannedTicketHashes.delete(ticketHash);
-		recentScannedTicketHashes = new Set(recentScannedTicketHashes); // 반응성을 위한 재할당
 	}, QR_SCAN_COOLDOWN_MS);
 }
 
@@ -280,260 +297,270 @@ async function refreshStoredScanResults(
 	return historyRefreshInFlight;
 }
 
-// QR 데이터를 서버 액션으로 제출하는 함수
+// Decoding stays in the browser; validation, aggregation and member writes use the API.
 async function submitQRData(
 	qrData: string,
 	source: "camera" | "image" = "camera",
 ) {
+	const ticketHash = generateTicketHash(qrData);
+	if (processingQRData) {
+		notifyProcessingDuplicate(ticketHash);
+		return;
+	}
+	if (recentScannedTicketHashes.has(ticketHash)) {
+		notifyCooldownDuplicate(ticketHash);
+		return;
+	}
+	if (
+		sessionOwner !== undefined &&
+		sessionStoredTicketHashes.has(storedTicketKey(ticketHash))
+	) {
+		rememberRecentTicket(ticketHash);
+		notifyStoredDuplicate(ticketHash);
+		return;
+	}
+
+	// Reserve the request before asynchronous local-history lookup to avoid parallel writes.
+	processingQRData = qrData;
 	try {
-		const ticketHash = generateTicketHash(qrData);
-
-		// 이미 같은 QR 데이터를 처리 중인지 확인
-		if (processingTicketHash === ticketHash || processingQRData === qrData) {
-			console.log("이미 처리 중인 QR 데이터:", qrData);
-			notifyProcessingDuplicate(ticketHash);
-			return;
-		}
-
-		// 짧은 재감지 쿨다운 체크
-		if (recentScannedTicketHashes.has(ticketHash)) {
-			notifyCooldownDuplicate(ticketHash);
-			return;
-		}
-
-		if (sessionStoredTicketHashes.has(ticketHash)) {
+		const historyOwner = sessionOwner;
+		if (
+			historyOwner !== undefined &&
+			(await qrScanHistory.isDuplicate(qrData)) &&
+			historyOwner === sessionOwner
+		) {
+			markStoredTicket(ticketHash);
 			rememberRecentTicket(ticketHash);
 			notifyStoredDuplicate(ticketHash);
 			return;
 		}
-
-		// 히스토리 기반 중복 스캔 확인 (브라우저 환경에서만)
-		if (browser) {
-			const isDupe = await qrScanHistory.isDuplicate(qrData);
-			if (isDupe) {
-				markStoredTicket(ticketHash);
-				rememberRecentTicket(ticketHash);
-				notifyStoredDuplicate(ticketHash);
-				return;
-			}
-		}
-
-		if (!scanForm || !qrDataInput) {
-			console.error("Form elements not found");
-			toast.error("❌ 폼 요소를 찾을 수 없습니다", {
-				description: "페이지를 새로고침하고 다시 시도해주세요.",
-			});
+		const games = parseLottoQR(qrData);
+		if (
+			!games?.length ||
+			games.some((game) => new Set(game.numbers).size !== 6)
+		) {
+			scanError =
+				"유효한 로또 QR 코드가 아닙니다. 용지의 QR을 다시 확인해주세요.";
+			toast.error("스캔 실패", { description: scanError });
+			rememberRecentTicket(ticketHash);
 			return;
 		}
-
-		// 처리 시작 표시
 		activeScanSource = source;
-		processingQRData = qrData;
-		processingTicketHash = ticketHash;
-
-		// 성공적인 스캔 시도 시 쿨다운 추가
+		isSubmitting = true;
+		scanError = "";
+		resultNotice = "";
 		rememberRecentTicket(ticketHash);
-
-		// 숨겨진 input에 QR 데이터 설정
-		qrDataInput.value = qrData;
-
-		// 폼 제출
-		isSubmittingForm = true;
-		scanForm.requestSubmit();
-	} catch (error) {
-		console.error("Form submission error:", error);
-		toast.error("❌ 폼 제출 실패", {
-			description: "폼 제출 중 오류가 발생했습니다.",
-		});
-		isSubmittingForm = false;
+		activeRequest = new AbortController();
+		const timeout = setTimeout(() => activeRequest?.abort(), 30_000);
+		try {
+			const response = await fetch(resolve("/api/qr-scan"), {
+				method: "POST",
+				credentials: "same-origin",
+				headers: {
+					"Content-Type": "application/json",
+					...(sessionOwner !== undefined
+						? { "x-645-member-id": sessionOwner ?? "" }
+						: {}),
+				},
+				body: JSON.stringify({ qrData }),
+				signal: activeRequest.signal,
+			});
+			const result = (await response.json()) as QrScanResponse;
+			if (!result || typeof result !== "object") {
+				throw new Error(
+					"스캔 응답을 확인하지 못했어요. 잠시 후 다시 시도해주세요.",
+				);
+			}
+			if (!response.ok || !result.success) {
+				if (response.status === 409) await auth.refresh();
+				throw new Error(
+					"error" in result
+						? result.error
+						: "스캔을 저장하지 못했어요. 다시 시도해주세요.",
+				);
+			}
+			await handleScanResult(result);
+		} finally {
+			clearTimeout(timeout);
+		}
+	} catch (requestError) {
+		scanError =
+			requestError instanceof Error && requestError.name === "AbortError"
+				? "요청 시간이 초과되었습니다. 연결 상태를 확인하고 다시 시도해주세요."
+				: requestError instanceof Error &&
+						!(
+							requestError instanceof TypeError ||
+							requestError instanceof SyntaxError
+						)
+					? requestError.message
+					: "스캔 서비스에 연결하지 못했어요. 연결 상태를 확인하고 다시 시도해주세요.";
+		toast.error("스캔 실패", { description: scanError, duration: 6000 });
+	} finally {
+		isSubmitting = false;
 		processingQRData = null;
-		processingTicketHash = null;
+		activeRequest = null;
 	}
 }
 
-// Form 결과 처리
-let lastProcessedFormId: string | null = null;
+async function handleScanResult(
+	result: Extract<QrScanResponse, { success: true }>,
+) {
+	const responseOwner = result.data.memberUserId ?? null;
+	if (auth.status === "loading" || auth.status === "error")
+		await auth.refresh();
+	const currentOwner = auth.session?.user.id ?? null;
+	if (
+		(auth.status !== "anonymous" && auth.status !== "authenticated") ||
+		currentOwner !== responseOwner
+	) {
+		toast.info("로그인 상태가 바뀌었습니다", {
+			description:
+				"다른 계정에 기록이 저장되지 않도록 멈췄어요. 현재 계정에서 다시 확인해주세요.",
+		});
+		return;
+	}
+	latestScanOwner = responseOwner;
+	resultNotice = result.data.alreadyScanned
+		? "이미 저장된 티켓의 결과를 다시 확인했습니다."
+		: "";
+	const qrData = result.data?.qrData;
+	const scanRecord = result.data?.scanRecord;
+	const memberSyncState = result.data?.memberSyncState;
+	if (scanRecord) {
+		latestScanData = scanRecord;
+		latestGames = (parseLottoQR(qrData ?? "") ?? []).map((game) =>
+			[...game.numbers].sort((a, b) => a - b),
+		);
+		trackEvent("qr_scan_complete", {
+			source: activeScanSource,
+			count: scanRecord.gamesCount ?? 0,
+			status: scanRecord.resultStatus ?? "unknown",
+		});
+	}
+	const ticketHash =
+		scanRecord?.ticketHash ||
+		(qrData
+			? generateTicketHash(qrData, scanRecord?.round, scanRecord?.gamesCount)
+			: null);
 
-$effect(() => {
-	if (form) {
-		// 중복 처리 방지 (form ID로 체크)
-		const currentFormId = `${form.success ? "success" : "error"}-${JSON.stringify(form.data || form.error)}`;
-		if (lastProcessedFormId === currentFormId) {
-			return;
-		}
-		lastProcessedFormId = currentFormId;
-
-		isSubmittingForm = false;
-		processingQRData = null; // 처리 완료 표시
-		processingTicketHash = null;
-
-		if (form.success) {
-			// Process successful form submission
-
-			const qrData = form.data?.qrData;
-			const scanRecord = form.data?.scanRecord;
-			const memberSyncState = form.data?.memberSyncState;
-			if (scanRecord) {
-				latestScan = scanRecord;
-				latestGames = (parseLottoQR(qrData ?? "") ?? []).map((game) =>
-					[...game.numbers].sort((a, b) => a - b),
-				);
-				trackEvent("qr_scan_complete", {
-					source: activeScanSource,
-					count: scanRecord.gamesCount ?? 0,
-					status: scanRecord.resultStatus ?? "unknown",
-				});
-			}
-			const ticketHash =
-				scanRecord?.ticketHash ||
-				(qrData
-					? generateTicketHash(
-							qrData,
-							scanRecord?.round,
-							scanRecord?.gamesCount,
-						)
-					: null);
-
-			const resolvedRound = scanRecord?.round;
-			if (resolvedRound) {
-				if (currentRound === 0 || resolvedRound !== currentRound) {
-					console.log(`QR 회차 설정: ${currentRound} → ${resolvedRound}`);
-					currentRound = resolvedRound;
-					if (scanStatusGrid) {
-						scanStatusGrid.updateRound(resolvedRound);
-					}
-				}
-			}
-
-			if (ticketHash) {
-				markStoredTicket(ticketHash);
-			}
-
-			if (browser && qrData && scanRecord) {
-				void (async () => {
-					try {
-						await qrScanHistory.upsertScan({
-							...scanRecord,
-							syncStatus:
-								memberSyncState === "synced"
-									? "synced"
-									: memberSyncState === "pending"
-										? "pending"
-										: "local",
-							isWinner: scanRecord.resultStatus === "winner",
-						});
-
-						if (memberSyncState === "pending") {
-							void syncMemberScanHistory();
-						}
-					} catch (error) {
-						if (
-							error instanceof Error &&
-							error.message.includes("이미 스캔한")
-						) {
-							console.log("중복 스캔 방지됨:", qrData);
-						} else {
-							console.error("히스토리 저장 실패:", error);
-						}
-					}
-				})();
-			}
-
-			if (scanRecord) {
-				if (scanRecord.isExpired) {
-					toast.warning("⌛ 수령 기간이 지난 티켓입니다", {
-						description: `${scanRecord.round}회차는 당첨금 수령 기한이 지나 결과 대신 만료 상태로 기록했습니다.`,
-						duration: 7000,
-					});
-				} else if (scanRecord.isUnreleased) {
-					toast.success("✅ 로또 스캔 저장 완료!", {
-						description: `${scanRecord.round}회차 ${scanRecord.gamesCount}개 게임 저장됨. 발표 후 이 페이지에 다시 방문하면 결과를 확인할 수 있습니다.`,
-						duration: 6000,
-					});
-				} else if (scanRecord.resultStatus === "unknown") {
-					toast.info("티켓을 저장했어요. 결과 확인이 필요합니다", {
-						description:
-							"당첨 결과를 불러오지 못했어요. 잠시 후 스캔 내역에서 다시 확인해주세요.",
-					});
-				} else if (scanRecord.isWinner) {
-					const winners = scanRecord.winningResults.filter(
-						(result) => result.isWinner,
-					);
-					const highestGrade = winners.reduce((highest, current) => {
-						const gradeOrder = {
-							"1등": 1,
-							"2등": 2,
-							"3등": 3,
-							"4등": 4,
-							"5등": 5,
-						};
-						return gradeOrder[current.grade as keyof typeof gradeOrder] <
-							gradeOrder[highest.grade as keyof typeof gradeOrder]
-							? current
-							: highest;
-					});
-
-					const prizeText = highestGrade.prize
-						? ` (${highestGrade.prize})`
-						: "";
-
-					toast.success(highestGrade.message, {
-						description: `${scanRecord.round}회차 당첨 확인 - ${highestGrade.grade}${prizeText} | 총 ${scanRecord.gamesCount}개 게임 중 ${winners.length}개 당첨`,
-						duration:
-							highestGrade.grade === "1등" || highestGrade.grade === "2등"
-								? 15000
-								: 10000,
-						richColors: true,
-						...(highestGrade.grade === "1등" || highestGrade.grade === "2등"
-							? {
-									style:
-										"background: var(--color-base-100); color: var(--color-base-content); border: 1px solid var(--color-success);",
-								}
-							: {}),
-					});
-
-					winners.forEach((winner, index) => {
-						setTimeout(
-							() => {
-								const winnerPrizeText = winner.prize
-									? ` (${winner.prize})`
-									: "";
-								toast.info(`🎯 당첨 게임 ${index + 1}`, {
-									description: `${winner.grade} - ${winner.matchCount}개 번호 일치${winner.bonusMatch ? " + 보너스" : ""}${winnerPrizeText}`,
-									duration: 8000,
-								});
-							},
-							(index + 1) * 1000,
-						);
-					});
-				} else {
-					toast.success("✅ QR 스캔 성공!", {
-						description: `${scanRecord.round}회차 당첨 확인 완료 - 당첨 없음 | ${scanRecord.gamesCount}개 게임 처리됨`,
-						duration: 5000,
-					});
-				}
-			} else {
-				toast.success("✅ QR 스캔 성공!", {
-					description: `${form.data?.gamesCount}개 게임 처리됨`,
-					duration: 5000,
-				});
-			}
-		} else if (form.error) {
-			// 에러 메시지에 따라 다른 토스트 표시
-			if (form.error.includes("이미 스캔") || "isDuplicate" in form) {
-				toast.info("ℹ️ 이미 스캔한 로또 용지입니다", {
-					description: "중복된 QR 코드는 다시 처리되지 않습니다.",
-					duration: 4000,
-				});
-			} else {
-				toast.error("❌ 스캔 실패", {
-					description: form.error,
-					duration: 6000,
-				});
+	const resolvedRound = scanRecord?.round;
+	if (resolvedRound) {
+		if (currentRound === 0 || resolvedRound !== currentRound) {
+			currentRound = resolvedRound;
+			if (scanStatusGrid) {
+				scanStatusGrid.updateRound(resolvedRound);
 			}
 		}
 	}
-});
+
+	if (ticketHash) {
+		markStoredTicket(ticketHash);
+	}
+
+	if (browser && qrData && scanRecord) {
+		void (async () => {
+			try {
+				await qrScanHistory.upsertScan({
+					...scanRecord,
+					userId: responseOwner ?? undefined,
+					syncStatus:
+						memberSyncState === "synced"
+							? "synced"
+							: memberSyncState === "pending"
+								? "pending"
+								: "local",
+					isWinner: scanRecord.resultStatus === "winner",
+				});
+
+				if (memberSyncState === "pending") {
+					void syncMemberScanHistory();
+				}
+			} catch (error) {
+				if (error instanceof Error && error.message.includes("이미 스캔한")) {
+					// The local provider may already have the same ticket.
+				} else {
+					console.error("히스토리 저장 실패:", error);
+				}
+			}
+		})();
+	}
+
+	if (scanRecord) {
+		if (scanRecord.isExpired) {
+			toast.warning("⌛ 수령 기간이 지난 티켓입니다", {
+				description: `${scanRecord.round}회차는 당첨금 수령 기한이 지나 결과 대신 만료 상태로 기록했습니다.`,
+				duration: 7000,
+			});
+		} else if (scanRecord.isUnreleased) {
+			toast.success("✅ 로또 스캔 저장 완료!", {
+				description: `${scanRecord.round}회차 ${scanRecord.gamesCount}개 게임 저장됨. 발표 후 이 페이지에 다시 방문하면 결과를 확인할 수 있습니다.`,
+				duration: 6000,
+			});
+		} else if (scanRecord.resultStatus === "unknown") {
+			toast.info("티켓을 저장했어요. 결과 확인이 필요합니다", {
+				description:
+					"당첨 결과를 불러오지 못했어요. 잠시 후 스캔 내역에서 다시 확인해주세요.",
+			});
+		} else if (scanRecord.isWinner) {
+			const winners = scanRecord.winningResults.filter(
+				(result) => result.isWinner,
+			);
+			const highestGrade = winners.reduce((highest, current) => {
+				const gradeOrder = {
+					"1등": 1,
+					"2등": 2,
+					"3등": 3,
+					"4등": 4,
+					"5등": 5,
+				};
+				return gradeOrder[current.grade as keyof typeof gradeOrder] <
+					gradeOrder[highest.grade as keyof typeof gradeOrder]
+					? current
+					: highest;
+			});
+
+			const prizeText = highestGrade.prize ? ` (${highestGrade.prize})` : "";
+
+			toast.success(highestGrade.message, {
+				description: `${scanRecord.round}회차 당첨 확인 - ${highestGrade.grade}${prizeText} | 총 ${scanRecord.gamesCount}개 게임 중 ${winners.length}개 당첨`,
+				duration:
+					highestGrade.grade === "1등" || highestGrade.grade === "2등"
+						? 15000
+						: 10000,
+				richColors: true,
+				...(highestGrade.grade === "1등" || highestGrade.grade === "2등"
+					? {
+							style:
+								"background: var(--color-base-100); color: var(--color-base-content); border: 1px solid var(--color-success);",
+						}
+					: {}),
+			});
+
+			winners.forEach((winner, index) => {
+				setTimeout(
+					() => {
+						const winnerPrizeText = winner.prize ? ` (${winner.prize})` : "";
+						toast.info(`🎯 당첨 게임 ${index + 1}`, {
+							description: `${winner.grade} - ${winner.matchCount}개 번호 일치${winner.bonusMatch ? " + 보너스" : ""}${winnerPrizeText}`,
+							duration: 8000,
+						});
+					},
+					(index + 1) * 1000,
+				);
+			});
+		} else {
+			toast.success("✅ QR 스캔 성공!", {
+				description: `${scanRecord.round}회차 당첨 확인 완료 - 당첨 없음 | ${scanRecord.gamesCount}개 게임 처리됨`,
+				duration: 5000,
+			});
+		}
+	} else {
+		toast.success("✅ QR 스캔 성공!", {
+			description: `${result.data?.gamesCount}개 게임 처리됨`,
+			duration: 5000,
+		});
+	}
+}
 
 function onDragover(isDraggingOver: boolean) {
 	dragover = isDraggingOver;
@@ -649,7 +676,6 @@ async function getPreferredCamera(devices: MediaDeviceInfo[]): Promise<string> {
 	// Calculate FOV for all devices
 	const fovPromises = devices.map(async (device) => {
 		const fov = await calculateFOV(device.deviceId);
-		cameraFOVs.set(device.deviceId, fov);
 		return { device, fov };
 	});
 
@@ -817,6 +843,18 @@ async function requestPermission() {
 }
 
 onMount(() => {
+	// Latest-draw data does not block camera initialization or the prerendered help content.
+	const roundRequest = new AbortController();
+	void fetch(resolve("/api/lotto-draws-recent.json"), {
+		signal: roundRequest.signal,
+	})
+		.then((response) => (response.ok ? response.json() : null))
+		.then((snapshot) => {
+			if (Number.isInteger(snapshot?.latestRound) && snapshot.latestRound > 0) {
+				latestRound = snapshot.latestRound;
+			}
+		})
+		.catch(() => {});
 	void refreshStoredScanResults({ notify: true, force: true });
 
 	const handleFocus = () => {
@@ -836,6 +874,8 @@ onMount(() => {
 	document.addEventListener("visibilitychange", handleVisibilityChange);
 
 	return () => {
+		roundRequest.abort();
+		activeRequest?.abort();
 		window.removeEventListener("focus", handleFocus);
 		window.removeEventListener("online", handleOnline);
 		document.removeEventListener("visibilitychange", handleVisibilityChange);
@@ -926,21 +966,6 @@ onMount(() => {
 
 
 
-<!-- QR 데이터를 서버 액션으로 전송하는 폼 -->
-<form 
-	bind:this={scanForm}
-	method="POST" 
-	action="?/scan" 
-	use:enhance={() => {
-		return async ({ update }) => {
-			await update();
-		};
-	}}
-	class="hidden"
->
-	<input bind:this={qrDataInput} type="hidden" name="qrData" />
-</form>
-
 <div class="content-page qr-page">
 	<header class="page-header"><div><h1>QR로 당첨 확인</h1><p>용지의 QR을 비추거나 사진을 선택하세요.</p></div><button class="btn btn-outline" onclick={() => historyModal?.openHistoryModal?.()}>스캔 내역 보기</button></header>
 	<div class="scanner-workspace" data-nosnippet>
@@ -957,12 +982,14 @@ onMount(() => {
 				{/if}
 			</div>
 			{#if hasCameraSelection}<div class="camera-selector"><label for="camera-select">사용할 카메라</label><select id="camera-select" class="select" bind:value={selectedDeviceId} onchange={changeCamera}>{#each videoDevices as device (device.deviceId)}<option value={device.deviceId}>{device.label || `카메라 ${videoDevices.indexOf(device) + 1}`}</option>{/each}</select><p>잘 인식되지 않으면 광각 대신 일반 후면 카메라를 선택하세요.</p></div>{/if}
-			{#if isSubmittingForm}<p class="processing-message" role="status"><span class="loading loading-spinner loading-xs"></span>QR을 읽고 당첨 결과를 확인하는 중…</p>{/if}
+			{#if isSubmitting}<p class="processing-message" role="status"><span class="loading loading-spinner loading-xs"></span>QR을 읽고 당첨 결과를 확인하는 중…</p>{/if}
 			<div class="photo-dropzone" class:dragover><BarqodeDropzone onDetect={onDetectUploaded} {onDragover}><div><strong>사진에서 QR 확인</strong><p>사진을 선택하거나 이곳에 끌어다 놓으세요.</p></div></BarqodeDropzone></div>
 			<p class="camera-hint">QR이 선명하게 보이도록 한 장씩 비춰주세요.</p>
 		</section>
-		<section class="scan-result" aria-labelledby="scan-result-heading" aria-busy={isSubmittingForm}>
+		<section class="scan-result" aria-labelledby="scan-result-heading" aria-busy={isSubmitting}>
 			<div class="section-heading"><h2 id="scan-result-heading">확인 결과</h2>{#if latestScan?.round}<span class="result-round">제{latestScan.round}회</span>{/if}</div>
+			{#if scanError}<p class="scan-error" role="alert">{scanError}</p>{/if}
+			{#if resultNotice}<p class="result-note" role="status">{resultNotice}</p>{/if}
 			{#if latestScan}
 				<p class="result-status" class:winning={latestScan.resultStatus === "winner"} aria-live="polite">{resultLabel}</p><p class="result-summary">{latestScan.summary}</p>
 				{#if latestScan.resultStatus === "unreleased"}<p class="result-note">발표 후 다시 방문하면 저장된 티켓의 결과를 확인할 수 있어요.</p>{:else if latestScan.resultStatus === "unknown"}<p class="result-note">현재 당첨 결과를 확인하지 못했어요. 잠시 후 스캔 내역에서 다시 확인해주세요.</p>{/if}
@@ -971,7 +998,7 @@ onMount(() => {
 			{:else}<div class="result-empty"><div class="result-placeholder" aria-hidden="true">6 / 45</div><p>QR을 확인하면 회차와 게임별 결과가 여기에 표시됩니다.</p><ol><li>카메라에 용지 QR을 비추거나 사진을 선택하세요.</li><li>당첨 결과를 확인하고 스캔 내역에서 다시 볼 수 있어요.</li></ol></div>{/if}
 		</section>
 	</div>
-	<details class="scan-statistics" bind:open={showScanStats}><summary><span>회차별 QR 스캔 집계</span><span class="summary-note">사이트 등록 데이터</span></summary><p class="section-note">이 사이트에 등록된 스캔의 번호별 집계입니다. 내 티켓의 당첨 결과와는 별개입니다.</p>{#if showScanStats}<ScanStatusGrid bind:this={scanStatusGrid} initialRound={currentRound || calculateExpectedLatestRound()} latestRound={data.latestRound} enableNavigation={false} showHeader={true} gridColumns={{ mobile: 5, tablet: 9, desktop: 9, large: 9 }} gridGap="gap-3" />{/if}</details>
+	<details class="scan-statistics" bind:open={showScanStats}><summary><span>회차별 QR 스캔 집계</span><span class="summary-note">사이트 등록 데이터</span></summary><p class="section-note">이 사이트에 등록된 스캔의 번호별 집계입니다. 내 티켓의 당첨 결과와는 별개입니다.</p>{#if showScanStats}<ScanStatusGrid bind:this={scanStatusGrid} initialRound={currentRound || calculateExpectedLatestRound()} {latestRound} enableNavigation={false} showHeader={true} gridColumns={{ mobile: 5, tablet: 9, desktop: 9, large: 9 }} gridGap="gap-3" />{/if}</details>
 	<section class="qr-guide" aria-labelledby="qr-guide-heading"><h2 id="qr-guide-heading">QR 확인 도움말</h2><div>{#each qrScanFaqs as item (item.question)}<details><summary>{item.question}</summary><p>{item.answer}</p></details>{/each}</div><a href={resolve("/generator")} class="next-link">원하는 조건으로 번호 만들기 <span aria-hidden="true">→</span></a></section>
 </div>
 
@@ -999,6 +1026,7 @@ onMount(() => {
 .result-round { font-size: .85rem; font-weight: 650; }
 .result-status { font-size: 1.8rem; font-weight: 750; margin-top: 1.25rem; letter-spacing: -.04em; }
 .result-status.winning { color: var(--color-success-content); }
+.scan-error { margin-top: 1rem; padding: .85rem; background: var(--color-error); color: var(--color-error-content); border-radius: .5rem; font-size: .875rem; line-height: 1.7; }
 .result-summary, .result-note { margin-top: .5rem; font-size: .85rem; line-height: 1.7; color: color-mix(in oklch, var(--color-base-content) 70%, transparent); }
 .scanned-games { list-style: none; padding: 0; margin-top: 1.25rem; }
 .scanned-games li { padding-block: 1rem; border-bottom: 1px solid var(--color-base-300); }
@@ -1041,4 +1069,6 @@ onMount(() => {
 {/if}
 
 <!-- QR Scan History Component -->
+{#key auth.session?.user.id ?? auth.status}
 <QRScanHistory bind:this={historyModal} floating={false} />
+{/key}

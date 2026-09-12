@@ -1,3 +1,5 @@
+export const prerender = "auto";
+
 import { getDocsPageContent } from "$lib/agent/content";
 import type { PageServerLoad } from "./$types";
 

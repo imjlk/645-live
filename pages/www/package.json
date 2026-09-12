@@ -8,7 +8,7 @@
 		"dev:bun": "bunx --bun vite dev",
 		"build": "bunx --bun vite build",
 		"test:e2e": "playwright test",
-		"postbuild": "node ../../scripts/seo/generate-sitemap.mjs",
+		"postbuild": "node ../../scripts/seo/generate-sitemap.mjs && node ../../scripts/ssg/validate-output.mjs",
 		"preview": "bun run build && wrangler pages dev",
 		"deploy": "bun run build && wrangler pages deploy",
 		"prepare": "svelte-kit sync || echo ''",
@@ -26,7 +26,8 @@
 		"db:migrate:remote": "drizzle-kit migrate --config=drizzle-prod.config.ts",
 		"db:studio": "drizzle-kit studio",
 		"db:studio:remote": "drizzle-kit studio --config=drizzle-prod.config.ts",
-		"cf-typegen": "wrangler types src/worker-configuration.d.ts"
+		"cf-typegen": "wrangler types src/worker-configuration.d.ts",
+		"prebuild": "node ../../scripts/ssg/public-data.mjs"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.4.7",
@@ -57,7 +58,6 @@
 	"dependencies": {
 		"@645/api": "workspace:*",
 		"@645/shared": "workspace:*",
-		"@microsoft/clarity": "^1.0.2",
 		"@modelcontextprotocol/ext-apps": "^1.6.0",
 		"@modelcontextprotocol/sdk": "^1.29.0",
 		"@orpc/client": "^1.13.5",

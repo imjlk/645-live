@@ -1,3 +1,5 @@
+export const prerender = true;
+
 import { getStatsHubData } from "$lib/server/stats-hub";
 import type { PageServerLoad } from "./$types";
 

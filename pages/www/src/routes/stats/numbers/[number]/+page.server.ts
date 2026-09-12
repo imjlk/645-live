@@ -1,3 +1,6 @@
+export const entries = () =>
+	Array.from({ length: 45 }, (_, i) => ({ number: String(i + 1) }));
+
 import { error } from "@sveltejs/kit";
 import { initClient } from "trailbase";
 import { PUBLIC_TRAILBASE_URL } from "$env/static/public";
@@ -7,7 +10,7 @@ import type { PageServerLoad } from "./$types";
 const client = initClient(PUBLIC_TRAILBASE_URL || "http://localhost:4000");
 
 // 동적 페이지 설정 - SSR 사용으로 변경 (실시간 데이터 반영)
-export const prerender = false;
+export const prerender = true;
 
 export const load: PageServerLoad = async ({ params }) => {
 	const selectedNumber = Number(params.number);

@@ -1,9 +1,12 @@
+export const entries = () =>
+	[10, 20, 50, 100].map((rounds) => ({ rounds: String(rounds) }));
+
 import { error, isHttpError } from "@sveltejs/kit";
 import { getRecentHighLowAnalysis } from "$lib/trailbase/stats";
 import type { PageServerLoad } from "./$types";
 
-// 동적 페이지이므로 SSR 사용
-export const prerender = false;
+// Common periods are generated at build time; other valid periods remain available.
+export const prerender = "auto";
 export const ssr = true;
 
 export const load: PageServerLoad = async ({ params }) => {

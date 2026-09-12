@@ -6,7 +6,7 @@ import {
 import type { PageServerLoad } from "./$types";
 
 // 페이지 옵션 설정 - SSR 사용으로 변경 (실시간 데이터 반영)
-export const prerender = false;
+export const prerender = true;
 
 export const load: PageServerLoad = async ({ url }) => {
 	try {

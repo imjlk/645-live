@@ -18,8 +18,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
-      TRAILBASE_URL: http://localhost:4000
-      PUBLIC_TRAILBASE_URL: http://localhost:4000
+      TRAILBASE_URL: https://trail.645.live
+      PUBLIC_TRAILBASE_URL: https://trail.645.live
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -38,6 +38,9 @@ jobs:
 
       - name: Build web app
         run: bun run www build
+
+      - name: Test static serving and request boundaries
+        run: bun test pages/www/adapter/worker.test.ts pages/www/src/lib/server/request-policy.test.ts pages/www/src/routes/qr-scan/scan-service.test.ts pages/www/src/lib/utils/qr-scan-identity.test.ts pages/www/src/lib/utils/lotto-round.test.ts
 
       - name: Check SDK
         run: bun run sdk check

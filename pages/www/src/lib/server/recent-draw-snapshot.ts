@@ -1,6 +1,9 @@
 import { TRAILBASE_URL } from "$env/static/private";
+import {
+	calculateClaimWindow,
+	estimateDrawDateFromRound,
+} from "$lib/utils/claim-window.js";
 import { calculateExpectedLatestRound } from "$lib/utils/lotto-common.js";
-import { calculateClaimWindow, estimateDrawDateFromRound } from "$lib/utils/claim-window.js";
 
 const OFFICIAL_LATEST_ROUNDS_URL =
 	"https://www.dhlottery.co.kr/lt645/selectLtEpsdInfo.do";
@@ -8,9 +11,9 @@ const OFFICIAL_DRAW_URL =
 	"https://www.dhlottery.co.kr/lt645/selectPstLt645InfoNew.do";
 const SNAPSHOT_LIMIT = 65;
 const FETCH_TIMEOUT_MS = 10000;
-const MEMORY_TTL_MS = 15 * 60 * 1000;
+const MEMORY_TTL_MS = 60 * 1000;
 const CACHE_CONTROL =
-	"public, max-age=300, s-maxage=604800, stale-while-revalidate=86400";
+	"public, max-age=30, s-maxage=60, stale-while-revalidate=60";
 
 type TrailbaseDrawRow = {
 	round: number;
@@ -62,7 +65,9 @@ function safeNumber(value: unknown): number {
 }
 
 function normalizeOfficialDate(value: unknown, round: number): string {
-	const raw = String(value ?? "").replaceAll(".", "").trim();
+	const raw = String(value ?? "")
+		.replaceAll(".", "")
+		.trim();
 	if (/^\d{8}$/.test(raw)) {
 		return `${raw.slice(0, 4)}-${raw.slice(4, 6)}-${raw.slice(6, 8)}`;
 	}
@@ -101,7 +106,16 @@ function toSnapshotRound(params: {
 	firstPrizeAmount: number;
 	firstPrizeWinnerCount: number;
 }): RecentDrawSnapshotRound | null {
-	if (params.round <= 0 || params.numbers.length !== 6) {
+	if (
+		params.round <= 0 ||
+		params.numbers.length !== 6 ||
+		new Set(params.numbers).size !== 6 ||
+		!params.numbers.every((n) => Number.isInteger(n) && n >= 1 && n <= 45) ||
+		!Number.isInteger(params.bonusNumber) ||
+		params.bonusNumber < 1 ||
+		params.bonusNumber > 45 ||
+		params.numbers.includes(params.bonusNumber)
+	) {
 		return null;
 	}
 
@@ -129,7 +143,10 @@ function toSnapshotRound(params: {
 
 function getCacheKey(request: Request, version: number): Request {
 	const url = new URL(request.url);
-	url.searchParams.set("v", String(version));
+	url.search = new URLSearchParams({
+		v: String(version),
+		schema: "2",
+	}).toString();
 	return new Request(url.toString(), {
 		headers: {
 			Accept: "application/json",
@@ -144,7 +161,10 @@ function getDefaultCache(): Cache | undefined {
 	return cacheStorage?.default;
 }
 
-function createResponse(snapshot: RecentDrawSnapshot, version: number): Response {
+function createResponse(
+	snapshot: RecentDrawSnapshot,
+	version: number,
+): Response {
 	return new Response(JSON.stringify(snapshot), {
 		headers: {
 			"content-type": "application/json; charset=utf-8",
@@ -154,7 +174,9 @@ function createResponse(snapshot: RecentDrawSnapshot, version: number): Response
 	});
 }
 
-async function fetchOfficialLatestRounds(limit = SNAPSHOT_LIMIT): Promise<number[]> {
+async function fetchOfficialLatestRounds(
+	limit = SNAPSHOT_LIMIT,
+): Promise<number[]> {
 	const payload = await fetchJson(OFFICIAL_LATEST_ROUNDS_URL);
 	const list = Array.isArray(payload?.data?.list) ? payload.data.list : [];
 	return list
@@ -164,7 +186,9 @@ async function fetchOfficialLatestRounds(limit = SNAPSHOT_LIMIT): Promise<number
 		.slice(0, limit);
 }
 
-async function fetchOfficialDraw(round: number): Promise<RecentDrawSnapshotRound | null> {
+async function fetchOfficialDraw(
+	round: number,
+): Promise<RecentDrawSnapshotRound | null> {
 	const url = new URL(OFFICIAL_DRAW_URL);
 	url.searchParams.set("srchDir", "center");
 	url.searchParams.set("srchLtEpsd", String(round));
@@ -180,9 +204,7 @@ async function fetchOfficialDraw(round: number): Promise<RecentDrawSnapshotRound
 	return toSnapshotRound({
 		round,
 		drawDate: normalizeOfficialDate(item.ltRflYmd, round),
-		numbers: [1, 2, 3, 4, 5, 6].map((index) =>
-			safeInt(item[`tm${index}WnNo`]),
-		),
+		numbers: [1, 2, 3, 4, 5, 6].map((index) => safeInt(item[`tm${index}WnNo`])),
 		bonusNumber: safeInt(item.bnsWnNo),
 		firstPrizeAmount: safeNumber(item.rnk1WnAmt),
 		firstPrizeWinnerCount: safeInt(item.rnk1WnNope),
@@ -228,66 +250,48 @@ async function fetchTrailbaseRecentDraws(
 		.slice(0, limit);
 }
 
-async function fetchTrailbaseDraw(round: number): Promise<RecentDrawSnapshotRound | null> {
+async function fetchTrailbaseDraw(
+	round: number,
+): Promise<RecentDrawSnapshotRound | null> {
 	const rows = await fetchTrailbaseRecentDraws(SNAPSHOT_LIMIT);
 	return rows.find((row) => row.round === round) ?? null;
 }
 
-async function buildRecentDrawSnapshot(version: number): Promise<RecentDrawSnapshot> {
-	const trailbaseRowsPromise = fetchTrailbaseRecentDraws(SNAPSHOT_LIMIT).catch(
-		(error) => {
-			console.warn("[lotto-snapshot] TrailBase fetch failed:", error);
-			return [];
-		},
+async function buildRecentDrawSnapshot(
+	_version: number,
+): Promise<RecentDrawSnapshot> {
+	// Historical draws do not require 65 official requests on every refresh.
+	const [trailbaseRows, officialRounds] = await Promise.all([
+		fetchTrailbaseRecentDraws().catch(() => []),
+		fetchOfficialLatestRounds().catch(() => []),
+	]);
+	const byRound = new Map<number, RecentDrawSnapshotRound>(
+		trailbaseRows.map((row) => [row.round, row] as const),
 	);
-
-	const officialRounds = await fetchOfficialLatestRounds(SNAPSHOT_LIMIT).catch(
-		(error) => {
-			console.warn("[lotto-snapshot] Official rounds fetch failed:", error);
-			return [];
-		},
-	);
-
-	let rounds: RecentDrawSnapshotRound[] = [];
-
-	if (officialRounds.length > 0) {
-		const trailbaseRows = await trailbaseRowsPromise;
-		const trailbaseMap = new Map(
-			trailbaseRows.map(
-				(row) => [row.round, row] as [number, RecentDrawSnapshotRound],
-			),
+	const missing = officialRounds
+		.filter((round) => !byRound.has(round))
+		.slice(0, 10);
+	for (let offset = 0; offset < missing.length; offset += 3) {
+		const results = await Promise.all(
+			missing
+				.slice(offset, offset + 3)
+				.map((round) => fetchOfficialDraw(round).catch(() => null)),
 		);
-
-		const settled = await Promise.all(
-			officialRounds.map(async (round) => {
-				try {
-					return await fetchOfficialDraw(round);
-				} catch (error) {
-					console.warn(
-						`[lotto-snapshot] Official draw fallback round=${round}:`,
-						error,
-					);
-					return trailbaseMap.get(round) ?? null;
-				}
-			}),
-		);
-
-		rounds = settled
-			.filter((row): row is RecentDrawSnapshotRound => row !== null)
-			.sort((left, right) => right.round - left.round)
-			.slice(0, SNAPSHOT_LIMIT);
+		for (const row of results) if (row) byRound.set(row.round, row);
 	}
-
-	if (rounds.length === 0) {
-		rounds = await trailbaseRowsPromise;
-	}
-
+	const rounds = [...byRound.values()]
+		.sort((a, b) => b.round - a.round)
+		.slice(0, SNAPSHOT_LIMIT);
+	if (rounds.length === 0)
+		throw new Error("Published draw data is temporarily unavailable");
 	return {
 		generatedAt: new Date().toISOString(),
-		latestRound: rounds[0]?.round ?? Math.max(version - 1, 1),
+		latestRound: rounds[0].round,
 		rounds,
 	};
 }
+
+let inFlightSnapshot: Promise<RecentDrawSnapshot> | undefined;
 
 export async function getRecentDrawSnapshot(): Promise<RecentDrawSnapshot> {
 	const version = calculateExpectedLatestRound();
@@ -299,7 +303,10 @@ export async function getRecentDrawSnapshot(): Promise<RecentDrawSnapshot> {
 		return memoryCache.snapshot;
 	}
 
-	const snapshot = await buildRecentDrawSnapshot(version);
+	inFlightSnapshot ??= buildRecentDrawSnapshot(version).finally(() => {
+		inFlightSnapshot = undefined;
+	});
+	const snapshot = await inFlightSnapshot;
 	memoryCache = {
 		version,
 		expiresAt: Date.now() + MEMORY_TTL_MS,
@@ -333,19 +340,27 @@ export async function getDrawSnapshotRound(
 	try {
 		return await fetchOfficialDraw(round);
 	} catch (error) {
-		console.warn(`[lotto-snapshot] Single official draw fetch failed round=${round}:`, error);
+		console.warn(
+			`[lotto-snapshot] Single official draw fetch failed round=${round}:`,
+			error,
+		);
 	}
 
 	try {
 		return await fetchTrailbaseDraw(round);
 	} catch (error) {
-		console.warn(`[lotto-snapshot] Single TrailBase draw fetch failed round=${round}:`, error);
+		console.warn(
+			`[lotto-snapshot] Single TrailBase draw fetch failed round=${round}:`,
+			error,
+		);
 	}
 
 	return null;
 }
 
-export async function getRecentDrawSnapshotResponse(request: Request): Promise<Response> {
+export async function getRecentDrawSnapshotResponse(
+	request: Request,
+): Promise<Response> {
 	const version = calculateExpectedLatestRound();
 	const cache = getDefaultCache();
 	const cacheKey = getCacheKey(request, version);

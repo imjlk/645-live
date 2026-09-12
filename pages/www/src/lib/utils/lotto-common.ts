@@ -26,18 +26,18 @@ export interface LottoDrawResult {
  * 현재 날짜를 기준으로 예상되는 최신 회차를 계산합니다.
  * 로또는 매주 토요일 추첨이며, 1회가 2002년 12월 7일에 시작되었습니다.
  */
-export function calculateExpectedLatestRound(): number {
+export function calculateExpectedLatestRound(now = new Date()): number {
 	const firstDrawDate = new Date("2002-12-07"); // 1회 추첨일 (토요일)
 
 	// UTC 시간을 한국 시간으로 변환
-	const utcNow = new Date();
+	const utcNow = now;
 	const koreaTime = new Date(utcNow.getTime() + 9 * 60 * 60 * 1000);
 
 	// 첫 추첨일부터 현재까지의 주 수 계산
 	const timeDiff = koreaTime.getTime() - firstDrawDate.getTime();
 	const weeksDiff = Math.floor(timeDiff / (1000 * 60 * 60 * 24 * 7));
 
-	const dayOfWeek = koreaTime.getDay(); // 0=일요일, 6=토요일
+	const dayOfWeek = koreaTime.getUTCDay(); // 0=일요일, 6=토요일
 
 	// 기본 예상 회차 (1회 + 경과한 주 수)
 	let expectedRound = 1 + weeksDiff;

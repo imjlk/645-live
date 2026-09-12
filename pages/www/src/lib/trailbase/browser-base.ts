@@ -1,8 +1,8 @@
 import { browser } from "$app/environment";
-import { env } from "$env/dynamic/public";
+import { PUBLIC_TRAILBASE_URL } from "$env/static/public";
 
 function getConfiguredTrailbaseUrl(): string {
-	const configuredUrl = env.PUBLIC_TRAILBASE_URL;
+	const configuredUrl = PUBLIC_TRAILBASE_URL;
 	if (!configuredUrl) {
 		throw new Error("PUBLIC_TRAILBASE_URL is not configured");
 	}

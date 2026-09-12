@@ -20,7 +20,51 @@ let ballValue = $state<number | null>(null);
 let displayedRound = $state<number | null>(null);
 let mounted = $state(false);
 let loadSequence = 0;
-const currentRound = $derived(data.displayRound ?? calculateDisplayRound());
+let clientRound = $state<number | null>(null);
+let liveHistory = $state<{
+	number: number;
+	rows: Array<{ round: number; scanCount: number }>;
+} | null>(null);
+const currentRound = $derived(
+	clientRound ?? data.displayRound ?? calculateDisplayRound(),
+);
+const historicalScanData = $derived.by(() => {
+	const rows = data.historicalScanData.map((item) => ({ ...item }));
+	if (liveHistory?.number === ballNumber) {
+		for (const latest of liveHistory.rows) {
+			const index = rows.findIndex((item) => item.round === latest.round);
+			if (index === -1) rows.push(latest);
+			else rows[index] = latest;
+		}
+	}
+	return rows.sort((left, right) => right.round - left.round).slice(0, 10);
+});
+
+function updateScanHistory(
+	number: number,
+	scanData: LottoDrawScanCount | null,
+) {
+	if (
+		number !== ballNumber ||
+		!scanData ||
+		!Number.isInteger(scanData.round) ||
+		scanData.round < 1
+	)
+		return;
+	const field = `scan_count_${number}` as keyof LottoDrawScanCount;
+	const scanCount = Number(scanData[field]);
+	if (!Number.isFinite(scanCount) || scanCount < 0) return;
+	const rows = liveHistory?.number === number ? liveHistory.rows : [];
+	liveHistory = {
+		number,
+		rows: [
+			...rows.filter((item) => item.round !== scanData.round),
+			{ round: scanData.round, scanCount },
+		]
+			.sort((left, right) => right.round - left.round)
+			.slice(0, 10),
+	};
+}
 const isFallbackPreview = $derived(
 	displayedRound !== null && displayedRound !== currentRound,
 );
@@ -43,7 +87,8 @@ async function syncDisplayedBallValue(number: number, round: number) {
 	displayedRound = null;
 	let result = await getScanDataSafely(round);
 	let resultRound = round;
-	if (sequence !== loadSequence) return;
+	if (sequence !== loadSequence || number !== ballNumber) return;
+	updateScanHistory(number, result);
 	if (
 		(!result || Number(result.total_scans) === 0) &&
 		data.fallbackPreviewRound &&
@@ -52,15 +97,27 @@ async function syncDisplayedBallValue(number: number, round: number) {
 		resultRound = data.fallbackPreviewRound;
 		result = await getScanDataSafely(resultRound);
 	}
-	if (sequence !== loadSequence) return;
+	if (sequence !== loadSequence || number !== ballNumber) return;
+	updateScanHistory(number, result);
 	const field = `scan_count_${number}` as keyof LottoDrawScanCount;
 	ballValue = Number(result?.[field]) || 0;
 	displayedRound = resultRound;
 }
 
 onMount(() => {
+	const updateCurrentRound = () => {
+		clientRound = calculateDisplayRound();
+	};
+	const refreshWhenVisible = () => {
+		if (document.visibilityState === "visible") updateCurrentRound();
+	};
+	updateCurrentRound();
 	mounted = true;
+	const rolloverTimer = setInterval(refreshWhenVisible, 60_000);
+	window.addEventListener("focus", refreshWhenVisible);
+	document.addEventListener("visibilitychange", refreshWhenVisible);
 	const unsubscribe = trailbaseClient.subscribe("ball-page", (scanData) => {
+		updateScanHistory(ballNumber, scanData);
 		if (scanData.round !== currentRound) return;
 		loadSequence += 1;
 		const field = `scan_count_${ballNumber}` as keyof LottoDrawScanCount;
@@ -70,6 +127,9 @@ onMount(() => {
 	return () => {
 		mounted = false;
 		loadSequence += 1;
+		clearInterval(rolloverTimer);
+		window.removeEventListener("focus", refreshWhenVisible);
+		document.removeEventListener("visibilitychange", refreshWhenVisible);
 		unsubscribe();
 	};
 });
@@ -136,10 +196,11 @@ function handleKeydown(event: KeyboardEvent) {
 		</div>
 	</section>
 
-	{#if data.historicalScanData.length > 0}
+	{#if historicalScanData.length > 0}
 		<section>
 			<div class="section-heading"><h2>최근 회차의 스캔 집계</h2><p>{ballNumber}번이 포함된 횟수</p></div>
-			<div class="history-grid">{#each data.historicalScanData as item (item.round)}<div><span>{item.round}회</span><strong>{item.scanCount.toLocaleString()}<small>회</small></strong></div>{/each}</div>
+			<div class="history-grid">{#each historicalScanData as item (item.round)}<div><span>{item.round}회</span><strong>{item.scanCount.toLocaleString()}<small>회</small></strong></div>{/each}</div>
+			<p class="muted history-note">최근 회차 기록은 마지막으로 확인한 집계입니다. 현재 회차는 스캔이 등록되면 갱신됩니다.</p>
 		</section>
 	{/if}
 
@@ -198,6 +259,7 @@ function handleKeydown(event: KeyboardEvent) {
 	.action-link { font-size: 0.8125rem; font-weight: 650; color: var(--color-primary); }
 	.section-heading { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0.5rem; margin-bottom: 1rem; }
 	.section-heading > p { font-size: 0.8125rem; color: color-mix(in oklab, var(--color-base-content) 68%, transparent); }
+	.history-note { margin-top: .75rem; }
 	.history-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 1rem; border-top: 1px solid var(--color-base-300); }
 	.history-grid > div { display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem; padding: 0.85rem 0; border-bottom: 1px solid var(--color-base-300); font-variant-numeric: tabular-nums; }
 	.history-grid span { font-size: 0.8125rem; color: color-mix(in oklab, var(--color-base-content) 70%, transparent); }

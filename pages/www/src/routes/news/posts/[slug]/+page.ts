@@ -1,3 +1,12 @@
+export const prerender = true;
+export const entries = () =>
+	Object.keys(import.meta.glob("/src/content/news/*.mdx")).map((path) => ({
+		slug: path
+			.split("/")
+			.at(-1)!
+			.replace(/\.mdx$/, ""),
+	}));
+
 import { error } from "@sveltejs/kit";
 import type { Component } from "svelte";
 import {

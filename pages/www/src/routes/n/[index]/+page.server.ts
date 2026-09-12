@@ -1,3 +1,7 @@
+export const prerender = true;
+export const entries = () =>
+	Array.from({ length: 45 }, (_, i) => ({ index: String(i + 1) }));
+
 import { error } from "@sveltejs/kit";
 import { initClient } from "trailbase";
 import { TRAILBASE_URL } from "$env/static/private";

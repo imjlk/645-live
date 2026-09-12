@@ -2,8 +2,10 @@
 import { NuqsAdapter } from "nuqs-svelte/adapters/svelte-kit";
 import { onMount } from "svelte";
 import { browser } from "$app/environment";
+import { afterNavigate } from "$app/navigation";
 import { page } from "$app/state";
 import { syncWebMcpContext } from "$lib/agent/webmcp";
+import { provideBrowserSession } from "$lib/auth/session.svelte";
 import Footer from "$lib/layout/Footer.svelte";
 import Header from "$lib/layout/Header.svelte";
 import MobileNavigation from "$lib/layout/MobileNavigation.svelte";
@@ -11,12 +13,15 @@ import "../app.css";
 import { SITE_ORIGIN } from "$lib/seo/index.js";
 import { initializeGlobalConnection } from "$lib/trailbase/global-connection.svelte";
 
-let { data, children } = $props();
+let { children } = $props();
+const auth = provideBrowserSession();
+const memberId = $derived(auth.session?.user.id ?? null);
 
 import { preparePageTransition } from "$lib/layout/page-transition";
 import {
 	registerNavigationAnalytics,
 	registerWebVitals,
+	trackPageView,
 } from "$lib/utils/analytics";
 import {
 	configureMemberScanSync,
@@ -24,10 +29,14 @@ import {
 } from "$lib/utils/member-scan-sync";
 
 preparePageTransition();
+afterNavigate(() => trackPageView());
 
 let currentPath = $derived(page.url.pathname);
 let currentAbsoluteUrl = $derived(
-	new URL(`${page.url.pathname}${page.url.search}`, SITE_ORIGIN).toString(),
+	new URL(
+		`${page.url.pathname}${browser ? page.url.search : ""}`,
+		SITE_ORIGIN,
+	).toString(),
 );
 const FORCE_SW_RESET_PARAM = "sw-reset";
 // Temporarily keep PWA surfaces dormant while clearing Search Console
@@ -89,6 +98,7 @@ async function resetServiceWorkersIfNeeded(): Promise<boolean> {
 }
 
 onMount(() => {
+	const stopSession = auth.start();
 	const unregisterMemberScanSync = registerMemberScanSyncLifecycle();
 	const unregisterAnalytics = registerNavigationAnalytics();
 	void registerWebVitals().catch(() => {});
@@ -102,19 +112,11 @@ onMount(() => {
 		void initializeGlobalConnection().catch((error) => {
 			console.warn("Realtime connection unavailable:", error);
 		});
-
-		// Microsoft Clarity 초기화 (브라우저 환경 & 프로덕션에서만)
-		if (browser && import.meta.env.PROD) {
-			try {
-				const { default: Clarity } = await import("@microsoft/clarity");
-				Clarity.init("qeumg5ffol");
-			} catch (error) {
-				console.warn("Failed to initialize Microsoft Clarity:", error);
-			}
-		}
 	})();
 
 	return () => {
+		stopSession();
+		configureMemberScanSync(null);
 		unregisterMemberScanSync();
 		unregisterAnalytics();
 	};
@@ -125,7 +127,7 @@ $effect(() => {
 		return;
 	}
 
-	configureMemberScanSync(data.session?.user?.id ?? null);
+	configureMemberScanSync(memberId);
 });
 
 $effect(() => {
@@ -135,7 +137,7 @@ $effect(() => {
 
 	void syncWebMcpContext({
 		pathname: currentPath,
-		isSignedIn: !!data.session?.user?.id,
+		userId: memberId,
 	});
 });
 </script>
@@ -153,7 +155,13 @@ $effect(() => {
 		function gtag(){dataLayer.push(arguments);}
 		gtag('js', new Date());
 
-		gtag('config', 'G-KEBJGHESGM');
+		gtag('config', 'G-KEBJGHESGM', {
+			send_page_view: false,
+			allow_google_signals: false,
+			allow_ad_personalization_signals: false,
+			page_location: location.origin + location.pathname,
+			page_referrer: document.referrer ? new URL(document.referrer).origin : ''
+		});
 	</script>
 	<script
 		async
@@ -166,7 +174,7 @@ $effect(() => {
 <NuqsAdapter>
  <a href="#main-content" class="skip-link">본문으로 건너뛰기</a>
  <div class="app-shell">
-  <Header session={data.session} />
+  <Header />
   <main id="main-content" class="page-shell" aria-label="메인 콘텐츠">
    {@render children?.()}
   </main>

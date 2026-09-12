@@ -1,6 +1,6 @@
-import adapter from "@sveltejs/adapter-cloudflare";
 import { vitePreprocess } from "@sveltejs/vite-plugin-svelte";
 import { mdsvex } from "mdsvex";
+import adapter from "./adapter/index.mjs";
 
 const mdsvexPreprocess = mdsvex({
 	extensions: [".mdx", ".svx"],
@@ -22,23 +22,24 @@ const normalizeMdsvexModuleScripts = {
 		return {
 			...processed,
 			code: processed.code
-				.replace(/<script(\s+lang=(["'])ts\2)?\s+context=(["'])module\3/g, "<script$1 module")
-				.replace(/<script\s+context=(["'])module\1(\s+lang=(["'])ts\3)?/g, "<script module$2"),
+				.replace(
+					/<script(\s+lang=(["'])ts\2)?\s+context=(["'])module\3/g,
+					"<script$1 module",
+				)
+				.replace(
+					/<script\s+context=(["'])module\1(\s+lang=(["'])ts\3)?/g,
+					"<script module$2",
+				),
 		};
 	},
 };
 
 const config = {
-	preprocess: [
-		vitePreprocess(),
-		normalizeMdsvexModuleScripts,
-	],
+	preprocess: [vitePreprocess(), normalizeMdsvexModuleScripts],
 	kit: {
-		adapter: adapter({
-			routes: {
-				exclude: ["<all>", "/sitemap.xml"],
-			},
-		}),
+		adapter: adapter(),
+		prerender: { concurrency: 4 },
+		version: { pollInterval: 60_000 },
 		alias: {
 			"@645/shared/indexnow": "../../packages/shared/src/indexnow.ts",
 			"@645/shared": "../../packages/shared/src/index.ts",
@@ -46,9 +47,6 @@ const config = {
 		},
 		serviceWorker: {
 			register: false,
-		},
-		csrf: {
-			trustedOrigins: ["*"],
 		},
 	},
 	extensions: [".svelte", ".svx", ".mdx"],

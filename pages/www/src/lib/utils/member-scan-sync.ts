@@ -1,10 +1,10 @@
 import type {
 	MyScanListItem,
-	MyScanUpsertInput,
 	MyScansUpsertPendingResult,
+	MyScanUpsertInput,
 } from "@645/shared";
 import { browser } from "$app/environment";
-import { rpcClient } from "$lib/rpc/client";
+import { createMemberRpcClient } from "$lib/auth/session-rpc";
 import {
 	type QRScanHistoryItem,
 	type QRScanSyncStrategy,
@@ -20,7 +20,10 @@ function parseRemoteDate(value: string | null | undefined): Date | undefined {
 	return Number.isNaN(date.getTime()) ? undefined : date;
 }
 
-function toHistoryItem(item: MyScanListItem, userId: string): QRScanHistoryItem {
+function toHistoryItem(
+	item: MyScanListItem,
+	userId: string,
+): QRScanHistoryItem {
 	const scannedAt =
 		parseRemoteDate(item.createdAt) ??
 		parseRemoteDate(item.updatedAt) ??
@@ -53,14 +56,18 @@ function toHistoryItem(item: MyScanListItem, userId: string): QRScanHistoryItem 
 
 class RpcMemberScanSyncStrategy implements QRScanSyncStrategy {
 	name = "orpc-member-scan-sync";
+	constructor(private readonly userId: string) {}
 
 	canSync(): boolean {
-		return browser;
+		return browser && qrScanHistory.getUserId() === this.userId;
 	}
 
 	async uploadPending(
 		items: QRScanHistoryItem[],
 	): Promise<{ success: string[]; failed: string[] }> {
+		if (!this.canSync() || items.some((item) => item.userId !== this.userId)) {
+			return { success: [], failed: items.map((item) => item.id) };
+		}
 		if (items.length === 0) {
 			return { success: [], failed: [] };
 		}
@@ -79,7 +86,9 @@ class RpcMemberScanSyncStrategy implements QRScanSyncStrategy {
 			summary: item.summary,
 		}));
 
-		const result = (await rpcClient.myScans.upsertPending({
+		const result = (await createMemberRpcClient(
+			this.userId,
+		).myScans.upsertPending({
 			items: payloadItems,
 		})) as MyScansUpsertPendingResult;
 		const synced = new Set(result.syncedTicketHashes);
@@ -95,7 +104,8 @@ class RpcMemberScanSyncStrategy implements QRScanSyncStrategy {
 	}
 
 	async downloadRemote(userId: string): Promise<QRScanHistoryItem[]> {
-		const items = (await rpcClient.myScans.list({
+		if (!this.canSync() || userId !== this.userId) return [];
+		const items = (await createMemberRpcClient(userId).myScans.list({
 			limit: 100,
 		})) as MyScanListItem[];
 
@@ -103,16 +113,19 @@ class RpcMemberScanSyncStrategy implements QRScanSyncStrategy {
 	}
 }
 
-const memberScanSyncStrategy = new RpcMemberScanSyncStrategy();
-
-let syncInFlight: Promise<{ success: boolean; error?: string }> | null = null;
+let syncInFlight: {
+	userId: string;
+	promise: Promise<{ success: boolean; error?: string }>;
+} | null = null;
 let lifecycleRegistered = false;
 
 export function configureMemberScanSync(userId: string | null): void {
+	if (qrScanHistory.getUserId() === userId) return;
+	syncInFlight = null;
 	qrScanHistory.setUserId(userId);
 
 	if (userId) {
-		qrScanHistory.setSyncStrategy(memberScanSyncStrategy);
+		qrScanHistory.setSyncStrategy(new RpcMemberScanSyncStrategy(userId));
 		void syncMemberScanHistory();
 		return;
 	}
@@ -128,15 +141,19 @@ export async function syncMemberScanHistory(): Promise<{
 		return { success: false, error: "로그인이 필요합니다" };
 	}
 
-	if (syncInFlight) {
-		return syncInFlight;
+	const userId = qrScanHistory.getUserId();
+	if (!userId) return { success: false, error: "로그인이 필요합니다" };
+	if (syncInFlight?.userId === userId) {
+		return syncInFlight.promise;
 	}
 
-	syncInFlight = qrScanHistory.sync().finally(() => {
-		syncInFlight = null;
+	const current = { userId, promise: qrScanHistory.sync() };
+	syncInFlight = current;
+	current.promise = current.promise.finally(() => {
+		if (syncInFlight === current) syncInFlight = null;
 	});
 
-	return syncInFlight;
+	return current.promise;
 }
 
 export function registerMemberScanSyncLifecycle(): () => void {

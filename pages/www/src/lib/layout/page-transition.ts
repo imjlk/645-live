@@ -12,6 +12,8 @@ export const preparePageTransition = () => {
 				resolve();
 				await navigation.complete;
 			});
+			// Resizing or a new navigation may skip the animation while navigation succeeds.
+			void transition.ready.catch(() => {});
 			void transition.finished.catch(() => {});
 		});
 	});

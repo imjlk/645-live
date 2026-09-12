@@ -1,3 +1,5 @@
+export const prerender = "auto";
+
 import { getComparePageContent } from "$lib/agent/content";
 import type { PageServerLoad } from "./$types";
 
