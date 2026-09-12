@@ -21,15 +21,15 @@ const won = (amount: number) => `${amount.toLocaleString("ko-KR")}원`;
 		<h2>제{round}회 결과</h2>
 		<time datetime={date}>{date.replaceAll('-', '.')} 추첨</time>
 	</div>
-	<LottoNumbers {round} {numbers} {bonus} heading={false} showLinks={false} />
+	<LottoNumbers {round} {numbers} {bonus} heading={false} />
 	<dl class="prize-summary">
 		<div class="main-prize">
-			<dt>1등 1인당 당첨금</dt>
+			<dt>1게임당 당첨금</dt>
 			<dd>{won(prize)}</dd>
 		</div>
 		<div>
-			<dt>1등 당첨자</dt>
-			<dd>{winners.toLocaleString('ko-KR')}<span>명</span></dd>
+			<dt>1등 당첨</dt>
+			<dd>{winners.toLocaleString('ko-KR')}<span>게임</span></dd>
 		</div>
 	</dl>
 	<p class="sales">총 판매액 {won(totalSales)}</p>

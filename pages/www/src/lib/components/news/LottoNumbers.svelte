@@ -21,22 +21,32 @@ let {
 
 <section class="news-numbers not-prose" aria-label={`제${round}회 당첨번호`}>
 	{#if heading}<h3>제{round}회 당첨번호</h3>{/if}
-	<div class="number-line">
+	<div class="number-line" class:linked={showLinks}>
 		<div class="main-numbers" aria-label="당첨번호">
 			{#each numbers as number (number)}
-				<SimpleBall {number} size="sm" class="news-ball" />
+				{#if showLinks}
+					<a class="number-link" href={resolve('/stats/numbers/[number]', { number: String(number) })} aria-label={`당첨번호 ${number}번 출현 통계 보기`}>
+						<SimpleBall {number} size="sm" class="news-ball" />
+					</a>
+				{:else}
+					<SimpleBall {number} size="sm" class="news-ball" />
+				{/if}
 			{/each}
 		</div>
 		<span class="plus" aria-hidden="true">+</span>
 		<div class="bonus-number">
-			<SimpleBall number={bonus} size="sm" class="news-ball" />
+			{#if showLinks}
+				<a class="number-link" href={resolve('/stats/numbers/[number]', { number: String(bonus) })} aria-label={`보너스 번호 ${bonus}번 출현 통계 보기`}>
+					<SimpleBall number={bonus} size="sm" class="news-ball" />
+				</a>
+			{:else}
+				<SimpleBall number={bonus} size="sm" class="news-ball" />
+			{/if}
 			<span>보너스</span>
 		</div>
 	</div>
 	{#if showLinks}
-		<a class="bonus-link" href={resolve('/stats/numbers/[number]', { number: String(bonus) })}>
-			보너스 {bonus}번의 출현 기록 <span aria-hidden="true">→</span>
-		</a>
+		<p class="link-hint">번호를 누르면 출현 통계를 볼 수 있어요.</p>
 	{/if}
 </section>
 
@@ -53,8 +63,11 @@ let {
 		box-shadow: none;
 	}
 	.plus { align-self: flex-start; line-height: clamp(32px, 5vw, 44px); color: color-mix(in oklab, var(--color-base-content) 50%, transparent); }
+	.linked .plus { line-height: 44px; }
 	.bonus-number { display: grid; justify-items: center; gap: 5px; }
 	.bonus-number > span { font-size: 0.6875rem; color: color-mix(in oklab, var(--color-base-content) 65%, transparent); }
-	.bonus-link { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; font-size: 0.8125rem; color: var(--color-primary); text-decoration: none; }
-	.bonus-link:hover { text-decoration: underline; text-underline-offset: 4px; }
+	.number-link { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; border-radius: 999px; text-decoration: none; }
+	.number-link:hover :global(.news-ball) { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+	.number-link:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 3px; }
+	.link-hint { margin: 12px 0 0; font-size: 0.8125rem; color: color-mix(in oklab, var(--color-base-content) 65%, transparent); }
 </style>
