@@ -23,8 +23,9 @@ test("mobile navigation exposes all destinations without overflowing", async ({
 	await page.setViewportSize({ width: 360, height: 800 });
 	await page.goto("/");
 	await expect(
-		page.getByRole("link", { name: "QR로 당첨 확인", exact: true }),
+		page.getByRole("link", { name: "내 로또 QR 스캔하기", exact: true }),
 	).toBeVisible();
+	await expect(page.locator("#live-scans [data-ball-number]")).toHaveCount(45);
 	await page.getByRole("button", { name: "전체 메뉴 열기" }).click();
 	await expect(
 		page.locator("#mobile-menu").getByRole("link", { name: "당첨점" }),

@@ -14,6 +14,7 @@ import { JsonLd, MetaTags } from "svelte-meta-tags";
 import { Toaster, toast } from "svelte-sonner";
 import { browser } from "$app/environment";
 import { resolve } from "$app/paths";
+import { page } from "$app/state";
 import { useBrowserSession } from "$lib/auth/session.svelte";
 import QRScanHistory from "$lib/components/qr-scan/QRScanHistory.svelte";
 import SimpleBall from "$lib/components/SimpleBall.svelte";
@@ -30,6 +31,11 @@ import {
 } from "$lib/utils/qr-scan-history.js";
 
 const auth = useBrowserSession();
+const entryPoint = $derived(
+	browser && page.url.searchParams.get("from") === "home-live"
+		? "home_live"
+		: "qr_page",
+);
 const sessionOwner = $derived(
 	auth.status === "anonymous"
 		? null
@@ -433,6 +439,8 @@ async function handleScanResult(
 		);
 		trackEvent("qr_scan_complete", {
 			source: activeScanSource,
+			entry_point: entryPoint,
+			new_registration: !result.data.alreadyScanned,
 			count: scanRecord.gamesCount ?? 0,
 			status: scanRecord.resultStatus ?? "unknown",
 		});
@@ -994,7 +1002,7 @@ onMount(() => {
 				<p class="result-status" class:winning={latestScan.resultStatus === "winner"} aria-live="polite">{resultLabel}</p><p class="result-summary">{latestScan.summary}</p>
 				{#if latestScan.resultStatus === "unreleased"}<p class="result-note">발표 후 다시 방문하면 저장된 티켓의 결과를 확인할 수 있어요.</p>{:else if latestScan.resultStatus === "unknown"}<p class="result-note">현재 당첨 결과를 확인하지 못했어요. 잠시 후 스캔 내역에서 다시 확인해주세요.</p>{/if}
 				<ol class="scanned-games">{#each latestGames as numbers, index (`${latestScan.ticketHash}-${index}`)}{@const gameResult = latestScan.winningResults[index]}<li><div class="game-heading"><span>{index + 1}게임</span>{#if gameResult}<strong>{gameResult.isWinner ? gameResult.grade : `${gameResult.matchCount}개 일치`}{gameResult.bonusMatch ? " · 보너스" : ""}</strong>{/if}</div><div class="scanned-balls">{#each numbers as number (number)}<SimpleBall {number} size="sm" />{/each}</div></li>{/each}</ol>
-				<button class="btn btn-outline mt-4" onclick={() => historyModal?.openHistoryModal?.()}>저장된 스캔 내역 보기</button>
+				<div class="result-actions"><a class="btn btn-primary" href={resolve(`/?scanRound=${latestScan.round}#live-scans`)} onclick={() => trackEvent("qr_scan_live_view", { entry_point: entryPoint })}>이 회차 실시간 현황 보기 →</a><button class="btn btn-outline" onclick={() => historyModal?.openHistoryModal?.()}>저장된 스캔 내역 보기</button></div>
 			{:else}<div class="result-empty"><div class="result-placeholder" aria-hidden="true">6 / 45</div><p>QR을 확인하면 회차와 게임별 결과가 여기에 표시됩니다.</p><ol><li>카메라에 용지 QR을 비추거나 사진을 선택하세요.</li><li>당첨 결과를 확인하고 스캔 내역에서 다시 볼 수 있어요.</li></ol></div>{/if}
 		</section>
 	</div>
@@ -1006,6 +1014,8 @@ onMount(() => {
 .page-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; }
 :global([data-sonner-toaster]) { z-index: 80 !important; }
 .qr-page { max-width: 1120px; margin-inline: auto; }
+.result-actions { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 1.25rem; }
+.result-actions .btn { min-height: 48px; }
 .scanner-workspace { display: grid; gap: 1.5rem; margin-top: 1.5rem; }
 .camera-surface { position: relative; aspect-ratio: 1; background: var(--color-base-200); overflow: hidden; border-radius: 1rem; isolation: isolate; }
 .camera-surface :global(video) { width: 100%; height: 100%; object-fit: cover; }

@@ -198,6 +198,9 @@ test("keeps successful and duplicate results visible and shows API failures with
 	await detect(page, firstQr);
 	await expect(page.locator(".result-status")).toHaveText("5등 당첨");
 	await expect(page.locator(".scanned-games li")).toHaveCount(1);
+	await expect(
+		page.getByRole("link", { name: "이 회차 실시간 현황 보기 →", exact: true }),
+	).toHaveAttribute("href", "/?scanRound=1240#live-scans");
 	await expect
 		.poll(() =>
 			page.evaluate(

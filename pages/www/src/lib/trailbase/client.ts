@@ -3,8 +3,8 @@
  * Improved error handling, reconnection logic, and type safety
  */
 
-import { browser } from "$app/environment";
 import type { Client, Event as TrailbaseEvent } from "trailbase";
+import { browser } from "$app/environment";
 import { getTrailbaseBrowserBaseUrl } from "./browser-base";
 import { shouldSuppressStreamError } from "./stream-errors";
 import type {
@@ -415,7 +415,7 @@ class TrailBaseClient {
 		};
 	}
 
-	async getScanDataSafely(round: number): Promise<LottoDrawScanCount | null> {
+	async getScanData(round: number): Promise<LottoDrawScanCount | null> {
 		try {
 			// Wait for initialization before proceeding
 			await this.ensureInitialized();
@@ -424,7 +424,7 @@ class TrailBaseClient {
 				console.warn(
 					"🚨 TrailBase API still not available after initialization",
 				);
-				return null;
+				throw new Error("Scan data client is unavailable");
 			}
 
 			const scanData = (await this.api.read(
@@ -447,7 +447,15 @@ class TrailBaseClient {
 				return null;
 			}
 
-			console.warn(`Scan data fetch error for round ${round}:`, err);
+			throw error;
+		}
+	}
+
+	async getScanDataSafely(round: number): Promise<LottoDrawScanCount | null> {
+		try {
+			return await this.getScanData(round);
+		} catch (error) {
+			console.warn(`Scan data fetch error for round ${round}:`, error);
 			return null;
 		}
 	}

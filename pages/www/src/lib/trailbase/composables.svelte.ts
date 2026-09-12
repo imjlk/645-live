@@ -197,14 +197,16 @@ interface UseBallValuesReturn {
 	totalScans: number;
 	currentRound: number | null;
 	recentlyUpdated: Record<number, boolean>;
+	increments: Record<number, number>;
 	loading: boolean;
 	error: TrailbaseError | null;
 	retryCount: number;
 	lastSuccessfulLoad: Date | null;
-	loadInitialData: (round?: number) => Promise<void>;
+	loadInitialData: (round?: number, forceRefresh?: boolean) => Promise<void>;
 	retryConnection: () => Promise<void>;
 	subscribe: () => () => void;
 	setTargetRound: (round: number | null) => void;
+	dispose: () => void;
 }
 
 /**
@@ -217,10 +219,23 @@ export function useBallValues(
 	let totalScans = $state(0);
 	let currentRound = $state<number | null>(null);
 	let recentlyUpdated = $state<Record<number, boolean>>({});
-	let loading = $state(false);
+	let increments = $state<Record<number, number>>({});
+	let loading = $state(true);
 	let error = $state<TrailbaseError | null>(null);
 	let retryCount = $state(0);
 	let lastSuccessfulLoad = $state<Date | null>(null);
+	let loadSequence = 0;
+	let liveVersion = 0;
+	let readyRound: number | null = null;
+	let disposed = false;
+	const updateTimers = new Map<number, ReturnType<typeof setTimeout>>();
+	const subscriptions = new Set<() => void>();
+	const clearUpdates = () => {
+		for (const timer of updateTimers.values()) clearTimeout(timer);
+		updateTimers.clear();
+		recentlyUpdated = {};
+		increments = {};
+	};
 
 	const {
 		initialRound,
@@ -275,18 +290,24 @@ export function useBallValues(
 	};
 
 	const loadInitialData = async (round?: number, forceRefresh = false) => {
-		if (loading) return;
+		if (disposed) return;
 
 		const roundToLoad = round || initialRound;
+		const sequence = ++loadSequence;
+		const version = liveVersion;
+		const stale = () =>
+			disposed || sequence !== loadSequence || version !== liveVersion;
 
 		// Check if we have recent successful data and don't force refresh
 		if (!forceRefresh && lastSuccessfulLoad) {
 			const timeSinceLastLoad = Date.now() - lastSuccessfulLoad.getTime();
 			if (
+				currentRound === roundToLoad &&
 				timeSinceLastLoad < CACHE_DURATION &&
 				ballValues &&
 				Object.keys(ballValues).length > 0
 			) {
+				loading = false;
 				return;
 			}
 		}
@@ -295,6 +316,9 @@ export function useBallValues(
 		if (!forceRefresh && roundToLoad) {
 			const cachedData = getCachedData(roundToLoad);
 			if (cachedData) {
+				loading = false;
+				error = null;
+				readyRound = cachedData.round;
 				currentRound = cachedData.round;
 				totalScans = Number(cachedData.total_scans) || 0;
 				ballValues = { ...extractBallValues(cachedData) };
@@ -316,7 +340,8 @@ export function useBallValues(
 
 			// Strategy 1: Try to get specific round data
 			if (roundToLoad) {
-				scanData = await trailbaseClient.getScanDataSafely(roundToLoad);
+				scanData = await trailbaseClient.getScanData(roundToLoad);
+				if (stale()) return;
 
 				if (scanData) {
 					// Cache the successful result
@@ -331,6 +356,7 @@ export function useBallValues(
 			// Strategy 2: If specific round fails and no specific round was requested, try latest available data
 			if (!scanData && !roundToLoad) {
 				scanData = await trailbaseClient.getLatestScanData();
+				if (stale()) return;
 
 				if (scanData) {
 					// Cache the latest data
@@ -341,6 +367,7 @@ export function useBallValues(
 			}
 
 			if (scanData) {
+				readyRound = scanData.round;
 				currentRound = scanData.round;
 				totalScans = Number(scanData.total_scans) || 0;
 				const newBallValues = extractBallValues(scanData);
@@ -354,6 +381,8 @@ export function useBallValues(
 					onValuesChange(ballValues, totalScans);
 				}
 			} else {
+				readyRound = roundToLoad || null;
+				lastSuccessfulLoad = new Date();
 				// Initialize with zeros if no data found
 				console.warn("No scan data available, initializing with zeros");
 				// Keep the requested round even if no data exists
@@ -372,6 +401,7 @@ export function useBallValues(
 				}
 			}
 		} catch (err) {
+			if (stale()) return;
 			console.error("Failed to load initial data:", err);
 
 			const trailbaseError: TrailbaseError =
@@ -383,31 +413,29 @@ export function useBallValues(
 
 			error = trailbaseError;
 			retryCount++;
-
-			// Initialize with zeros on error
-			// Keep the requested round even if there's an error
-			currentRound = roundToLoad || null;
-			ballValues = initializeBallValues();
-			totalScans = 0;
-
-			// Still call onValuesChange to notify components
-			if (onValuesChange) {
-				onValuesChange(ballValues, totalScans);
-			}
 		} finally {
-			loading = false;
+			if (!disposed && sequence === loadSequence) loading = false;
 		}
 	};
 
 	const subscribe = (): (() => void) => {
+		if (disposed) return () => {};
 		const subscriberId = `ball-values-${Date.now()}-${Math.random()}`;
 
-		return trailbaseClient.subscribe(subscriberId, (scanData) => {
+		const unsubscribe = trailbaseClient.subscribe(subscriberId, (scanData) => {
+			if (disposed) return;
 			// Filter by explicit target round first, otherwise track the current round.
 			const filterRound = targetRound ?? currentRound;
 			if (filterRound && scanData.round !== filterRound) {
 				return;
 			}
+			liveVersion++;
+			const hasBaseline = readyRound === scanData.round;
+			readyRound = scanData.round;
+			loading = false;
+			error = null;
+			lastSuccessfulLoad = new Date();
+			setCachedData(scanData.round, scanData);
 
 			if (targetRound) {
 				currentRound = targetRound;
@@ -428,19 +456,34 @@ export function useBallValues(
 
 				if (newValue !== currentValue) {
 					hasChanges = true;
+					const delta = newValue - currentValue;
+					if (!hasBaseline || delta <= 0) {
+						clearTimeout(updateTimers.get(i));
+						updateTimers.delete(i);
+						recentlyUpdated = { ...recentlyUpdated, [i]: false };
+						increments = { ...increments, [i]: 0 };
+						continue;
+					}
 					updatedBalls[i] = true;
+					increments = { ...increments, [i]: delta };
+					clearTimeout(updateTimers.get(i));
 
 					if (onBallUpdate) {
 						onBallUpdate(i, newValue, currentValue);
 					}
 
 					// Clear animation after delay (match animation duration)
-					setTimeout(() => {
-						recentlyUpdated = {
-							...untrack(() => recentlyUpdated),
-							[i]: false,
-						};
-					}, 1200); // 600ms animation + 600ms visibility
+					updateTimers.set(
+						i,
+						setTimeout(() => {
+							updateTimers.delete(i);
+							if (disposed) return;
+							recentlyUpdated = {
+								...untrack(() => recentlyUpdated),
+								[i]: false,
+							};
+						}, 1800),
+					);
 				}
 			}
 
@@ -459,10 +502,17 @@ export function useBallValues(
 				}
 			}
 		});
+		const stop = () => {
+			unsubscribe();
+			subscriptions.delete(stop);
+		};
+		subscriptions.add(stop);
+		return stop;
 	};
 
 	// Retry connection with exponential backoff
 	const retryConnection = async () => {
+		if (disposed) return;
 		if (retryCount >= 3) {
 			console.warn(`Max retry attempts (${retryCount}) reached, not retrying`);
 			return;
@@ -485,7 +535,24 @@ export function useBallValues(
 
 	// Function to update target round (useful for dynamic filtering)
 	const setTargetRound = (round: number | null) => {
+		if (disposed || targetRound === round) return;
 		targetRound = round;
+		loadSequence++;
+		readyRound = null;
+		currentRound = round;
+		lastSuccessfulLoad = null;
+		loading = true;
+		error = null;
+		ballValues = initializeBallValues();
+		totalScans = 0;
+		clearUpdates();
+	};
+	const dispose = () => {
+		disposed = true;
+		loadSequence++;
+		clearUpdates();
+		for (const stop of subscriptions) stop();
+		dataCache.clear();
 	};
 
 	// Initialize with empty values immediately to prevent undefined state
@@ -509,6 +576,9 @@ export function useBallValues(
 		get recentlyUpdated() {
 			return recentlyUpdated;
 		},
+		get increments() {
+			return increments;
+		},
 		get loading() {
 			return loading;
 		},
@@ -525,6 +595,7 @@ export function useBallValues(
 		retryConnection,
 		subscribe,
 		setTargetRound,
+		dispose,
 	};
 }
 

@@ -1,7 +1,5 @@
-<!-- @ts-nocheck -->
 <script lang="ts">
-// @ts-nocheck
-import { goto } from "$app/navigation";
+import { onMount, untrack } from "svelte";
 import { resolve } from "$app/paths";
 import ScreenReaderStatus from "$lib/components/ui/ScreenReaderStatus.svelte";
 import LottoBall from "$lib/modules/lotto/components/LottoBall.svelte";
@@ -11,44 +9,29 @@ import {
 	useBallValues,
 	useConnectionStatus,
 } from "$lib/trailbase/composables.svelte";
-import {
-	announceToScreenReader,
-	focusElement,
-	handleGridNavigation,
-} from "$lib/utils/keyboard-navigation";
-import { onDestroy, onMount, untrack } from "svelte";
+import { handleGridNavigation } from "$lib/utils/keyboard-navigation";
 
 interface Props {
-	// Initial round to display
 	initialRound: number;
-	// Headline round to keep in the UI
 	headlineRound?: number;
-	// Latest available round for comparison
-	latestRound?: number;
-	// Whether the latest/headline round already has scan data
+	latestRound?: number | null;
 	latestRoundHasScanData?: boolean;
-	// Most recent round that already has scan data
 	latestPopulatedRound?: number | null;
-	// Preview round to show while the latest round is still empty
 	fallbackPreviewRound?: number | null;
-	// Whether to temporarily show the latest populated round instead of the headline round
 	allowFallbackPreview?: boolean;
-	// Whether to show navigation to individual number pages
 	enableNavigation?: boolean;
-	// Whether to show the header with round info
 	showHeader?: boolean;
-	// Force client-side refresh after SSR (for main page)
 	forceClientRefresh?: boolean;
-	// Grid columns configuration for different screen sizes
 	gridColumns?: {
-		mobile?: number; // default: 5
-		tablet?: number; // default: 3
-		desktop?: number; // default: 4
-		large?: number; // default: 5
+		mobile?: number;
+		tablet?: number;
+		desktop?: number;
+		large?: number;
 	};
-	// Custom increment effect configuration
+	gridGap?: string;
 	incrementEffectConfig?: {
 		show: boolean;
+		/** Optional message template, for example "+{delta}". */
 		message?: string;
 		color?: string;
 	};
@@ -65,488 +48,283 @@ let {
 	enableNavigation = true,
 	showHeader = true,
 	forceClientRefresh = false,
-	gridColumns = { mobile: 5, tablet: 3, desktop: 4, large: 5 },
-	incrementEffectConfig = {
-		show: true,
-		message: "+1",
-		color: "text-green-600 dark:text-green-400",
-	},
+	gridColumns = { mobile: 5, tablet: 9, desktop: 9, large: 9 },
+	gridGap = "",
+	incrementEffectConfig = { show: true },
 }: Props = $props();
 
-// Use the canonical composables for state management
-const ballValuesComposable = useBallValues();
-
-const connectionStatus = useConnectionStatus();
+const values = useBallValues();
+const connection = useConnectionStatus();
+let activeRound = $state<number | null>(null);
 let showingFallbackPreview = $state(false);
+let mounted = false;
+let loadSequence = 0;
+let previousForceRefresh = false;
+let wasConnected = false;
+let hasConnected = false;
 
-// Generate numbers array for rendering based on ballValues
-let numbers = $derived<BallNumber[]>(
-	Array.from({ length: 45 }, (_, i) => ({
-		id: i + 1,
-		value: ballValuesComposable.ballValues[i + 1] || 0,
+const numbers = $derived<BallNumber[]>(
+	Array.from({ length: 45 }, (_, index) => ({
+		id: index + 1,
+		value: values.ballValues[index + 1] ?? 0,
 	})),
 );
-let headerRound = $derived(
-	headlineRound ?? initialRound ?? latestRound ?? null,
+const headerRound = $derived(
+	headlineRound ?? activeRound ?? initialRound ?? latestRound,
 );
-let isFallbackPreviewVisible = $derived(
+const previewRound = $derived(fallbackPreviewRound ?? latestPopulatedRound);
+const isFallbackPreviewVisible = $derived(
 	allowFallbackPreview &&
 		showingFallbackPreview &&
-		!!fallbackPreviewRound &&
-		ballValuesComposable.currentRound === fallbackPreviewRound,
+		previewRound !== null &&
+		values.currentRound === previewRound,
 );
-
-// Subscription cleanup function
-let unsubscribeBallValues: (() => void) | null = null;
-let unsubscribeConnectionStatus: (() => void) | null = null;
-
-// 키보드 네비게이션을 위한 현재 포커스 인덱스
-let focusedBallIndex = $state<number | null>(null);
-
-// 스크린 리더용 실시간 업데이트 메시지
-let screenReaderMessage = $state("");
-
-// 실시간 업데이트를 스크린 리더에 알림 - untrack으로 무한 루프 방지
-let ballUpdateTimeoutId: ReturnType<typeof setTimeout> | null = null;
-$effect(() => {
-	const recentlyUpdated = ballValuesComposable.recentlyUpdated;
-	if (recentlyUpdated && Object.keys(recentlyUpdated).length > 0) {
-		// 이전 타임아웃 취소
-		if (ballUpdateTimeoutId) {
-			clearTimeout(ballUpdateTimeoutId);
-		}
-
-		const updatedBalls = Object.keys(recentlyUpdated)
-			.filter((key) => recentlyUpdated[Number.parseInt(key)])
-			.map((key) => `${key}번`)
-			.join(", ");
-
-		if (updatedBalls) {
-			const message = `로또 번호 ${updatedBalls}이 업데이트되었습니다.`;
-			// untrack을 사용하여 리액티비티 체인 차단
-			untrack(() => {
-				screenReaderMessage = message;
-			});
-
-			// 메시지 초기화 타임아웃 설정
-			ballUpdateTimeoutId = setTimeout(() => {
-				untrack(() => {
-					screenReaderMessage = "";
-				});
-				ballUpdateTimeoutId = null;
-			}, 2000);
-		}
-	}
+const displayedRound = $derived(
+	isFallbackPreviewVisible ? values.currentRound : headerRound,
+);
+const hasSnapshot = $derived(
+	values.lastSuccessfulLoad !== null &&
+		values.currentRound === displayedRound &&
+		!values.error,
+);
+const connectionLabel = $derived(
+	values.loading
+		? "집계 불러오는 중"
+		: values.error
+			? "집계 확인 필요"
+			: connection.connected
+				? "실시간 반영 중"
+				: connection.connecting
+					? "실시간 연결 중"
+					: "실시간 연결 대기",
+);
+const updateMessage = $derived.by(() => {
+	const updated = Object.entries(values.increments).filter(
+		([number, delta]) => delta > 0 && values.recentlyUpdated[Number(number)],
+	);
+	if (updated.length === 0) return "";
+	const changes = updated
+		.slice(0, 6)
+		.map(([number, delta]) => `${number}번 ${delta}회 증가`)
+		.join(", ");
+	const remaining =
+		updated.length > 6 ? ` 외 ${updated.length - 6}개 번호` : "";
+	return `${changes}${remaining}. QR 스캔 총 ${values.totalScans.toLocaleString()}회.`;
 });
 
-// 연결 상태 변경을 스크린 리더에 알림 - 무한 루프 방지
-let previousConnectionStatus = $state<boolean | null>(null);
-let connectionTimeoutId: ReturnType<typeof setTimeout> | null = null;
-$effect(() => {
-	const currentStatus = connectionStatus.connected;
-	if (
-		previousConnectionStatus !== null &&
-		previousConnectionStatus !== currentStatus
-	) {
-		// 이전 타임아웃 취소
-		if (connectionTimeoutId) {
-			clearTimeout(connectionTimeoutId);
-		}
-
-		const message = currentStatus
-			? "서버와 연결되었습니다. 실시간 업데이트가 시작됩니다."
-			: "서버 연결이 끊어졌습니다. 재연결을 시도하고 있습니다.";
-
-		// untrack을 사용하여 리액티비티 체인 차단
-		connectionTimeoutId = setTimeout(() => {
-			untrack(() => {
-				screenReaderMessage = message;
-			});
-			connectionTimeoutId = null;
-		}, 100); // 짧은 딘레이로 우선순위 조정
-	}
-	// untrack을 사용하여 previousConnectionStatus 업데이트 시 리액티비티 방지
-	untrack(() => {
-		previousConnectionStatus = currentStatus;
-	});
-});
-
-// 그리드 키보드 네비게이션 핸들러
-function handleBallGridKeydown(event: KeyboardEvent, ballIndex: number) {
-	if (!enableNavigation) return;
-
-	// 현재 화면 크기에 따라 컬럼 수 결정
-	const getCurrentColumns = () => {
-		const width = window.innerWidth;
-		if (width < 640) return gridColumns.mobile || 5;
-		if (width < 768) return gridColumns.tablet || 3;
-		if (width < 1024) return gridColumns.desktop || 4;
-		return gridColumns.large || 5;
-	};
-
-	const nextIndex = handleGridNavigation(event, ballIndex - 1, {
-		gridColumns: getCurrentColumns(),
-		maxItems: 45,
-		onActivate: (index) => {
-			const ballNumber = index + 1;
-			void goto(
-				resolve("/n/[index]", {
-					index: String(ballNumber),
-				}),
-			);
-		},
-		onEscape: () => {
-			focusedBallIndex = null;
-			// 포커스를 메인 영역으로 이동
-			const mainElement = document.querySelector("main");
-			if (mainElement) {
-				(mainElement as HTMLElement).focus();
-			}
-		},
-	});
-
-	if (nextIndex !== null) {
-		const nextBallNumber = nextIndex + 1;
-		focusedBallIndex = nextBallNumber;
-
-		// 다음 프레임에서 포커스 이동
-		requestAnimationFrame(() => {
-			const nextElement = document.querySelector(
-				`[data-ball-number="${nextBallNumber}"]`,
-			);
-			focusElement(nextElement as HTMLElement);
-			announceToScreenReader(`${nextBallNumber}번으로 이동`);
-		});
-	}
-}
-
-// Initialize data using the new composable
-async function initializeData() {
-	if (initialRound) {
-		ballValuesComposable.setTargetRound(initialRound);
-		await ballValuesComposable.loadInitialData(
-			initialRound,
-			forceClientRefresh,
-		);
-
-		if (
-			allowFallbackPreview &&
-			!latestRoundHasScanData &&
-			fallbackPreviewRound &&
-			fallbackPreviewRound !== initialRound &&
-			ballValuesComposable.totalScans === 0
-		) {
-			showingFallbackPreview = true;
-			await ballValuesComposable.loadInitialData(fallbackPreviewRound, true);
-			return;
-		}
-	}
-
+async function initializeData(round: number, forceRefresh: boolean) {
+	const sequence = ++loadSequence;
+	activeRound = round;
+	previousForceRefresh = forceClientRefresh;
 	showingFallbackPreview = false;
+	values.setTargetRound(round);
+	await values.loadInitialData(round, forceRefresh);
+	if (!mounted || sequence !== loadSequence) return;
+
+	if (
+		allowFallbackPreview &&
+		!latestRoundHasScanData &&
+		previewRound &&
+		previewRound !== round &&
+		!values.error &&
+		values.currentRound === round &&
+		values.totalScans === 0
+	) {
+		showingFallbackPreview = true;
+		await values.loadInitialData(previewRound, true);
+	}
 }
 
-// Public method to update the round
 export function updateRound(newRound: number) {
-	ballValuesComposable.setTargetRound(newRound);
-	void ballValuesComposable.loadInitialData(newRound, true);
+	if (mounted && Number.isInteger(newRound) && newRound > 0) {
+		void initializeData(newRound, true);
+	}
 }
 
-onMount(async () => {
-	unsubscribeConnectionStatus = connectionStatus.subscribe();
+function refreshData() {
+	if (mounted) void initializeData(activeRound ?? initialRound, true);
+}
 
-	// Initialize data first to ensure values are loaded
-	await initializeData();
+function handleBallKeydown(event: KeyboardEvent, number: number) {
+	if (
+		event.defaultPrevented ||
+		event.altKey ||
+		event.ctrlKey ||
+		event.metaKey ||
+		event.shiftKey ||
+		!enableNavigation
+	)
+		return;
 
-	// Small delay to ensure initialization is complete
-	await new Promise((resolve) => setTimeout(resolve, 50));
+	const link = event.currentTarget as HTMLAnchorElement;
+	const grid = link.closest<HTMLElement>(".scan-number-grid");
+	if (!grid) return;
+	// Keep Enter and modified clicks native; arrow keys follow the rendered columns.
+	if (event.key === "Enter") return;
+	const columns = getComputedStyle(grid).gridTemplateColumns.split(" ").length;
+	const nextIndex = handleGridNavigation(event, number - 1, {
+		gridColumns: columns,
+		maxItems: 45,
+		onActivate: () => link.click(),
+		onEscape: () => document.querySelector<HTMLElement>("main")?.focus(),
+	});
+	if (nextIndex !== null) {
+		grid
+			.querySelector<HTMLAnchorElement>(`[data-ball-number="${nextIndex + 1}"]`)
+			?.focus();
+	}
+}
 
-	// Set up ball values subscription after initialization
-	unsubscribeBallValues = ballValuesComposable.subscribe();
+onMount(() => {
+	mounted = true;
+	values.setTargetRound(initialRound);
+	// Subscribe before fetching so a scan arriving during the request is retained.
+	const unsubscribeValues = values.subscribe();
+	const unsubscribeConnection = connection.subscribe();
+	void initializeData(initialRound, forceClientRefresh);
+	let lastVisibilityRefresh = 0;
+	const refreshWhenVisible = () => {
+		if (document.visibilityState !== "visible" || values.loading) return;
+		const now = Date.now();
+		if (now - lastVisibilityRefresh < 1000) return;
+		lastVisibilityRefresh = now;
+		refreshData();
+	};
+	window.addEventListener("focus", refreshWhenVisible);
+	document.addEventListener("visibilitychange", refreshWhenVisible);
+	return () => {
+		mounted = false;
+		loadSequence += 1;
+		window.removeEventListener("focus", refreshWhenVisible);
+		document.removeEventListener("visibilitychange", refreshWhenVisible);
+		unsubscribeValues();
+		unsubscribeConnection();
+		values.dispose();
+	};
 });
 
 $effect(() => {
 	const round = initialRound;
-	const shouldForceRefresh = forceClientRefresh;
-
-	ballValuesComposable.setTargetRound(round);
-
-	if (unsubscribeBallValues && round) {
-		void ballValuesComposable.loadInitialData(round, shouldForceRefresh);
-	}
+	const forceRefresh = forceClientRefresh;
+	untrack(() => {
+		if (
+			mounted &&
+			(round !== activeRound || forceRefresh !== previousForceRefresh)
+		) {
+			void initializeData(round, forceRefresh);
+		}
+	});
 });
 
 $effect(() => {
-	if (
-		allowFallbackPreview &&
-		showingFallbackPreview &&
-		initialRound &&
-		ballValuesComposable.currentRound === initialRound &&
-		ballValuesComposable.totalScans > 0
-	) {
-		showingFallbackPreview = false;
-	}
-});
-
-// Clean up on component unmount
-onDestroy(() => {
-	if (unsubscribeBallValues) {
-		unsubscribeBallValues();
-		unsubscribeBallValues = null;
-	}
-
-	if (unsubscribeConnectionStatus) {
-		unsubscribeConnectionStatus();
-		unsubscribeConnectionStatus = null;
-	}
-
-	// Clear any pending timeouts
-	if (ballUpdateTimeoutId) {
-		clearTimeout(ballUpdateTimeoutId);
-		ballUpdateTimeoutId = null;
-	}
-
-	if (connectionTimeoutId) {
-		clearTimeout(connectionTimeoutId);
-		connectionTimeoutId = null;
-	}
+	const connected = connection.connected;
+	untrack(() => {
+		if (connected && hasConnected && !wasConnected) refreshData();
+		if (connected) hasConnected = true;
+		wasConnected = connected;
+	});
 });
 </script>
 
-{#if ballValuesComposable.error}
-	<div class="text-red-500 p-4 bg-red-50 dark:bg-red-900/20 rounded-lg mt-4">
-		<p>데이터 로딩 오류: {ballValuesComposable.error.message}</p>
-		{#if !connectionStatus.connected}
-			<p class="text-sm mt-2">연결 상태: {connectionStatus.connecting ? '연결 중...' : '연결 끊김'}</p>
-		{/if}
-	</div>
-{:else if numbers.length > 0}
-	{#if isFallbackPreviewVisible}
-		<div class="alert alert-info mt-4">
-			<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
-				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-			</svg>
-			<div class="flex-1">
-				<h3 class="font-bold">{headerRound}회 집계 준비 중</h3>
-				<div class="text-xs">
-					최신 회차 스캔 데이터는 아직 수집 중입니다. 아래 화면은 가장 최근 데이터가 있는 {ballValuesComposable.currentRound}회 기준 미리보기입니다.
-				</div>
-			</div>
-		</div>
-
-		<div class="mt-4 rounded-xl border border-base-300 bg-base-100 p-4 shadow-sm">
-			<div class="flex flex-wrap items-center justify-between gap-3">
-				<div>
-					<p class="text-sm font-semibold text-base-content">최근 데이터 요약</p>
-					<p class="text-xs text-base-content/70">
-						최신 회차는 유지하면서 직전 데이터가 있는 회차를 함께 보여줍니다.
-					</p>
-				</div>
-				<div class="rounded-lg bg-primary/10 px-4 py-3 text-right">
-					<p class="text-sm font-semibold text-primary">
-						{latestPopulatedRound ?? ballValuesComposable.currentRound}회 기준
-					</p>
-					<p class="text-xs text-base-content/70">
-						총 스캔 {ballValuesComposable.totalScans.toLocaleString()}회
-					</p>
-				</div>
-			</div>
-		</div>
-	{:else if ballValuesComposable.totalScans === 0 && !ballValuesComposable.loading}
-		<div class="alert alert-info mt-4">
-			<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
-				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-			</svg>
-			<div class="flex-1">
-				<h3 class="font-bold">아직 등록된 스캔이 없어요</h3>
-				<div class="text-xs">
-					{#if ballValuesComposable.currentRound}
-						{ballValuesComposable.currentRound}회차의 스캔 데이터가 아직 수집되지 않았습니다. 
-					{:else}
-						최신 회차의 스캔 데이터를 준비 중입니다.
-					{/if}
-					첫 스캔이 등록되면 집계가 표시됩니다.
-				</div>
-			</div>
-		</div>
-	{/if}
-	
-	<!-- Header with round and total scans info -->
+<div class="scan-status">
 	{#if showHeader}
-		<div class="px-3 py-3 bg-base-200 rounded-lg mt-4 mb-3 border border-base-300">
-			<div class="flex flex-wrap gap-3 justify-between items-center">
-				<div class="flex items-center gap-3">
-					<div class="flex items-center gap-2">
-						<div class="w-3 h-3 {connectionStatus.connected ? 'bg-green-500' : connectionStatus.connecting ? 'bg-yellow-500 animate-pulse' : 'bg-red-500'} rounded-full"></div>
-						<span class="text-xs text-base-content/70">
-							{connectionStatus.connected ? '연결됨' : connectionStatus.connecting ? '연결 중...' : `(재시도: ${connectionStatus.retryCount})`}
-							{#if connectionStatus.error}
-								- {connectionStatus.error.message}
-							{/if}
-						</span>
-					</div>
-					<span class="text-lg font-bold text-base-content">
-						{#if headerRound}
-							{headerRound}회차
-							{#if isFallbackPreviewVisible}
-								<span class="ml-2 px-2 py-1 bg-warning text-warning-content text-xs font-medium rounded-full">집계 준비 중</span>
-							{:else if latestRound && headerRound === latestRound}
-								<span class="ml-2 px-2 py-1 bg-success text-success-content text-xs font-medium rounded-full">발표됨</span>
-							{/if}
-						{:else}
-							로또 스캔 현황
-						{/if}
-					</span>
-				</div>
-				<div class="flex items-center gap-2 px-3 py-2 bg-base-100 rounded-lg">
-					{#if isFallbackPreviewVisible}
-						<svg class="w-4 h-4 text-blue-500" fill="currentColor" viewBox="0 0 24 24">
-							<path d="M12 6v6l4 2M22 12a10 10 0 11-20 0 10 10 0 0120 0z" />
-						</svg>
-						<span class="text-blue-600 dark:text-blue-400 font-bold text-sm">
-							최근 데이터 {latestPopulatedRound ?? ballValuesComposable.currentRound}회
-						</span>
-					{:else if ballValuesComposable.totalScans > 0}
-						<svg class="w-4 h-4 text-blue-500" fill="currentColor" viewBox="0 0 24 24">
-							<path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-						</svg>
-						<span class="text-blue-600 dark:text-blue-400 font-bold text-sm">
-							총 스캔: {ballValuesComposable.totalScans.toLocaleString()}회
-						</span>
-					{:else}
-						<svg class="w-4 h-4 text-amber-500 animate-pulse" fill="currentColor" viewBox="0 0 24 24">
-							<path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
-						</svg>
-						<span class="text-amber-600 dark:text-amber-400 font-bold text-sm">
-							대기 중
-						</span>
-					{/if}
-				</div>
+		<div class="scan-grid-header">
+			<div class="scan-grid-context">
+				<span class="scan-round">{displayedRound}회 스캔 현황</span>
+				<span class="connection-status" role="status">
+					<span class="connection-dot" class:connected={connection.connected && !values.error} aria-hidden="true"></span>
+					{connectionLabel}
+				</span>
 			</div>
+			<p class="scan-total"><span>QR 스캔</span><strong data-scan-total>{hasSnapshot ? values.totalScans.toLocaleString() : "—"}</strong><span>회</span></p>
 		</div>
 	{/if}
-	
-	<div 
-		class="scan-number-grid grid py-4 gap-2"
-		style={`--scan-mobile: ${gridColumns.mobile ?? 5}; --scan-desktop: ${gridColumns.desktop ?? 9};`}
-		role="grid"
-		aria-label="로또 번호별 스캔 현황"
+
+	{#if values.error}
+		<div class="scan-message error-message" role="status">
+			<p>스캔 집계를 불러오지 못했어요. 잠시 후 다시 확인해 주세요.</p>
+			<button type="button" onclick={refreshData}>다시 불러오기</button>
+		</div>
+	{:else if isFallbackPreviewVisible}
+		<p class="scan-message">{headerRound}회에 아직 등록된 스캔이 없어, 최근 기록이 있는 <strong>{displayedRound}회</strong>를 보여드립니다.</p>
+	{:else if !values.loading && hasSnapshot && values.totalScans === 0}
+		<p class="scan-message">아직 등록된 QR이 없어요. 첫 스캔으로 이번 회차 현황을 채워주세요.</p>
+	{:else if hasSnapshot && !connection.connected && !values.loading}
+		<p class="scan-message">표시된 집계는 마지막으로 확인한 값입니다. 연결되면 다시 갱신됩니다.</p>
+	{/if}
+
+	<div
+		class="scan-number-grid {gridGap}"
+		style={`--scan-mobile: ${gridColumns.mobile ?? 5}; --scan-tablet: ${gridColumns.tablet ?? 9}; --scan-desktop: ${gridColumns.desktop ?? 9}; --scan-large: ${gridColumns.large ?? 9};`}
+		role="group"
+		aria-label={`${displayedRound}회 번호별 스캔 집계`}
+		aria-busy={values.loading}
 	>
 		{#each numbers as ball (ball.id)}
-			{@const isUpdated = ballValuesComposable.recentlyUpdated[ball.id] || false}
-			{@const hasData = ballValuesComposable.totalScans > 0}
+			{@const label = hasSnapshot ? `${ball.id}번, 번호 집계 ${ball.value.toLocaleString()}회` : `${ball.id}번, 집계 ${values.error ? "확인 필요" : "불러오는 중"}`}
 			{#if enableNavigation}
-						<a
-							href={resolve("/n/[index]", { index: String(ball.id) })}
-						class="ball-grid-item {hasData ? '' : 'opacity-75'}"
-					aria-label="로또 번호 {ball.id}번 상세 정보 보기. 현재 {ball.value}회 스캔됨"
-					tabindex="0"
-					role="gridcell"
+				<a
+					href={resolve("/n/[index]", { index: String(ball.id) })}
+					class="ball-grid-item"
+					aria-label={`${label}. 상세 보기`}
 					data-ball-number={ball.id}
-					onkeydown={(e) => handleBallGridKeydown(e, ball.id)}
-					onfocus={() => focusedBallIndex = ball.id}
+					onkeydown={(event) => handleBallKeydown(event, ball.id)}
 				>
-					{#if incrementEffectConfig.show}
-						<ValueIncrementEffect 
-							show={isUpdated} 
-							message={incrementEffectConfig.message || "+1"} 
-							color={incrementEffectConfig.color || "text-green-600 dark:text-green-400"} 
-						/>
-					{/if}
-					<LottoBall 
-						ballNumber={ball.id} 
-						initialValue={ball.value}
-						size="small"
-						interactive={true}
-					/>
+					{@render scanBall(ball)}
 				</a>
 			{:else}
-				<div 
-					class="ball-grid-item {hasData ? '' : 'opacity-75'}"
-					aria-label="로또 번호 {ball.id}번. 현재 {ball.value}회 스캔됨"
-					role="gridcell"
-					data-ball-number={ball.id}
-				>
-					{#if incrementEffectConfig.show}
-						<ValueIncrementEffect 
-							show={isUpdated} 
-							message={incrementEffectConfig.message || "+1"} 
-							color={incrementEffectConfig.color || "text-green-600 dark:text-green-400"} 
-						/>
-					{/if}
-					<LottoBall 
-						ballNumber={ball.id} 
-						initialValue={ball.value}
-						size="small"
-						interactive={false}
-					/>
+				<div class="ball-grid-item" role="img" aria-label={label} data-ball-number={ball.id}>
+					{@render scanBall(ball)}
 				</div>
 			{/if}
 		{/each}
 	</div>
-{:else}
-	<!-- Loading state -->
-	{#if ballValuesComposable.loading}
-		<div class="alert mt-4">
-			<span class="loading loading-spinner loading-sm"></span>
-			<div>
-				<h3 class="font-bold">데이터 로딩 중...</h3>
-				<div class="text-xs">
-					{#if !connectionStatus.connected}
-						TrailBase 연결을 초기화하고 있습니다...
-					{:else}
-						스캔 데이터를 가져오고 있습니다.
-					{/if}
-				</div>
-			</div>
-		</div>
-	{/if}
-	
-	<!-- Skeleton loading state with round info -->
-	{#if showHeader}
-		<div class="skeleton h-14 mt-4 mb-3 rounded-xl"></div>
-	{/if}
-	
-	<div class="scan-number-grid grid py-4 gap-2">
-			{#each Array.from({ length: 45 }, (_, index) => index) as skeleton (skeleton)}
-				<div class="skeleton aspect-square w-full min-h-20 rounded-full"></div>
-			{/each}
-	</div>
-{/if}
+	<p class="scan-caption">번호 아래는 해당 번호가 포함된 횟수입니다.{#if enableNavigation} 볼을 누르면 회차별 기록을 볼 수 있어요.{/if}</p>
+</div>
 
-<!-- 스크린 리더용 실시간 상태 알림 -->
-<ScreenReaderStatus 
-	message={screenReaderMessage} 
-	liveMode="polite" 
-/>
+{#snippet scanBall(ball: BallNumber)}
+	{@const delta = values.increments[ball.id] ?? 0}
+	{#if incrementEffectConfig.show}
+		{#key ball.value}
+			<ValueIncrementEffect
+				show={hasSnapshot && values.recentlyUpdated[ball.id] && delta > 0}
+				{delta}
+				message={incrementEffectConfig.message}
+				color={incrementEffectConfig.color}
+			/>
+		{/key}
+	{/if}
+	<LottoBall
+		ballNumber={ball.id}
+		initialValue={hasSnapshot ? ball.value : undefined}
+		size="small"
+		interactive={false}
+		viewTransitionName={enableNavigation ? `ball-${ball.id}` : "none"}
+	/>
+{/snippet}
+
+<ScreenReaderStatus message={updateMessage} liveMode="polite" />
 
 <style>
- .scan-number-grid { grid-template-columns: repeat(var(--scan-mobile, 5), minmax(0, 1fr)); }
- @media (min-width:768px) { .scan-number-grid { grid-template-columns: repeat(var(--scan-desktop, 9), minmax(0, 1fr)); } }
-.ball-grid-item {
-    aspect-ratio: 1;
-    width: 100%;
-    position: relative;
-    display: block;
-    transition: all 0.2s ease-in-out;
-    border-radius: 50%;
-    min-height: 80px;
-}
-
-.ball-grid-item:hover {
-    transform: scale(1.05);
-    z-index: 10;
-}
-
-.ball-grid-item:focus {
-    outline: 2px solid var(--color-primary);
-    outline-offset: 2px;
-    box-shadow: 0 0 0 2px var(--color-primary);
-    transform: scale(1.05);
-}
-
-@media (max-width: 640px) {
-    .ball-grid-item {
-        min-height: 70px;
-    }
-}
+	.scan-status { container: scan-status / inline-size; min-width: 0; }
+	.scan-grid-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .75rem 1.25rem; padding-block: .25rem 1rem; }
+	.scan-grid-context { display: grid; gap: .25rem; }
+	.scan-round { font-size: .875rem; font-weight: 700; }
+	.connection-status { display: inline-flex; align-items: center; gap: .35rem; font-size: .6875rem; color: var(--text-muted); }
+	.connection-dot { width: .375rem; height: .375rem; border-radius: 50%; background: var(--text-muted); }
+	.connection-dot.connected { background: var(--color-success-content); }
+	.scan-total { display: flex; align-items: baseline; gap: .3rem; font-size: .75rem; color: var(--text-muted); white-space: nowrap; }
+	.scan-total strong { margin-left: .3rem; color: var(--color-base-content); font-size: 1.5rem; line-height: 1; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -.04em; }
+	.scan-message { margin-bottom: 1rem; font-size: .8125rem; line-height: 1.6; color: var(--text-muted); }
+	.error-message { display: flex; flex-wrap: wrap; align-items: center; gap: .25rem 1rem; }
+	.error-message button { min-height: 2.75rem; color: var(--color-primary); font-weight: 650; text-decoration: underline; text-underline-offset: .2em; cursor: pointer; }
+	.scan-number-grid { display: grid; grid-template-columns: repeat(var(--scan-mobile, 5), minmax(0, 1fr)); column-gap: clamp(.25rem, 1.2cqi, .625rem); row-gap: .625rem; }
+	.ball-grid-item { position: relative; display: block; justify-self: center; width: 100%; max-width: 4.5rem; aspect-ratio: 1; border-radius: 50%; text-decoration: none; transition: transform 160ms ease; }
+	a.ball-grid-item:hover { transform: translateY(-2px); z-index: 1; }
+	a.ball-grid-item:focus-visible, .error-message button:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 3px; }
+	.scan-caption { margin-top: 1rem; font-size: .6875rem; line-height: 1.6; color: var(--text-muted); }
+	@container scan-status (min-width: 36rem) { .scan-number-grid { grid-template-columns: repeat(var(--scan-tablet, 9), minmax(0, 1fr)); } }
+	@container scan-status (min-width: 48rem) { .scan-number-grid { grid-template-columns: repeat(var(--scan-desktop, 9), minmax(0, 1fr)); } }
+	@container scan-status (min-width: 64rem) { .scan-number-grid { grid-template-columns: repeat(var(--scan-large, 9), minmax(0, 1fr)); } }
+	@media (prefers-reduced-motion: reduce) { .ball-grid-item { transition: none; } a.ball-grid-item:hover { transform: none; } }
 </style>

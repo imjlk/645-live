@@ -1,33 +1,36 @@
 <script lang="ts">
-import { quintOut } from "svelte/easing";
-import { fade, fly } from "svelte/transition";
-
 interface Props {
-	// Boolean to track if animation should show
 	show?: boolean;
-	// Message to display (usually "+1")
+	delta?: number;
+	/** An optional template containing {delta}; fixed counts are ignored. */
 	message?: string;
-	// Color of the animation text
 	color?: string;
 }
 
 let {
 	show = false,
-	message = "+1",
-	color = "text-green-500",
+	delta = 0,
+	message,
+	color = "text-success-content",
 }: Props = $props();
+const displayMessage = $derived(
+	message?.includes("{delta}")
+		? message.replaceAll("{delta}", delta.toLocaleString())
+		: `+${delta.toLocaleString()}`,
+);
 </script>
 
-{#if show}
-<div 
-  class="absolute pointer-events-none flex justify-center items-center w-full h-full top-0 left-0 z-20 overflow-hidden"
->
-  <div
-    class="text-xl font-black {color} drop-shadow-lg bg-white/90 dark:bg-gray-900/90 px-2 py-1 rounded-full border-2 border-current"
-    in:fly={{ y: -20, duration: 600, easing: quintOut }} 
-    out:fade={{ duration: 400 }}
-  >
-    {message}
-  </div>
-</div>
+{#if show && Number.isFinite(delta) && delta > 0}
+	{#key delta}
+		<div class="increment-effect" aria-hidden="true">
+			<span class="increment-value {color}">{displayMessage}</span>
+		</div>
+	{/key}
 {/if}
+
+<style>
+	.increment-effect { position: absolute; top: -.3rem; right: -.2rem; z-index: 2; pointer-events: none; }
+	.increment-value { display: block; padding: .2rem .4rem; border: 1px solid currentColor; border-radius: 999px; background: var(--color-base-100); font-size: .75rem; font-weight: 800; line-height: 1.2; font-variant-numeric: tabular-nums; box-shadow: 0 2px 6px color-mix(in oklab, var(--color-base-content) 10%, transparent); animation: increment-appear 240ms ease-out both; }
+	@keyframes increment-appear { from { opacity: 0; transform: translateY(.35rem) scale(.9); } to { opacity: 1; transform: translateY(0) scale(1); } }
+	@media (prefers-reduced-motion: reduce) { .increment-value { animation: none; } }
+</style>

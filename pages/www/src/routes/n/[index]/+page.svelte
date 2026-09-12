@@ -177,7 +177,7 @@ function handleKeydown(event: KeyboardEvent) {
 <div class="content-page number-page">
 	<nav class="breadcrumb" aria-label="현재 위치"><a href={resolve("/")}>홈</a><span aria-hidden="true">/</span><span>{ballNumber}번 스캔 집계</span></nav>
 	<header class="number-heading">
-		<div class="heading-copy"><LottoBall number={ballNumber} size="large" /><div><p class="eyebrow">이 사이트에 등록된 스캔 기준</p><h1>{ballNumber}번 스캔 집계</h1></div></div>
+		<div class="heading-copy"><LottoBall number={ballNumber} size="large" viewTransitionName={`ball-${ballNumber}`} /><div><p class="eyebrow">이 사이트에 등록된 스캔 기준</p><h1>{ballNumber}번 스캔 집계</h1></div></div>
 		<nav class="number-nav" aria-label="다른 번호 보기">
 			{#if ballNumber > 1}<a href={resolve("/n/[index]", { index: String(ballNumber - 1) })} aria-label={`${ballNumber - 1}번 스캔 집계`}>← {ballNumber - 1}번</a>{/if}
 			{#if ballNumber < 45}<a href={resolve("/n/[index]", { index: String(ballNumber + 1) })} aria-label={`${ballNumber + 1}번 스캔 집계`}>{ballNumber + 1}번 →</a>{/if}

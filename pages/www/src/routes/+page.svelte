@@ -15,6 +15,7 @@ import {
 	SITE_NAME,
 	SITE_ORIGIN,
 } from "$lib/seo";
+import { trackEvent } from "$lib/utils/analytics";
 import {
 	calculateExpectedLatestRound,
 	type LottoDrawResult,
@@ -25,8 +26,20 @@ let { data }: { data: PageData } = $props();
 type HomeDraw = Omit<LottoDrawResult, "totSellamnt">;
 let liveDraw = $state<HomeDraw | null>(null);
 let clientDisplayRound = $state<number | null>(null);
-let scanExpanded = $state(false);
 const displayRound = $derived(clientDisplayRound ?? data.displayRound);
+const scanRound = $derived.by(() => {
+	const requested = browser
+		? Number(page.url.searchParams.get("scanRound"))
+		: 0;
+	return Number.isInteger(requested) &&
+		requested > 0 &&
+		requested <= displayRound
+		? requested
+		: displayRound;
+});
+function trackScanEntry() {
+	trackEvent("qr_scan_cta", { location: "home_live" });
+}
 const draw = $derived(
 	liveDraw && (!data.latestDraw || liveDraw.drwNo >= data.latestDraw.drwNo)
 		? liveDraw
@@ -163,7 +176,7 @@ const pageTitle = $derived(
 const description = $derived(
 	agentMode
 		? "645.live 공개 로또 조회 API와 MCP, 데이터 출처, 회원 스캔 연동 경로를 확인하세요. 최근 회차 결과와 번호 통계를 구조화된 형식으로 조회하고, 서비스 문서와 인증 안내에서 필요한 연동 정보를 찾을 수 있습니다."
-		: "645.live에서 로또 6/45 최신 당첨번호와 회차별 결과, 번호 통계, 당첨 판매점 정보를 확인하세요. 용지 QR 스캔이나 사진으로 당첨 여부를 확인하고, 로그인하면 스캔 내역을 계정에 저장할 수 있습니다.",
+		: "645.live에서 로또 6/45 최신 당첨번호와 실시간 QR 스캔 현황, 번호 통계, 당첨 판매점을 확인하세요. 용지 QR이나 사진으로 당첨 여부를 확인하면 번호별 집계에 반영되며, 로그인하면 스캔 내역을 계정에 저장할 수 있습니다.",
 );
 const canonical = $derived(
 	agentMode ? `${SITE_ORIGIN}/?mode=agent` : SITE_ORIGIN,
@@ -225,15 +238,17 @@ const faq = [
      {:else}
       <div class="empty-result"><p>당첨 결과를 불러오지 못했어요.</p><a class="link link-primary" href={resolve("/history")}>회차별 결과 확인하기</a></div>
      {/if}
-     <div class="primary-actions"><a class="btn btn-primary" href={resolve("/qr-scan")}>QR로 당첨 확인</a><a class="btn btn-outline" href={resolve("/generator")}>번호 만들기</a></div>
      <p class="data-note">공식 추첨 결과 기준 · <a href={resolve("/data-sources")}>데이터 출처</a>{#if draw}<a href={resolve(`/history?round=${draw.drwNo}`)}>회차 상세 보기 ↗</a>{/if}</p>
     </section>
-    <AdSlot placement="home-inline" format="horizontal" />
-    <section class="home-section" aria-labelledby="scan-heading">
-     <div class="section-heading"><h2 id="scan-heading">이번 회차 스캔 현황</h2><span class="section-label">{displayRound}회 · 사이트 등록 기준</span></div>
-     <p class="scan-description">현재 판매 회차에 이 사이트로 등록된 번호별 스캔 집계를 확인하세요.</p>
-     <details class="scan-details" bind:open={scanExpanded}><summary>번호별 스캔 집계 보기</summary>{#if scanExpanded}<ScanStatusGrid initialRound={displayRound} {latestRound} headlineRound={displayRound} latestRoundHasScanData={displayRound === data.displayRound && data.latestRoundHasScanData} allowFallbackPreview={false} showHeader={true} forceClientRefresh={true} gridColumns={{mobile:5,tablet:9,desktop:9,large:9}} />{/if}</details>
+    <section id="live-scans" class="home-section live-scans" aria-labelledby="scan-heading">
+     <div class="section-heading"><h2 id="scan-heading">함께 모으는 실시간 스캔 현황</h2><span class="section-label">{scanRound}회 · 사이트 등록 기준</span></div>
+     <p class="scan-description">용지 QR을 확인하면 내 번호가 이 현황판에 반영돼요.<br />다른 이용자가 등록한 번호도 새로고침 없이 함께 볼 수 있어요.</p>
+     <div class="scan-actions"><a class="btn btn-primary" href={resolve("/qr-scan?from=home-live")} onclick={trackScanEntry}>내 로또 QR 스캔하기 <span aria-hidden="true">→</span></a><span>로그인 없이 확인 · 사진으로도 가능</span></div>
+     {#if scanRound !== displayRound}<p class="scan-round-note">제{scanRound}회에 등록된 스캔을 보고 있어요. <a class="text-link" href={resolve("/#live-scans")}>현재 판매 회차 보기 →</a></p>{/if}
+     <ScanStatusGrid initialRound={scanRound} {latestRound} headlineRound={scanRound} allowFallbackPreview={false} showHeader={true} forceClientRefresh={true} gridColumns={{mobile:5,tablet:9,desktop:9,large:9}} />
+     <p class="scan-scope">645.live에 등록된 QR 기준입니다. 전체 구매자의 선택이나 다음 당첨 확률을 의미하지 않습니다.</p>
     </section>
+    <AdSlot placement="home-inline" format="horizontal" />
     <section class="home-section" aria-labelledby="explore-heading">
      <div class="section-heading"><h2 id="explore-heading">숫자로 보는 로또</h2><a href={resolve("/stats")} class="text-link">전체 통계 ↗</a></div>
      <div class="explore-links">
@@ -260,23 +275,28 @@ const faq = [
  .home-primary { min-width: 0; }
  .result-context { display: flex; gap: 1rem; flex-wrap: wrap; color: var(--text-muted); font-size: 0.8125rem; }
  .result-context>span { font-weight: 600; }
- h1 { margin-block: 0.8rem 1.75rem; font-size: clamp(1.75rem,3.2vw,2.5rem); font-weight: 780; letter-spacing: -0.05em; line-height: 1.25; }
- .winning-numbers { display: flex; align-items: start; gap: 0.6rem; margin-bottom: 1.75rem; }
+ h1 { margin-block: 0.6rem 1rem; font-size: clamp(1.4rem,2.7vw,2rem); font-weight: 780; letter-spacing: -0.05em; line-height: 1.25; }
+ .winning-numbers { display: flex; align-items: start; gap: 0.6rem; margin-bottom: 1rem; }
  .bonus { display: flex; align-items: center; flex-direction: column; gap: 0.5rem; }
  .bonus>span { color: var(--text-muted); font-size: 0.75rem; }
  .plus { align-self: start; line-height: 4rem; color: var(--text-muted); }
- .prize-summary { border-top: 1px solid var(--color-base-300); padding-top: 1.5rem; display: flex; gap: 3rem; margin-bottom: 1.75rem; }
+ .prize-summary { display: flex; flex-wrap: wrap; gap: 1.5rem 3rem; margin-bottom: 0.75rem; }
  .prize-summary>div { display: flex; flex-direction: column; gap: 0.5rem; }
  .prize-summary span { color: var(--text-muted); font-size: 0.8125rem; }
- .prize-summary strong { font-size: clamp(1.35rem,2.8vw,1.85rem); letter-spacing: -0.035em; font-variant-numeric: tabular-nums; }
+ .prize-summary strong { font-size: clamp(1.2rem,2.3vw,1.5rem); letter-spacing: -0.035em; font-variant-numeric: tabular-nums; }
  .prize-summary small { font-size: 0.75rem; color: var(--text-muted); font-weight: 400; }
  .prize-summary strong small { margin-left: 0.35rem; font-size: 0.9375rem; }
- .primary-actions { display: flex; flex-wrap: wrap; gap: 0.75rem; }
- .primary-actions .btn { min-height: 48px; padding-inline: 1.25rem; }
  .data-note { display: flex; flex-wrap: wrap; gap: 0.5rem; font-size: 0.75rem; color: var(--text-muted); margin-top: 1rem; line-height: 1.75; }
  .data-note a:hover { text-decoration: underline; }
  .home-section { margin-top: var(--section-space); padding-top: 1.75rem; border-top: 1px solid var(--color-base-300); }
  .scan-description { color: var(--text-muted); font-size: 0.875rem; line-height: 1.75; }
+ .live-scans { margin-top: 1.75rem; scroll-margin-top: 6rem; }
+ .live-scans .section-heading h2 { font-size: clamp(1.25rem,2.5vw,1.6rem); letter-spacing: -0.045em; }
+ .scan-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 0.75rem 1rem; margin-block: 1.1rem 1.5rem; }
+ .scan-actions .btn { min-height: 48px; padding-inline: 1.2rem; }
+ .scan-actions>span, .scan-scope { color: var(--text-muted); font-size: 0.75rem; line-height: 1.7; }
+ .scan-round-note { margin-bottom: 1rem; font-size: 0.8125rem; line-height: 1.7; }
+ .scan-scope { margin-top: 0.5rem; }
  .empty-result { padding: 2rem 0; line-height: 2; }
  .text-link { color: var(--color-primary); font-size: 0.875rem; font-weight: 600; }
  .explore-links a { display: grid; grid-template-columns: 1fr auto; padding-block: 1rem; gap: 0.3rem 1rem; border-bottom: 1px solid var(--color-base-300); }
@@ -294,7 +314,6 @@ const faq = [
  .trust-note { margin-top: 2rem; font-size: 0.8125rem; }
  .trust-note p { margin-top: 0.7rem; }
  .trust-note a { color: var(--color-primary); }
- .scan-details summary { padding: 0.8rem 0; font-weight: 600; }
  .home-faq h2 { font-size: 1.2rem; font-weight: 700; margin-bottom: 1rem; }
  .home-faq details { border-bottom: 1px solid var(--color-base-300); }
  .home-faq summary { padding: 1.1rem 0; font-size: 0.9375rem; font-weight: 600; }
@@ -305,6 +324,6 @@ const faq = [
   .winning-numbers :global(.simple-ball) { width: clamp(2.05rem,9.2vw,3rem); height: clamp(2.05rem,9.2vw,3rem); font-size: 1rem; }
   .plus { line-height: 2.6rem; font-size: 0.875rem; }
   .prize-summary { gap: 2rem; }
-  .primary-actions .btn { font-size: 0.875rem; padding-inline: 1rem; }
+  .scan-actions .btn { width: 100%; font-size: 0.9375rem; }
  }
 </style>
