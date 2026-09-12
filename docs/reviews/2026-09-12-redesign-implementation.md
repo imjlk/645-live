@@ -85,4 +85,6 @@ QR 내용·계정 ID·URL 쿼리는 새 이벤트 매개변수에 넣지 않는�
 | `BUN_VERSION` | `1.4.0` (로컬 검증 버전, production·preview) |
 | `SKIP_DEPENDENCY_INSTALL` | `1` (자동 npm 설치 대신 위 명령 사용) |
 
+빌드 루트를 고치면 Pages는 `pages/www/wrangler.jsonc`의 변수를 우선하므로 `BUN_VERSION`과 `SKIP_DEPENDENCY_INSTALL`도 해당 파일의 `vars`에 기록했다. 대시보드 값만 추가하면 빌드 시 덮어써지는 것을 로그로 확인했다.
+
 기존 환경 변수·인증 비밀값·서비스 및 Hyperdrive 바인딩·호환성 설정은 API 수정 전후 비교로 보존을 확인했다. 이후 main push도 같은 설정으로 자동 배포된다. [Cloudflare 빌드 이미지 설정](https://developers.cloudflare.com/pages/configuration/build-image/).
