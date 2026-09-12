@@ -72,3 +72,17 @@ QR 내용·계정 ID·URL 쿼리는 새 이벤트 매개변수에 넣지 않는�
 실제 티켓의 운영 저장·실기기 카메라 인식과 실광고 채움은 별도 확인 범위다. 수동 광고 ID가 없어 실광고 수동 슬롯의 성과는 측정하지 않았다. 브라우저 검증은 공개 데이터 조회·로컬 생성·격리한 QR 모의 응답 중심으로 진행했다.
 
 배포 방식은 사용자 지시에 따라 작업 브랜치를 원격에 보관하고, 검증한 변경을 main에 병합·push하여 기존 자동 배포를 이용한다. PR은 생성하지 않는다.
+
+### Cloudflare Git 자동 배포 설정 복구
+
+첫 main push에서 GitHub CI는 성공했으나 Pages는 앱 빌드 전 `npm install`의 `EUNSUPPORTEDPROTOCOL: workspace:*`로 실패했다. Pages의 기존 루트·출력 경로도 모노레포 구성과 맞지 않았다. 프로젝트 설정을 다음과 같이 고쳤다.
+
+| 항목 | 값 |
+| --- | --- |
+| Root directory | `pages/www` |
+| Build command | `cd ../.. && bun install --frozen-lockfile && bun run www build` |
+| Build output directory | `.svelte-kit/cloudflare` (Root directory 기준) |
+| `BUN_VERSION` | `1.4.0` (로컬 검증 버전, production·preview) |
+| `SKIP_DEPENDENCY_INSTALL` | `1` (자동 npm 설치 대신 위 명령 사용) |
+
+기존 환경 변수·인증 비밀값·서비스 및 Hyperdrive 바인딩·호환성 설정은 API 수정 전후 비교로 보존을 확인했다. 이후 main push도 같은 설정으로 자동 배포된다. [Cloudflare 빌드 이미지 설정](https://developers.cloudflare.com/pages/configuration/build-image/).
