@@ -1,7 +1,7 @@
 <script lang="ts">
+import { JsonLd, MetaTags } from "svelte-meta-tags";
 import { RecentAnalysisInput, StatsPageHero } from "$lib/components/stats";
 import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
-import { JsonLd, MetaTags } from "svelte-meta-tags";
 import type { PageData } from "./$types";
 
 let { data }: { data: PageData } = $props();
@@ -74,14 +74,19 @@ const breadcrumbItems = [
 	{ label: "통계", href: "/stats" },
 	{ label: "홀짝분석", href: "/stats/odd-even", current: true },
 ];
+
+const pageTitle = $derived(`로또 홀짝 분포와 번호 합계 통계`);
+const pageDescription = $derived(
+	`로또 6/45 전체 ${data.totalRounds}회차 추첨 결과에서 당첨번호의 홀수·짝수 개수와 번호 합계를 확인하세요. 홀짝 비율별 출현 횟수와 합계 구간을 비교하고, 원하는 기간의 회차별 기록에서 여섯 번호가 어떻게 분포했는지 살펴볼 수 있습니다.`,
+);
 </script>
 
 <MetaTags
-	title="로또 6/45 홀짝 분석 통계 | 홀수/짝수 분포 패턴"
+	title={pageTitle}
 	titleTemplate="%s | 645.live"
-	description="로또 6/45 당첨번호의 홀수/짝수 분포와 번호 합계 패턴을 분석합니다. 홀짝 균형도와 트렌드를 통해 번호 선택에 도움을 제공합니다."
+	description={pageDescription}
 	canonical="https://645.live/stats/odd-even"
-	keywords={["로또", "홀짝분석", "홀수짝수", "로또통계", "번호합계", "로또패턴", "로또예측", "6/45통계", "홀짝균형", "번호분석"]}
+	keywords={["로또", "홀짝분석", "홀수짝수", "로또통계", "번호합계", "로또패턴", "6/45통계", "홀짝균형", "번호분석"]}
 	robots="index,follow"
 	additionalRobotsProps={{
 		maxSnippet: 320,
@@ -92,10 +97,6 @@ const breadcrumbItems = [
 		{
 			name: 'application-name',
 			content: '645.live'
-		},
-		{
-			name: 'theme-color',
-			content: '#3B82F6'
 		},
 		{
 			name: 'format-detection',
@@ -117,8 +118,8 @@ const breadcrumbItems = [
 	openGraph={{
 		type: 'article',
 		url: 'https://645.live/stats/odd-even',
-		title: '로또 6/45 홀짝 분석 통계 | 홀수/짝수 분포 패턴',
-		description: '로또 6/45 당첨번호의 홀수/짝수 분포와 번호 합계 패턴을 분석합니다. 홀짝 균형도와 트렌드를 통해 번호 선택에 도움을 제공합니다.',
+		title: pageTitle,
+		description: pageDescription,
 		locale: 'ko_KR',
 		images: [{
 			url: `https://645.live/og?${new URLSearchParams({
@@ -137,15 +138,13 @@ const breadcrumbItems = [
 		article: {
 			section: '로또 통계',
 			tags: ['로또', '홀짝분석', '홀수짝수', '로또통계', '번호합계', '로또패턴', '6/45통계', '홀짝균형'],
-			publishedTime: '2024-01-01T00:00:00.000Z',
-			modifiedTime: new Date().toISOString()
 		}
 	}}
 	twitter={{
 		cardType: 'summary_large_image',
 		site: '@645live',
-		title: '로또 6/45 홀짝 분석 통계',
-		description: '홀수/짝수 분포와 번호 합계 패턴 분석으로 로또 번호 선택에 도움을 제공합니다.',
+		title: pageTitle,
+		description: pageDescription,
 		image: `https://645.live/og?${new URLSearchParams({
 			title: encodeURIComponent('로또 6/45 홀짝 분석'),
 			description: encodeURIComponent(`홀수/짝수 분포 패턴 분석`),
@@ -198,12 +197,12 @@ const breadcrumbItems = [
 	}}
 />
 
-<div class="p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-6 max-sm:px-0">
+<div class="stats-page">
 	<!-- Breadcrumbs -->
 	<Breadcrumbs items={breadcrumbItems} />
 
 	<StatsPageHero
-		eyebrow="Odd Even Pattern"
+		eyebrow="공식 추첨 통계"
 		title="홀짝 분석 통계"
 		description={`로또 6/45 당첨번호의 홀수·짝수 분포를 분석합니다. 전체 ${data.totalRounds}회차를 기준으로 균형형 조합과 극단 조합이 얼마나 자주 나왔는지 한눈에 비교할 수 있습니다.`}
 		metrics={[
@@ -248,7 +247,7 @@ const breadcrumbItems = [
 			</p>
 			
 			<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-2 sm:gap-4">
-				{#each Object.entries(data.oddEvenDistribution) as [oddCount, count]}
+				{#each Object.entries(data.oddEvenDistribution) as [oddCount, count] (oddCount)}
 					{@const percentage = data.totalRecords > 0 ? ((Number(count) / data.totalRecords) * 100).toFixed(1) : "0.0"}
 					{@const balance = getBalanceAnalysis(Number(oddCount))}
 					
@@ -268,7 +267,7 @@ const breadcrumbItems = [
 			<div class="mt-4 sm:mt-6 p-3 sm:p-4 bg-base-200 rounded-lg">
 				<h3 class="text-sm sm:text-base font-semibold mb-2 sm:mb-3">홀짝 균형도 분석</h3>
 				<div class="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-4 text-xs sm:text-sm">
-					{#each Object.entries(data.oddEvenDistribution) as [oddCount, count]}
+					{#each Object.entries(data.oddEvenDistribution) as [oddCount, count] (oddCount)}
 						{@const percentage = data.selectedRounds > 0 ? ((Number(count) / data.selectedRounds) * 100).toFixed(1) : "0.0"}
 						{@const balance = getBalanceAnalysis(Number(oddCount))}
 						
@@ -305,7 +304,7 @@ const breadcrumbItems = [
 							</tr>
 						</thead>
 						<tbody>
-							{#each Object.entries(data.sumDistribution) as [range, count]}
+							{#each Object.entries(data.sumDistribution) as [range, count] (range)}
 								{@const percentage = data.selectedRounds > 0 ? ((Number(count) / data.selectedRounds) * 100).toFixed(1) : "0.0"}
 								<tr>
 									<td class="sticky left-0 bg-base-100 z-10 font-semibold text-sm sm:text-lg">{range}</td>
@@ -352,7 +351,7 @@ const breadcrumbItems = [
 							</tr>
 						</thead>
 						<tbody>
-							{#each data.oddEvenStats as stat}
+							{#each data.oddEvenStats as stat (stat.round)}
 								{@const statRecord = stat as unknown as { round: number; odd_count: number; numbers_sum: number }}
 								{@const balance = getBalanceAnalysis(statRecord.odd_count)}
 								<tr>

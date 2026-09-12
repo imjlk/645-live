@@ -1,23 +1,7 @@
 <!-- @ts-nocheck -->
 <script lang="ts">
 // @ts-nocheck
-import { browser } from "$app/environment";
-import { enhance } from "$app/forms";
-import { resolve } from "$app/paths";
-import { env } from "$env/dynamic/public";
-import QRScanHistory from "$lib/components/qr-scan/QRScanHistory.svelte";
-import ScanStatusGrid from "$lib/modules/lotto/components/ScanStatusGrid.svelte";
-import { syncMemberScanHistory } from "$lib/utils/member-scan-sync.js";
-import {
-	calculateExpectedLatestRound,
-	getLatestLottoRoundFromAPI,
-	getLottoNumbersFromAPI,
-} from "$lib/utils/lotto-common.js";
-import { parseLottoQR } from "$lib/utils/lotto-parser.js";
-import {
-	generateTicketHash,
-	qrScanHistory,
-} from "$lib/utils/qr-scan-history.js";
+
 import {
 	type BarcodeFormat,
 	BarqodeDropzone,
@@ -27,6 +11,21 @@ import {
 import { onMount } from "svelte";
 import { JsonLd, MetaTags } from "svelte-meta-tags";
 import { Toaster, toast } from "svelte-sonner";
+import { browser } from "$app/environment";
+import { enhance } from "$app/forms";
+import { resolve } from "$app/paths";
+import QRScanHistory from "$lib/components/qr-scan/QRScanHistory.svelte";
+import SimpleBall from "$lib/components/SimpleBall.svelte";
+import ScanStatusGrid from "$lib/modules/lotto/components/ScanStatusGrid.svelte";
+import type { ScanRecordPayload } from "$lib/server/scan-record";
+import { trackEvent } from "$lib/utils/analytics";
+import { calculateExpectedLatestRound } from "$lib/utils/lotto-common.js";
+import { parseLottoQR } from "$lib/utils/lotto-parser.js";
+import { syncMemberScanHistory } from "$lib/utils/member-scan-sync.js";
+import {
+	generateTicketHash,
+	qrScanHistory,
+} from "$lib/utils/qr-scan-history.js";
 import type { ActionData, PageData } from "./$types";
 
 // Props
@@ -71,6 +70,23 @@ let qrDataInput: HTMLInputElement;
 // Scan status grid reference for round updates
 let scanStatusGrid = $state<ScanStatusGrid>();
 let historyModal = $state();
+let latestScan = $state<ScanRecordPayload | null>(null);
+let latestGames = $state<number[][]>([]);
+let activeScanSource = $state<"camera" | "image">("camera");
+let showScanStats = $state(false);
+const resultLabel = $derived(
+	latestScan?.resultStatus === "winner"
+		? `${latestScan.winningGrade ?? ""} 당첨`
+		: latestScan?.resultStatus === "unreleased"
+			? "추첨 발표 전"
+			: latestScan?.resultStatus === "expired"
+				? "수령 기간 지남"
+				: latestScan?.resultStatus === "unknown"
+					? "결과 확인 필요"
+					: "당첨 없음",
+);
+const pageDescription =
+	"로또 용지의 QR 코드를 카메라로 스캔하거나 사진을 선택해 회차와 당첨 여부를 확인하세요. 발표 전 티켓과 이전 스캔 내역도 확인할 수 있으며, 로그인하면 스캔 기록을 계정에 저장해 다시 볼 수 있습니다.";
 let currentRound = $state(0); // QR 스캔 후에 실제 회차로 설정
 
 const qrScanFaqs = [
@@ -96,183 +112,12 @@ const qrScanFaqs = [
 	},
 ];
 
-// ===== LOTTO WINNING CHECK UTILITIES =====
-interface WinningResult {
-	isWinner: boolean;
-	grade: string;
-	matchCount: number;
-	bonusMatch: boolean;
-	prize: string;
-	message: string;
-}
-
-/**
- * 로또 당첨 등급 확인
- */
-function checkLottoWinning(
-	userNumbers: number[],
-	winningNumbers: number[],
-	bonusNumber: number,
-	firstPrizeAmount?: number,
-): WinningResult {
-	const matchCount = userNumbers.filter((num) =>
-		winningNumbers.includes(num),
-	).length;
-	const bonusMatch = userNumbers.includes(bonusNumber);
-
-	let grade = "";
-	let prize = "";
-	let message = "";
-	let hasWin = false;
-
-	if (matchCount === 6) {
-		grade = "1등";
-		prize = firstPrizeAmount ? `${firstPrizeAmount.toLocaleString()}원` : "";
-		message = "🎉🎉🎉 1등 당첨!!! 대박!!! 🎉🎉🎉";
-		hasWin = true;
-	} else if (matchCount === 5 && bonusMatch) {
-		grade = "2등";
-		prize = "";
-		message = "🎉🎉 2등 당첨!! 축하합니다! 🎉🎉";
-		hasWin = true;
-	} else if (matchCount === 5) {
-		grade = "3등";
-		prize = "";
-		message = "🎉 3등 당첨! 축하합니다! 🎉";
-		hasWin = true;
-	} else if (matchCount === 4) {
-		grade = "4등";
-		prize = "";
-		message = "🎊 4등 당첨! 🎊";
-		hasWin = true;
-	} else if (matchCount === 3) {
-		grade = "5등";
-		prize = "";
-		message = "🎈 5등 당첨! 🎈";
-		hasWin = true;
-	}
-
-	return {
-		isWinner: hasWin,
-		grade,
-		matchCount,
-		bonusMatch,
-		prize,
-		message,
-	};
-}
-
-/**
- * QR 코드의 게임들을 최신 당첨 번호와 비교
- */
-async function checkQRWinning(qrData: string): Promise<{
-	isWinner: boolean;
-	winningResults: WinningResult[];
-	qrRound: number;
-	isUnreleased?: boolean;
-} | null> {
-	try {
-		// QR 코드 파싱하여 회차 정보 추출
-		const games = parseLottoQR(qrData);
-		if (!games || games.length === 0) {
-			return null;
-		}
-
-		const qrRound = games[0].round;
-		if (!qrRound) {
-			return null;
-		}
-
-		// QR 회차의 당첨 번호 가져오기
-		const winningData = await getLottoNumbersFromAPI(qrRound);
-		if (!winningData) {
-			console.error(`${qrRound}회차 당첨 번호 정보를 가져올 수 없습니다`);
-			// 당첨 번호를 가져올 수 없으면 미발표 회차로 간주
-			return {
-				isWinner: false,
-				winningResults: [],
-				qrRound: qrRound,
-				isUnreleased: true,
-			};
-		}
-
-		// 당첨 번호가 모두 0이면 아직 발표되지 않은 회차
-		if (
-			winningData.drwtNo1 === 0 &&
-			winningData.drwtNo2 === 0 &&
-			winningData.drwtNo3 === 0
-		) {
-			return {
-				isWinner: false,
-				winningResults: [],
-				qrRound: qrRound,
-				isUnreleased: true,
-			};
-		}
-
-		const winningNumbers = [
-			winningData.drwtNo1,
-			winningData.drwtNo2,
-			winningData.drwtNo3,
-			winningData.drwtNo4,
-			winningData.drwtNo5,
-			winningData.drwtNo6,
-		];
-		const bonusNumber = winningData.bnusNo;
-
-		// 각 게임에 대해 당첨 확인
-		const winningResults: WinningResult[] = [];
-		let hasWinner = false;
-
-		for (const game of games) {
-			const result = checkLottoWinning(
-				game.numbers,
-				winningNumbers,
-				bonusNumber,
-				winningData.firstWinamnt,
-			);
-			winningResults.push(result);
-			if (result.isWinner) {
-				hasWinner = true;
-			}
-		}
-
-		return {
-			isWinner: hasWinner,
-			winningResults,
-			qrRound: qrRound,
-		};
-	} catch (error) {
-		console.error("당첨 확인 중 오류:", error);
-		return null;
-	}
-}
-
 // ===== DERIVED STATES =====
-let deviceInfos = $derived(
-	videoDevices.map(
-		(device) =>
-			`${device.kind}: ${device.label || "Unknown"} (ID: ${device.deviceId.substring(0, 8)}...)`,
-	),
-);
-
 let hasCameraSelection = $derived(
 	videoDevices.length > 1 && !permissionDenied && !error,
 );
 
 let showCameraStream = $derived(!permissionDenied && !error);
-
-let selectedCameraLabel = $derived(() => {
-	const device = videoDevices.find((d) => d.deviceId === selectedDeviceId);
-	if (!device) return "";
-
-	const deviceIndex = videoDevices.indexOf(device) + 1;
-	const label = device.label || `카메라 ${deviceIndex}`;
-	const fov = cameraFOVs.get(device.deviceId);
-	return fov !== null && fov !== undefined
-		? `${label} (FOV: ${Math.round(fov)}°)`
-		: label;
-});
 
 // ===== BARCODE DETECTION HANDLERS =====
 async function onDetect(detectedCodes: DetectedBarcode[]) {
@@ -295,7 +140,7 @@ async function onDetectUploaded(detectedCodes: DetectedBarcode[]) {
 		});
 
 		// 서버 액션을 통해 처리
-		await submitQRData(qrData);
+		await submitQRData(qrData, "image");
 	}
 }
 
@@ -361,7 +206,8 @@ function notifyCooldownDuplicate(ticketHash: string) {
 	}
 
 	toast.info("ℹ️ 방금 처리한 로또 용지입니다", {
-		description: "카메라가 같은 QR를 다시 읽고 있습니다. 잠시만 두면 다음 스캔으로 넘어갑니다.",
+		description:
+			"카메라가 같은 QR를 다시 읽고 있습니다. 잠시만 두면 다음 스캔으로 넘어갑니다.",
 		duration: 1500,
 	});
 }
@@ -396,10 +242,7 @@ async function refreshStoredScanResults(
 	const { notify = false, force = false } = options;
 	const now = Date.now();
 
-	if (
-		!force &&
-		now - lastHistoryRefreshAt < HISTORY_REFRESH_INTERVAL_MS
-	) {
+	if (!force && now - lastHistoryRefreshAt < HISTORY_REFRESH_INTERVAL_MS) {
 		return 0;
 	}
 
@@ -438,7 +281,10 @@ async function refreshStoredScanResults(
 }
 
 // QR 데이터를 서버 액션으로 제출하는 함수
-async function submitQRData(qrData: string) {
+async function submitQRData(
+	qrData: string,
+	source: "camera" | "image" = "camera",
+) {
 	try {
 		const ticketHash = generateTicketHash(qrData);
 
@@ -481,6 +327,7 @@ async function submitQRData(qrData: string) {
 		}
 
 		// 처리 시작 표시
+		activeScanSource = source;
 		processingQRData = qrData;
 		processingTicketHash = ticketHash;
 
@@ -526,9 +373,26 @@ $effect(() => {
 			const qrData = form.data?.qrData;
 			const scanRecord = form.data?.scanRecord;
 			const memberSyncState = form.data?.memberSyncState;
+			if (scanRecord) {
+				latestScan = scanRecord;
+				latestGames = (parseLottoQR(qrData ?? "") ?? []).map((game) =>
+					[...game.numbers].sort((a, b) => a - b),
+				);
+				trackEvent("qr_scan_complete", {
+					source: activeScanSource,
+					count: scanRecord.gamesCount ?? 0,
+					status: scanRecord.resultStatus ?? "unknown",
+				});
+			}
 			const ticketHash =
 				scanRecord?.ticketHash ||
-				(qrData ? generateTicketHash(qrData, scanRecord?.round, scanRecord?.gamesCount) : null);
+				(qrData
+					? generateTicketHash(
+							qrData,
+							scanRecord?.round,
+							scanRecord?.gamesCount,
+						)
+					: null);
 
 			const resolvedRound = scanRecord?.round;
 			if (resolvedRound) {
@@ -583,8 +447,13 @@ $effect(() => {
 					});
 				} else if (scanRecord.isUnreleased) {
 					toast.success("✅ 로또 스캔 저장 완료!", {
-						description: `${scanRecord.round}회차 ${scanRecord.gamesCount}개 게임 저장됨. 로그인 후 당첨 발표 시 자동으로 알림을 받을 수 있습니다.`,
+						description: `${scanRecord.round}회차 ${scanRecord.gamesCount}개 게임 저장됨. 발표 후 이 페이지에 다시 방문하면 결과를 확인할 수 있습니다.`,
 						duration: 6000,
+					});
+				} else if (scanRecord.resultStatus === "unknown") {
+					toast.info("티켓을 저장했어요. 결과 확인이 필요합니다", {
+						description:
+							"당첨 결과를 불러오지 못했어요. 잠시 후 스캔 내역에서 다시 확인해주세요.",
 					});
 				} else if (scanRecord.isWinner) {
 					const winners = scanRecord.winningResults.filter(
@@ -615,11 +484,10 @@ $effect(() => {
 								? 15000
 								: 10000,
 						richColors: true,
-						...(highestGrade.grade === "1등" ||
-						highestGrade.grade === "2등"
+						...(highestGrade.grade === "1등" || highestGrade.grade === "2등"
 							? {
 									style:
-										"background: linear-gradient(135deg, #fbbf24, #f59e0b); color: white; border: 2px solid #d97706;",
+										"background: var(--color-base-100); color: var(--color-base-content); border: 1px solid var(--color-success);",
 								}
 							: {}),
 					});
@@ -977,12 +845,12 @@ onMount(() => {
 
 <MetaTags
 	title="로또 QR 스캔 | QR 코드로 당첨 확인하고 스캔 내역 저장"
-	description="로또 용지 QR 코드를 스캔하거나 이미지를 업로드해 당첨 여부를 확인하세요. 스캔 내역 저장과 발표 전 티켓 추적도 지원합니다."
+	description={pageDescription}
 	canonical="https://645.live/qr-scan"
 	keywords={["로또QR스캔", "로또당첨확인", "로또스캔", "QR코드스캔", "로또번호확인", "당첨조회", "로또체크", "645스캔"]}
 	openGraph={{
 		title: "로또 QR 스캔 | QR 코드로 당첨 확인",
-		description: "로또 QR 코드를 스캔하거나 이미지를 업로드해 당첨 여부를 확인하고 스캔 내역을 저장할 수 있습니다.",
+		description: pageDescription,
 		url: "https://645.live/qr-scan",
 		type: "website",
 		siteName: "645.live",
@@ -998,7 +866,7 @@ onMount(() => {
 	twitter={{
 		cardType: "summary_large_image",
 		title: "로또 QR 스캔 | QR 코드로 당첨 확인",
-		description: "로또 QR 코드를 스캔하거나 이미지를 업로드해 당첨 여부를 확인하고 스캔 내역을 저장할 수 있습니다.",
+		description: pageDescription,
 		image: `https://645.live/og?title=${encodeURIComponent('로또 QR 스캔')}&description=${encodeURIComponent('즉시 당첨 확인')}`,
 		imageAlt: "로또 QR 코드 스캔"
 	}}
@@ -1047,7 +915,7 @@ onMount(() => {
 	offset={{ top: 24, left: 24, right: 24, bottom: 104 }}
 	mobileOffset={{ top: 16, left: 16, right: 16, bottom: 112 }}
 	toastOptions={{
-		style: 'background: white; color: black; border: 1px solid #e5e7eb;',
+		style: 'background: var(--color-base-100); color: var(--color-base-content); border: 1px solid var(--color-base-300);',
 		classes: {
 			toast: 'shadow-lg',
 			title: 'font-medium',
@@ -1056,11 +924,7 @@ onMount(() => {
 	}}
 />
 
-<style>
-	:global([data-sonner-toaster]) {
-		z-index: 2147483647 !important;
-	}
-</style>
+
 
 <!-- QR 데이터를 서버 액션으로 전송하는 폼 -->
 <form 
@@ -1077,246 +941,90 @@ onMount(() => {
 	<input bind:this={qrDataInput} type="hidden" name="qrData" />
 </form>
 
-<!-- Page Header -->
-<div class="w-full max-w-7xl mx-auto mt-4 min-sm:px-4 mb-8">
-	<div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-		<div>
-			<h1 class="text-2xl lg:text-3xl font-bold text-base-content mb-2">
-				로또 QR 코드 스캔
-			</h1>
-			<p class="text-base-content/70 text-xs">
-				카메라로 QR 코드를 스캔하여 즉시 당첨 확인 및 번호 기록
-			</p>
-		</div>
-
-		<button
-			class="btn btn-outline btn-sm sm:btn-md gap-2 self-start sm:self-auto rounded-full border-base-300 bg-base-100/90 shadow-sm hover:shadow-md"
-			type="button"
-			onclick={() => historyModal?.openHistoryModal?.()}
-			aria-label="스캔 내역 모달 열기"
-		>
-			<svg
-				class="h-4 w-4"
-				fill="none"
-				stroke="currentColor"
-				viewBox="0 0 24 24"
-				aria-hidden="true"
-			>
-				<path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					stroke-width="2"
-					d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 7h6m-6 4h6"
-				></path>
-			</svg>
-			<span>스캔 내역 보기</span>
-		</button>
-	</div>
-</div>
-
-<!-- Desktop: Two column layout, Mobile: Single column with QR scanner on top -->
-<div class="w-full max-w-7xl mx-auto">
-	<div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-		<!-- QR Scanner Column (Left on desktop, Top on mobile) -->
-		<div class="order-1 lg:order-1">
-			<div class="w-full max-w-md mx-auto lg:max-w-none min-sm:px-4">
-	<div data-nosnippet>
-	<div class="aspect-square my-4">
-		{#if permissionDenied}
-			<div class="h-full flex flex-col items-center justify-center text-center p-6 bg-base-200 rounded-lg">
-				<div class="text-red-500 mb-4">
-					<svg class="w-16 h-16 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
-						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3l18 18"></path>
-					</svg>
-					<p class="text-sm">카메라 접근이 거부되었습니다</p>
-				</div>
-				<button
-					class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-					onclick={requestPermission}
-				>
-					카메라 권한 다시 요청하기
-				</button>
-			</div>
-		{:else if error}
-			<div class="h-full flex items-center justify-center text-center p-6 bg-red-50 rounded-lg">
-				<div class="text-red-600">
-					<p class="text-sm">{error}</p>
-				</div>
-			</div>
-		{:else if showCameraStream}
-			<BarqodeStream 
-				{onDetect} 
-				{onCameraOn} 
-				{onError} 
-				{track}
-				formats={["qr_code"]}
-				constraints={selectedDeviceId ? { deviceId: { exact: selectedDeviceId } } : {}}
-			>
-				{#if loading}
-					<div class="h-full flex items-center justify-center bg-gray-900 rounded-lg">
-						<div class="text-white text-center">
-							<div class="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-2"></div>
-							<p class="text-sm">카메라 로딩 중...</p>
-						</div>
-					</div>
+<div class="content-page qr-page">
+	<header class="page-header"><div><h1>QR로 당첨 확인</h1><p>용지의 QR을 비추거나 사진을 선택하세요.</p></div><button class="btn btn-outline" onclick={() => historyModal?.openHistoryModal?.()}>스캔 내역 보기</button></header>
+	<div class="scanner-workspace" data-nosnippet>
+		<section aria-labelledby="camera-heading">
+			<h2 id="camera-heading" class="sr-only">카메라로 QR 확인</h2>
+			<div class="camera-surface">
+				{#if permissionDenied}
+					<div class="camera-message"><h3>카메라 사용 권한이 필요해요</h3><p>브라우저에서 카메라를 허용하거나 아래에서 용지 사진을 선택해주세요.</p><button class="btn btn-primary" onclick={requestPermission}>카메라 권한 다시 요청</button></div>
+				{:else if error}
+					<div class="camera-message"><h3>카메라를 사용할 수 없어요</h3><p>{error}</p><p>아래에서 사진을 선택해 QR을 확인할 수 있습니다.</p></div>
+				{:else if showCameraStream}
+					<BarqodeStream {onDetect} {onCameraOn} {onError} {track} formats={["qr_code"]} constraints={selectedDeviceId ? { deviceId: { exact: selectedDeviceId } } : {}} />
+					{#if loading}<div class="camera-message camera-loading" role="status"><span class="loading loading-spinner loading-md"></span><p>카메라 연결 중…<br />브라우저의 카메라 권한을 허용해주세요.</p></div>{/if}
 				{/if}
-			</BarqodeStream>
-		{/if}
-	</div>
-	
-	{#if hasCameraSelection}
-		<div class="mb-4">
-			<label for="camera-select" class="block text-sm font-medium text-base-content mb-2">
-				카메라 선택
-				<span class="text-xs text-base-content/60 font-normal ml-1">
-					(일반 카메라 추천, 광각은 QR 스캔 어려움)
-				</span>
-			</label>
-			<select 
-				id="camera-select"
-				bind:value={selectedDeviceId} 
-				onchange={changeCamera} 
-				class="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-			>
-				{#each videoDevices as device (device.deviceId)}
-					{@const fov = cameraFOVs.get(device.deviceId)}
-					{@const isWideAngle = 
-						device.label.toLowerCase().includes("wide") ||
-						device.label.toLowerCase().includes("ultra") ||
-						device.label.toLowerCase().includes("광각") ||
-						device.label.toLowerCase().includes("0.5x") ||
-						device.label.toLowerCase().includes("0.6x") ||
-						(fov !== null && fov >= 95)
-					}
-					<option value={device.deviceId}>
-						{device.label || `카메라 ${videoDevices.indexOf(device) + 1}`}
-						{#if fov !== null && fov !== undefined}
-							(FOV: {Math.round(fov)}°)
-						{/if}
-						{#if isWideAngle}
-							⚠️ QR 스캔 부적합
-						{/if}
-					</option>
-				{/each}
-			</select>
-		</div>
-	{/if}
-
-
-	{#if isSubmittingForm}
-		<div class="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-			<p class="text-sm text-yellow-700 font-medium">⏳ QR 데이터 처리 및 당첨 확인 중...</p>
-		</div>
-	{/if}
-
-	<div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors {dragover ? 'border-blue-500 bg-blue-50' : ''}">
-		<BarqodeDropzone onDetect={onDetectUploaded} {onDragover}>
-			<div class="text-base-content/60">
-				<svg class="w-12 h-12 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
-				</svg>
-				<p class="text-sm">이미지 파일을 드래그하거나 클릭하여 업로드</p>
 			</div>
-		</BarqodeDropzone>
+			{#if hasCameraSelection}<div class="camera-selector"><label for="camera-select">사용할 카메라</label><select id="camera-select" class="select" bind:value={selectedDeviceId} onchange={changeCamera}>{#each videoDevices as device (device.deviceId)}<option value={device.deviceId}>{device.label || `카메라 ${videoDevices.indexOf(device) + 1}`}</option>{/each}</select><p>잘 인식되지 않으면 광각 대신 일반 후면 카메라를 선택하세요.</p></div>{/if}
+			{#if isSubmittingForm}<p class="processing-message" role="status"><span class="loading loading-spinner loading-xs"></span>QR을 읽고 당첨 결과를 확인하는 중…</p>{/if}
+			<div class="photo-dropzone" class:dragover><BarqodeDropzone onDetect={onDetectUploaded} {onDragover}><div><strong>사진에서 QR 확인</strong><p>사진을 선택하거나 이곳에 끌어다 놓으세요.</p></div></BarqodeDropzone></div>
+			<p class="camera-hint">QR이 선명하게 보이도록 한 장씩 비춰주세요.</p>
+		</section>
+		<section class="scan-result" aria-labelledby="scan-result-heading" aria-busy={isSubmittingForm}>
+			<div class="section-heading"><h2 id="scan-result-heading">확인 결과</h2>{#if latestScan?.round}<span class="result-round">제{latestScan.round}회</span>{/if}</div>
+			{#if latestScan}
+				<p class="result-status" class:winning={latestScan.resultStatus === "winner"} aria-live="polite">{resultLabel}</p><p class="result-summary">{latestScan.summary}</p>
+				{#if latestScan.resultStatus === "unreleased"}<p class="result-note">발표 후 다시 방문하면 저장된 티켓의 결과를 확인할 수 있어요.</p>{:else if latestScan.resultStatus === "unknown"}<p class="result-note">현재 당첨 결과를 확인하지 못했어요. 잠시 후 스캔 내역에서 다시 확인해주세요.</p>{/if}
+				<ol class="scanned-games">{#each latestGames as numbers, index (`${latestScan.ticketHash}-${index}`)}{@const gameResult = latestScan.winningResults[index]}<li><div class="game-heading"><span>{index + 1}게임</span>{#if gameResult}<strong>{gameResult.isWinner ? gameResult.grade : `${gameResult.matchCount}개 일치`}{gameResult.bonusMatch ? " · 보너스" : ""}</strong>{/if}</div><div class="scanned-balls">{#each numbers as number (number)}<SimpleBall {number} size="sm" />{/each}</div></li>{/each}</ol>
+				<button class="btn btn-outline mt-4" onclick={() => historyModal?.openHistoryModal?.()}>저장된 스캔 내역 보기</button>
+			{:else}<div class="result-empty"><div class="result-placeholder" aria-hidden="true">6 / 45</div><p>QR을 확인하면 회차와 게임별 결과가 여기에 표시됩니다.</p><ol><li>카메라에 용지 QR을 비추거나 사진을 선택하세요.</li><li>당첨 결과를 확인하고 스캔 내역에서 다시 볼 수 있어요.</li></ol></div>{/if}
+		</section>
 	</div>
-	</div>
-			</div>
-		</div>
-
-		<!-- Scan Status Grid Column (Right on desktop, Bottom on mobile) -->
-		<div class="order-2 lg:order-2" data-nosnippet>
-			<div class="mb-6">
-				<h2 class="text-xl font-bold text-base-content mb-4 min-sm:px-4">
-					회차별 스캔 현황
-				</h2>
-				<ScanStatusGrid 
-					bind:this={scanStatusGrid}
-					initialRound={currentRound || calculateExpectedLatestRound()}
-					latestRound={(data as any).latestRound}
-					enableNavigation={false}
-					showHeader={true}
-					{...{
-						gridColumns: {
-							mobile: 5,
-							tablet: 5,
-							desktop: 5,
-							large: 5
-						},
-						gridGap: "gap-3",
-						incrementEffectConfig: {
-							show: true,
-							message: "+1",
-							color: "text-green-600 dark:text-green-400"
-						}
-					}}
-				/>
-			</div>
-		</div>
-	</div>
+	<details class="scan-statistics" bind:open={showScanStats}><summary><span>회차별 QR 스캔 집계</span><span class="summary-note">사이트 등록 데이터</span></summary><p class="section-note">이 사이트에 등록된 스캔의 번호별 집계입니다. 내 티켓의 당첨 결과와는 별개입니다.</p>{#if showScanStats}<ScanStatusGrid bind:this={scanStatusGrid} initialRound={currentRound || calculateExpectedLatestRound()} latestRound={data.latestRound} enableNavigation={false} showHeader={true} gridColumns={{ mobile: 5, tablet: 9, desktop: 9, large: 9 }} gridGap="gap-3" />{/if}</details>
+	<section class="qr-guide" aria-labelledby="qr-guide-heading"><h2 id="qr-guide-heading">QR 확인 도움말</h2><div>{#each qrScanFaqs as item (item.question)}<details><summary>{item.question}</summary><p>{item.answer}</p></details>{/each}</div><a href={resolve("/generator")} class="next-link">원하는 조건으로 번호 만들기 <span aria-hidden="true">→</span></a></section>
 </div>
 
-<div class="w-full max-w-5xl mx-auto mt-10 space-y-8 px-4">
-	<section class="rounded-[2rem] border border-base-300 bg-base-100/95 p-6 shadow-sm">
-		<div class="max-w-3xl">
-			<p class="text-xs font-semibold uppercase tracking-[0.18em] text-base-content/50">Scan Guide</p>
-			<h2 class="mt-2 text-2xl font-bold text-base-content">로또 QR 스캔은 어떻게 사용하나요?</h2>
-			<p class="mt-3 text-sm leading-7 text-base-content/75 sm:text-base">
-				이 페이지에서는 로또 용지의 QR 코드를 카메라로 읽거나 이미지 업로드로 인식해 당첨 여부를 확인할 수 있습니다.
-				구매한 티켓을 다시 확인할 수 있도록 스캔 결과도 함께 저장됩니다.
-			</p>
-		</div>
-
-		<div class="mt-8 grid gap-4 md:grid-cols-3">
-			<div class="rounded-3xl border border-base-300/70 bg-base-200/55 p-5">
-				<p class="text-xs font-semibold uppercase tracking-[0.16em] text-base-content/50">Step 1</p>
-				<h3 class="mt-2 text-lg font-semibold text-base-content">카메라 권한 허용</h3>
-				<p class="mt-3 text-sm leading-7 text-base-content/75">후면 카메라를 사용하면 인식률이 좋습니다. 밝은 조명과 흔들림이 적은 환경을 권장합니다.</p>
-			</div>
-			<div class="rounded-3xl border border-base-300/70 bg-base-200/55 p-5">
-				<p class="text-xs font-semibold uppercase tracking-[0.16em] text-base-content/50">Step 2</p>
-				<h3 class="mt-2 text-lg font-semibold text-base-content">QR 코드 인식 또는 이미지 업로드</h3>
-				<p class="mt-3 text-sm leading-7 text-base-content/75">로또 용지를 카메라에 비추거나 이미지를 업로드하면 QR 데이터를 읽고 회차 정보를 확인합니다.</p>
-			</div>
-			<div class="rounded-3xl border border-base-300/70 bg-base-200/55 p-5">
-				<p class="text-xs font-semibold uppercase tracking-[0.16em] text-base-content/50">Step 3</p>
-				<h3 class="mt-2 text-lg font-semibold text-base-content">당첨 확인 및 스캔 내역 저장</h3>
-				<p class="mt-3 text-sm leading-7 text-base-content/75">당첨 여부와 회차 결과를 확인하고, 다시 확인할 수 있도록 스캔 내역과 요약 정보가 함께 저장됩니다.</p>
-			</div>
-		</div>
-	</section>
-
-	<section class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
-		<div class="rounded-[2rem] border border-base-300 bg-base-100/95 p-6 shadow-sm">
-			<p class="text-xs font-semibold uppercase tracking-[0.18em] text-base-content/50">FAQ</p>
-			<h2 class="mt-2 text-2xl font-bold text-base-content">지원 환경과 주의사항</h2>
-			<div class="mt-5 grid gap-4">
-				{#each qrScanFaqs as item (item.question)}
-					<div class="rounded-3xl border border-base-300/60 bg-base-100 p-5">
-						<h3 class="text-base font-semibold text-base-content">{item.question}</h3>
-						<p class="mt-3 text-sm leading-7 text-base-content/75">{item.answer}</p>
-					</div>
-				{/each}
-			</div>
-		</div>
-
-		<aside class="rounded-[2rem] border border-base-300 bg-base-100/95 p-6 shadow-sm">
-			<p class="text-xs font-semibold uppercase tracking-[0.18em] text-base-content/50">Next Step</p>
-			<h2 class="mt-2 text-xl font-bold text-base-content">통계를 참고해 번호 생성하기</h2>
-			<p class="mt-3 text-sm leading-7 text-base-content/75">
-				QR 스캔으로 결과를 확인했다면, 다음 회차에는 통계 기반 번호 생성기에서 포함수·제외수와 필터를 조합해 후보를 비교해볼 수 있습니다.
-			</p>
-			<div class="mt-5">
-				<a
-					href={resolve("/generator")}
-					class="inline-flex items-center rounded-full border border-base-300 bg-base-200 px-4 py-2 text-sm font-medium text-base-content transition hover:bg-base-300"
-				>
-					통계를 참고해 번호 생성하기
-				</a>
-			</div>
-		</aside>
-	</section>
-</div>
+<style>
+.page-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; }
+:global([data-sonner-toaster]) { z-index: 80 !important; }
+.qr-page { max-width: 1120px; margin-inline: auto; }
+.scanner-workspace { display: grid; gap: 1.5rem; margin-top: 1.5rem; }
+.camera-surface { position: relative; aspect-ratio: 1; background: var(--color-base-200); overflow: hidden; border-radius: 1rem; isolation: isolate; }
+.camera-surface :global(video) { width: 100%; height: 100%; object-fit: cover; }
+.camera-message { display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; gap: 1rem; height: 100%; padding: 1.25rem; color: var(--color-base-content); }
+.camera-loading { position: absolute; inset: 0; pointer-events: none; background: var(--color-base-200); }
+.camera-message h3 { font-size: 1rem; font-weight: 650; }
+.camera-message p { font-size: .875rem; line-height: 1.7; max-width: 25rem; color: color-mix(in oklch, var(--color-base-content) 70%, transparent); }
+.camera-selector { margin-top: 1rem; }
+.camera-selector label { display: block; margin-bottom: .4rem; font-size: .8rem; font-weight: 600; }
+.camera-selector .select { width: 100%; }
+.camera-selector p, .camera-hint { font-size: .75rem; color: color-mix(in oklch, var(--color-base-content) 65%, transparent); margin-top: .5rem; line-height: 1.7; }
+.photo-dropzone { margin-top: .85rem; padding: 1.1rem; border: 1px dashed var(--color-base-300); border-radius: .75rem; text-align: center; cursor: pointer; transition: border-color .15s, background .15s; }
+.photo-dropzone:hover, .photo-dropzone.dragover { border-color: var(--color-primary); background: color-mix(in oklch, var(--color-primary) 5%, transparent); }
+.photo-dropzone strong { font-size: .9rem; font-weight: 650; color: var(--color-primary); }
+.photo-dropzone p { margin-top: .4rem; font-size: .8rem; color: color-mix(in oklch, var(--color-base-content) 65%, transparent); }
+.processing-message { display: flex; align-items: center; gap: .65rem; font-size: .8rem; background: var(--color-base-200); border-radius: .5rem; padding: .8rem; margin-top: 1rem; }
+.scan-result { padding: 1.5rem 0; border-block: 1px solid var(--color-base-300); }
+.result-round { font-size: .85rem; font-weight: 650; }
+.result-status { font-size: 1.8rem; font-weight: 750; margin-top: 1.25rem; letter-spacing: -.04em; }
+.result-status.winning { color: var(--color-success-content); }
+.result-summary, .result-note { margin-top: .5rem; font-size: .85rem; line-height: 1.7; color: color-mix(in oklch, var(--color-base-content) 70%, transparent); }
+.scanned-games { list-style: none; padding: 0; margin-top: 1.25rem; }
+.scanned-games li { padding-block: 1rem; border-bottom: 1px solid var(--color-base-300); }
+.game-heading { display: flex; align-items: center; justify-content: space-between; font-size: .75rem; margin-bottom: .6rem; color: color-mix(in oklch, var(--color-base-content) 65%, transparent); }
+.game-heading strong { color: var(--color-base-content); font-weight: 600; }
+.scanned-balls { display: flex; gap: .6rem; }
+.result-empty { padding: 1.5rem 0 .5rem; }
+.result-placeholder { color: color-mix(in oklch, var(--color-base-content) 18%, transparent); font-size: 2.75rem; font-weight: 750; letter-spacing: -.06em; }
+.result-empty p, .result-empty ol { font-size: .875rem; line-height: 1.8; color: color-mix(in oklch, var(--color-base-content) 65%, transparent); margin-top: .75rem; }
+.result-empty ol { list-style: decimal; padding-left: 1.15rem; }
+.result-empty li + li { margin-top: .5rem; }
+.scan-statistics { margin-top: 1.5rem; border-block: 1px solid var(--color-base-300); }
+.scan-statistics > summary { display: flex; flex-wrap: wrap; gap: .5rem 1rem; align-items: center; padding-block: 1.1rem; cursor: pointer; font-weight: 650; font-size: .9rem; }
+.scan-statistics > summary::after { content: "+"; margin-left: auto; font-size: 1.2rem; font-weight: 400; }
+.scan-statistics[open] > summary::after { content: "−"; }
+.summary-note { font-size: .75rem; font-weight: 400; color: color-mix(in oklch, var(--color-base-content) 60%, transparent); }
+.section-note { font-size: .8rem; line-height: 1.7; color: color-mix(in oklch, var(--color-base-content) 65%, transparent); padding-bottom: 1rem; }
+.qr-guide { margin-top: 2rem; }
+.qr-guide h2 { font-size: 1.15rem; font-weight: 700; margin-bottom: 1rem; }
+.qr-guide details { border-bottom: 1px solid var(--color-base-300); }
+.qr-guide summary { padding: 1rem 0; font-size: .9rem; font-weight: 550; cursor: pointer; }
+.qr-guide details p { font-size: .85rem; line-height: 1.8; color: color-mix(in oklch, var(--color-base-content) 65%, transparent); padding-bottom: 1rem; }
+.next-link { display: inline-flex; gap: 1rem; align-items: center; min-height: 44px; color: var(--color-primary); font-size: .9rem; font-weight: 600; margin-top: 1rem; }
+@media(min-width: 800px) { .scanner-workspace { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 3rem; } .scan-result { padding: 0 0 0 2rem; border-block: 0; border-left: 1px solid var(--color-base-300); } .result-empty { padding-top: 2rem; } }
+@media(prefers-reduced-motion: reduce) { .photo-dropzone { transition: none; } }
+</style>
 
 {#if showPermissionModal}
   <div class="modal modal-open">
@@ -1333,4 +1041,4 @@ onMount(() => {
 {/if}
 
 <!-- QR Scan History Component -->
-<QRScanHistory bind:this={historyModal} />
+<QRScanHistory bind:this={historyModal} floating={false} />

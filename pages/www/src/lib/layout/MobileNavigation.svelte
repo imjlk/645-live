@@ -1,188 +1,37 @@
 <script lang="ts">
-/**
- * 모바일 전용 하단 탭 네비게이션
- * 접근성과 사용성을 고려한 모바일 네비게이션
- */
-
+import { resolve } from "$app/paths";
 import { page } from "$app/state";
 
-interface NavigationItem {
-	href: string;
-	label: string;
-	icon: string;
-	ariaLabel: string;
-	activePattern?: (pathname: string) => boolean;
-}
-
-const navigationItems: NavigationItem[] = [
-	{
-		href: "/",
-		label: "홈",
-		icon: "🏠",
-		ariaLabel: "홈 페이지로 이동",
-		activePattern: (pathname) => pathname === "/",
-	},
-	{
-		href: "/news",
-		label: "뉴스",
-		icon: "📰",
-		ariaLabel: "로또 뉴스 페이지로 이동",
-		activePattern: (pathname) => pathname.startsWith("/news"),
-	},
+const items = [
+	{ href: "/", label: "홈", path: "M3 10l9-7 9 7M5 9v11h5v-6h4v6h5V9" },
 	{
 		href: "/qr-scan",
-		label: "QR스캔",
-		icon: "📱",
-		ariaLabel: "QR 스캔 페이지로 이동",
-		activePattern: (pathname) => pathname === "/qr-scan",
+		label: "QR 확인",
+		path: "M8 3H3v5M16 3h5v5M21 16v5h-5M8 21H3v-5M7 7h3v3H7zM14 7h3v3h-3zM7 14h3v3H7zM14 14h3v3h-3z",
 	},
 	{
 		href: "/generator",
-		label: "생성기",
-		icon: "🎲",
-		ariaLabel: "로또 번호 생성기 페이지로 이동",
-		activePattern: (pathname) => pathname.startsWith("/generator"),
+		label: "번호 만들기",
+		path: "M5 3h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2zM8 8h.01M16 8h.01M12 12h.01M8 16h.01M16 16h.01",
 	},
-	{
-		href: "/stats",
-		label: "통계",
-		icon: "📊",
-		ariaLabel: "통계 분석 페이지로 이동",
-		activePattern: (pathname) => pathname.startsWith("/stats"),
-	},
-];
-
-function isActive(item: NavigationItem, pathname: string): boolean {
-	return item.activePattern
-		? item.activePattern(pathname)
-		: pathname === item.href;
-}
-
-// activeIndex는 현재 사용되지 않으므로 제거
-// let activeIndex = $derived(
-// 	navigationItems.findIndex((item) => isActive(item, page.url.pathname))
-// );
-
-function handleKeydown(event: KeyboardEvent, href: string) {
-	if (event.key === "Enter" || event.key === " ") {
-		event.preventDefault();
-		window.location.href = href;
-	}
-}
+	{ href: "/stats", label: "통계", path: "M5 20V10M12 20V4M19 20v-7" },
+	{ href: "/my", label: "내 기록", path: "M6 3h12v18l-6-4-6 4zM9 7h6M9 11h6" },
+] as const;
 </script>
-
-<!-- 모바일 전용 하단 네비게이션 (sm 이하에서만 표시) -->
-<nav 
-	class="fixed bottom-0 left-0 right-0 z-[99999] sm:hidden border-t border-base-300 bg-base-100/90 backdrop-blur supports-[backdrop-filter]:bg-base-100/80 grid grid-cols-5"
-	aria-label="모바일 주요 페이지 네비게이션"
-	style:view-transition-name="mobile-navigation"
->
-	{#each navigationItems as item (item.href)}
-		<a 
-			href={item.href}
-			class="relative flex flex-col items-center justify-center py-2 px-1 min-h-[60px] transition-all duration-200 {isActive(item, page.url.pathname) ? 'active text-primary' : 'text-base-content/70'}"
-			aria-label={item.ariaLabel}
-			aria-current={isActive(item, page.url.pathname) ? 'page' : undefined}
-			tabindex="0"
-			onkeydown={(e) => handleKeydown(e, item.href)}
-		>
-			<!-- 활성 표시 인디케이터 -->
-			{#if isActive(item, page.url.pathname)}
-				<div 
-					class="absolute -top-1 left-1/2 transform -translate-x-1/2 w-8 h-1 bg-primary rounded-full"
-					aria-hidden="true"
-				></div>
-			{/if}
-			
-			<!-- 아이콘 -->
-			<span 
-				class="text-lg mb-1"
-				aria-hidden="true"
-				role="presentation"
-			>
-				{item.icon}
-			</span>
-			
-			<!-- 레이블 -->
-			<span class="text-[10px] sm:text-xs font-medium leading-tight">
-				{item.label}
-			</span>
-			
-			<!-- 접근성을 위한 활성 상태 텍스트 -->
-			{#if isActive(item, page.url.pathname)}
-				<span class="sr-only">현재 페이지</span>
-			{/if}
-		</a>
-	{/each}
+<nav class="mobile-navigation" aria-label="모바일 주요 페이지">
+ {#each items as item (item.href)}
+  <a href={resolve(item.href)} aria-current={(item.href === "/" ? page.url.pathname === "/" : page.url.pathname.startsWith(item.href)) ? "page" : undefined}>
+   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d={item.path} /></svg>
+   <span>{item.label}</span>
+  </a>
+ {/each}
 </nav>
-
 <style>
-	.sr-only {
-		position: absolute;
-		width: 1px;
-		height: 1px;
-		padding: 0;
-		margin: -1px;
-		overflow: hidden;
-		clip: rect(0, 0, 0, 0);
-		white-space: nowrap;
-		border: 0;
-	}
-
-	/* 호버 효과 */
-	nav a:hover {
-		background-color: oklch(var(--b2) / 0.5);
-		transform: translateY(-1px);
-	}
-
-	/* 포커스 효과 */
-	nav a:focus {
-		outline: 2px solid oklch(var(--p));
-		outline-offset: 2px;
-		background-color: oklch(var(--b2) / 0.8);
-	}
-
-	/* 활성 탭 스타일 */
-	nav a.active {
-		background-color: oklch(var(--p) / 0.1);
-		font-weight: 600;
-	}
-
-	/* 매우 작은 화면에서 텍스트 크기 조정 */
-	@media (max-width: 375px) {
-		nav a {
-			min-height: 56px;
-			padding: 0.25rem 0.125rem;
-		}
-		
-		nav span:last-child {
-			font-size: 9px;
-		}
-	}
-
-	/* 페이지 전환 시 네비게이션 숨김/표시 애니메이션 */
-	nav {
-		transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-	}
-
-	:global(nav.nav-hide) {
-		transform: translateY(100%);
-	}
-
-	:global(nav.nav-show) {
-		transform: translateY(0);
-		animation: slideUpBounce 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-	}
-
-	@keyframes slideUpBounce {
-		0% {
-			transform: translateY(100%);
-		}
-		70% {
-			transform: translateY(-5%);
-		}
-		100% {
-			transform: translateY(0);
-		}
-	}
+ .mobile-navigation { display: none; }
+ @media (max-width: 767px) {
+  .mobile-navigation { position: fixed; inset: auto 0 0; display: grid; grid-template-columns: repeat(5, minmax(0,1fr)); min-height: var(--mobile-nav-height); padding-bottom: env(safe-area-inset-bottom, 0px); z-index: 40; border-top: 1px solid var(--color-base-300); background: var(--color-base-100); }
+  a { min-height: 64px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; color: var(--text-muted); font-size: 0.6875rem; font-weight: 500; }
+  a[aria-current="page"] { color: var(--color-primary); background: color-mix(in oklab, var(--color-primary) 7%, var(--color-base-100)); font-weight: 700; }
+  a:hover { background: var(--color-base-200); }
+ }
 </style>

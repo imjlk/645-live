@@ -1,6 +1,6 @@
+import { initClient } from "trailbase";
 import { TRAILBASE_URL } from "$env/static/private";
 import { getLatestLottoRound } from "$lib/utils/lotto-api";
-import { initClient } from "trailbase";
 import type { PageServerLoad } from "./$types";
 
 const client = initClient(TRAILBASE_URL || "http://localhost:4000");
@@ -18,13 +18,13 @@ export const load: PageServerLoad = async ({ url }) => {
 		if (roundParam) {
 			const parsed = Number.parseInt(roundParam, 10);
 			if (!Number.isNaN(parsed) && parsed > 0) {
-				defaultRound =
-					latestRound > 0 ? Math.min(parsed, latestRound) : parsed;
+				defaultRound = latestRound > 0 ? Math.min(parsed, latestRound) : parsed;
 			}
 		}
 
 		const response = await client.records("lotto_winning_stores").list({
 			order: ["win_type", "id"],
+			pagination: { limit: 1024 },
 			filters: [
 				{ column: "round", op: "equal", value: defaultRound.toString() },
 			],
@@ -50,10 +50,14 @@ export const load: PageServerLoad = async ({ url }) => {
 		).length;
 
 		return {
+			error: null,
 			initialRound: defaultRound,
 			availableRounds:
 				latestRound > 0
-					? Array.from({ length: latestRound }, (_, index) => latestRound - index)
+					? Array.from(
+							{ length: latestRound },
+							(_, index) => latestRound - index,
+						)
 					: [],
 			latestRound,
 			initialStores: stores,
@@ -67,10 +71,14 @@ export const load: PageServerLoad = async ({ url }) => {
 		console.error("당첨점 초기 조회 오류:", err);
 		// 에러 발생시에도 기본값 반환
 		return {
+			error: "당첨 판매점 정보를 불러오지 못했어요. 잠시 후 다시 확인해주세요.",
 			initialRound: defaultRound,
 			availableRounds:
 				latestRound > 0
-					? Array.from({ length: latestRound }, (_, index) => latestRound - index)
+					? Array.from(
+							{ length: latestRound },
+							(_, index) => latestRound - index,
+						)
 					: [],
 			latestRound,
 			initialStores: [],

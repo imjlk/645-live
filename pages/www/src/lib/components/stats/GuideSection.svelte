@@ -58,7 +58,7 @@ const getTitleClass = (themeName: string): string => {
 
 <section class="guide-section-shell {getThemeClass(theme)}">
   <div class="guide-section-shell__head">
-    <p class="guide-section-shell__eyebrow {getTitleClass(theme)}">{icon} Insight Guide</p>
+    <p class="guide-section-shell__eyebrow {getTitleClass(theme)}">{icon} 읽는 법</p>
     <h3 class="guide-section-shell__title">{title}</h3>
     {#if description}
       <p class="guide-section-shell__description">{description}</p>
@@ -80,77 +80,13 @@ const getTitleClass = (themeName: string): string => {
 </section>
 
 <style>
-  .guide-section-shell {
-    margin-top: 1.5rem;
-    border-radius: 1.8rem;
-    padding: 1rem;
-    border: 1px solid color-mix(in oklab, oklch(var(--b3)) 72%, white);
-    box-shadow: 0 16px 40px rgba(15, 23, 42, 0.05);
-  }
-
-  .guide-section-shell__head {
-    max-width: 48rem;
-    margin-bottom: 1rem;
-  }
-
-  .guide-section-shell__eyebrow {
-    font-size: 0.76rem;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-  }
-
-  .guide-section-shell__title {
-    margin-top: 0.4rem;
-    font-size: clamp(1.15rem, 2vw, 1.6rem);
-    line-height: 1.25;
-    font-weight: 700;
-    color: oklch(var(--bc));
-  }
-
-  .guide-section-shell__description {
-    margin-top: 0.5rem;
-    font-size: 0.92rem;
-    line-height: 1.7;
-    color: color-mix(in oklab, oklch(var(--bc)) 68%, white);
-  }
-
-  .guide-section-shell__grid {
-    display: grid;
-    gap: 0.85rem;
-  }
-
-  .guide-section-shell__card {
-    border-radius: 1.25rem;
-    background: color-mix(in oklab, oklch(var(--b1)) 92%, white);
-    border: 1px solid color-mix(in oklab, oklch(var(--b3)) 72%, white);
-    padding: 1rem;
-  }
-
-  .guide-section-shell__card-title {
-    margin-bottom: 0.6rem;
-    font-size: 1rem;
-    font-weight: 700;
-    color: oklch(var(--bc));
-  }
-
-  .guide-section-shell__list {
-    display: grid;
-    gap: 0.4rem;
-    font-size: 0.9rem;
-    line-height: 1.65;
-    color: color-mix(in oklab, oklch(var(--bc)) 68%, white);
-    padding-left: 1rem;
-    list-style: disc;
-  }
-
-  @media (min-width: 1024px) {
-    .guide-section-shell {
-      padding: 1.3rem;
-    }
-
-    .guide-section-shell__grid--two-columns {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-  }
+  .guide-section-shell { margin-top: 1rem; padding: 1.25rem; border-radius: 0.65rem; background: var(--color-base-200); }
+  .guide-section-shell__head { max-width: 48rem; margin-bottom: 1rem; }
+  .guide-section-shell__eyebrow { font-size: 0.8125rem; font-weight: 650; color: var(--color-primary); }
+  .guide-section-shell__title { margin-top: 0.3rem; font-size: 1.125rem; line-height: 1.5; font-weight: 700; color: var(--color-base-content); }
+  .guide-section-shell__description { margin-top: 0.5rem; font-size: 0.9375rem; line-height: 1.7; color: color-mix(in oklab, var(--color-base-content) 75%, transparent); }
+  .guide-section-shell__grid { display: grid; gap: 1.25rem; }
+  .guide-section-shell__card-title { margin-bottom: 0.6rem; font-size: 0.9375rem; font-weight: 650; color: var(--color-base-content); }
+  .guide-section-shell__list { display: grid; gap: 0.4rem; padding-left: 1rem; list-style: disc; font-size: 0.875rem; line-height: 1.65; color: color-mix(in oklab, var(--color-base-content) 75%, transparent); }
+  @media (min-width: 768px) { .guide-section-shell__grid--two-columns { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 </style>

@@ -1,761 +1,393 @@
 <script lang="ts">
-import { resolve } from "$app/paths";
-import { SITE_NAME, SITE_ORIGIN, absoluteUrl } from "$lib/seo/index.js";
-import { getTrailbaseBrowserBaseUrl } from "$lib/trailbase/browser-base";
-import { onMount } from "svelte";
+import { tick } from "svelte";
 import { JsonLd, MetaTags } from "svelte-meta-tags";
 import { initClient } from "trailbase";
+import { resolve } from "$app/paths";
+import AdSlot from "$lib/components/ads/AdSlot.svelte";
+import SimpleBall from "$lib/components/SimpleBall.svelte";
+import {
+	absoluteUrl,
+	getGenericOgImage,
+	SITE_NAME,
+	SITE_ORIGIN,
+} from "$lib/seo/index.js";
+import { getTrailbaseBrowserBaseUrl } from "$lib/trailbase/browser-base";
+import { trackEvent } from "$lib/utils/analytics";
 
-// --- Type Definitions ---
 interface NumberStat {
 	number: number;
 	draw_count: number;
-	bonus_count: number;
-	last_draw_round: number;
-	updated_at: string;
 }
-
-interface OddEvenStat {
-	round: number;
-	odd_count: number;
-	even_count: number;
-}
-
-interface ColorStat {
-	round: number;
-	yellow_count: number;
-	blue_count: number;
-	red_count: number;
-	grey_count: number;
-	green_count: number;
-}
-
-interface SectionStat {
-	round: number;
-	section_1_10: number;
-	section_11_20: number;
-	section_21_30: number;
-	section_31_40: number;
-	section_41_45: number;
-}
-
-interface ConsecutiveStat {
-	round: number;
-	consecutive_count: number;
-}
-
-interface HighLowStat {
-	round: number;
-	low_count: number;
-	high_count: number;
-}
-
-interface LottoStats {
-	numberStats: NumberStat[];
-	oddEvenStats: OddEvenStat[];
-	colorStats: ColorStat[];
-	sectionStats: SectionStat[];
-	consecutiveStats: ConsecutiveStat[];
-	highLowStats: HighLowStat[];
-}
-
-// --- Trailbase Client and Reactive State ---
-const client = initClient(getTrailbaseBrowserBaseUrl());
-let lottoStats = $state<LottoStats | null>(null);
 let numberOfSets = $state(5);
 let includedNumbers = $state<Set<number>>(new Set());
 let excludedNumbers = $state<Set<number>>(new Set());
 let generatedLottoSets = $state<number[][]>([]);
 let isLoading = $state(false);
-let isLoadingStats = $state(true);
-let error = $state<string | null>(null);
-
-// --- Statistical Filter State ---
+let error = $state("");
+let copyMessage = $state("");
+let generatedConditions = $state("");
+let numberStats = $state<NumberStat[]>([]);
+let isLoadingStats = $state(false);
+let statsError = $state("");
+let statsLoaded = false;
 let sumRange = $state({ min: 100, max: 180, enabled: false });
 let oddEvenRatio = $state({ odd: 3, even: 3, enabled: false });
 let highLowRatio = $state({ high: 3, low: 3, enabled: false });
 let consecutiveCount = $state({ max: 1, enabled: false });
+const allNumbers = Array.from({ length: 45 }, (_, index) => index + 1);
+const filterCount = $derived(
+	[
+		sumRange.enabled,
+		oddEvenRatio.enabled,
+		highLowRatio.enabled,
+		consecutiveCount.enabled,
+	].filter(Boolean).length,
+);
+const currentConditions = $derived(
+	JSON.stringify({
+		count: numberOfSets,
+		included: [...includedNumbers],
+		excluded: [...excludedNumbers],
+		sumRange,
+		oddEvenRatio,
+		highLowRatio,
+		consecutiveCount,
+	}),
+);
+const resultsNeedUpdate = $derived(
+	generatedLottoSets.length > 0 && generatedConditions !== currentConditions,
+);
+const sortedNumberStats = $derived(
+	[...numberStats].sort((a, b) => b.draw_count - a.draw_count),
+);
 
-const generatorUseCases = [
-	{
-		title: "포함수 중심으로 번호 만들기",
-		description:
-			"자주 쓰는 숫자 2~3개를 포함수로 고정하고 나머지를 통계 기반으로 채워, 빠르게 여러 조합을 비교할 수 있습니다.",
-	},
-	{
-		title: "제외수 중심으로 위험한 번호 줄이기",
-		description:
-			"이번 회차에 피하고 싶은 번호를 제외수로 두고, 나머지 숫자 중에서 조건에 맞는 조합만 생성할 수 있습니다.",
-	},
-	{
-		title: "통계 필터로 패턴 맞추기",
-		description:
-			"홀짝, 고저, 합계, 연속번호 조건을 함께 써서 원하는 패턴에 가까운 로또 번호 조합만 추릴 수 있습니다.",
-	},
-];
-
-const generatorFilterGuide = [
-	{
-		title: "포함수·제외수 설정",
-		description:
-			"포함수는 반드시 넣고 싶은 번호, 제외수는 빼고 싶은 번호입니다. 포함수는 최대 5개까지 고정할 수 있습니다.",
-	},
-	{
-		title: "홀짝·고저 필터",
-		description:
-			"홀수와 짝수 비율, 높은 번호와 낮은 번호 비율을 맞춰 원하는 조합 형태를 더 좁게 만들 수 있습니다.",
-	},
-	{
-		title: "번호 총합과 연속번호",
-		description:
-			"번호 총합 범위와 연속번호 허용 개수를 제한하면 너무 극단적인 조합을 줄이고 비교하기 쉬운 결과를 만들 수 있습니다.",
-	},
-];
-
-const generatorCautions = [
-	"통계 기반 번호 생성기는 과거 데이터를 참고해 조합을 만드는 도구이며, 특정 번호의 당첨을 보장하지 않습니다.",
-	"필터를 너무 많이 켜면 조건을 만족하는 조합이 줄어들어 생성이 오래 걸리거나 실패할 수 있습니다.",
-	"생성된 번호는 저장된 정답이 아니라 비교용 후보이므로, 실제 구매 전에는 스스로 한 번 더 검토하는 것이 좋습니다.",
-];
-
-onMount(() => {
-	// Load statistics data
-	async function loadStats() {
-		isLoadingStats = true;
-		try {
-			const [numStats, oeStats, colStats, secStats, consStats, hlStats] =
-				await Promise.all([
-					client
-						.records("lotto_number_stats")
-						.list({ pagination: { limit: 100 } }),
-					client
-						.records("lotto_draw_odd_even_stats")
-						.list({ pagination: { limit: 1024 } }),
-					client
-						.records("lotto_draw_color_stats")
-						.list({ pagination: { limit: 1024 } }),
-					client
-						.records("lotto_draw_section_stats")
-						.list({ pagination: { limit: 1024 } }),
-					client
-						.records("lotto_draw_consecutive_stats")
-						.list({ pagination: { limit: 1024 } }),
-					client
-						.records("lotto_draw_high_low_stats")
-						.list({ pagination: { limit: 1024 } }),
-				]);
-
-			lottoStats = {
-				numberStats: numStats.records as unknown as NumberStat[],
-				oddEvenStats: oeStats.records as unknown as OddEvenStat[],
-				colorStats: colStats.records as unknown as ColorStat[],
-				sectionStats: secStats.records as unknown as SectionStat[],
-				consecutiveStats: consStats.records as unknown as ConsecutiveStat[],
-				highLowStats: hlStats.records as unknown as HighLowStat[],
-			};
-		} catch (e: unknown) {
-			const errorMessage = e instanceof Error ? e.message : String(e);
-			error = `통계 데이터 로딩 실패: ${errorMessage}`;
-			console.error(e);
-		} finally {
-			isLoadingStats = false;
-		}
-	}
-
-	loadStats();
-
-	// Add scroll listener for mobile button visibility
-	const handleScroll = () => {
-		scrollY = window.scrollY;
-	};
-	window.addEventListener("scroll", handleScroll);
-
-	return () => {
-		window.removeEventListener("scroll", handleScroll);
-	};
-});
-
-// --- Lotto Number Generation Logic ---
-async function generateNumbers() {
-	// Check if number of sets exceeds maximum
-	if (numberOfSets > 100) {
-		alert("생성 개수는 최대 100개까지 가능합니다.");
-		return;
-	}
-
-	isLoading = true;
-	error = null;
-	generatedLottoSets = [];
-
+async function loadNumberStats() {
+	if (statsLoaded || isLoadingStats) return;
+	isLoadingStats = true;
+	statsError = "";
 	try {
-		const sets: number[][] = [];
-		const maxAttempts = 30000;
+		const response = await initClient(getTrailbaseBrowserBaseUrl())
+			.records("lotto_number_stats")
+			.list({ pagination: { limit: 100 } });
+		numberStats = response.records as unknown as NumberStat[];
+		statsLoaded = true;
+	} catch {
+		statsError =
+			"출현 통계를 불러오지 못했어요. 번호 생성은 계속 사용할 수 있습니다.";
+	} finally {
+		isLoadingStats = false;
+	}
+}
 
-		for (let i = 0; i < numberOfSets; i++) {
-			let attempts = 0;
-			while (attempts < maxAttempts) {
-				const candidateSet = generateSingleCandidate();
-				if (isValid(candidateSet)) {
-					sets.push(candidateSet);
-					break;
-				}
-				attempts++;
-			}
-			if (attempts === maxAttempts) {
-				throw new Error(
-					`생성 실패: ${i + 1}번째 번호를 생성하지 못했습니다. 조건이 너무 까다롭습니다.`,
+function validateConditions() {
+	if (!Number.isInteger(numberOfSets) || numberOfSets < 1 || numberOfSets > 100)
+		throw new Error("생성할 게임 수를 1~100 사이의 정수로 입력해주세요.");
+	const included = [...includedNumbers];
+	const available = allNumbers.filter(
+		(number) => !excludedNumbers.has(number) && !includedNumbers.has(number),
+	);
+	const remaining = 6 - included.length;
+	if (available.length < remaining)
+		throw new Error("번호가 최소 6개 남도록 제외할 번호를 줄여주세요.");
+	if (sumRange.enabled) {
+		if (
+			!Number.isInteger(sumRange.min) ||
+			!Number.isInteger(sumRange.max) ||
+			sumRange.min > sumRange.max
+		)
+			throw new Error("번호 합계의 최솟값과 최댓값을 올바르게 입력해주세요.");
+		const fixedSum = included.reduce((sum, number) => sum + number, 0);
+		const lowestSum =
+			fixedSum +
+			available.slice(0, remaining).reduce((sum, number) => sum + number, 0);
+		const highestSum =
+			fixedSum +
+			available.slice(-remaining).reduce((sum, number) => sum + number, 0);
+		if (sumRange.max < lowestSum || sumRange.min > highestSum)
+			throw new Error(
+				`선택한 번호의 가능한 합계는 ${lowestSum}~${highestSum}입니다. 합계 조건을 넓혀주세요.`,
+			);
+	}
+	for (const condition of [
+		{
+			enabled: oddEvenRatio.enabled,
+			target: oddEvenRatio.odd,
+			predicate: (number: number) => number % 2 === 1,
+			name: "홀짝",
+		},
+		{
+			enabled: highLowRatio.enabled,
+			target: highLowRatio.high,
+			predicate: (number: number) => number >= 23,
+			name: "고저",
+		},
+	]) {
+		if (!condition.enabled) continue;
+		const fixed = included.filter(condition.predicate).length;
+		const needed = condition.target - fixed;
+		if (
+			needed < 0 ||
+			needed > remaining ||
+			available.filter(condition.predicate).length < needed ||
+			available.filter((number) => !condition.predicate(number)).length <
+				remaining - needed
+		)
+			throw new Error(
+				`선택한 번호로는 ${condition.name} 비율을 맞출 수 없어요. 포함·제외 번호나 비율을 변경해주세요.`,
+			);
+	}
+	if (consecutiveCount.enabled) {
+		const sorted = included.sort((a, b) => a - b);
+		const pairs = sorted.filter(
+			(number, index) => index > 0 && number - sorted[index - 1] === 1,
+		).length;
+		if (pairs > consecutiveCount.max)
+			throw new Error(
+				"포함한 번호에 연속번호가 너무 많아요. 연속번호 허용 개수를 늘려주세요.",
+			);
+	}
+	return { included, available };
+}
+
+function isValid(numbers: number[]): boolean {
+	if (sumRange.enabled) {
+		const sum = numbers.reduce((a, b) => a + b, 0);
+		if (sum < sumRange.min || sum > sumRange.max) return false;
+	}
+	if (
+		oddEvenRatio.enabled &&
+		numbers.filter((number) => number % 2 === 1).length !== oddEvenRatio.odd
+	)
+		return false;
+	if (
+		highLowRatio.enabled &&
+		numbers.filter((number) => number >= 23).length !== highLowRatio.high
+	)
+		return false;
+	if (
+		consecutiveCount.enabled &&
+		numbers.filter(
+			(number, index) => index > 0 && number - numbers[index - 1] === 1,
+		).length > consecutiveCount.max
+	)
+		return false;
+	return true;
+}
+
+async function generateNumbers() {
+	if (isLoading) return;
+	error = "";
+	copyMessage = "";
+	try {
+		const { included, available } = validateConditions();
+		isLoading = true;
+		await tick();
+		await new Promise<void>((done) => setTimeout(done, 0));
+		const startedAt = performance.now();
+		const sets: number[][] = [];
+		let attempts = 0;
+		// Keep rare/impossible combinations from monopolizing the main thread.
+		while (sets.length < numberOfSets) {
+			const pool = [...available];
+			const candidate = [...included];
+			while (candidate.length < 6)
+				candidate.push(
+					pool.splice(Math.floor(Math.random() * pool.length), 1)[0],
 				);
+			candidate.sort((a, b) => a - b);
+			if (isValid(candidate)) sets.push(candidate);
+			attempts++;
+			if (attempts % 250 === 0) {
+				if (performance.now() - startedAt > 2000 || attempts >= 100000)
+					throw new Error(
+						"조건에 맞는 조합을 충분히 찾지 못했어요. 필터를 줄이거나 범위를 넓혀 다시 생성해주세요.",
+					);
+				await new Promise<void>((done) => setTimeout(done, 0));
 			}
 		}
 		generatedLottoSets = sets;
-	} catch (e: unknown) {
-		const errorMessage =
-			e instanceof Error ? e.message : "An unknown error occurred.";
-		error = errorMessage;
+		generatedConditions = currentConditions;
+		trackEvent("generate_complete", {
+			count: sets.length,
+			filter_count: filterCount,
+			included_count: includedNumbers.size,
+			excluded_count: excludedNumbers.size,
+		});
+	} catch (caught) {
+		error =
+			caught instanceof Error
+				? caught.message
+				: "번호를 생성하지 못했어요. 다시 시도해주세요.";
 	} finally {
 		isLoading = false;
 	}
 }
 
-// Mobile-specific function that generates numbers and scrolls to results
-async function generateNumbersAndScroll() {
-	await generateNumbers();
-
-	// Scroll to results section on mobile after generation
-	setTimeout(() => {
-		const resultsSection = document.getElementById("results-section");
-		if (resultsSection) {
-			resultsSection.scrollIntoView({
-				behavior: "smooth",
-				block: "start",
-			});
-		}
-	}, 100); // Small delay to ensure DOM is updated
-}
-
-function generateSingleCandidate(): number[] {
-	const include = Array.from(includedNumbers);
-	const exclude = Array.from(excludedNumbers);
-	const singleSet = new Set<number>(include);
-	const availableNumbers = Array.from({ length: 45 }, (_, i) => i + 1).filter(
-		(n) => !exclude.includes(n) && !include.includes(n),
-	);
-
-	while (singleSet.size < 6) {
-		if (availableNumbers.length === 0) {
-			throw new Error("Cannot generate numbers with the given constraints.");
-		}
-		const randomIndex = Math.floor(Math.random() * availableNumbers.length);
-		const [pickedNumber] = availableNumbers.splice(randomIndex, 1);
-		singleSet.add(pickedNumber);
-	}
-	return Array.from(singleSet).sort((a, b) => a - b);
-}
-
-function isValid(set: number[]): boolean {
-	if (sumRange.enabled) {
-		const sum = set.reduce((a, b) => a + b, 0);
-		if (sum < sumRange.min || sum > sumRange.max) return false;
-	}
-	if (oddEvenRatio.enabled) {
-		const oddCount = set.filter((n) => n % 2 !== 0).length;
-		const evenCount = 6 - oddCount;
-		if (oddCount !== oddEvenRatio.odd || evenCount !== oddEvenRatio.even)
-			return false;
-	}
-	if (highLowRatio.enabled) {
-		const highCount = set.filter((n) => n >= 23).length;
-		const lowCount = 6 - highCount;
-		if (highCount !== highLowRatio.high || lowCount !== highLowRatio.low)
-			return false;
-	}
-	if (consecutiveCount.enabled) {
-		let pairs = 0;
-		for (let i = 0; i < set.length - 1; i++) {
-			if (set[i + 1] - set[i] === 1) pairs++;
-		}
-		if (pairs > consecutiveCount.max) return false;
-	}
-	return true;
-}
-
-function toggleNumber(setType: "included" | "excluded", num: number) {
-	if (setType === "included") {
-		if (includedNumbers.has(num)) {
-			// Remove from included
-			const newIncluded = new Set(includedNumbers);
-			newIncluded.delete(num);
-			includedNumbers = newIncluded;
-		} else {
-			if (includedNumbers.size >= 5) return;
-			// Add to included and remove from excluded
-			const newIncluded = new Set(includedNumbers);
-			const newExcluded = new Set(excludedNumbers);
-			newExcluded.delete(num);
-			newIncluded.add(num);
-			includedNumbers = newIncluded;
-			excludedNumbers = newExcluded;
+function toggleNumber(type: "included" | "excluded", number: number) {
+	const included = new Set(includedNumbers);
+	const excluded = new Set(excludedNumbers);
+	if (type === "included") {
+		if (included.has(number)) included.delete(number);
+		else if (included.size < 5) {
+			included.add(number);
+			excluded.delete(number);
 		}
 	} else {
-		if (excludedNumbers.has(num)) {
-			// Remove from excluded
-			const newExcluded = new Set(excludedNumbers);
-			newExcluded.delete(num);
-			excludedNumbers = newExcluded;
-		} else {
-			// Add to excluded and remove from included
-			const newIncluded = new Set(includedNumbers);
-			const newExcluded = new Set(excludedNumbers);
-			newIncluded.delete(num);
-			newExcluded.add(num);
-			includedNumbers = newIncluded;
-			excludedNumbers = newExcluded;
+		if (excluded.has(number)) excluded.delete(number);
+		else if (excluded.size < 39) {
+			excluded.add(number);
+			included.delete(number);
 		}
 	}
+	includedNumbers = included;
+	excludedNumbers = excluded;
 }
 
-function getNumberColor(n: number): string {
-	if (n <= 10) return "bg-yellow-400 text-black";
-	if (n <= 20) return "bg-blue-500 text-white";
-	if (n <= 30) return "bg-red-500 text-white";
-	if (n <= 40) return "bg-gray-500 text-white";
-	return "bg-green-500 text-white";
+function resetConditions() {
+	includedNumbers = new Set();
+	excludedNumbers = new Set();
+	sumRange.enabled = false;
+	oddEvenRatio.enabled = false;
+	highLowRatio.enabled = false;
+	consecutiveCount.enabled = false;
+	error = "";
 }
 
-// Computed property using $derived
-const sortedNumberStats = $derived(
-	lottoStats?.numberStats
-		? [...lottoStats.numberStats].sort(
-				(a, b) => (b.draw_count || 0) - (a.draw_count || 0),
-			)
-		: [],
-);
-
-// Track scroll position for mobile button visibility
-let scrollY = $state(0);
-let isNearBottom = $state(false);
-
-// Update isNearBottom when scrollY changes
-$effect(() => {
-	if (typeof window !== "undefined" && document.documentElement) {
-		const threshold =
-			document.documentElement.scrollHeight - window.innerHeight - 200;
-		isNearBottom = scrollY > threshold;
+async function copyResults() {
+	try {
+		await navigator.clipboard.writeText(
+			generatedLottoSets
+				.map((numbers, index) => `${index + 1}. ${numbers.join(", ")}`)
+				.join("\n"),
+		);
+		copyMessage = "번호를 복사했어요.";
+	} catch {
+		copyMessage =
+			"복사 권한을 사용할 수 없어요. 번호를 직접 선택해 복사해주세요.";
 	}
+}
+
+const pageTitle = "조건에 맞는 로또 번호 생성기";
+const pageDescription =
+	"로또 6/45 번호 조합을 원하는 조건에 맞춰 만들어보세요. 포함할 번호와 제외할 번호, 홀짝 비율, 번호 합계, 고저 비율과 연속번호 조건을 설정할 수 있습니다. 생성 결과는 조건에 맞는 무작위 조합이며 복사해 보관할 수 있습니다.";
+const ogImage = getGenericOgImage({
+	title: pageTitle,
+	description: "포함·제외 번호와 조건을 정해 만드는 무작위 조합",
+	layout: "blog",
+	theme: "dark",
 });
 </script>
 
-<MetaTags
-	title="로또 번호 생성기"
-	titleTemplate="%s | 645.live"
-	description="포함수·제외수, 홀짝·고저·연속번호 필터를 적용해 통계 기반 로또 번호 조합을 생성하세요. 다양한 조건으로 나만의 번호를 빠르게 만들어볼 수 있습니다."
-	canonical={absoluteUrl("/generator")}
-	keywords={['로또', '로또번호', '로또생성기', '로또번호생성기', '로또통계', '제외수']}
-	openGraph={{
-		type: 'website',
-		url: absoluteUrl("/generator"),
-		title: '통계 기반 로또 번호 생성기',
-		description: '포함수·제외수와 홀짝·고저 필터를 적용해 로또 번호 조합을 만들고, 통계 흐름을 참고해 후보를 비교해보세요.',
-		images: [
-			{
-				url: `https://645.live/og?title=${encodeURIComponent('로또 번호 생성기')}&description=${encodeURIComponent('🚀 통계 기반 스마트 번호 생성 | 다양한 필터로 당신만의 운명 번호 만들기')}&layout=centered&theme=dark`,
-				width: 1200,
-				height: 630,
-				alt: '로또 번호 생성기 OG 이미지'
-			}
-		],
-		siteName: SITE_NAME
-	}}
-	twitter={{
-		cardType: 'summary_large_image',
-		site: '@645live',
-		title: '통계 기반 로또 번호 생성기',
-		description: '포함수·제외수와 홀짝·고저 필터를 적용해 로또 번호 조합을 만들고 통계 흐름을 비교해보세요.',
-		image: `https://645.live/og?title=${encodeURIComponent('로또 번호 생성기')}&description=${encodeURIComponent('🚀 통계 기반 스마트 번호 생성 | 다양한 필터로 당신만의 운명 번호 만들기')}&layout=centered&theme=dark`,
-		imageAlt: '로또 번호 생성기 트위터 이미지'
-	}}
-/>
+<MetaTags title={pageTitle} titleTemplate="%s | 645.live" description={pageDescription} canonical={absoluteUrl("/generator")}
+	openGraph={{ type: "website", url: absoluteUrl("/generator"), title: pageTitle, description: pageDescription, images: [ogImage], siteName: SITE_NAME }}
+	twitter={{ cardType: "summary_large_image", title: pageTitle, description: pageDescription, image: ogImage.url, imageAlt: ogImage.alt }} />
+<JsonLd schema={{ "@context": "https://schema.org", "@type": "WebApplication", name: pageTitle, url: absoluteUrl("/generator"), description: pageDescription, applicationCategory: "UtilitiesApplication", operatingSystem: "Web Browser", isAccessibleForFree: true, publisher: { "@type": "Organization", name: SITE_NAME, url: SITE_ORIGIN } }} />
 
-<JsonLd
-	schema={{
-		"@context": "https://schema.org",
-		"@type": "WebApplication",
-		name: `로또 번호 생성기 | ${SITE_NAME}`,
-		url: absoluteUrl("/generator"),
-		description: "포함수·제외수와 홀짝·고저·연속번호 필터를 적용해 통계 기반 로또 번호 조합을 생성하는 웹 도구입니다.",
-		applicationCategory: "UtilitiesApplication",
-		operatingSystem: "Web Browser",
-		isAccessibleForFree: true,
-		publisher: {
-			"@type": "Organization",
-			name: SITE_NAME,
-			url: SITE_ORIGIN
-		}
-	}}
-/>
-
-<div class="container mx-auto max-sm:px-0 px-4 p-8">
-	<h1 class="text-3xl font-bold mb-4">로또 번호 생성기</h1>
-	<p class="mb-8 text-gray-600 leading-7">
-		포함수·제외수, 홀짝·고저·연속번호 조건을 적용해 통계 기반 로또 번호 조합을 빠르게 생성할 수 있습니다.
-		직접 숫자를 고르기 어려울 때 비교용 후보를 만드는 도구로 활용해보세요.
-	</p>
-
-	<div class="grid grid-cols-1 lg:grid-cols-3 gap-8" data-nosnippet>
-		<!-- Left Column: Controls -->
-		<div class="lg:col-span-2 space-y-4">
-			<!-- Basic Settings -->
-			<div class="bg-base-100 rounded-lg border border-base-300">
-				<div class="p-4">
-				<h2 class="text-xl font-semibold mb-4 pb-2">기본 설정</h2>
-					<div class="flex items-center space-x-4">
-						<label for="num-sets" class="font-medium">생성 개수:</label>
-						<input
-							type="number"
-							id="num-sets"
-							bind:value={numberOfSets}
-							class="input input-bordered w-24"
-							min="1"
-							max="100"
-						/>
-					</div>
-				</div>
+<div class="content-page generator-page">
+	<header class="page-header"><div><h1>로또 번호 만들기</h1><p>바로 생성하거나, 원하는 번호와 조건을 먼저 선택하세요.</p></div></header>
+	<div class="generator-workspace">
+		<section class="generation-area" aria-labelledby="generation-heading">
+			<h2 id="generation-heading" class="sr-only">게임 수 선택과 번호 생성</h2>
+			<div class="generate-controls">
+				<label for="num-sets">게임 수<input type="number" id="num-sets" bind:value={numberOfSets} class="input" min="1" max="100" disabled={isLoading} /></label>
+				<button class="btn btn-primary generate-button" onclick={generateNumbers} disabled={isLoading}>{#if isLoading}<span class="loading loading-spinner loading-sm"></span>생성 중…{:else}{generatedLottoSets.length ? "다시 생성하기" : "번호 생성하기"}{/if}</button>
 			</div>
-
-			<!-- Number Selection -->
-			<div class="collapse collapse-arrow bg-base-100 border border-base-300">
-				<input type="radio" name="generator-accordion" checked />
-				<h2 class="collapse-title text-xl font-semibold mb-4 pb-2">번호 선택</h2>
-				<div class="collapse-content">
-					<div class="space-y-6">
-						<div>
-							<h3 class="font-medium mb-3">포함할 번호 (최대 5개)</h3>
-							<div class="grid grid-cols-9 gap-2">
-									{#each Array.from({ length: 45 }, (_, i) => i + 1) as num (num)}
-									<button
-										onclick={() => toggleNumber('included', num)}
-										class="btn btn-sm rounded-full transition-all"
-										class:bg-blue-500={includedNumbers.has(num)}
-										class:text-white={includedNumbers.has(num)}
-										disabled={includedNumbers.size >= 5 && !includedNumbers.has(num)}
-									>
-										{num}
-									</button>
-								{/each}
-							</div>
-						</div>
-						<div>
-							<h3 class="font-medium mb-3">제외할 번호</h3>
-							<div class="grid grid-cols-9 gap-2">
-									{#each Array.from({ length: 45 }, (_, i) => i + 1) as num (num)}
-									<button
-										onclick={() => toggleNumber('excluded', num)}
-										class="btn btn-sm rounded-full transition-all"
-										class:bg-red-500={excludedNumbers.has(num)}
-										class:text-white={excludedNumbers.has(num)}
-									>
-										{num}
-									</button>
-								{/each}
-							</div>
-						</div>
-					</div>
-				</div>
-			</div>
-
-			<!-- Statistical Filters -->
-			<div class="collapse collapse-arrow bg-base-100 border border-base-300">
-				<input type="radio" name="generator-accordion" />
-				<h2 class="collapse-title text-xl font-semibold mb-4 pb-2">통계 필터</h2>
-				<div class="collapse-content">
-				<div class="space-y-6">
-					<div class="flex flex-col sm:flex-row sm:items-center gap-3">
-						<label class="flex items-center gap-2 cursor-pointer">
-							<input 
-								type="checkbox" 
-								id="sum-range-filter"
-								bind:checked={sumRange.enabled} 
-								class="checkbox" 
-							/>
-							<span class="font-medium">번호 총합:</span>
-						</label>
-						<div class="flex items-center gap-2">
-							<label for="sum-min" class="sr-only">최소 합계</label>
-							<input 
-								type="number" 
-								id="sum-min"
-								bind:value={sumRange.min} 
-								class="input input-bordered input-sm w-20" 
-								disabled={!sumRange.enabled}
-								aria-label="최소 합계"
-							/>
-							<span>~</span>
-							<label for="sum-max" class="sr-only">최대 합계</label>
-							<input 
-								type="number" 
-								id="sum-max"
-								bind:value={sumRange.max} 
-								class="input input-bordered input-sm w-20" 
-								disabled={!sumRange.enabled}
-								aria-label="최대 합계"
-							/>
-						</div>
-					</div>
-					<div class="flex flex-col sm:flex-row sm:items-center gap-3">
-						<label class="flex items-center gap-2 cursor-pointer">
-							<input 
-								type="checkbox" 
-								id="odd-even-filter"
-								bind:checked={oddEvenRatio.enabled} 
-								class="checkbox" 
-							/>
-							<span class="font-medium">홀:짝 비율:</span>
-						</label>
-						<div class="flex items-center gap-2">
-							<label for="odd-count" class="sr-only">홀수 개수</label>
-							<select 
-								class="select select-bordered select-sm w-16" 
-								id="odd-count"
-								bind:value={oddEvenRatio.odd} 
-								disabled={!oddEvenRatio.enabled} 
-								onchange={(e) => { oddEvenRatio.even = 6 - Number(e.currentTarget.value); }}
-								aria-label="홀수 개수"
-							>
-									{#each [0, 1, 2, 3, 4, 5, 6] as n (n)}<option value={n}>{n}</option>{/each}
-							</select>
-							<span>:</span>
-							<label for="even-count" class="sr-only">짝수 개수</label>
-							<input 
-								type="text" 
-								id="even-count"
-								readonly 
-								bind:value={oddEvenRatio.even} 
-								class="input input-bordered input-sm w-16"
-								aria-label="짝수 개수 (자동 계산)"
-							/>
-						</div>
-					</div>
-					<div class="flex flex-col sm:flex-row sm:items-center gap-3">
-						<label class="flex items-center gap-2 cursor-pointer">
-							<input 
-								type="checkbox" 
-								id="high-low-filter"
-								bind:checked={highLowRatio.enabled} 
-								class="checkbox" 
-							/>
-							<span class="font-medium">고:저 비율:</span>
-						</label>
-						<div class="flex items-center gap-2">
-							<label for="high-count" class="sr-only">고수 개수</label>
-							<select 
-								class="select select-bordered select-sm w-16" 
-								id="high-count"
-								bind:value={highLowRatio.high} 
-								disabled={!highLowRatio.enabled} 
-								onchange={(e) => { highLowRatio.low = 6 - Number(e.currentTarget.value); }}
-								aria-label="고수 개수 (23-45)"
-							>
-									{#each [0, 1, 2, 3, 4, 5, 6] as n (n)}<option value={n}>{n}</option>{/each}
-							</select>
-							<span>:</span>
-							<label for="low-count" class="sr-only">저수 개수</label>
-							<input 
-								type="text" 
-								id="low-count"
-								readonly 
-								bind:value={highLowRatio.low} 
-								class="input input-bordered input-sm w-16"
-								aria-label="저수 개수 (1-22, 자동 계산)"
-							/>
-						</div>
-					</div>
-					<div class="flex flex-col sm:flex-row sm:items-center gap-3">
-						<label class="flex items-center gap-2 cursor-pointer">
-							<input 
-								type="checkbox" 
-								id="consecutive-filter"
-								bind:checked={consecutiveCount.enabled} 
-								class="checkbox" 
-							/>
-							<span class="font-medium">최대 연속번호:</span>
-						</label>
-						<label for="consecutive-max" class="sr-only">최대 연속번호 쌍 개수</label>
-						<select 
-							class="select select-bordered select-sm w-20" 
-							id="consecutive-max"
-							bind:value={consecutiveCount.max} 
-							disabled={!consecutiveCount.enabled}
-							aria-label="허용할 최대 연속번호 쌍 개수"
-						>
-							<option value={0}>없음</option>
-							<option value={1}>1쌍</option>
-							<option value={2}>2쌍</option>
-						</select>
-					</div>
-					</div>
-				</div>
-			</div>
-
-			<!-- Statistics Info -->
-			<div class="collapse collapse-arrow bg-base-100 border border-base-300">
-				<input type="radio" name="generator-accordion" />
-				<h2 class="collapse-title text-xl font-semibold mb-4 pb-2">번호별 출현 통계</h2>
-				<div class="collapse-content">
-				{#if isLoadingStats}
-					<p class="text-gray-500">통계 데이터 로딩 중...</p>
-				{:else if sortedNumberStats.length > 0}
-					<div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 text-sm">
-							{#each sortedNumberStats as stat (stat.number)}
-								<a 
-									href={resolve(`/stats/numbers/${stat.number}`)} 
-									class="flex items-center justify-between p-2 rounded-md bg-gray-50 hover:bg-gray-100 transition-colors group"
-								>
-								<div class="w-6 h-6 rounded-full flex items-center justify-center font-bold text-xs {getNumberColor(stat.number)} group-hover:scale-110 transition-transform">
-									{stat.number}
-								</div>
-								<span class="font-mono text-gray-700 group-hover:text-gray-900">{stat.draw_count}회</span>
-							</a>
-						{/each}
-					</div>
-						<p class="text-xs text-gray-400 mt-4">가장 많이 나온 번호 순으로 정렬되었습니다. 번호를 클릭하면 상세 통계를 볼 수 있습니다.</p>
-					{:else}
-						<p class="text-red-500">통계 데이터를 불러오지 못했습니다.</p>
-					{/if}
-					</div>
-				</div>
-			</div>
-
-
-		<!-- Right Column: Results -->
-			<div id="results-section" class="bg-white p-6 rounded-lg shadow h-fit sticky top-8">
-				<h2 class="text-xl font-semibold mb-4 pb-2">생성된 번호</h2>
-				{#if error && !isLoading}
-					<div class="alert alert-error"><span>{error}</span></div>
-				{/if}
-				<div class="space-y-3 mt-4 mb-6">
-						{#if generatedLottoSets.length > 0}
-							{#each generatedLottoSets as set, i (`${i}-${set.join("-")}`)}
-								<div class="flex items-center gap-1 p-2 pl-1 rounded-lg hover:bg-gray-50 border border-gray-100">
-									<span class="font-bold text-gray-500 w-6 text-center flex-shrink-0 text-sm">{i + 1}.</span>
-									<div class="flex flex-wrap gap-1 sm:gap-2">
-										{#each set as num (num)}
-											<div class="w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center font-bold text-xs sm:text-sm {getNumberColor(num)} flex-shrink-0">
-												{num}
-											</div>
-									{/each}
-								</div>
-							</div>
-						{/each}
-					{:else}
-						<p class="text-gray-500 text-center py-8">생성 버튼을 눌러 번호를 받아보세요.</p>
-					{/if}
-				</div>
-				
-				<!-- Generation Button -->
-				<div class="border-t pt-4">
-					<button 
-						class="btn btn-primary btn-block" 
-						onclick={() => generateNumbers()}
-						disabled={isLoading || isLoadingStats}
-					>
-						{#if isLoading} 
-							<span class="loading loading-spinner"></span> 생성 중... 
-						{:else if isLoadingStats} 
-							<span class="loading loading-spinner"></span> 데이터 로딩중 
-						{:else} 
-							번호 생성하기 
-						{/if}
-					</button>
-				</div>
-			</div>
-		</div>
-
-		
-		<!-- Mobile Fixed Generate Button - positioned above mobile navigation -->
-		{#if !isNearBottom}
-			<div class="lg:hidden fixed bottom-16 sm:bottom-4 left-4 right-4 z-40">
-				<button 
-					class="btn btn-primary btn-block btn-lg shadow-lg" 
-					onclick={() => generateNumbersAndScroll()}
-					disabled={isLoading || isLoadingStats}
-				>
-					{#if isLoading} 
-						<span class="loading loading-spinner"></span> 생성 중... 
-					{:else if isLoadingStats} 
-						<span class="loading loading-spinner"></span> 데이터 로딩중 
-					{:else} 
-						번호 생성하기 
-					{/if}
-				</button>
-			</div>
-		{/if}
-
-		<section class="mt-12 rounded-[2rem] border border-base-300 bg-base-100/95 p-6 shadow-sm">
-			<div class="max-w-3xl">
-				<p class="text-xs font-semibold uppercase tracking-[0.18em] text-base-content/50">Tool Guide</p>
-				<h2 class="mt-2 text-2xl font-bold text-base-content">로또 번호 생성기는 무엇을 해주나요?</h2>
-				<p class="mt-3 text-sm leading-7 text-base-content/75 sm:text-base">
-					이 페이지는 로또 번호 생성기이면서 동시에 통계 기반 비교 도구입니다. 포함수·제외수 설정과 홀짝·고저 필터를 함께 써서
-					원하는 패턴에 가까운 번호 조합을 여러 세트로 빠르게 만들어볼 수 있습니다.
-				</p>
-			</div>
-
-			<div class="mt-8 grid gap-4 lg:grid-cols-3">
-				{#each generatorUseCases as item (item.title)}
-					<article class="rounded-3xl border border-base-300/70 bg-base-200/55 p-5">
-						<h3 class="text-lg font-semibold text-base-content">{item.title}</h3>
-						<p class="mt-3 text-sm leading-7 text-base-content/75">{item.description}</p>
-					</article>
-				{/each}
-			</div>
+			<p class="conditions-summary">포함 {includedNumbers.size}개 · 제외 {excludedNumbers.size}개 · 조건 {filterCount}개</p>
+			{#if error}<div class="alert alert-error mt-4" role="alert">{error}</div>{/if}
+			<section id="results-section" class="results-section" aria-labelledby="results-heading" aria-busy={isLoading}>
+				<div class="results-title"><h2 id="results-heading">{generatedLottoSets.length ? `생성한 번호 ${generatedLottoSets.length}게임` : "생성한 번호"}</h2>{#if generatedLottoSets.length}<button class="btn btn-ghost btn-sm" onclick={copyResults}>전체 복사</button>{/if}</div>
+				{#if generatedLottoSets.length}
+					{#if resultsNeedUpdate}<p class="help-text" role="status">조건이 바뀌었어요. 다시 생성하면 새 조건이 반영됩니다.</p>{/if}
+					<ol class="result-list">{#each generatedLottoSets as numbers, index (`${index}-${numbers.join("-")}`)}<li><span class="game-index">{String(index + 1).padStart(2, "0")}</span><div class="result-balls">{#each numbers as number (number)}<SimpleBall {number} size="sm" />{/each}</div></li>{/each}</ol>
+				{:else}<div class="empty-results"><span class="empty-mark" aria-hidden="true">6 / 45</span><p>생성 버튼을 누르면 6개 번호가 한 게임으로 표시됩니다.</p></div>{/if}
+				<p class="sr-only" aria-live="polite">{generatedLottoSets.length ? `${generatedLottoSets.length}게임 생성 완료` : ""}</p>
+				{#if copyMessage}<p class="copy-message" role="status">{copyMessage}</p>{/if}
+			</section>
+			<p class="probability-note">조건을 적용해도 각 조합의 당첨 확률은 같아요. 생성 결과는 예측이 아닌 무작위 조합입니다.</p>
 		</section>
-
-		<section class="mt-8 rounded-[2rem] border border-base-300 bg-base-100/95 p-6 shadow-sm">
-			<div class="mb-6 flex items-end justify-between gap-4 max-sm:flex-col max-sm:items-start">
-				<div>
-					<p class="text-xs font-semibold uppercase tracking-[0.18em] text-base-content/50">Filter Guide</p>
-					<h2 class="mt-2 text-2xl font-bold text-base-content">주요 필터는 어떻게 읽나요?</h2>
-				</div>
-				<p class="max-w-xl text-sm leading-6 text-base-content/65">
-					필터는 정답을 고르는 장치가 아니라, 원하는 조합 형태를 더 빠르게 좁히는 기준으로 보는 것이 좋습니다.
-				</p>
-			</div>
-
-			<div class="grid gap-4 md:grid-cols-3">
-				{#each generatorFilterGuide as item (item.title)}
-					<div class="rounded-3xl border border-base-300/60 bg-base-100 p-5">
-						<h3 class="text-base font-semibold text-base-content">{item.title}</h3>
-						<p class="mt-3 text-sm leading-7 text-base-content/75">{item.description}</p>
-					</div>
-				{/each}
-			</div>
-		</section>
-
-		<section class="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
-			<div class="rounded-[2rem] border border-base-300 bg-base-100/95 p-6 shadow-sm">
-				<p class="text-xs font-semibold uppercase tracking-[0.18em] text-base-content/50">Caution</p>
-				<h2 class="mt-2 text-2xl font-bold text-base-content">번호 생성기 사용 시 주의할 점</h2>
-				<ul class="mt-4 space-y-3 text-sm leading-7 text-base-content/75 sm:text-base">
-					{#each generatorCautions as item (item)}
-						<li>{item}</li>
-					{/each}
-				</ul>
-			</div>
-
-			<aside class="rounded-[2rem] border border-base-300 bg-base-100/95 p-6 shadow-sm">
-				<p class="text-xs font-semibold uppercase tracking-[0.18em] text-base-content/50">Next Step</p>
-				<h2 class="mt-2 text-xl font-bold text-base-content">구매한 용지는 QR 스캔으로 당첨 확인</h2>
-				<p class="mt-3 text-sm leading-7 text-base-content/75">
-					생성한 번호로 실제 용지를 구매했다면, QR 스캔 페이지에서 당첨 여부와 저장 내역을 바로 확인할 수 있습니다.
-				</p>
-				<div class="mt-5">
-					<a
-						href={resolve("/qr-scan")}
-						class="inline-flex items-center rounded-full border border-base-300 bg-base-200 px-4 py-2 text-sm font-medium text-base-content transition hover:bg-base-300"
-					>
-						구매한 용지는 QR 스캔으로 당첨 확인
-					</a>
-				</div>
-			</aside>
+		<section class="conditions-area" aria-labelledby="conditions-heading">
+			<div class="conditions-title"><h2 id="conditions-heading">원하는 조건 설정</h2><button class="btn btn-ghost btn-sm" onclick={resetConditions} disabled={isLoading}>초기화</button></div>
+			<fieldset disabled={isLoading}>
+				<legend class="sr-only">포함·제외 번호와 조합 조건</legend>
+				<details class="condition-details"><summary>포함·제외 번호 <span>{includedNumbers.size + excludedNumbers.size ? `${includedNumbers.size + excludedNumbers.size}개 선택` : "선택 사항"}</span></summary><div class="details-body">
+					<h3>꼭 넣을 번호 <span>최대 5개</span></h3><div class="number-grid">{#each allNumbers as number (number)}<button class="number-button" class:chosen={includedNumbers.has(number)} aria-pressed={includedNumbers.has(number)} aria-label={`${number}번 포함`} disabled={includedNumbers.size >= 5 && !includedNumbers.has(number)} onclick={() => toggleNumber("included", number)}>{number}</button>{/each}</div>
+					<h3>빼고 싶은 번호 <span>최대 39개</span></h3><div class="number-grid">{#each allNumbers as number (number)}<button class="number-button" class:excluded={excludedNumbers.has(number)} aria-pressed={excludedNumbers.has(number)} aria-label={`${number}번 제외`} disabled={excludedNumbers.size >= 39 && !excludedNumbers.has(number)} onclick={() => toggleNumber("excluded", number)}>{number}</button>{/each}</div>
+				</div></details>
+				<details class="condition-details"><summary>번호 조합 조건 <span>{filterCount ? `${filterCount}개 적용` : "선택 사항"}</span></summary><div class="details-body filter-options">
+					<div class="filter-row"><label class="filter-toggle" for="sum-range-filter"><input type="checkbox" id="sum-range-filter" class="checkbox checkbox-sm" bind:checked={sumRange.enabled} />번호 합계</label><div class="filter-inputs"><input type="number" id="sum-min" aria-label="최소 합계" class="input" bind:value={sumRange.min} disabled={!sumRange.enabled} /><span>~</span><input type="number" id="sum-max" aria-label="최대 합계" class="input" bind:value={sumRange.max} disabled={!sumRange.enabled} /></div></div>
+					<div class="filter-row"><label class="filter-toggle" for="odd-even-filter"><input type="checkbox" id="odd-even-filter" class="checkbox checkbox-sm" bind:checked={oddEvenRatio.enabled} />홀수 : 짝수</label><div class="filter-inputs"><select id="odd-count" aria-label="홀수 개수" class="select" bind:value={oddEvenRatio.odd} onchange={(event) => { oddEvenRatio.even = 6 - Number(event.currentTarget.value); }} disabled={!oddEvenRatio.enabled}>{#each [0,1,2,3,4,5,6] as n (n)}<option value={n}>{n}</option>{/each}</select><span>:</span><output for="odd-count">{oddEvenRatio.even}</output></div></div>
+					<div class="filter-row"><label class="filter-toggle" for="high-low-filter"><input type="checkbox" id="high-low-filter" class="checkbox checkbox-sm" bind:checked={highLowRatio.enabled} />고수 : 저수</label><div class="filter-inputs"><select id="high-count" aria-label="고수 23~45번 개수" class="select" bind:value={highLowRatio.high} onchange={(event) => { highLowRatio.low = 6 - Number(event.currentTarget.value); }} disabled={!highLowRatio.enabled}>{#each [0,1,2,3,4,5,6] as n (n)}<option value={n}>{n}</option>{/each}</select><span>:</span><output for="high-count">{highLowRatio.low}</output></div><p>저수 1~22번 · 고수 23~45번</p></div>
+					<div class="filter-row"><label class="filter-toggle" for="consecutive-filter"><input type="checkbox" id="consecutive-filter" class="checkbox checkbox-sm" bind:checked={consecutiveCount.enabled} />연속번호</label><div class="filter-inputs"><select id="consecutive-max" aria-label="허용할 최대 연속번호 쌍 개수" class="select consecutive-select" bind:value={consecutiveCount.max} disabled={!consecutiveCount.enabled}><option value={0}>허용 안 함</option><option value={1}>최대 1쌍</option><option value={2}>최대 2쌍</option></select></div><p>예: 1·2·3은 연속번호 2쌍으로 계산합니다.</p></div>
+				</div></details>
+			</fieldset>
+			<details class="condition-details" ontoggle={(event) => { if (event.currentTarget.open) void loadNumberStats(); }}><summary>번호별 출현 통계 <span>참고용</span></summary><div class="details-body">
+				{#if isLoadingStats}<p role="status">통계를 불러오는 중…</p>{:else if statsError}<p>{statsError}</p><button class="btn btn-outline btn-sm mt-3" onclick={loadNumberStats}>다시 불러오기</button>{:else}<div class="frequency-list">{#each sortedNumberStats as stat (stat.number)}<a href={resolve(`/stats/numbers/${stat.number}`)}><span>{stat.number}번</span><strong>{stat.draw_count.toLocaleString()}회</strong></a>{/each}</div>{/if}
+				<p class="help-text">과거 출현 횟수 순입니다. 이 수치는 번호 생성에 가중치로 사용되지 않습니다.</p>
+			</div></details>
 		</section>
 	</div>
+	{#if generatedLottoSets.length}<AdSlot placement="generator-inline" format="horizontal" />{/if}
+	<section class="generator-guide" aria-labelledby="guide-heading"><div><h2 id="guide-heading">조건은 이렇게 적용돼요</h2><p>포함한 번호를 고정하고 제외한 번호를 뺀 뒤, 나머지를 무작위로 뽑습니다. 켜둔 모든 조건을 만족하는 조합만 보여줍니다. 같은 조합이 여러 번 나올 수도 있습니다.</p><p>조건이 서로 맞지 않거나 너무 좁으면 생성되지 않을 수 있어요. 포함·제외 번호나 비율을 조정해 다시 시도해주세요.</p></div><a href={resolve("/qr-scan")} class="guide-link"><span>구매한 용지가 있다면</span><strong>QR로 당첨 확인 <span aria-hidden="true">→</span></strong></a></section>
+</div>
+
+<style>
+.page-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; }
+.generator-page { max-width: 1120px; margin-inline: auto; }
+.generator-workspace { display: grid; gap: 2rem; margin-top: 1.5rem; }
+.generate-controls { display: flex; align-items: flex-end; gap: .75rem; }
+.generate-controls label { display: flex; flex-direction: column; gap: .5rem; font-size: .8rem; font-weight: 600; }
+.generate-controls input { width: 6rem; }
+.generate-button { flex: 1; min-height: 3rem; }
+.conditions-summary { font-size: .8rem; margin-top: .75rem; color: color-mix(in oklch, var(--color-base-content) 65%, transparent); }
+.results-section { margin-top: 1.5rem; padding: 1.25rem 0; border-block: 1px solid var(--color-base-300); }
+.results-title, .conditions-title { display: flex; align-items: center; justify-content: space-between; gap: .75rem; min-height: 2.25rem; }
+.results-title h2, .conditions-title h2, .generator-guide h2 { font-size: 1.05rem; font-weight: 700; }
+.result-list { max-height: 36rem; overflow: auto; list-style: none; padding: 0; margin-top: .75rem; }
+.result-list li { display: flex; align-items: center; gap: .85rem; padding-block: .9rem; border-bottom: 1px solid var(--color-base-300); animation: result-in .18s ease-out; }
+.result-list li:last-child { border-bottom: 0; }
+.game-index { font-size: .75rem; font-variant-numeric: tabular-nums; color: color-mix(in oklch, var(--color-base-content) 55%, transparent); width: 1.1rem; }
+.result-balls { display: flex; gap: clamp(.45rem, 1.5vw, .85rem); }
+.empty-results { padding: 1.7rem .5rem; text-align: center; }
+.empty-mark { font-size: 2rem; font-weight: 750; letter-spacing: -.06em; color: color-mix(in oklch, var(--color-base-content) 18%, transparent); }
+.empty-results p, .probability-note, .copy-message, .help-text { font-size: .8rem; line-height: 1.7; color: color-mix(in oklch, var(--color-base-content) 65%, transparent); }
+.empty-results p { max-width: 18rem; margin: .75rem auto 0; }
+.probability-note { margin-top: 1rem; }
+.copy-message { color: var(--color-primary); }
+.condition-details { border-bottom: 1px solid var(--color-base-300); }
+.condition-details summary { display: flex; align-items: center; gap: .75rem; min-height: 3.5rem; padding: .75rem 0; font-size: .9rem; font-weight: 600; cursor: pointer; list-style: none; }
+.condition-details summary::-webkit-details-marker { display: none; }
+.condition-details summary::after { content: "+"; font-size: 1.2rem; font-weight: 400; }
+.condition-details[open] summary::after { content: "−"; }
+.condition-details summary > span { margin-left: auto; font-size: .75rem; font-weight: 400; color: color-mix(in oklch, var(--color-base-content) 60%, transparent); }
+.details-body { padding: .25rem 0 1.5rem; }
+.details-body h3 { font-size: .8rem; font-weight: 650; margin: .75rem 0; }
+.details-body h3 > span { font-weight: 400; margin-left: .5rem; color: color-mix(in oklch, var(--color-base-content) 60%, transparent); }
+.number-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: .3rem; margin-bottom: 1.5rem; }
+.number-grid:last-child { margin-bottom: 0; }
+.number-button { min-width: 0; min-height: 44px; border: 1px solid var(--color-base-300); border-radius: .5rem; font-size: .875rem; font-variant-numeric: tabular-nums; cursor: pointer; transition: background .15s ease, color .15s ease; }
+.number-button:hover:not(:disabled) { background: var(--color-base-200); }
+.number-button.chosen { background: var(--color-primary); color: var(--color-primary-content); border-color: var(--color-primary); }
+.number-button.excluded { background: var(--color-base-content); color: var(--color-base-100); border-color: var(--color-base-content); text-decoration: line-through; }
+.number-button:disabled { opacity: .3; cursor: default; }
+.filter-options { display: grid; gap: 1.5rem; }
+.filter-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .6rem; }
+.filter-toggle { display: flex; align-items: center; gap: .65rem; font-size: .85rem; font-weight: 550; min-height: 44px; }
+.filter-inputs { display: flex; gap: .4rem; align-items: center; }
+.filter-inputs .input, .filter-inputs .select, .filter-inputs output { width: 4.5rem; min-height: 44px; font-size: .875rem; }
+.filter-inputs output { display: grid; place-items: center; border-radius: .5rem; background: var(--color-base-200); }
+.filter-inputs .consecutive-select { width: 9.7rem; }
+.filter-row > p { width: 100%; font-size: .75rem; color: color-mix(in oklch, var(--color-base-content) 60%, transparent); }
+.frequency-list { display: grid; grid-template-columns: 1fr 1fr; gap: .25rem 1rem; }
+.frequency-list a { display: flex; justify-content: space-between; gap: .5rem; padding-block: .6rem; font-size: .8rem; border-bottom: 1px solid var(--color-base-300); }
+.frequency-list a:hover { color: var(--color-primary); }
+.help-text { margin-top: 1rem; }
+.generator-guide { display: grid; gap: 1.5rem; padding-top: 2rem; margin-top: 2rem; border-top: 1px solid var(--color-base-300); }
+.generator-guide p { font-size: .875rem; line-height: 1.8; margin-top: .75rem; color: color-mix(in oklch, var(--color-base-content) 65%, transparent); }
+.guide-link { display: flex; flex-direction: column; gap: .5rem; align-self: start; padding: 1.25rem; background: var(--color-base-200); border-radius: .75rem; }
+.guide-link > span { font-size: .8rem; }
+.guide-link strong { display: flex; justify-content: space-between; gap: 1.5rem; color: var(--color-primary); font-size: .95rem; }
+@media(min-width: 640px) { .number-grid { grid-template-columns: repeat(9, minmax(0, 1fr)); } }
+@media(min-width: 900px) { .generator-workspace { grid-template-columns: minmax(0, 1fr) minmax(0, .9fr); gap: 3rem; } .conditions-area { padding-left: 2rem; border-left: 1px solid var(--color-base-300); } .number-grid { grid-template-columns: repeat(7, minmax(0, 1fr)); } .generator-guide { grid-template-columns: minmax(0, 1fr) 260px; gap: 3rem; } }
+@keyframes result-in { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: translateY(0); } }
+@media(prefers-reduced-motion: reduce) { .result-list li { animation: none; } .number-button { transition: none; } }
+</style>

@@ -8,7 +8,17 @@
 	<!-- <link rel="preload" href="/assets/fonts/SUIT-Variable.woff2" as="font" type="font/woff2" crossorigin> -->
 	<meta name="viewport" content="width=device-width, initial-scale=1" />
 	<link rel="manifest" href="/manifest.json" />
-	<meta name="theme-color" content="#667eea" />
+	<meta name="theme-color" content="#ffffff" />
+	<script>
+		(() => {
+			let preference = "system";
+			try { preference = localStorage.getItem("645-theme") || "system"; } catch {}
+			const theme = preference === "light" || preference === "dark"
+				? preference : matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+			document.documentElement.dataset.theme = theme;
+			document.querySelector('meta[name="theme-color"]').content = theme === "dark" ? "#131c29" : "#ffffff";
+		})();
+	</script>
 	%sveltekit.head%
 </head>
 

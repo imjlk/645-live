@@ -5,33 +5,21 @@ publishedAt: "2026-05-23T21:21:00+09:00"
 updatedAt: "2026-05-23T21:43:48.141+09:00"
 category: "로또분석"
 tags: ["로또1225회", "연번두쌍", "번호패턴", "홀수우세", "당첨분석"]
-description: "홀수 강세 속 3회 연속 연번 기조, 당첨금 약 22억 원"
+description: "8·9와 41·42 연속번호 두 쌍, 홀수 4개 구성"
+summary: "8·9와 41·42 연속번호 두 쌍, 홀수 4개 구성"
+seoDescription: "제1225회 로또 당첨번호는 8·9·19·25·41·42, 보너스는 33입니다. 1등 13명이 각각 2,228,133,087원을 받는 결과를 정리하고, 8·9와 41·42 연속번호 두 쌍, 홀수 4개 구성을 살펴봅니다."
 author: "645.live 자동뉴스"
 thumbnail: "/og/news/lotto-1225?rev=2026-03-25-2&v=2026-05-23T21%3A43%3A48.141%2B09%3A00"
 ---
 
 <script>
-  import LottoNumbers from '$lib/components/news/LottoNumbers.svelte';
-  import Card from '$lib/ui/Card.svelte';
+  import DrawSummary from '$lib/components/news/DrawSummary.svelte';
+  import AdSlot from '$lib/components/ads/AdSlot.svelte';
   import Alert from '$lib/components/news/Alert.svelte';
   import Table from '$lib/components/news/Table.svelte';
-  import Tabs from '$lib/components/news/Tabs.svelte';
-  import TabsList from '$lib/components/news/TabsList.svelte';
-  import TabsTrigger from '$lib/components/news/TabsTrigger.svelte';
-  import TabsContent from '$lib/components/news/TabsContent.svelte';
 </script>
 
-## 이번 회차 핵심 요약
-
-<Card variant="bordered">
-  <ul>
-    <li><strong>추첨일</strong>: 2026-05-23</li>
-    <li><strong>당첨번호</strong>: 8, 9, 19, 25, 41, 42 + 보너스 33</li>
-    <li><strong>1등 당첨자</strong>: 13명</li>
-    <li><strong>1인당 1등 당첨금</strong>: 2,228,133,087원</li>
-    <li><strong>총 판매액</strong>: 60,201,445,675원</li>
-  </ul>
-</Card>
+<DrawSummary round={1225} date="2026-05-23" numbers={[8, 9, 19, 25, 41, 42]} bonus={33} winners={13} prize={2228133087} totalSales={60201445675} />
 
 제1225회 로또추첨에서 당첨번호 8, 9, 19, 25, 41, 42(보너스 33)가 결정됐다. 이번 회차의 가장 두드러진 특징은 8-9와 41-42라는 연번 두 쌍이 동시에 출현한 점이다. 단일 회차에서 연번이 두 곳이나 잡히는 패턴은 매우 드문 사례로, 번호 분포상 눈에 띄는 결과다.
 
@@ -41,9 +29,6 @@ thumbnail: "/og/news/lotto-1225?rev=2026-03-25-2&v=2026-05-23T21%3A43%3A48.141%2
 
 지역별로는 경기도가 1등 4곳으로 가장 많았고 서울·경남 각 2곳이 뒤를 이었다. 자동선택 12곳, 수동 1곳으로 대부분 자동 배출이었으며, 전국 판매금액은 약 602억 원을 기록했다.
 
-## 당첨번호
-
-<LottoNumbers numbers={[8, 9, 19, 25, 41, 42]} bonus={33} round={1225} />
 
 ## 특이점 분석
 
@@ -57,6 +42,8 @@ thumbnail: "/og/news/lotto-1225?rev=2026-03-25-2&v=2026-05-23T21%3A43%3A48.141%2
 번호 9는 1224회에 이어 연속 출현했고, 전 회차와 반복번호는 1개였다. 홀짝 비율 4:2, 고저 분포 2:2를 보이며 중간대(19, 25)가 당첨번호의 핵심 축을 담당했다. 전체 번호가 저번대(8, 9)·중번대(19, 25)·고번대(41, 42)에 각각 2개씩 균등 배치된 점도 통계적으로 주목할 만하다.
 
 이러한 패턴은 로또 번호의 무작위성을 보여주는 동시에, 짧은 기간 특정 패턴이 집중적으로 발현될 수 있음을 시사한다. 다음 회차에서 연번 기조가 계속될지, 혹은 전혀 다른 패턴으로 전환될지가 관전 포인트다.
+
+<AdSlot placement="article-inline" format="horizontal" />
 
 ## 지역별 당첨점 현황 (상위)
 
@@ -110,85 +97,17 @@ thumbnail: "/og/news/lotto-1225?rev=2026-03-25-2&v=2026-05-23T21%3A43%3A48.141%2
   </tbody>
 </Table>
 
-<Tabs defaultValue="insight">
-  <TabsList>
-    <TabsTrigger value="insight">요약 인사이트</TabsTrigger>
-    <TabsTrigger value="stores">당첨점 규모</TabsTrigger>
-  </TabsList>
-  <TabsContent value="insight">
-    <p>1225회 추첨결과는 번호 패턴 측면에서 최근 회차 중 가장 이색적이다. 단일 회차에 연번 두 쌍(8-9, 41-42)이 출현한 사례는 극히 드물며, 1223회부터 3회 연속 연번이 감지된다는 점에서 특정 패턴의 집중적 출현이 두드러진다. 40번대 고번대 연번은 확률적으로 더 낮아 41-42의 출현은 분석상 이례적이다. 번호 9는 1224회에 이어 연속 출현했고, 전 회차와 반복번호는 1개였다. 홀짝 비율 4:2, 고저 분포 2:2를 보이며 중간대(19, 25)가 당첨번호의 핵심 축을 담당했다. 전체 번호가 저번대(8, 9)·중번대(19, 25)·고번대(41, 42)에 각각 2개씩 균등 배치된 점도 통계적으로 주목할 만하다. 이러한 패턴은 로또 번호의 무작위성을 보여주는 동시에, 짧은 기간 특정 패턴이 집중적으로 발현될 수 있음을 시사한다. 다음 회차에서 연번 기조가 계속될지, 혹은 전혀 다른 패턴으로 전환될지가 관전 포인트다.</p>
-  </TabsContent>
-  <TabsContent value="stores">
-    <p>제1225회는 총 83개 당첨점이 집계되었습니다. 집계 데이터는 이후 정정될 수 있습니다.</p>
-  </TabsContent>
-</Tabs>
+<p class="news-data-note">제1225회는 총 83개 당첨점이 집계되었습니다. 집계 데이터는 이후 정정될 수 있습니다.</p>
 
 ## 이번 회차에서 이어서 볼 통계
 
-이번 회차 특징과 맞는 통계를 카드에서 바로 이동해 확인해보세요.
-
-<div class="not-prose grid grid-cols-1 md:grid-cols-2 gap-3 my-6">
-<a href="/stats/numbers" class="group block rounded-2xl border border-base-300 bg-gradient-to-br from-base-100 to-base-200/70 p-0.5 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all no-underline">
-  <div class="h-full rounded-2xl bg-base-100 p-4">
-    <div class="flex items-start gap-3">
-      <span class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-lg">🔢</span>
-      <div class="min-w-0 flex-1">
-        <h3 class="text-base font-semibold text-base-content group-hover:text-primary transition-colors">번호별 통계</h3>
-        <p class="mt-1 text-sm leading-relaxed text-base-content/70">핵심 당첨번호 8,9,19,25,41,42와 보너스 33의 출현 패턴을 시각적으로 분석하기 위해 필요</p>
-      </div>
-      <span class="text-base-content/40 group-hover:text-primary transition-colors">↗</span>
-    </div>
-  </div>
-</a>
-<a href="/stats/pairs" class="group block rounded-2xl border border-base-300 bg-gradient-to-br from-base-100 to-base-200/70 p-0.5 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all no-underline">
-  <div class="h-full rounded-2xl bg-base-100 p-4">
-    <div class="flex items-start gap-3">
-      <span class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-lg">👥</span>
-      <div class="min-w-0 flex-1">
-        <h3 class="text-base font-semibold text-base-content group-hover:text-primary transition-colors">번호 쌍 통계</h3>
-        <p class="mt-1 text-sm leading-relaxed text-base-content/70">연번 두 쌍(8-9, 41-42) 동시 출현이라는 이번 회차 핵심 이슈를 구조화하기 위해 필요</p>
-      </div>
-      <span class="text-base-content/40 group-hover:text-primary transition-colors">↗</span>
-    </div>
-  </div>
-</a>
-<a href="/stats/odd-even" class="group block rounded-2xl border border-base-300 bg-gradient-to-br from-base-100 to-base-200/70 p-0.5 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all no-underline">
-  <div class="h-full rounded-2xl bg-base-100 p-4">
-    <div class="flex items-start gap-3">
-      <span class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-lg">⚖️</span>
-      <div class="min-w-0 flex-1">
-        <h3 class="text-base font-semibold text-base-content group-hover:text-primary transition-colors">홀짝 분석</h3>
-        <p class="mt-1 text-sm leading-relaxed text-base-content/70">홀수 4개·짝수 2개의 홀수 우세 패턴을 비교 분석하기 위해 필요</p>
-      </div>
-      <span class="text-base-content/40 group-hover:text-primary transition-colors">↗</span>
-    </div>
-  </div>
-</a>
-<a href="/stats/repeat" class="group block rounded-2xl border border-base-300 bg-gradient-to-br from-base-100 to-base-200/70 p-0.5 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all no-underline">
-  <div class="h-full rounded-2xl bg-base-100 p-4">
-    <div class="flex items-start gap-3">
-      <span class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-lg">🔁</span>
-      <div class="min-w-0 flex-1">
-        <h3 class="text-base font-semibold text-base-content group-hover:text-primary transition-colors">연속 중복 통계</h3>
-        <p class="mt-1 text-sm leading-relaxed text-base-content/70">직전 1224회와의 반복번호(9) 및 3회 연속 연번 기조를 추적하기 위해 필요</p>
-      </div>
-      <span class="text-base-content/40 group-hover:text-primary transition-colors">↗</span>
-    </div>
-  </div>
-</a>
-<a href="/winning-stores?round=1225" class="group block rounded-2xl border border-base-300 bg-gradient-to-br from-base-100 to-base-200/70 p-0.5 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all no-underline">
-  <div class="h-full rounded-2xl bg-base-100 p-4">
-    <div class="flex items-start gap-3">
-      <span class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-lg">🏪</span>
-      <div class="min-w-0 flex-1">
-        <h3 class="text-base font-semibold text-base-content group-hover:text-primary transition-colors">회차별 당첨점 조회</h3>
-        <p class="mt-1 text-sm leading-relaxed text-base-content/70">경기도 1등 4곳 등 지역별·세부 지역별 당첨점 분포를 보여주기 위해 필요</p>
-      </div>
-      <span class="text-base-content/40 group-hover:text-primary transition-colors">↗</span>
-    </div>
-  </div>
-</a>
-</div>
+<nav class="news-related-links" aria-label="관련 통계">
+<a class="news-related-link" href="/stats/numbers"><span><strong>번호별 통계</strong><small>핵심 당첨번호 8,9,19,25,41,42와 보너스 33의 출현 패턴을 시각적으로 분석하기 위해 필요</small></span><span aria-hidden="true">↗</span></a>
+<a class="news-related-link" href="/stats/pairs"><span><strong>번호 쌍 통계</strong><small>연번 두 쌍(8-9, 41-42) 동시 출현이라는 이번 회차 핵심 이슈를 구조화하기 위해 필요</small></span><span aria-hidden="true">↗</span></a>
+<a class="news-related-link" href="/stats/odd-even"><span><strong>홀짝 분석</strong><small>홀수 4개·짝수 2개의 홀수 우세 패턴을 비교 분석하기 위해 필요</small></span><span aria-hidden="true">↗</span></a>
+<a class="news-related-link" href="/stats/repeat"><span><strong>연속 중복 통계</strong><small>직전 1224회와의 반복번호(9) 및 3회 연속 연번 기조를 추적하기 위해 필요</small></span><span aria-hidden="true">↗</span></a>
+<a class="news-related-link" href="/winning-stores?round=1225"><span><strong>회차별 당첨점 조회</strong><small>경기도 1등 4곳 등 지역별·세부 지역별 당첨점 분포를 보여주기 위해 필요</small></span><span aria-hidden="true">↗</span></a>
+</nav>
 
 <Alert type="info">
   로또는 확률에 기반한 게임이므로 지나친 기대보다는 건전한 마음으로 즐겁게 참여하시기 바랍니다.

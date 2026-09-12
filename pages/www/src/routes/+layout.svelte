@@ -1,29 +1,29 @@
 <script lang="ts">
-import { page } from "$app/state";
-import { browser } from "$app/environment";
-import { onMount } from "svelte";
 import { NuqsAdapter } from "nuqs-svelte/adapters/svelte-kit";
+import { onMount } from "svelte";
+import { browser } from "$app/environment";
+import { page } from "$app/state";
+import { syncWebMcpContext } from "$lib/agent/webmcp";
+import Footer from "$lib/layout/Footer.svelte";
 import Header from "$lib/layout/Header.svelte";
 import MobileNavigation from "$lib/layout/MobileNavigation.svelte";
-import NavigationMenu from "$lib/layout/NavigationMenu.svelte";
-import Footer from "$lib/layout/Footer.svelte";
-import { syncWebMcpContext } from "$lib/agent/webmcp";
 import "../app.css";
-import { getTrailbaseBrowserBaseUrl } from "$lib/trailbase/browser-base";
-import { initializeGlobalConnection } from "$lib/trailbase/global-connection.svelte";
 import { SITE_ORIGIN } from "$lib/seo/index.js";
+import { initializeGlobalConnection } from "$lib/trailbase/global-connection.svelte";
 
 let { data, children } = $props();
+
 import { preparePageTransition } from "$lib/layout/page-transition";
+import {
+	registerNavigationAnalytics,
+	registerWebVitals,
+} from "$lib/utils/analytics";
 import {
 	configureMemberScanSync,
 	registerMemberScanSyncLifecycle,
 } from "$lib/utils/member-scan-sync";
 
 preparePageTransition();
-
-// 실제 데이터가 있는 회차들
-let availableRounds = $state<number[]>([]);
 
 let currentPath = $derived(page.url.pathname);
 let currentAbsoluteUrl = $derived(
@@ -90,6 +90,8 @@ async function resetServiceWorkersIfNeeded(): Promise<boolean> {
 
 onMount(() => {
 	const unregisterMemberScanSync = registerMemberScanSyncLifecycle();
+	const unregisterAnalytics = registerNavigationAnalytics();
+	void registerWebVitals().catch(() => {});
 
 	void (async () => {
 		if (await resetServiceWorkersIfNeeded()) {
@@ -97,7 +99,9 @@ onMount(() => {
 		}
 
 		// TrailBase 전역 연결 초기화 (단순화된 버전)
-		await initializeGlobalConnection();
+		void initializeGlobalConnection().catch((error) => {
+			console.warn("Realtime connection unavailable:", error);
+		});
 
 		// Microsoft Clarity 초기화 (브라우저 환경 & 프로덕션에서만)
 		if (browser && import.meta.env.PROD) {
@@ -108,28 +112,11 @@ onMount(() => {
 				console.warn("Failed to initialize Microsoft Clarity:", error);
 			}
 		}
-
-		// 실제 데이터가 있는 회차들을 가져오기
-		try {
-			const { initClient } = await import("trailbase");
-			const client = initClient(getTrailbaseBrowserBaseUrl());
-			const api = client.records("lotto_draw_scan_counts");
-
-			const response = await api.list({
-				order: ["-round"], // 최신 회차부터
-				pagination: { limit: 10 }, // 최근 10개 회차
-			});
-
-			availableRounds = response.records
-				.map((record) => Number((record as { round: number }).round))
-				.filter(Boolean);
-		} catch (err) {
-			console.error("Error fetching available rounds:", err);
-		}
 	})();
 
 	return () => {
 		unregisterMemberScanSync();
+		unregisterAnalytics();
 	};
 });
 
@@ -154,12 +141,11 @@ $effect(() => {
 </script>
 
 <svelte:head>
-	<meta name="viewport" content="width=device-width, initial-scale=1" />
-	<meta name="theme-color" content="#3b82f6" />
 	<link rel="alternate" hreflang="ko-KR" href={currentAbsoluteUrl} />
 	<link rel="alternate" hreflang="x-default" href={currentAbsoluteUrl} />
 	<meta name="google-adsense-account" content="ca-pub-4441205887996163" />
 	<meta name="naver-site-verification" content="61430164e06bd982855b384e778a1c565ee14065" />
+	{#if import.meta.env.PROD}
 	<!-- Google tag (gtag.js) -->
 	<script async src="https://www.googletagmanager.com/gtag/js?id=G-KEBJGHESGM"></script>
 	<script>
@@ -174,22 +160,17 @@ $effect(() => {
 		src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-4441205887996163"
 		crossorigin="anonymous"
 	></script>
+	{/if}
 </svelte:head>
 
 <NuqsAdapter>
-	<div class="min-h-dvh flex flex-col max-w-7xl mx-auto pb-20 sm:pb-0">
-		<Header session={data.session} />
-
-		<div class="flex flex-1 items-center gap-4 px-0 flex-col sm:flex-row sm:items-stretch my-4 mx-3 xl:mx-0">
-			<NavigationMenu />
-			<main class="container mx-auto px-3 sm:px-0 flex-1 items-center sm:flex-4 rounded-2xl bg-base-200" aria-label="메인 콘텐츠">
-				{@render children?.()}
-			</main>
-		</div>
-
-		<Footer />
-		
-		<!-- 모바일 전용 하단 네비게이션 -->
-		<MobileNavigation />
-	</div>
+ <a href="#main-content" class="skip-link">본문으로 건너뛰기</a>
+ <div class="app-shell">
+  <Header session={data.session} />
+  <main id="main-content" class="page-shell" aria-label="메인 콘텐츠">
+   {@render children?.()}
+  </main>
+  <Footer />
+  <MobileNavigation />
+ </div>
 </NuqsAdapter>

@@ -1,25 +1,19 @@
+import { fail } from "@sveltejs/kit";
 import { TRAILBASE_URL } from "$env/static/private";
 import { createMyScansService } from "$lib/server/my-scans";
 import { buildScanRecordPayload } from "$lib/server/scan-record";
-import type { BallNumber } from "$lib/modules/lotto/types";
 import { getLatestLottoRoundFromAPI } from "$lib/utils/lotto-common.js";
 import { parseLottoQR } from "$lib/utils/lotto-parser.js";
-import { fail } from "@sveltejs/kit";
-import { initClient } from "trailbase";
 import type { Actions, PageServerLoad } from "./$types";
-
-// Trailbase 클라이언트 초기화 (서버 환경)
-const client = initClient(TRAILBASE_URL || "http://localhost:4000");
-const api = client.records("numbers");
 
 function getUniqueNumbers(games: ReturnType<typeof parseLottoQR>): number[] {
 	if (!games) {
 		return [];
 	}
 
-	return Array.from(
-		new Set(games.flatMap((game) => game.numbers)),
-	).sort((a, b) => a - b);
+	return Array.from(new Set(games.flatMap((game) => game.numbers))).sort(
+		(a, b) => a - b,
+	);
 }
 
 export const load: PageServerLoad = async () => {
@@ -28,26 +22,12 @@ export const load: PageServerLoad = async () => {
 		const latestRoundInfo = await getLatestLottoRoundFromAPI();
 		const latestRound = latestRoundInfo?.drwNo || null;
 
-		const promises = Array.from({ length: 45 }, (_, index) => {
-			const ballNumber = index + 1;
-			return api.read(ballNumber).catch(
-				() =>
-					({
-						id: ballNumber,
-						value: 0,
-					}) as BallNumber,
-			);
-		});
-
-		const numbers = await Promise.all(promises);
 		return {
-			numbers,
 			latestRound,
 		};
 	} catch (error) {
 		console.error("Failed to load initial lotto data:", error);
 		return {
-			numbers: [] as BallNumber[],
 			latestRound: null,
 		};
 	}
@@ -123,7 +103,8 @@ export const actions: Actions = {
 				};
 			};
 
-			const isTrailbaseDuplicate = response.status === 409 || result.isDuplicate;
+			const isTrailbaseDuplicate =
+				response.status === 409 || result.isDuplicate;
 
 			if (!response.ok && !isTrailbaseDuplicate) {
 				void scanRecordPromise.catch(() => {});
@@ -161,7 +142,8 @@ export const actions: Actions = {
 						? "이미 저장된 티켓을 다시 확인했습니다."
 						: "스캔이 성공적으로 처리되었습니다.",
 					data: {
-						uniqueNumbers: result.data?.uniqueNumbers || getUniqueNumbers(games),
+						uniqueNumbers:
+							result.data?.uniqueNumbers || getUniqueNumbers(games),
 						gamesCount: result.data?.gamesCount || games.length || 0,
 						qrData,
 						scanRecord,

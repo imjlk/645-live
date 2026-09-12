@@ -30,17 +30,18 @@ function getRenderValue(row: Row, key: string): string {
 <section class="stats-table-shell">
   {#if title}
     <div class="stats-table-shell__head">
-      <p class="stats-table-shell__eyebrow">Detailed Table</p>
       <h2 class="stats-table-shell__title">{title}</h2>
     </div>
   {/if}
 
   <div class="stats-table-shell__scroll">
     <table class="table w-full {zebra ? 'table-zebra' : ''}">
+      {#if title}<caption class="sr-only">{title}</caption>{/if}
       <thead>
         <tr>
           {#each columns as column (column.key)}
             <th
+              scope="col"
               class="text-xs sm:text-sm {column.class || ''} {column.sticky ? 'sticky left-0 bg-base-100 z-10' : ''}"
               style={column.minWidth ? `min-width: ${column.minWidth}` : ''}
             >
@@ -71,53 +72,10 @@ function getRenderValue(row: Row, key: string): string {
 </section>
 
 <style>
-  .stats-table-shell {
-    border-radius: 1.8rem;
-    border: 1px solid color-mix(in oklab, oklch(var(--b3)) 72%, white);
-    background: color-mix(in oklab, oklch(var(--b1)) 96%, white);
-    padding: 1rem;
-    box-shadow: 0 18px 44px rgba(15, 23, 42, 0.05);
-  }
-
-  .stats-table-shell__head {
-    margin-bottom: 0.9rem;
-  }
-
-  .stats-table-shell__eyebrow {
-    font-size: 0.76rem;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: color-mix(in oklab, oklch(var(--p)) 72%, oklch(var(--bc)));
-  }
-
-  .stats-table-shell__title {
-    margin-top: 0.35rem;
-    font-size: 1.15rem;
-    font-weight: 700;
-    color: oklch(var(--bc));
-  }
-
-  .stats-table-shell__scroll {
-    overflow-x: auto;
-    margin-inline: -0.2rem;
-    padding-inline: 0.2rem;
-  }
-
-  .stats-table-shell :global(thead th) {
-    background: color-mix(in oklab, oklch(var(--b1)) 92%, oklch(var(--b2)));
-    color: color-mix(in oklab, oklch(var(--bc)) 72%, white);
-    font-weight: 700;
-  }
-
-  .stats-table-shell :global(tbody td) {
-    vertical-align: middle;
-  }
-
-  @media (max-width: 640px) {
-    .stats-table-shell {
-      padding: 0.85rem;
-      border-radius: 1.5rem;
-    }
-  }
+  .stats-table-shell { min-width: 0; background: var(--color-base-100); }
+  .stats-table-shell__head { margin-bottom: 0.85rem; }
+  .stats-table-shell__title { font-size: 1.125rem; font-weight: 700; color: var(--color-base-content); }
+  .stats-table-shell__scroll { overflow-x: auto; border-block: 1px solid var(--color-base-300); }
+  .stats-table-shell :global(thead th) { background: var(--color-base-200); color: color-mix(in oklab, var(--color-base-content) 78%, transparent); font-weight: 650; }
+  .stats-table-shell :global(tbody td) { vertical-align: middle; }
 </style>

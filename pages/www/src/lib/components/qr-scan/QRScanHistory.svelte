@@ -4,12 +4,14 @@ import SimpleBall from "$lib/components/SimpleBall.svelte";
 import { getLottoNumbersFromAPI } from "$lib/utils/lotto-common.js";
 import { parseLottoQR } from "$lib/utils/lotto-parser.js";
 import {
-	type QRScanHistoryItem,
 	getRelativeTimeString,
+	type QRScanHistoryItem,
 	qrScanHistory,
 	qrScanHistoryV2,
 	syncHistory,
 } from "$lib/utils/qr-scan-history.js";
+
+let { floating = true }: { floating?: boolean } = $props();
 
 // State
 let showModal = $state(false);
@@ -162,18 +164,18 @@ function getScanIcon(item: QRScanHistoryItem): string {
 function getScanBgColor(item: QRScanHistoryItem): string {
 	if (item.resultStatus === "winner") {
 		if (item.winningGrade === "1등" || item.winningGrade === "2등") {
-			return "bg-gradient-to-r from-yellow-100 to-orange-100 border-yellow-300 dark:from-yellow-950/70 dark:to-orange-950/70 dark:border-yellow-800";
+			return "bg-success/10 border-success/30";
 		}
-		return "bg-gradient-to-r from-green-50 to-blue-50 border-green-300 dark:from-green-950/60 dark:to-blue-950/60 dark:border-green-800";
+		return "bg-success/5 border-success/25";
 	}
 	if (item.resultStatus === "expired") {
-		return "bg-gradient-to-r from-rose-50 to-orange-50 border-rose-300 dark:from-rose-950/60 dark:to-orange-950/60 dark:border-rose-800";
+		return "bg-base-200 border-base-300";
 	}
 	if (item.resultStatus === "unreleased") {
-		return "bg-gradient-to-r from-amber-50 to-yellow-50 border-amber-300 dark:from-amber-950/60 dark:to-yellow-950/60 dark:border-amber-800";
+		return "bg-warning/5 border-warning/25";
 	}
 	if (item.resultStatus === "unknown") {
-		return "bg-gradient-to-r from-slate-50 to-gray-100 border-slate-300 dark:from-slate-900 dark:to-slate-800 dark:border-slate-700";
+		return "bg-base-200 border-base-300";
 	}
 	return "bg-base-100 border-base-300";
 }
@@ -210,7 +212,9 @@ function formatScanDate(date: Date): string {
 
 function isReleasedDraw(
 	winningData: Awaited<ReturnType<typeof getLottoNumbersFromAPI>>,
-): winningData is NonNullable<Awaited<ReturnType<typeof getLottoNumbersFromAPI>>> {
+): winningData is NonNullable<
+	Awaited<ReturnType<typeof getLottoNumbersFromAPI>>
+> {
 	if (!winningData) {
 		return false;
 	}
@@ -236,7 +240,9 @@ async function loadWinningDraws(items: QRScanHistoryItem[]) {
 		),
 	);
 
-	const missingRounds = rounds.filter((round) => !(round in winningDrawsByRound));
+	const missingRounds = rounds.filter(
+		(round) => !(round in winningDrawsByRound),
+	);
 	if (missingRounds.length === 0) {
 		return;
 	}
@@ -277,7 +283,10 @@ async function loadWinningDraws(items: QRScanHistoryItem[]) {
 	};
 }
 
-function getMatchCount(numbers: number[], winningDraw: WinningDrawPreview | null): number {
+function getMatchCount(
+	numbers: number[],
+	winningDraw: WinningDrawPreview | null,
+): number {
 	if (!winningDraw) {
 		return 0;
 	}
@@ -339,6 +348,7 @@ loadHistory();
 </script>
 
 <!-- Floating Action Button -->
+{#if floating}
 <div class="fixed bottom-20 right-4 sm:bottom-6 sm:right-6 z-[9999]">
 	<button
 		class="btn btn-circle btn-primary btn-lg shadow-2xl hover:shadow-xl transition-all duration-200 group relative"
@@ -360,15 +370,17 @@ loadHistory();
 	</button>
 </div>
 
+{/if}
+
 <!-- Modal -->
 {#if showModal}
-	<div class="modal modal-open">
-		<div class="modal-box max-w-2xl max-h-[50vh] p-0 bg-base-100 text-base-content shadow-2xl">
+	<div class="modal modal-open" role="dialog" aria-modal="true" aria-labelledby="scan-history-title">
+		<div class="modal-box max-w-2xl max-h-[85dvh] p-0 bg-base-100 text-base-content flex flex-col overflow-hidden">
 			<!-- Header -->
-			<div class="sticky top-0 bg-base-100 border-b border-base-300 p-6 z-10 text-base-content">
+			<div class="shrink-0 bg-base-100 border-b border-base-300 p-4 sm:p-5 text-base-content">
 				<div class="flex items-center justify-between">
 					<div>
-						<h3 class="font-bold text-lg">QR 스캔 히스토리</h3>
+						<h3 id="scan-history-title" class="font-bold text-lg">내 스캔 내역</h3>
 						<p class="text-sm text-base-content/70">
 							총 {historyItems.length}개 스캔 | 오늘 {todayScansCount}개
 						</p>
@@ -387,11 +399,11 @@ loadHistory();
 										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
 									</svg>
 								{:else if syncStatus === 'success'}
-									<svg class="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<svg class="w-4 h-4 text-success-content" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
 									</svg>
 								{:else if syncStatus === 'error'}
-									<svg class="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<svg class="w-4 h-4 text-error-content" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
 									</svg>
 								{:else}
@@ -427,7 +439,7 @@ loadHistory();
 			</div>
 
 			<!-- Content -->
-			<div class="p-1 space-y-4 max-h-[35vh] overflow-y-auto">
+			<div class="p-3 sm:p-4 space-y-3 min-h-0 overflow-y-auto">
 				{#if historyItems.length === 0}
 					<div class="text-center py-12">
 						<div class="text-base-content/40 mb-4">
@@ -443,16 +455,16 @@ loadHistory();
 						{@const statusBadge = getStatusBadge(item)}
 						{@const winningDraw = getWinningDraw(item.round)}
 						{@const parsedGames = parsedGamesByItemId[item.id] ?? []}
-						<div class="card border text-base-content {getScanBgColor(item)} transition-all hover:shadow-md mb-1">
-							<div class="card-body p-2">
+						<div class="rounded-xl border text-base-content {getScanBgColor(item)}">
+							<div class="p-3 sm:p-4">
 								<div class="flex items-start justify-between">
 									<div class="flex items-start gap-3 flex-1">
 										<div class="text-2xl mt-1">
 											{getScanIcon(item)}
 										</div>
 										<div class="flex-1 min-w-0">
-											<div class="flex items-center gap-2 mb-1">
-												<h4 class="font-semibold text-sm truncate text-base-content">
+											<div class="flex flex-wrap items-center gap-2 mb-1">
+												<h4 class="font-semibold text-sm text-base-content">
 													{item.summary}
 												</h4>
 												{#if statusBadge}
@@ -485,7 +497,7 @@ loadHistory();
 													</p>
 												{/if}
 												{#if parsedGames.length > 0}
-													<div class="rounded-lg bg-base-200/90 p-2 text-xs dark:bg-base-300/20">
+													<div class="rounded-lg bg-base-200/70 p-2 text-xs">
 														{#if winningDraw}
 															<div class="rounded-md border border-warning/30 bg-warning/10 p-2">
 																<div class="flex items-center justify-between gap-2">
@@ -515,7 +527,7 @@ loadHistory();
 																			{index + 1}게임
 																		</div>
 																		{#if matchSummary}
-																			<div class="badge badge-outline badge-sm border-info/60 bg-info/10 font-bold text-info">
+																			<div class="badge badge-outline badge-sm border-info bg-info font-bold text-info-content">
 																				{matchSummary}
 																			</div>
 																		{/if}
@@ -539,7 +551,7 @@ loadHistory();
 										</div>
 									</div>
 									<button 
-										class="btn btn-ghost btn-xs text-base-content/70 opacity-60 hover:opacity-100 hover:text-base-content"
+										class="btn btn-ghost btn-sm min-h-11 min-w-11 text-base-content/70"
 										onclick={() => deleteScan(item.id)}
 										title="이 기록 삭제"
 										aria-label="이 기록 삭제"
@@ -557,8 +569,8 @@ loadHistory();
 
 			<!-- Footer -->
 			{#if historyItems.length > 0}
-				<div class="sticky bottom-0 bg-base-100 border-t border-base-300 p-4 text-base-content">
-					<div class="flex justify-between items-center text-xs text-base-content/60">
+				<div class="shrink-0 bg-base-100 border-t border-base-300 p-4 text-base-content">
+					<div class="flex flex-wrap gap-2 justify-between items-center text-xs text-base-content/60">
 						<span>로그인하지 않은 스캔 내역은 최대 1주일 동안 보관됩니다</span>
 						<span>최대 100개까지 저장됩니다</span>
 					</div>

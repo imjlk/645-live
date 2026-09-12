@@ -8,7 +8,7 @@ export const ABOUT_PATH = "/about";
 export const CONTACT_PATH = "/contact";
 export const EDITORIAL_POLICY_PATH = "/editorial-policy";
 export const DATA_SOURCES_PATH = "/data-sources";
-export const NEWS_OG_CACHE_BUSTER = "2026-03-25-2";
+export const NEWS_OG_CACHE_BUSTER = "2026-09-12-1";
 export const GENERIC_OG_CACHE_BUSTER = "2026-03-25-1";
 
 export function absoluteUrl(path: string): string {

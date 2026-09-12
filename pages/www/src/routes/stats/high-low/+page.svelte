@@ -1,7 +1,7 @@
 <script lang="ts">
+import { JsonLd, MetaTags } from "svelte-meta-tags";
 import { RecentAnalysisInput, StatsPageHero } from "$lib/components/stats";
 import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
-import { JsonLd, MetaTags } from "svelte-meta-tags";
 import type { PageData } from "./$types";
 
 let { data }: { data: PageData } = $props();
@@ -69,14 +69,19 @@ const safePatternStats = $derived(
 const safeRecentStats = $derived(
 	Array.isArray(data.recentStats) ? data.recentStats : [],
 );
+
+const pageTitle = $derived(`로또 고저 분포와 회차별 기록`);
+const pageDescription = $derived(
+	`로또 6/45 전체 ${data.totalRounds}회차 추첨 결과에서 저구간 1~22와 고구간 23~45의 출현 분포를 확인하세요. 회차당 평균 개수와 고저 비율, 자주 나타난 조합을 비교하고 기간을 선택해 회차별 당첨번호의 분포를 살펴볼 수 있습니다.`,
+);
 </script>
 
 <MetaTags
-	title="로또 6/45 고저 분석 통계 | 고숫자/저숫자 분포 패턴 분석"
+	title={pageTitle}
 	titleTemplate="%s | 645.live"
-	description="로또 6/45 전체 {data.totalRounds}회차 고저 분포와 패턴을 분석합니다. 고숫자(23-45)와 저숫자(1-22) 균형도 분석을 통해 번호 선택에 도움을 제공합니다."
+	description={pageDescription}
 	canonical="https://645.live/stats/high-low"
-	keywords={["로또고저분석", "고숫자저숫자", "로또통계분석", "고저균형분석", "로또예측", "고저패턴분석", "로또데이터분석", "6/45통계"]}
+	keywords={["로또고저분석", "고숫자저숫자", "로또통계분석", "고저균형분석", "고저패턴분석", "로또데이터분석", "6/45통계"]}
 	robots="index,follow"
 	additionalRobotsProps={{
 		maxSnippet: 320,
@@ -87,10 +92,6 @@ const safeRecentStats = $derived(
 		{
 			name: 'application-name',
 			content: '645.live'
-		},
-		{
-			name: 'theme-color',
-			content: '#3B82F6'
 		},
 		{
 			name: 'format-detection',
@@ -112,8 +113,8 @@ const safeRecentStats = $derived(
 	openGraph={{
 		type: 'article',
 		url: 'https://645.live/stats/high-low',
-		title: `로또 6/45 고저 분석 통계 | 전체 ${data.totalRounds}회차 데이터`,
-		description: `로또 6/45 당첨번호의 고저 분포와 패턴을 분석합니다. 평균 고숫자 ${data.averageHighCount}개, 평균 저숫자 ${data.averageLowCount}개 등 상세한 통계 정보를 확인하세요.`,
+		title: pageTitle,
+		description: pageDescription,
 		locale: 'ko_KR',
 		images: [{
 			url: 'https://645.live/images/lotto-high-low-stats.png',
@@ -127,15 +128,13 @@ const safeRecentStats = $derived(
 		article: {
 			section: '로또 통계',
 			tags: ['로또', '고저분석', '고숫자', '저숫자', '당첨번호', '통계분석', '6/45'],
-			publishedTime: '2024-01-01T00:00:00.000Z',
-			modifiedTime: new Date().toISOString()
 		}
 	}}
 	twitter={{
 		cardType: 'summary_large_image',
 		site: '@645live',
-		title: '로또 6/45 고저 분석 통계',
-		description: `전체 ${data.totalRounds}회차 고저 패턴 분석 - 평균 고숫자 ${data.averageHighCount}개, 평균 저숫자 ${data.averageLowCount}개`,
+		title: pageTitle,
+		description: pageDescription,
 		image: 'https://645.live/images/lotto-high-low-stats.png',
 		imageAlt: '로또 6/45 고저 분석 통계'
 	}}
@@ -187,12 +186,12 @@ const safeRecentStats = $derived(
 	}}
 />
 
-<div class="p-3 sm:p-4 md:p-6 space-y-4 sm:space-y-6 max-sm:px-0">
+<div class="stats-page">
 	<!-- Breadcrumbs -->
 	<Breadcrumbs items={breadcrumbItems} />
 
 	<StatsPageHero
-		eyebrow="High Low Pattern"
+		eyebrow="공식 추첨 통계"
 		title="로또 6/45 고저 분석 통계"
 		description={`고저 분석은 번호를 저숫자(1-22)와 고숫자(23-45)로 나눠서 보는 핵심 지표입니다. 전체 ${data.totalRounds}회차를 기준으로 어느 쪽이 더 자주 선택됐는지, 균형형 패턴이 얼마나 안정적인지 확인할 수 있습니다.`}
 		metrics={[
@@ -285,7 +284,7 @@ const safeRecentStats = $derived(
 			</p>
 			
 			<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-2 sm:gap-3 md:gap-4">
-				{#each Object.entries(safeHighLowDistribution) as [highCount, count]}
+				{#each Object.entries(safeHighLowDistribution) as [highCount, count] (highCount)}
 					{@const percentage = data.totalRounds > 0 ? (((count as number) / data.totalRounds) * 100).toFixed(1) : "0.0"}
 					{@const balance = getHighLowBalance(Number(highCount))}
 					
@@ -307,7 +306,7 @@ const safeRecentStats = $derived(
 			<div class="mt-4 sm:mt-6 p-3 sm:p-4 bg-base-200 rounded-lg">
 				<h3 class="font-semibold mb-2 sm:mb-3 text-sm sm:text-base">고저 균형도 분석</h3>
 				<div class="grid grid-cols-1 gap-2 sm:gap-3 md:gap-4 text-xs sm:text-sm">
-					{#each Object.entries(safeHighLowDistribution) as [highCount, count]}
+					{#each Object.entries(safeHighLowDistribution) as [highCount, count] (highCount)}
 						{@const percentage = data.totalRounds > 0 ? (((count as number) / data.totalRounds) * 100).toFixed(1) : "0.0"}
 						{@const balance = getHighLowBalance(Number(highCount))}
 						{@const lowCount = 6 - Number(highCount)}
@@ -343,17 +342,17 @@ const safeRecentStats = $derived(
 						</tr>
 					</thead>
 					<tbody>
-						{#each safeRecentStats as stat}
+						{#each safeRecentStats as stat (stat.round)}
 							{@const balance = getHighLowBalance(stat.high_count)}
 							<tr>
 								<td class="sticky left-0 bg-base-100 z-10 font-semibold text-xs sm:text-sm">{stat.round}회</td>
 								<td class="text-center">
-									<span class="badge badge-error text-white text-xs">
+									<span class="badge badge-error text-error-content text-xs">
 										{stat.high_count}개
 									</span>
 								</td>
 								<td class="text-center">
-									<span class="badge badge-info text-white text-xs">
+									<span class="badge badge-info text-info-content text-xs">
 										{stat.low_count}개
 									</span>
 								</td>

@@ -1,7 +1,8 @@
 <script lang="ts">
 import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
 import LinkButton from "$lib/ui/LinkButton.svelte";
-import { JsonLd, MetaTags } from "svelte-meta-tags";
+import { JsonLd } from "svelte-meta-tags";
+import MetaTags from "$lib/seo/PageMeta.svelte";
 
 // Breadcrumbs 데이터
 const breadcrumbItems = [
@@ -64,15 +65,15 @@ const faqData = [
 ];
 
 const faqSchema = {
-	'@type': 'FAQPage',
+	"@type": "FAQPage",
 	mainEntity: faqData.map((faq) => ({
-		'@type': 'Question',
+		"@type": "Question",
 		name: faq.question.trim(),
 		acceptedAnswer: {
-			'@type': 'Answer',
-			text: faq.answer.trim()
-		}
-	}))
+			"@type": "Answer",
+			text: faq.answer.trim(),
+		},
+	})),
 };
 
 // 가이드 섹션 데이터
@@ -251,7 +252,7 @@ const guideSection = [
 <MetaTags
 	title="로또 6/45 완전 가이드 | 초보자를 위한 로또 이용법 - 645.live"
 	titleTemplate="%s"
-	description="로또 6/45 초보자 완전 가이드! 게임 방법부터 당첨확률, 구매법, 당첨금 수령, 세금까지 모든 정보를 쉽게 설명. 로또 초보자 필수 정보 제공."
+	description="로또 6/45를 처음 이용한다면 게임 방식과 당첨 등수, 번호 확인 방법부터 살펴보세요. 구매 방법과 당첨금 수령 절차, QR 확인과 번호 통계의 읽는 법을 정리하고, 이용 시 확인할 사항을 안내합니다."
 	canonical="https://645.live/guide"
 	keywords={["로또가이드", "로또 6/45 방법", "로또 구매법", "로또 당첨확률", "로또 초보자 가이드", "로또 이용법", "로또 당첨금 수령", "로또 세금", "복권 가이드", "로또 통계", "로또 예상번호", "로또 분석", "로또 팁", "로또 전략", "로또 용어", "로또 상금", "로또 예측", "로또 개념", "로또 기본법", "로또 FAQ"]}
 	robots="index,follow"
@@ -389,7 +390,7 @@ const guideSection = [
 	}}
 />
 
-<div class="p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-5 lg:space-y-6 max-sm:px-0 max-w-4xl mx-auto  max-sm:px-0 max-sm:px-0">
+<div class="content-page max-w-4xl mx-auto space-y-6">
 	<!-- Breadcrumbs -->
 	<Breadcrumbs items={breadcrumbItems} />
 
@@ -469,7 +470,7 @@ const guideSection = [
 	{/each}
 
 	<!-- 빠른 링크 섹션 -->
-	<div class="card bg-gradient-to-r from-primary/5 to-secondary/5 shadow-sm">
+	<div class="card bg-base-200">
 		<div class="card-body p-4 sm:p-6">
 			<h2 class="card-title text-lg sm:text-xl mb-4">🔗 바로가기</h2>
 			<div class="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">

@@ -1,8 +1,8 @@
 <script lang="ts">
+import { JsonLd, MetaTags } from "svelte-meta-tags";
 import { RecentAnalysisInput, StatsPageHero } from "$lib/components/stats";
 import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
 import LinkButton from "$lib/ui/LinkButton.svelte";
-import { JsonLd, MetaTags } from "svelte-meta-tags";
 import type { PageData } from "./$types";
 
 let { data }: { data: PageData } = $props();
@@ -99,14 +99,19 @@ const getSectionBalance = (s1: number, s2: number, s3: number): string => {
 	if ([s1, s2, s3].filter((s) => s === 0).length === 1) return "부분 편중";
 	return "심한 편중";
 };
+
+const pageTitle = $derived(`로또 번호 구간별 분포 통계`);
+const pageDescription = $derived(
+	`로또 6/45 전체 ${data.totalRounds}회차 추첨 결과에서 당첨번호를 1~10, 11~20, 21~30, 31~40, 41~45 구간으로 나눠 확인하세요. 구간별 출현 횟수와 평균 개수, 조합별 빈도를 비교하고 원하는 기간의 회차별 분포를 살펴볼 수 있습니다.`,
+);
 </script>
 
 <MetaTags
-	title="로또 6/45 구간 분석 통계 | 번호 구간별 분포 패턴"
+	title={pageTitle}
 	titleTemplate="%s | 645.live"
-	description="로또 6/45 당첨번호의 구간별(1-10, 11-20, 21-30, 31-40, 41-45) 분포를 분석합니다. 구간별 균형도와 패턴을 통해 번호 선택에 도움을 제공합니다."
+	description={pageDescription}
 	canonical="https://645.live/stats/sections"
-	keywords={["로또", "구간분석", "번호구간", "로또통계", "구간패턴", "로또예측", "6/45통계", "구간균형", "번호분포", "로또구간분석"]}
+	keywords={["로또", "구간분석", "번호구간", "로또통계", "구간패턴", "6/45통계", "구간균형", "번호분포", "로또구간분석"]}
 	robots="index,follow"
 	additionalRobotsProps={{
 		maxSnippet: 320,
@@ -117,10 +122,6 @@ const getSectionBalance = (s1: number, s2: number, s3: number): string => {
 		{
 			name: 'application-name',
 			content: '645.live'
-		},
-		{
-			name: 'theme-color',
-			content: '#3B82F6'
 		},
 		{
 			name: 'format-detection',
@@ -142,8 +143,8 @@ const getSectionBalance = (s1: number, s2: number, s3: number): string => {
 	openGraph={{
 		type: 'article',
 		url: 'https://645.live/stats/sections',
-		title: '로또 6/45 구간 분석 통계 | 번호 구간별 분포 패턴',
-		description: '로또 6/45 당첨번호의 구간별(1-10, 11-20, 21-30, 31-40, 41-45) 분포를 분석합니다. 구간별 균형도와 패턴을 통해 번호 선택에 도움을 제공합니다.',
+		title: pageTitle,
+		description: pageDescription,
 		locale: 'ko_KR',
 		images: [{
 			url: 'https://645.live/images/lotto-sections-stats.png',
@@ -157,15 +158,13 @@ const getSectionBalance = (s1: number, s2: number, s3: number): string => {
 		article: {
 			section: '로또 통계',
 			tags: ['로또', '구간분석', '번호구간', '로또통계', '구간패턴', '6/45통계', '구간균형', '번호분포'],
-			publishedTime: '2024-01-01T00:00:00.000Z',
-			modifiedTime: new Date().toISOString()
 		}
 	}}
 	twitter={{
 		cardType: 'summary_large_image',
 		site: '@645live',
-		title: '로또 6/45 구간 분석 통계',
-		description: '번호 구간별 분포 패턴으로 로또 번호 균형을 파악하세요.',
+		title: pageTitle,
+		description: pageDescription,
 		image: 'https://645.live/images/lotto-sections-stats.png',
 		imageAlt: '로또 6/45 구간 분석 통계'
 	}}
@@ -217,12 +216,12 @@ const getSectionBalance = (s1: number, s2: number, s3: number): string => {
 	}}
 />
 
-<div class="p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-6 max-sm:px-0">
+<div class="stats-page">
 	<!-- Breadcrumbs -->
 	<Breadcrumbs items={breadcrumbItems} />
 
 	<StatsPageHero
-		eyebrow="Section Distribution"
+		eyebrow="공식 추첨 통계"
 		title="로또 6/45 구간별 분석 통계"
 		description={`당첨번호를 1-10, 11-20, 21-30, 31-40, 41-45의 다섯 구간으로 나눠서 봅니다. 전체 ${data.totalRounds}회차 기준으로 어느 구간이 안정적으로 분산됐는지, 최근 흐름이 어느 구간에 몰렸는지 함께 비교할 수 있습니다.`}
 		metrics={[
@@ -256,7 +255,7 @@ const getSectionBalance = (s1: number, s2: number, s3: number): string => {
 
 	<!-- 요약 통계 -->
 	<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
-		{#each Object.entries(sectionMappedData) as [sectionKey, sectionData]}
+		{#each Object.entries(sectionMappedData) as [sectionKey, sectionData] (sectionKey)}
 			{@const info = sectionInfo[sectionKey as keyof typeof sectionInfo]}
 			
 			<div class="stat bg-primary text-primary-content rounded-lg p-3 sm:p-4 min-h-[120px] sm:min-h-[140px]">
@@ -272,7 +271,7 @@ const getSectionBalance = (s1: number, s2: number, s3: number): string => {
 		<div class="card-body p-3 sm:p-4 lg:p-6">
 			<h2 class="card-title text-base sm:text-lg mb-3 sm:mb-4">구간별 출현 빈도</h2>
 			<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
-				{#each Object.entries(sectionInfo) as [, info]}
+				{#each Object.entries(sectionInfo) as [sectionKey, info] (sectionKey)}
 					{@const sectionData = sectionMappedData[Object.keys(sectionMappedData).find(k => sectionInfo[k as keyof typeof sectionInfo].name === info.name) as keyof typeof sectionMappedData]}
 					{@const totalNumbers = data.totalRounds * 6}
 					<div class="stat bg-base-200 rounded-lg p-3 sm:p-4 min-h-[120px] sm:min-h-[140px]">
@@ -310,7 +309,7 @@ const getSectionBalance = (s1: number, s2: number, s3: number): string => {
 						</tr>
 					</thead>
 					<tbody>
-						{#each data.sectionStats.slice(0, 20) as stat}
+						{#each data.sectionStats.slice(0, 20) as stat (stat.round)}
 							{@const statRecord = stat as { 
 								round: number; 
 								section_1_10: number; 
@@ -393,12 +392,12 @@ const getSectionBalance = (s1: number, s2: number, s3: number): string => {
 						<li><strong>구간별 분포 균형:</strong> 각 구간에서 번호가 얼마나 균등하게 선택되는지</li>
 						<li><strong>출현 패턴:</strong> 특정 구간에 집중되는 경향이나 분산 패턴</li>
 						<li><strong>트렌드 분석:</strong> 전체 {data.totalRounds}회차의 구간별 분포 변화 추이</li>
-						<li><strong>예측 참고:</strong> 구간별 균형성을 통한 향후 번호 선택 가이드</li>
+						<li><strong>해석 기준:</strong> 과거 출현 분포는 다음 추첨의 개별 번호 확률을 높이지 않습니다.</li>
 					</ul>
 				</div>
 				
 				<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 mt-3">
-					{#each Object.entries(sectionInfo) as [, info]}
+					{#each Object.entries(sectionInfo) as [sectionKey, info] (sectionKey)}
 						<div class="flex items-center p-2 bg-base-200 rounded min-h-[40px]">
 							<div class="w-3 h-3 rounded-full {info.class} mr-2 flex-shrink-0"></div>
 							<span class="text-xs font-medium">{info.name} ({info.range})</span>

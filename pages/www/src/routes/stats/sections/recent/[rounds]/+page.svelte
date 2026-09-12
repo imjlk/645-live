@@ -1,7 +1,7 @@
 <script lang="ts">
+import { JsonLd, MetaTags } from "svelte-meta-tags";
 import { RecentAnalysisInput } from "$lib/components/stats";
 import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
-import { JsonLd, MetaTags } from "svelte-meta-tags";
 import type { PageData } from "./$types";
 
 let { data }: { data: PageData } = $props();
@@ -71,14 +71,21 @@ const sortedPatterns = $derived(
 				.slice(0, 10)
 		: [],
 );
+
+const pageTitle = $derived(
+	`최근 ${data.selectedRounds}회 로또 번호 구간별 분포 통계`,
+);
+const pageDescription = $derived(
+	`로또 6/45 최근 ${data.selectedRounds}회차 추첨 결과에서 당첨번호를 1~10, 11~20, 21~30, 31~40, 41~45 구간으로 나눠 확인하세요. 구간별 출현 횟수와 평균 개수, 조합별 빈도를 비교하고 원하는 기간의 회차별 분포를 살펴볼 수 있습니다.`,
+);
 </script>
 
 <MetaTags
-	title="로또 6/45 구간별 분석 통계 | 구간별 번호 분포 분석"
+	title={pageTitle}
 	titleTemplate="%s | 645.live"
-	description={`로또 6/45 구간별 번호 분포를 분석합니다 (최근 ${data.selectedRounds}회차). 1구간(1-10), 2구간(11-20), 3구간(21-30), 4구간(31-40), 5구간(41-45)의 분포 패턴과 균형성을 제공합니다.`}
+	description={pageDescription}
 	canonical={`https://645.live/stats/sections/recent/${data.selectedRounds}`}
-	keywords={["로또", "구간별분석", "번호분포", "로또통계", "구간패턴", "번호균형", "로또예측", "6/45통계", "구간별통계", "번호구간분석"]}
+	keywords={["로또", "구간별분석", "번호분포", "로또통계", "구간패턴", "번호균형", "6/45통계", "구간별통계", "번호구간분석"]}
 	robots="index,follow"
 	additionalRobotsProps={{
 		maxSnippet: 320,
@@ -89,10 +96,6 @@ const sortedPatterns = $derived(
 		{
 			name: 'application-name',
 			content: '645.live'
-		},
-		{
-			name: 'theme-color',
-			content: '#3B82F6'
 		},
 		{
 			name: 'format-detection',
@@ -114,8 +117,8 @@ const sortedPatterns = $derived(
 	openGraph={{
 		type: 'article',
 		url: `https://645.live/stats/sections/recent/${data.selectedRounds}`,
-		title: `로또 6/45 구간별 분석 통계 | 번호 분포 패턴 (최근 ${data.selectedRounds}회차)`,
-		description: `로또 6/45 구간별 번호 분포를 분석합니다 (최근 ${data.selectedRounds}회차). 1구간부터 5구간까지의 균형성과 분포 패턴을 제공합니다.`,
+		title: pageTitle,
+		description: pageDescription,
 		locale: 'ko_KR',
 		images: [{
 			url: 'https://645.live/images/lotto-section-stats.png',
@@ -129,15 +132,13 @@ const sortedPatterns = $derived(
 		article: {
 			section: '로또 통계',
 			tags: ['로또', '구간별분석', '번호분포', '로또통계', '구간패턴', '번호균형', '6/45통계', '구간별통계'],
-			publishedTime: '2024-01-01T00:00:00.000Z',
-			modifiedTime: new Date().toISOString()
 		}
 	}}
 	twitter={{
 		cardType: 'summary_large_image',
 		site: '@645live',
-		title: `로또 6/45 구간별 분석 통계 (최근 ${data.selectedRounds}회차)`,
-		description: '구간별 번호 분포 분석으로 로또 번호 균형성을 파악하세요.',
+		title: pageTitle,
+		description: pageDescription,
 		image: 'https://645.live/images/lotto-section-stats.png',
 		imageAlt: '로또 6/45 구간별 분석 통계'
 	}}
@@ -189,23 +190,15 @@ const sortedPatterns = $derived(
 	}}
 />
 
-<div class="p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-6 max-sm:px-0">
+<div class="stats-page">
 	<!-- Breadcrumbs -->
 	<Breadcrumbs items={breadcrumbItems} />
 
 	<!-- 페이지 헤더 -->
-	<div class="text-center space-y-3 sm:space-y-4">
-		<h1 class="text-xl sm:text-2xl lg:text-3xl font-bold text-primary px-2">로또 6/45 구간별 분석 상세 분석</h1>
-		<p class="text-sm sm:text-base text-base-content/70 px-2 leading-relaxed">
-			최근 <strong class="text-primary">{data.selectedRounds}회차</strong>의 <strong>구간별 번호 분포</strong>와 패턴을 상세히 분석합니다.<br class="hidden sm:block" />
-			<span class="block sm:inline mt-2 sm:mt-0">1구간 평균 <strong class="text-secondary">{data.sectionStats.summary.sectionAverages.section1}개</strong>, 2구간 평균 <strong class="text-accent">{data.sectionStats.summary.sectionAverages.section2}개</strong>의 구간별 분포 분석을 통해 당첨번호 패턴을 파악해보세요.</span>
-		</p>
-		<div class="flex flex-col sm:flex-row justify-center gap-2 sm:gap-4 text-xs sm:text-sm text-base-content/60 mt-3 sm:mt-4">
-			<span>📊 최빈 구간: <strong class="text-primary">{sectionInfo[data.sectionStats.summary.mostFrequentSection[0] as unknown as keyof typeof sectionInfo]?.name}</strong></span>
-			<span>📈 분석 회차: <strong class="text-secondary">{data.selectedRounds}회</strong></span>
-			<span>🎯 평균 개수: <strong class="text-accent">{data.sectionStats.summary.mostFrequentSection[1]}개</strong></span>
-		</div>
-	</div>
+	<header class="stats-recent-heading space-y-2">
+		<h1 class="font-bold">최근 {data.selectedRounds}회 번호 구간별 분포</h1>
+		<p>다섯 번호 구간의 출현 개수와 회차별 분포를 확인하세요.</p>
+	</header>
 
 	<RecentAnalysisInput
 		maxRounds={data.totalRounds}
@@ -217,7 +210,7 @@ const sortedPatterns = $derived(
 
 	<!-- 요약 통계 -->
 	<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
-		{#each Object.entries(data.sectionStats.summary.sectionAverages) as [sectionKey, average]}
+		{#each Object.entries(data.sectionStats.summary.sectionAverages) as [sectionKey, average] (sectionKey)}
 			{@const info = sectionInfo[sectionKey as keyof typeof sectionInfo]}
 			
 			<div class="stat bg-primary text-primary-content rounded-lg p-3 sm:p-4 min-h-[120px] sm:min-h-[140px]">
@@ -233,7 +226,7 @@ const sortedPatterns = $derived(
 		<div class="card-body p-3 sm:p-4 lg:p-6">
 			<h2 class="card-title text-base sm:text-lg mb-3 sm:mb-4">구간별 출현 빈도</h2>
 			<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
-				{#each Object.entries(sectionInfo) as [key, info]}
+				{#each Object.entries(sectionInfo) as [key, info] (key)}
 					{@const count = data.sectionStats.summary.sectionCounts[key as keyof typeof data.sectionStats.summary.sectionCounts]}
 					{@const totalNumbers = data.sectionStats.summary.totalDraws * 6}
 					<div class="p-3 sm:p-4 rounded-lg border {info.bgClass} min-h-[140px] sm:min-h-[160px]">
@@ -241,12 +234,12 @@ const sortedPatterns = $derived(
 							<div class="w-3 h-3 sm:w-4 sm:h-4 rounded-full {info.class} mr-2 flex-shrink-0"></div>
 							<span class="font-semibold {info.textClass} text-sm sm:text-base truncate">{info.name}</span>
 						</div>
-						<div class="text-xs text-gray-600 mb-2">{info.range}</div>
+						<div class="text-xs text-base-content/70 mb-2">{info.range}</div>
 						<div class="text-base sm:text-lg font-bold {info.textClass} mb-1">{count}</div>
 						<div class="text-xs {info.textClass} mb-2">
 							{getPercentage(count, totalNumbers)}%
 						</div>
-						<div class="w-full bg-white/50 rounded-full h-2">
+						<div class="w-full bg-base-100/70 rounded-full h-2">
 							<div
 								class="{info.class} h-2 rounded-full transition-all duration-300"
 								style="width: {getPercentage(count, totalNumbers)}%"
@@ -263,15 +256,15 @@ const sortedPatterns = $derived(
 		<div class="card-body p-3 sm:p-4 lg:p-6">
 			<h2 class="card-title text-base sm:text-lg mb-3 sm:mb-4">자주 나오는 구간 패턴 (상위 10개)</h2>
 			<div class="space-y-3">
-				{#each sortedPatterns as [pattern, count]}
+				{#each sortedPatterns as [pattern, count] (pattern)}
 					{@const sections = pattern.split('-')}
 					<div class="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 bg-base-200 rounded-lg gap-2 sm:gap-4">
 						<div class="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-4 w-full sm:w-auto">
 							<div class="flex items-center space-x-1 flex-wrap gap-1">
-								{#each sections as sectionCount, index}
+								{#each sections as sectionCount, index (index)}
 									{@const sectionKey = Object.keys(sectionInfo)[index] as keyof typeof sectionInfo}
 									{@const info = sectionInfo[sectionKey]}
-									<div class="flex items-center bg-white/50 px-2 py-1 rounded">
+									<div class="flex items-center bg-base-100/70 px-2 py-1 rounded">
 										<div class="w-2 h-2 sm:w-3 sm:h-3 rounded-full {info.class} mr-1"></div>
 										<span class="text-xs sm:text-sm font-medium">{sectionCount}</span>
 									</div>
@@ -312,7 +305,7 @@ const sortedPatterns = $derived(
 						</tr>
 					</thead>
 					<tbody>
-						{#each data.sectionStats.records as record}
+						{#each data.sectionStats.records as record (record.round)}
 							{@const sectionCounts = [
 								record.section_1_10,
 								record.section_11_20,
@@ -385,12 +378,12 @@ const sortedPatterns = $derived(
 						<li><strong>구간별 분포 균형:</strong> 각 구간에서 번호가 얼마나 균등하게 선택되는지</li>
 						<li><strong>출현 패턴:</strong> 특정 구간에 집중되는 경향이나 분산 패턴</li>
 						<li><strong>트렌드 분석:</strong> 최근 {data.selectedRounds}회차의 구간별 분포 변화 추이</li>
-						<li><strong>예측 참고:</strong> 구간별 균형성을 통한 향후 번호 선택 가이드</li>
+						<li><strong>해석 기준:</strong> 과거 출현 분포는 다음 추첨의 개별 번호 확률을 높이지 않습니다.</li>
 					</ul>
 				</div>
 				
 				<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 mt-3">
-					{#each Object.entries(sectionInfo) as [key, info]}
+					{#each Object.entries(sectionInfo) as [key, info] (key)}
 						<div class="flex items-center p-2 bg-base-200 rounded min-h-[40px]">
 							<div class="w-3 h-3 rounded-full {info.class} mr-2 flex-shrink-0"></div>
 							<span class="text-xs font-medium">{info.name} ({info.range})</span>

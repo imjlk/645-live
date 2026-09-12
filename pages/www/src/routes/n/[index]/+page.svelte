@@ -1,432 +1,220 @@
 <script lang="ts">
+import { onMount } from "svelte";
+import { MetaTags } from "svelte-meta-tags";
 import { goto } from "$app/navigation";
 import { resolve } from "$app/paths";
-import { page } from "$app/stores";
-import LottoBall from "$lib/modules/lotto/components/LottoBall.svelte";
-import ValueIncrementEffect from "$lib/modules/lotto/components/ValueIncrementEffect.svelte";
+import AdSlot from "$lib/components/ads/AdSlot.svelte";
+import { LottoBall } from "$lib/components/stats";
+import { getGenericOgImage } from "$lib/seo/index.js";
 import {
-	type LottoDrawScanCount,
 	getScanDataSafely,
+	type LottoDrawScanCount,
 	trailbaseClient,
 } from "$lib/trailbase/client";
 import { calculateDisplayRound } from "$lib/utils/lotto-api";
-import { onDestroy, onMount } from "svelte";
-import { MetaTags } from "svelte-meta-tags";
 import type { PageData } from "./$types";
 
 let { data }: { data: PageData } = $props();
-
-// Get ballNumber from URL params - ensure it updates when route changes
-const ballNumber = $derived(Number($page.params.index));
-
-// Reactive states for real-time updates
-let ballValue = $state(0);
-let isUpdated = $state(false);
-let updateTimeoutId: ReturnType<typeof setTimeout> | null = null;
+const ballNumber = $derived(data.ballNumber);
+let ballValue = $state<number | null>(null);
 let displayedRound = $state<number | null>(null);
 let mounted = $state(false);
 let loadSequence = 0;
-
-// 전역 스트림 구독 해제 함수
-let unsubscribeStream: (() => void) | null = null;
-
-async function loadBallValue(round: number | null, number: number) {
-	if (!round) {
-		displayedRound = null;
-		ballValue = 0;
-		return;
-	}
-
-	const scanData = await getScanDataSafely(round);
-	if (!scanData) {
-		ballValue = 0;
-		return;
-	}
-
-	const scanCountField = `scan_count_${number}` as keyof LottoDrawScanCount;
-	ballValue = Number(scanData[scanCountField]) || 0;
-	displayedRound = round;
-}
-
-function getDisplayRound(): number {
-	return data.displayRound ?? calculateDisplayRound();
-}
-
+const currentRound = $derived(data.displayRound ?? calculateDisplayRound());
 const isFallbackPreview = $derived(
-	!!data.fallbackPreviewRound &&
-	displayedRound === data.fallbackPreviewRound &&
-	data.displayRound !== data.fallbackPreviewRound,
+	displayedRound !== null && displayedRound !== currentRound,
+);
+const pageTitle = $derived(`로또 ${ballNumber}번 스캔 집계와 추첨 기록`);
+const pageDescription = $derived(
+	`로또 6/45 ${ballNumber}번의 회차별 스캔 집계와 공식 추첨 기록을 확인하세요. ${data.numberStats ? `${data.latestRound}회까지 본 번호로 ${data.numberStats.frequency}회 나왔으며, 마지막 출현은 ${data.numberStats.lastDrawRound}회입니다.` : "번호별 출현 횟수와 최근 추첨 기록을 함께 제공합니다."} 함께 나온 번호와 최근 스캔 이력을 각각 살펴볼 수 있습니다.`,
+);
+const ogImage = $derived(
+	getGenericOgImage({
+		title: pageTitle,
+		description: pageDescription,
+		layout: "minimal",
+		theme: "dark",
+	}),
 );
 
-async function syncDisplayedBallValue(number: number) {
+async function syncDisplayedBallValue(number: number, round: number) {
 	const sequence = ++loadSequence;
-	const displayRound = getDisplayRound();
-	await loadBallValue(displayRound, number);
-
+	ballValue = null;
+	displayedRound = null;
+	let result = await getScanDataSafely(round);
+	let resultRound = round;
 	if (sequence !== loadSequence) return;
-
 	if (
-		data.latestRoundHasScanData === false &&
+		(!result || Number(result.total_scans) === 0) &&
 		data.fallbackPreviewRound &&
-		displayRound !== data.fallbackPreviewRound &&
-		ballValue === 0
+		data.fallbackPreviewRound !== round
 	) {
-		await loadBallValue(data.fallbackPreviewRound, number);
+		resultRound = data.fallbackPreviewRound;
+		result = await getScanDataSafely(resultRound);
 	}
+	if (sequence !== loadSequence) return;
+	const field = `scan_count_${number}` as keyof LottoDrawScanCount;
+	ballValue = Number(result?.[field]) || 0;
+	displayedRound = resultRound;
 }
 
 onMount(() => {
 	mounted = true;
-	unsubscribeStream = trailbaseClient.subscribe("ball-page", (scanData) => {
-		if (scanData.round !== getDisplayRound()) {
-			return;
-		}
-
-		const scanCountField =
-			`scan_count_${ballNumber}` as keyof LottoDrawScanCount;
-		const nextBallValue = Number(scanData[scanCountField]) || 0;
-
-		if (nextBallValue > ballValue) {
-			isUpdated = true;
-			if (updateTimeoutId) {
-				clearTimeout(updateTimeoutId);
-			}
-			updateTimeoutId = setTimeout(() => {
-				isUpdated = false;
-				updateTimeoutId = null;
-			}, 1000);
-		}
-
-		ballValue = nextBallValue;
-		displayedRound = getDisplayRound();
+	const unsubscribe = trailbaseClient.subscribe("ball-page", (scanData) => {
+		if (scanData.round !== currentRound) return;
+		loadSequence += 1;
+		const field = `scan_count_${ballNumber}` as keyof LottoDrawScanCount;
+		ballValue = Number(scanData[field]) || 0;
+		displayedRound = currentRound;
 	});
-
 	return () => {
 		mounted = false;
+		loadSequence += 1;
+		unsubscribe();
 	};
 });
 
 $effect(() => {
-	if (!mounted) return;
-	const currentBallNumber = ballNumber;
-	void syncDisplayedBallValue(currentBallNumber);
+	if (mounted) void syncDisplayedBallValue(ballNumber, currentRound);
 });
 
-onDestroy(() => {
-	if (unsubscribeStream) {
-		unsubscribeStream();
+function handleKeydown(event: KeyboardEvent) {
+	if (
+		event.defaultPrevented ||
+		event.altKey ||
+		event.ctrlKey ||
+		event.metaKey ||
+		event.shiftKey
+	)
+		return;
+	const target = event.target;
+	if (
+		target instanceof HTMLElement &&
+		(target.isContentEditable ||
+			/^(INPUT|TEXTAREA|SELECT|BUTTON|A|SUMMARY)$/.test(target.tagName))
+	)
+		return;
+	const next =
+		event.key === "ArrowLeft"
+			? ballNumber - 1
+			: event.key === "ArrowRight"
+				? ballNumber + 1
+				: 0;
+	if (next >= 1 && next <= 45) {
+		event.preventDefault();
+		void goto(resolve("/n/[index]", { index: String(next) }));
 	}
-	if (updateTimeoutId) {
-		clearTimeout(updateTimeoutId);
-	}
-});
-
-// Navigation functions
-const goToPrevious = () => {
-	if (ballNumber > 1) {
-			void goto(
-				resolve("/n/[index]", {
-					index: String(ballNumber - 1),
-				}),
-			);
-	}
-};
-
-const goToNext = () => {
-	if (ballNumber < 45) {
-			void goto(
-				resolve("/n/[index]", {
-					index: String(ballNumber + 1),
-				}),
-			);
-	}
-};
-
-// Keyboard navigation
-const handleKeydown = (event: KeyboardEvent) => {
-	if (event.key === "ArrowLeft") {
-		goToPrevious();
-	} else if (event.key === "ArrowRight") {
-		goToNext();
-	}
-};
-
-const getColorClass = (color: string | undefined) => {
-	const colorMap: Record<string, string> = {
-		yellow: "bg-yellow-400 text-black",
-		blue: "bg-blue-500 text-white",
-		red: "bg-red-500 text-white",
-		gray: "bg-gray-500 text-white",
-		green: "bg-green-500 text-white",
-	};
-	return color ? colorMap[color] : "bg-gray-300 text-black";
-};
+}
 </script>
 
-<MetaTags
-	title={`로또 번호 ${ballNumber} 실시간 스캔 현황 - 당첨 통계 및 궁합번호`}
-	description={`🎯 로또 번호 ${ballNumber}의 완전분석! ${data.numberStats ? `총 ${data.numberStats.frequency}회 출현(${data.numberStats.averageFrequency}%) | ${data.latestRound && data.numberStats.lastDrawRound ? `${data.latestRound - data.numberStats.lastDrawRound}회차째 미출현` : '최근 당첨 기록'} | 궁합번호와 실시간 스캔현황까지!` : '실시간 스캔 현황과 상세 통계를 지금 확인하세요! 당첨 패턴 분석과 궁합번호까지 한번에!'}`}
-	canonical={`https://645.live/n/${ballNumber}`}
-	keywords={[
-		`로또${ballNumber}`,
-		`로또번호${ballNumber}`,
-		`${ballNumber}번스캔`,
-		`로또${ballNumber}번스캔현황`,
-		`로또${ballNumber}번궁합`,
-		"로또스캔",
-		"로또실시간", 
-		"로또당첨번호",
-		"로또스캔현황",
-		"로또번호스캔",
-		"645로또",
-		"로또현황"
-	]}
-	openGraph={{
-		title: `로또 번호 ${ballNumber} 실시간 스캔 현황`,
-		description: `🎯 로또 번호 ${ballNumber}의 실시간 스캔 현황 공개! 지금 이 순간도 스캔이 진행중입니다.`,
-		url: `https://645.live/n/${ballNumber}`,
-		type: "article",
-		siteName: "645.live",
-		locale: "ko_KR",
-		images: [
-			{
-				url: `https://645.live/og?title=${encodeURIComponent(`로또 번호 ${ballNumber} 완전분석`)}&description=${encodeURIComponent(`${data.numberStats ? `총 ${data.numberStats.frequency}회 출현 - ${data.latestRound && data.numberStats.lastDrawRound ? `${data.latestRound - data.numberStats.lastDrawRound}회차째 미출현` : '최근 당첨'} - 궁합번호와 실시간 스캔현황까지` : '실시간 스캔현황과 상세 통계를 지금 확인하세요'}`)}&layout=centered&theme=dark`,
-				width: 1200,
-				height: 630,
-				alt: `로또 번호 ${ballNumber} 스캔 현황`,
-				type: "image/svg+xml"
-			}
-		]
-	}}
-	twitter={{
-		cardType: "summary_large_image",
-		site: "@645live",
-		title: `로또 번호 ${ballNumber} 실시간 스캔 현황`,
-		description: `🎯 로또 번호 ${ballNumber}의 실시간 스캔 현황 공개! 지금 이 순간도 스캔이 진행중입니다.`,
-		image: `https://645.live/og?title=${encodeURIComponent(`로또 번호 ${ballNumber} 완전분석`)}&description=${encodeURIComponent(`${data.numberStats ? `총 ${data.numberStats.frequency}회 출현 - ${data.latestRound && data.numberStats.lastDrawRound ? `${data.latestRound - data.numberStats.lastDrawRound}회차째 미출현` : '최근 당첨'} - 궁합번호와 실시간 스캔현황까지` : '실시간 스캔현황과 상세 통계를 지금 확인하세요'}`)}&layout=centered&theme=dark`
-	}}
-	additionalMetaTags={[
-		{
-			name: "author",
-			content: "645.live"
-		},
-		{
-			property: "article:section",
-			content: "로또스캔현황"
-		},
-		{
-			property: "article:tag", 
-			content: `로또${ballNumber},로또스캔,로또현황`
-		}
-	]}
+<MetaTags title={pageTitle} titleTemplate="%s | 645.live" description={pageDescription} canonical={`https://645.live/n/${ballNumber}`}
+	openGraph={{ type: "website", title: pageTitle, description: pageDescription, url: `https://645.live/n/${ballNumber}`, siteName: "645.live", locale: "ko_KR", images: [ogImage] }}
+	twitter={{ cardType: "summary_large_image", title: pageTitle, description: pageDescription, image: ogImage.url, imageAlt: ogImage.alt }}
 />
 
 <svelte:window onkeydown={handleKeydown} />
 
-{#key ballNumber}
-<div class="container mx-auto p-4 max-w-6xl">
-	<!-- 헤더 섹션 -->
-	<div class="text-center mb-8">
-		<h1 class="text-4xl font-bold text-gray-900 dark:text-gray-100 mb-2">로또 번호 {ballNumber}</h1>
-		<p class="text-lg text-gray-600 dark:text-gray-400">실시간 스캔 현황 및 당첨 통계</p>
-	</div>
+<div class="content-page number-page">
+	<nav class="breadcrumb" aria-label="현재 위치"><a href={resolve("/")}>홈</a><span aria-hidden="true">/</span><span>{ballNumber}번 스캔 집계</span></nav>
+	<header class="number-heading">
+		<div class="heading-copy"><LottoBall number={ballNumber} size="large" /><div><p class="eyebrow">이 사이트에 등록된 스캔 기준</p><h1>{ballNumber}번 스캔 집계</h1></div></div>
+		<nav class="number-nav" aria-label="다른 번호 보기">
+			{#if ballNumber > 1}<a href={resolve("/n/[index]", { index: String(ballNumber - 1) })} aria-label={`${ballNumber - 1}번 스캔 집계`}>← {ballNumber - 1}번</a>{/if}
+			{#if ballNumber < 45}<a href={resolve("/n/[index]", { index: String(ballNumber + 1) })} aria-label={`${ballNumber + 1}번 스캔 집계`}>{ballNumber + 1}번 →</a>{/if}
+		</nav>
+	</header>
 
-	{#if isFallbackPreview}
-		<div class="alert alert-info mb-6">
-			<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
-				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-			</svg>
-			<div>
-				<div class="font-bold">{data.displayRound}회 스캔 데이터 준비 중</div>
-				<div class="text-sm">현재 표시 중인 수치는 가장 최근 데이터가 있는 {displayedRound}회 기준입니다. 최신 회차 데이터가 들어오면 자동으로 전환됩니다.</div>
-			</div>
+	<section class="scan-summary" aria-labelledby="scan-summary-heading">
+		<div><h2 id="scan-summary-heading">{displayedRound ?? currentRound}회 번호 집계 횟수</h2><p class="scan-count">{ballValue === null ? "—" : ballValue.toLocaleString()}<span>회</span></p></div>
+		<div class="scan-context">
+			{#if ballValue === null}<p>스캔 집계를 불러오는 중입니다.</p>
+			{:else if isFallbackPreview}<p>{currentRound}회에 아직 등록된 스캔이 없어, 최근 기록이 있는 <strong>{displayedRound}회</strong>를 보여드립니다.</p>
+			{:else if ballValue === 0}<p>아직 이 번호가 포함된 스캔이 없어요.</p>
+			{:else}<p>등록된 스캔에서 {ballNumber}번이 포함된 횟수입니다.</p>{/if}
+			<p class="muted">전체 구매자의 선택 비율이나 당첨 확률을 뜻하지 않습니다.</p>
+			<a class="action-link" href={resolve("/qr-scan")}>내 티켓 QR 확인 →</a>
 		</div>
+	</section>
+
+	{#if data.historicalScanData.length > 0}
+		<section>
+			<div class="section-heading"><h2>최근 회차의 스캔 집계</h2><p>{ballNumber}번이 포함된 횟수</p></div>
+			<div class="history-grid">{#each data.historicalScanData as item (item.round)}<div><span>{item.round}회</span><strong>{item.scanCount.toLocaleString()}<small>회</small></strong></div>{/each}</div>
+		</section>
 	{/if}
 
-	<!-- 메인 콘텐츠 -->
-	<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-		<!-- 왼쪽: 볼 및 기본 정보 -->
-		<div class="lg:col-span-1 space-y-6">
-			<!-- 볼 컴포넌트 -->
-			<div class="aspect-square w-full max-w-xs mx-auto relative">
-				<ValueIncrementEffect show={isUpdated} message="+1" color="text-green-500" />
-				<LottoBall {ballNumber} initialValue={ballValue} size="large" interactive={false} />
-			</div>
+	<AdSlot placement="stats-inline" format="horizontal" />
 
-			<!-- 번호 기본 정보 -->
-			{#if data.numberDetails}
-				<div class="p-4 rounded-lg bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-900 border border-blue-100 dark:border-gray-700">
-					<h3 class="text-lg font-bold mb-3 text-gray-900 dark:text-gray-100">번호 정보</h3>
-					<div class="space-y-2">
-						<div class="flex justify-between items-center">
-							<span class="text-gray-600 dark:text-gray-400">색상</span>
-							<span class="px-3 py-1 text-sm font-semibold rounded-full {getColorClass(data.numberDetails.color)}">{data.numberDetails.color}</span>
-						</div>
-						<div class="flex justify-between">
-							<span class="text-gray-600 dark:text-gray-400">구간</span>
-							<span class="font-semibold text-gray-900 dark:text-gray-100">{data.numberDetails.section}구간 ({(data.numberDetails.section - 1) * 10 + 1}-{data.numberDetails.section * 10})</span>
-						</div>
-						<div class="flex justify-between">
-							<span class="text-gray-600 dark:text-gray-400">끝자리</span>
-							<span class="font-semibold text-gray-900 dark:text-gray-100">{ballNumber % 10}</span>
-						</div>
-						<div class="flex justify-between">
-							<span class="text-gray-600 dark:text-gray-400">홀/짝</span>
-							<span class="font-semibold text-gray-900 dark:text-gray-100">{data.mathematicalProperties?.isEven ? '짝수' : '홀수'}</span>
-						</div>
-					</div>
-				</div>
-			{/if}
+	<section>
+		<div class="section-heading"><div><p class="eyebrow">공식 추첨 기록</p><h2>{ballNumber}번 출현 통계</h2></div><a class="action-link" href={resolve("/stats/numbers/[number]", { number: String(ballNumber) })}>추첨 이력 보기 →</a></div>
+		{#if data.numberStats}
+			<dl class="draw-metrics">
+				<div><dt>본 번호 출현</dt><dd>{data.numberStats.frequency}<span>회</span></dd></div>
+				<div><dt>출현율</dt><dd>{data.numberStats.averageFrequency}<span>%</span></dd></div>
+				<div><dt>마지막 출현</dt><dd>{data.numberStats.lastDrawRound}<span>회</span></dd></div>
+				<div><dt>최근 미출현</dt><dd>{Math.max(0, data.latestRound - data.numberStats.lastDrawRound)}<span>회</span></dd></div>
+			</dl>
+			<p class="muted">전체 {data.latestRound}회 기준 · 과거 출현은 다음 추첨에서 나올 가능성을 높이지 않습니다.</p>
+		{:else}<p class="muted">현재 추첨 통계를 불러오지 못했어요.</p>{/if}
+	</section>
 
-			<!-- 수학적 속성 -->
-			{#if data.mathematicalProperties}
-				<div class="p-4 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-					<h3 class="text-lg font-bold mb-3 text-gray-900 dark:text-gray-100">수학적 속성</h3>
-					<div class="grid grid-cols-2 gap-3">
-						<div class="flex items-center gap-2">
-							<span class="text-sm text-gray-600 dark:text-gray-400">소수</span>
-							<span class="font-semibold {data.mathematicalProperties.isPrime ? 'text-green-600' : 'text-gray-500'}">{data.mathematicalProperties.isPrime ? '✓' : '✗'}</span>
-						</div>
-						<div class="flex items-center gap-2">
-							<span class="text-sm text-gray-600 dark:text-gray-400">완전제곱수</span>
-							<span class="font-semibold {data.mathematicalProperties.isPerfectSquare ? 'text-green-600' : 'text-gray-500'}">{data.mathematicalProperties.isPerfectSquare ? '✓' : '✗'}</span>
-						</div>
-						<div class="flex items-center gap-2">
-							<span class="text-sm text-gray-600 dark:text-gray-400">피보나치</span>
-							<span class="font-semibold {data.mathematicalProperties.isFibonacci ? 'text-green-600' : 'text-gray-500'}">{data.mathematicalProperties.isFibonacci ? '✓' : '✗'}</span>
-						</div>
-						<div class="flex items-center gap-2">
-							<span class="text-sm text-gray-600 dark:text-gray-400">합성수</span>
-							<span class="font-semibold {!data.mathematicalProperties.isPrime && ballNumber > 1 ? 'text-green-600' : 'text-gray-500'}">{!data.mathematicalProperties.isPrime && ballNumber > 1 ? '✓' : '✗'}</span>
-						</div>
-					</div>
-				</div>
-			{/if}
-		</div>
-
-		<!-- 중앙 및 오른쪽: 통계 정보 -->
-		<div class="lg:col-span-2 space-y-6">
-			<!-- 당첨 통계 -->
-			{#if data.numberStats}
-				<div class="p-6 rounded-lg bg-gradient-to-br from-green-50 to-emerald-50 dark:from-gray-800 dark:to-gray-900 border border-green-100 dark:border-gray-700">
-					<h2 class="text-2xl font-bold mb-4 text-gray-900 dark:text-gray-100 flex items-center gap-2">
-						<span class="text-green-600">📊</span> 당첨 통계
-					</h2>
-					<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-						<div class="text-center p-4 bg-white dark:bg-gray-800 rounded-lg border border-green-200 dark:border-gray-600">
-							<div class="text-2xl font-bold text-green-600 dark:text-green-400">{data.numberStats.frequency}</div>
-							<div class="text-sm text-gray-600 dark:text-gray-400">총 출현 횟수</div>
-						</div>
-						<div class="text-center p-4 bg-white dark:bg-gray-800 rounded-lg border border-green-200 dark:border-gray-600">
-							<div class="text-2xl font-bold text-blue-600 dark:text-blue-400">{data.numberStats.averageFrequency}%</div>
-							<div class="text-sm text-gray-600 dark:text-gray-400">출현률</div>
-						</div>
-						<div class="text-center p-4 bg-white dark:bg-gray-800 rounded-lg border border-green-200 dark:border-gray-600">
-							<div class="text-2xl font-bold {data.numberStats.deviation > 0 ? 'text-red-600' : data.numberStats.deviation < 0 ? 'text-blue-600' : 'text-gray-600'}">{data.numberStats.deviation > 0 ? '+' : ''}{data.numberStats.deviation.toFixed(1)}</div>
-							<div class="text-sm text-gray-600 dark:text-gray-400">기대 편차</div>
-						</div>
-						<div class="text-center p-4 bg-white dark:bg-gray-800 rounded-lg border border-green-200 dark:border-gray-600">
-							<div class="text-2xl font-bold text-purple-600 dark:text-purple-400">{data.numberStats.lastDrawRound}</div>
-							<div class="text-sm text-gray-600 dark:text-gray-400">마지막 당첨 회차</div>
-						</div>
-						{#if data.latestRound && data.numberStats.lastDrawRound}
-							<div class="text-center p-4 bg-white dark:bg-gray-800 rounded-lg border border-green-200 dark:border-gray-600">
-								<div class="text-2xl font-bold text-orange-600 dark:text-orange-400">{data.latestRound - data.numberStats.lastDrawRound}</div>
-								<div class="text-sm text-gray-600 dark:text-gray-400">미출현 기간</div>
-							</div>
-						{/if}
-						<div class="text-center p-4 bg-white dark:bg-gray-800 rounded-lg border border-green-200 dark:border-gray-600">
-							<div class="text-2xl font-bold text-gray-600 dark:text-gray-400">{data.numberStats.expectedFrequency.toFixed(1)}</div>
-							<div class="text-sm text-gray-600 dark:text-gray-400">기대 출현 횟수</div>
-						</div>
-					</div>
-				</div>
-			{:else}
-				<div class="p-6 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-					<p class="text-gray-500 text-center">아직 이 번호에 대한 통계 정보가 없습니다.</p>
-				</div>
-			{/if}
-
-			<!-- 궁합 번호 -->
-			<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-				{#if data.topPairs && data.topPairs.length > 0}
-					<div class="p-6 rounded-lg bg-gradient-to-br from-rose-50 to-pink-50 dark:from-gray-800 dark:to-gray-900 border border-rose-100 dark:border-gray-700">
-						<h3 class="text-xl font-bold mb-4 text-gray-900 dark:text-gray-100 flex items-center gap-2">
-							<span class="text-rose-600">🤝</span> 최고 궁합 번호
-						</h3>
-						<div class="space-y-3">
-								{#each data.topPairs as pair (pair.otherNumber)}
-								<div class="flex items-center justify-between p-3 rounded-md bg-white dark:bg-gray-800 border border-rose-200 dark:border-gray-600">
-									<div class="flex items-center gap-3">
-										<div class="w-8 h-8 flex items-center justify-center rounded-full {getColorClass(pair.otherNumberDetails?.color)} text-sm font-bold">{pair.otherNumber}</div>
-										<span class="font-medium text-gray-800 dark:text-gray-200">{pair.otherNumber}번</span>
-									</div>
-									<span class="font-semibold text-rose-600 dark:text-rose-400">{pair.pair_count}회</span>
-								</div>
-							{/each}
-						</div>
-					</div>
-				{/if}
-
-				{#if data.bottomPairs && data.bottomPairs.length > 0}
-					<div class="p-6 rounded-lg bg-gradient-to-br from-slate-50 to-gray-50 dark:from-gray-800 dark:to-gray-900 border border-slate-100 dark:border-gray-700">
-						<h3 class="text-xl font-bold mb-4 text-gray-900 dark:text-gray-100 flex items-center gap-2">
-							<span class="text-slate-600">💔</span> 최저 궁합 번호
-						</h3>
-						<div class="space-y-3">
-								{#each data.bottomPairs as pair (pair.otherNumber)}
-								<div class="flex items-center justify-between p-3 rounded-md bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-600">
-									<div class="flex items-center gap-3">
-										<div class="w-8 h-8 flex items-center justify-center rounded-full {getColorClass(pair.otherNumberDetails?.color)} text-sm font-bold">{pair.otherNumber}</div>
-										<span class="font-medium text-gray-800 dark:text-gray-200">{pair.otherNumber}번</span>
-									</div>
-									<span class="font-semibold text-slate-600 dark:text-slate-400">{pair.pair_count}회</span>
-								</div>
-							{/each}
-						</div>
-					</div>
-				{/if}
-			</div>
-
-			<!-- 회차별 스캔 현황 -->
-			{#if data.historicalScanData && data.historicalScanData.length > 0}
-				<div class="p-6 rounded-lg bg-gradient-to-br from-amber-50 to-yellow-50 dark:from-gray-800 dark:to-gray-900 border border-amber-100 dark:border-gray-700">
-					<h3 class="text-xl font-bold mb-4 text-gray-900 dark:text-gray-100 flex items-center gap-2">
-						<span class="text-amber-600">📈</span> 최근 스캔 현황
-					</h3>
-					<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
-							{#each data.historicalScanData as scanData (scanData.round)}
-							<div class="text-center p-3 bg-white dark:bg-gray-800 rounded-lg border border-amber-200 dark:border-gray-600">
-								<div class="text-lg font-bold text-amber-600 dark:text-amber-400">{scanData.scanCount.toLocaleString()}</div>
-								<div class="text-xs text-gray-600 dark:text-gray-400">{scanData.round}회차</div>
-							</div>
-						{/each}
-					</div>
-				</div>
-			{/if}
-		</div>
+	<div class="pair-columns">
+		{#each [{ title: "자주 함께 나온 번호", pairs: data.topPairs }, { title: "적게 함께 나온 번호", pairs: data.bottomPairs }] as group (group.title)}
+			<section><div class="section-heading"><h2>{group.title}</h2></div>
+				{#each group.pairs as pair (pair.otherNumber)}<div class="pair-line"><LottoBall number={pair.otherNumber} href={resolve("/stats/numbers/[number]", { number: String(pair.otherNumber) })} /><span>{pair.otherNumber}번</span><strong>{pair.pair_count}회</strong></div>{:else}<p class="muted">함께 나온 번호 기록이 없습니다.</p>{/each}
+			</section>
+		{/each}
 	</div>
 
-	<!-- 하단 네비게이션 -->
-	<div class="mt-8 text-center space-y-4">
-		<div class="flex flex-wrap justify-center gap-4">
-				<a href={resolve("/stats/numbers")} class="btn btn-outline btn-primary">전체 번호 통계</a>
-				<a href={resolve("/generator")} class="btn btn-outline btn-secondary">번호 생성기</a>
-				<a href={resolve("/")} class="btn btn-outline">홈으로</a>
-		</div>
-		<div class="flex justify-center gap-2">
-			{#if ballNumber > 1}
-				<button onclick={goToPrevious} class="btn btn-circle btn-outline btn-sm">
-					<span class="text-lg">←</span>
-				</button>
-			{/if}
-			<span class="btn btn-circle btn-sm btn-disabled">{ballNumber}</span>
-			{#if ballNumber < 45}
-				<button onclick={goToNext} class="btn btn-circle btn-outline btn-sm">
-					<span class="text-lg">→</span>
-				</button>
-			{/if}
-		</div>
-	</div>
+	<details class="number-properties"><summary>{ballNumber}번의 숫자 정보</summary>
+		<dl>
+			<div><dt>번호 구간</dt><dd>{ballNumber <= 10 ? "1~10" : ballNumber <= 20 ? "11~20" : ballNumber <= 30 ? "21~30" : ballNumber <= 40 ? "31~40" : "41~45"}</dd></div>
+			<div><dt>홀짝 · 끝자리</dt><dd>{data.mathematicalProperties.isEven ? "짝수" : "홀수"} · {ballNumber % 10}</dd></div>
+			<div><dt>소수</dt><dd>{data.mathematicalProperties.isPrime ? "해당" : "해당 없음"}</dd></div>
+			<div><dt>완전제곱수</dt><dd>{data.mathematicalProperties.isPerfectSquare ? "해당" : "해당 없음"}</dd></div>
+			<div><dt>피보나치 수</dt><dd>{data.mathematicalProperties.isFibonacci ? "해당" : "해당 없음"}</dd></div>
+		</dl>
+	</details>
+
+	<footer class="footer-links"><a href={resolve("/stats/numbers")}>전체 번호 통계 →</a><a href={resolve("/generator")}>조건에 맞는 번호 만들기 →</a></footer>
 </div>
-{/key}
+
+<style>
+	.number-page { display: grid; gap: 1.75rem; min-width: 0; }
+	.breadcrumb { display: flex; flex-wrap: wrap; gap: 0.5rem; font-size: 0.8125rem; color: color-mix(in oklab, var(--color-base-content) 65%, transparent); }
+	.number-heading, .heading-copy { display: flex; align-items: center; gap: 1rem; }
+	.number-heading { flex-wrap: wrap; justify-content: space-between; }
+	.eyebrow { font-size: 0.8125rem; color: var(--color-primary); font-weight: 650; }
+	h1 { margin-top: 0.25rem; font-size: clamp(1.5rem, 3vw, 2.2rem); line-height: 1.25; font-weight: 800; letter-spacing: -0.035em; }
+	.number-nav { display: flex; gap: 0.5rem; }
+	.number-nav a { display: inline-flex; align-items: center; min-height: 2.75rem; padding: 0.5rem 0.75rem; border: 1px solid var(--color-base-300); border-radius: 0.5rem; font-size: 0.8125rem; }
+	.scan-summary { display: grid; gap: 1.25rem; padding: 1.25rem; background: var(--color-base-200); border-radius: 0.8rem; }
+	h2 { font-size: 1.125rem; font-weight: 700; line-height: 1.4; letter-spacing: -0.02em; }
+	.scan-summary h2 { font-size: 0.875rem; font-weight: 600; }
+	.scan-count { margin-top: 0.5rem; font-size: 3rem; font-weight: 800; line-height: 1.1; font-variant-numeric: tabular-nums; letter-spacing: -0.04em; }
+	.scan-count span { margin-left: 0.3rem; font-size: 1rem; font-weight: 500; }
+	.scan-context { display: grid; align-content: center; gap: 0.6rem; font-size: 0.875rem; line-height: 1.65; }
+	.muted { font-size: 0.8125rem; line-height: 1.65; color: color-mix(in oklab, var(--color-base-content) 70%, transparent); }
+	.action-link { font-size: 0.8125rem; font-weight: 650; color: var(--color-primary); }
+	.section-heading { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0.5rem; margin-bottom: 1rem; }
+	.section-heading > p { font-size: 0.8125rem; color: color-mix(in oklab, var(--color-base-content) 68%, transparent); }
+	.history-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 1rem; border-top: 1px solid var(--color-base-300); }
+	.history-grid > div { display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem; padding: 0.85rem 0; border-bottom: 1px solid var(--color-base-300); font-variant-numeric: tabular-nums; }
+	.history-grid span { font-size: 0.8125rem; color: color-mix(in oklab, var(--color-base-content) 70%, transparent); }
+	.history-grid strong { font-size: 1rem; font-weight: 650; }
+	small { font-size: 0.75rem; font-weight: 400; margin-left: 0.2rem; }
+	.draw-metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); padding-bottom: 1rem; gap: 1rem; }
+	dt { font-size: 0.8125rem; color: color-mix(in oklab, var(--color-base-content) 70%, transparent); }
+	.draw-metrics dd { margin-top: 0.35rem; font-size: 1.6rem; font-weight: 750; line-height: 1.2; font-variant-numeric: tabular-nums; }
+	.draw-metrics dd span { font-size: 0.875rem; margin-left: 0.2rem; font-weight: 500; }
+	.pair-columns { display: grid; gap: 1.75rem; }
+	.pair-line { display: flex; align-items: center; gap: 0.75rem; min-height: 3.5rem; padding-block: 0.35rem; border-bottom: 1px solid var(--color-base-300); font-size: 0.875rem; }
+	.pair-line strong { margin-left: auto; font-weight: 650; font-variant-numeric: tabular-nums; }
+	.number-properties { border-block: 1px solid var(--color-base-300); }
+	summary { padding-block: 1rem; cursor: pointer; font-weight: 600; font-size: 0.9375rem; }
+	.number-properties dl { padding-bottom: 1rem; display: grid; gap: 0.75rem; }
+	.number-properties dl div { display: flex; justify-content: space-between; font-size: 0.875rem; }
+	.footer-links { display: flex; flex-wrap: wrap; gap: 1rem; color: var(--color-primary); font-size: 0.875rem; font-weight: 600; }
+	a:focus-visible, summary:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 3px; }
+	@media (min-width: 640px) { .scan-summary { grid-template-columns: minmax(12rem, 0.6fr) 1fr; padding: 1.5rem; } .history-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); } .history-grid > div { display: grid; gap: 0.3rem; } .draw-metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); } .pair-columns { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2rem; } }
+</style>

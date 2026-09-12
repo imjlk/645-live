@@ -1,31 +1,31 @@
 <script lang="ts">
-	import { resolve } from "$app/paths";
-	import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
-	import {
-		CONTACT_PATH,
-		SITE_GITHUB,
-		SITE_TWITTER,
-		absoluteUrl,
-	} from "$lib/seo/index.js";
-	import { MetaTags } from "svelte-meta-tags";
+import { resolve } from "$app/paths";
+import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
+import {
+	CONTACT_PATH,
+	SITE_GITHUB,
+	SITE_TWITTER,
+	absoluteUrl,
+} from "$lib/seo/index.js";
+import MetaTags from "$lib/seo/PageMeta.svelte";
 
-	const breadcrumbItems = [
-		{ label: "홈", href: "/" },
-		{ label: "문의", current: true },
-	];
+const breadcrumbItems = [
+	{ label: "홈", href: "/" },
+	{ label: "문의", current: true },
+];
 
-	const twitterUrl = `https://x.com/${SITE_TWITTER.replace(/^@/, "")}`;
+const twitterUrl = `https://x.com/${SITE_TWITTER.replace(/^@/, "")}`;
 </script>
 
 <MetaTags
 	title="문의"
 	titleTemplate="%s | 645.live"
-	description="645.live의 공개 문의 채널과 이슈 제보 경로를 안내합니다."
+	description="645.live 이용 중 발견한 오류나 데이터 정정 요청, 서비스에 관한 의견을 보내는 방법을 안내합니다. 공개 문의 채널과 GitHub 이슈 제보 경로를 확인하고, 확인이 필요한 페이지와 상황을 함께 알려주세요."
 	canonical={absoluteUrl(CONTACT_PATH)}
 	robots="index,follow"
 />
 
-<div class="p-6 space-y-6">
+<div class="content-page space-y-6">
 	<Breadcrumbs items={breadcrumbItems} />
 
 	<div class="space-y-2 text-center">

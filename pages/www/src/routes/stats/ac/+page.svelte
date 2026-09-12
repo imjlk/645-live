@@ -1,8 +1,8 @@
 <script lang="ts">
+import { JsonLd, MetaTags } from "svelte-meta-tags";
 import { RecentAnalysisInput, StatsPageHero } from "$lib/components/stats";
 import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
 import LinkButton from "$lib/ui/LinkButton.svelte";
-import { JsonLd, MetaTags } from "svelte-meta-tags";
 import type { PageData } from "./$types";
 
 let { data }: { data: PageData } = $props();
@@ -30,14 +30,19 @@ const breadcrumbItems = [
 	{ label: "통계", href: "/stats" },
 	{ label: "AC값", href: "/stats/ac", current: true },
 ];
+
+const pageTitle = $derived(`로또 AC값 분포와 회차별 기록`);
+const pageDescription = $derived(
+	`로또 6/45 전체 ${data.totalRounds}회차 추첨 결과에서 AC값의 평균·최댓값·최솟값과 분포를 확인하세요. 번호 간 차이로 계산한 산술적 복잡도를 회차별 당첨번호와 함께 비교하고, 원하는 최근 기간을 선택해 변화와 계산 기준을 살펴볼 수 있습니다.`,
+);
 </script>
 
 <MetaTags
-	title="로또 6/45 AC값 통계 분석 | 산술적 복잡도 패턴 분석"
+	title={pageTitle}
 	titleTemplate="%s | 645.live"
-	description="로또 6/45 전체 {data.totalRounds}회차 AC값(Arithmetic Complexity) 통계 분석. 번호 조합의 복잡도 패턴을 분석하여 다음 당첨번호 예측에 도움이 되는 데이터를 제공합니다."
+	description={pageDescription}
 	canonical="https://645.live/stats/ac"
-	keywords={["로또 AC값", "산술적복잡도", "로또통계분석", "당첨번호패턴", "로또예측", "번호조합복잡도", "로또데이터분석", "6/45통계"]}
+	keywords={["로또 AC값", "산술적복잡도", "로또통계분석", "당첨번호패턴", "번호조합복잡도", "로또데이터분석", "6/45통계"]}
 	robots="index,follow"
 	additionalRobotsProps={{
 		maxSnippet: 320,
@@ -48,10 +53,6 @@ const breadcrumbItems = [
 		{
 			name: 'application-name',
 			content: '645.live'
-		},
-		{
-			name: 'theme-color',
-			content: '#3B82F6'
 		},
 		{
 			name: 'format-detection',
@@ -73,8 +74,8 @@ const breadcrumbItems = [
 	openGraph={{
 		type: 'article',
 		url: 'https://645.live/stats/ac',
-		title: `로또 6/45 AC값 통계 분석 | 전체 ${data.totalRounds}회차 데이터`,
-		description: `로또 6/45 당첨번호의 산술적 복잡도(AC값) 패턴을 분석합니다. 평균 AC값 ${data.averageAcValue}, 최빈값 ${data.mostFrequentAc[0]} 등 상세한 통계 정보를 확인하세요.`,
+		title: pageTitle,
+		description: pageDescription,
 		locale: 'ko_KR',
 		images: [{
 			url: 'https://645.live/images/lotto-ac-stats.png',
@@ -88,15 +89,13 @@ const breadcrumbItems = [
 		article: {
 			section: '로또 통계',
 			tags: ['로또', 'AC값', '산술적복잡도', '당첨번호', '통계분석', '6/45'],
-			publishedTime: '2024-01-01T00:00:00.000Z',
-			modifiedTime: new Date().toISOString()
 		}
 	}}
 	twitter={{
 		cardType: 'summary_large_image',
 		site: '@645live',
-		title: '로또 6/45 AC값 통계 분석',
-		description: `전체 ${data.totalRounds}회차 AC값 패턴 분석 - 평균 ${data.averageAcValue}, 복잡도 분포 및 패턴 분석`,
+		title: pageTitle,
+		description: pageDescription,
 		image: 'https://645.live/images/lotto-ac-stats.png',
 		imageAlt: '로또 6/45 AC값 통계 분석'
 	}}
@@ -153,12 +152,12 @@ const breadcrumbItems = [
 	}}
 />
 
-<div class="p-6 space-y-6 max-sm:px-0">
+<div class="stats-page">
 	<!-- Breadcrumbs -->
 	<Breadcrumbs items={breadcrumbItems} />
 
 	<StatsPageHero
-		eyebrow="Arithmetic Complexity"
+		eyebrow="공식 추첨 통계"
 		title="로또 6/45 AC값 통계 분석"
 		description={`AC값은 번호 조합의 산술적 복잡도를 보여주는 핵심 지표입니다. 전체 ${data.totalRounds}회차를 기준으로 단순한 패턴과 복잡한 패턴이 얼마나 자주 등장했는지 비교할 수 있습니다.`}
 		freshness={data.freshness}
@@ -347,7 +346,7 @@ const breadcrumbItems = [
 				<p class="text-base leading-relaxed">
 					<strong>AC값(Arithmetic Complexity)</strong>은 로또 번호 조합의 복잡도를 수치화한 지표로, 
 					번호들 간의 분산 정도와 패턴의 복잡성을 측정합니다. 이 지표를 통해 당첨번호의 특성을 분석하고 
-					향후 번호 선택 전략을 수립할 수 있습니다.
+					회차별 번호 분포의 차이를 확인할 수 있습니다.
 				</p>
 				
 				<div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
@@ -379,9 +378,9 @@ const breadcrumbItems = [
 				</div>
 
 				<div class="bg-info/5 p-4 rounded-lg mt-4">
-					<h3 class="font-semibold text-info mb-2">💡 AC값 활용 전략</h3>
+					<h3 class="font-semibold text-info mb-2">💡 AC값 읽는 법</h3>
 					<ul class="list-disc list-inside space-y-1 text-base-content/70">
-						<li><strong>패턴 분석:</strong> 최근 당첨번호의 AC값 추이를 확인하여 다음 회차 예측</li>
+						<li><strong>패턴 분석:</strong> 최근 당첨번호의 AC값 추이를 확인하여 과거 회차 비교</li>
 						<li><strong>균형 조합:</strong> 너무 높거나 낮은 AC값보다는 중간값(7-9) 범위 고려</li>
 						<li><strong>통계적 접근:</strong> 평균 AC값 {data.averageAcValue} 주변의 조합에 주목</li>
 						<li><strong>최빈값 활용:</strong> 가장 자주 나오는 AC값 {data.mostFrequentAc[0]} 참고</li>

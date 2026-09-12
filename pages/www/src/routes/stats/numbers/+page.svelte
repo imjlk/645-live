@@ -1,4 +1,5 @@
 <script lang="ts">
+import { JsonLd, MetaTags } from "svelte-meta-tags";
 import {
 	GuideSection,
 	LottoBall,
@@ -7,7 +8,6 @@ import {
 	StatsTable,
 } from "$lib/components/stats";
 import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
-import { JsonLd, MetaTags } from "svelte-meta-tags";
 import type { PageData } from "./$types";
 
 let { data }: { data: PageData } = $props();
@@ -22,11 +22,11 @@ const breadcrumbItems = [
 // 색깔별 CSS 클래스 매핑
 const getColorClass = (color: string) => {
 	const colorMap: Record<string, string> = {
-		yellow: "bg-yellow-500",
-		blue: "bg-blue-500",
-		red: "bg-red-500",
-		grey: "bg-gray-500",
-		green: "bg-green-500",
+		yellow: "stats-ball-yellow",
+		blue: "stats-ball-blue",
+		red: "stats-ball-red",
+		grey: "stats-ball-grey",
+		green: "stats-ball-green",
 	};
 	return colorMap[color] || "bg-gray-400";
 };
@@ -38,7 +38,7 @@ const getDeviationClass = (deviation: string) => {
 	if (dev > 5) return "text-orange-600";
 	if (dev < -10) return "text-blue-600 font-bold";
 	if (dev < -5) return "text-blue-500";
-	return "text-gray-600";
+	return "text-base-content/70";
 };
 
 const maxNumberDrawCount = $derived(
@@ -56,19 +56,24 @@ const minNumberDrawCount = $derived(
 const numberStatsOgDescription = $derived(
 	`총 ${data.totalRounds}회차 데이터 분석 - 최다 ${maxNumberDrawCount}회 - 최소 ${minNumberDrawCount}회`,
 );
+
+const pageTitle = $derived(`로또 번호별 출현 횟수와 통계`);
+const pageDescription = $derived(
+	`로또 6/45 전체 ${data.totalRounds}회차 추첨 결과에서 1번부터 45번까지 본 번호·보너스 출현 횟수와 출현율을 확인하세요. 번호별 빈도와 이론적 기대값의 차이를 비교하고, 원하는 번호를 선택해 최근 추첨 이력과 상세 통계를 살펴볼 수 있습니다.`,
+);
 </script>
 
 <MetaTags
-	title="로또 6/45 번호별 출현 통계"
+	title={pageTitle}
 	titleTemplate="%s | 645.live"
-	description="📊 로또 6/45 전 번호 완전분석! 1번부터 45번까지 출현 빈도, 색깔별 분포, 구간별 분석으로 당첨 패턴을 찾아보세요!"
+	description={pageDescription}
 	canonical="https://645.live/stats/numbers"
 	keywords={["로또번호통계", "로또번호분석", "로또출현빈도", "로또색깔분석", "번호별통계", "로또패턴분석"]}
 	openGraph={{
 		type: "article",
 		url: "https://645.live/stats/numbers",
-		title: "로또 6/45 번호별 출현 통계",
-		description: `📊 전 번호 완전분석! 총 ${data.totalRounds}회차 데이터로 당첨 패턴 발견하기`,
+		title: pageTitle,
+		description: pageDescription,
 		siteName: "645.live",
 		locale: "ko_KR",
 		images: [{
@@ -82,8 +87,8 @@ const numberStatsOgDescription = $derived(
 	twitter={{
 		cardType: "summary_large_image",
 		site: "@645live",
-		title: "로또 6/45 번호별 출현 통계",
-		description: `📊 전 번호 완전분석! 총 ${data.totalRounds}회차 데이터로 당첨 패턴 발견하기`,
+		title: pageTitle,
+		description: pageDescription,
 		image: `https://645.live/og?title=${encodeURIComponent('로또 6/45 번호별 출현 통계')}&description=${encodeURIComponent(numberStatsOgDescription)}&layout=blog&theme=light`,
 		imageAlt: "로또 6/45 번호별 출현 통계"
 	}}
@@ -112,12 +117,12 @@ const numberStatsOgDescription = $derived(
 	}}
 />
 
-<div class="p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-6 max-sm:px-0">
+<div class="stats-page">
 	<!-- Breadcrumbs -->
 	<Breadcrumbs items={breadcrumbItems} />
 
 	<StatsPageHero
-		eyebrow="Number Distribution"
+		eyebrow="공식 추첨 통계"
 		title="로또 6/45 번호별 출현 통계"
 		description={`총 ${data.totalRounds}회차 데이터를 기준으로, 1번부터 45번까지 어떤 번호가 자주 나왔고 어떤 번호가 상대적으로 적게 나왔는지 전체 흐름을 한눈에 비교합니다.`}
 		freshness={data.freshness}
@@ -190,7 +195,7 @@ const numberStatsOgDescription = $derived(
 				minWidth: "60px",
 				render: (value, row) => `
 					<div class="flex items-center">
-						<a href="/stats/numbers/${row.number}" class="inline-flex items-center justify-center w-7 h-7 rounded-full text-white font-bold text-xs ${getColorClass(row.color)} hover:scale-110 transition-transform duration-200 cursor-pointer">
+						<a href="/stats/numbers/${row.number}" class="inline-flex items-center justify-center w-7 h-7 rounded-full font-bold text-xs ${getColorClass(row.color)} hover:scale-110 transition-transform duration-200 cursor-pointer">
 							${row.number}
 						</a>
 					</div>
@@ -201,7 +206,7 @@ const numberStatsOgDescription = $derived(
 				title: "색깔",
 				minWidth: "60px", 
 				render: (value, row) => `
-					<span class="badge badge-sm ${getColorClass(row.color)} text-white">
+					<span class="badge badge-sm ${getColorClass(row.color)}">
 						${row.color}
 					</span>
 				`
@@ -275,11 +280,11 @@ const numberStatsOgDescription = $derived(
 			{
 				title: "색깔별 분포",
 				items: [
-					'<span class="inline-block w-3 h-3 rounded-full bg-yellow-500 mr-1"></span><strong>노랑</strong>: 1, 6, 11, 16, 21, 26, 31, 36, 41',
-					'<span class="inline-block w-3 h-3 rounded-full bg-blue-500 mr-1"></span><strong>파랑</strong>: 2, 7, 12, 17, 22, 27, 32, 37, 42',
-					'<span class="inline-block w-3 h-3 rounded-full bg-red-500 mr-1"></span><strong>빨강</strong>: 3, 8, 13, 18, 23, 28, 33, 38, 43',
-					'<span class="inline-block w-3 h-3 rounded-full bg-gray-500 mr-1"></span><strong>회색</strong>: 4, 9, 14, 19, 24, 29, 34, 39, 44',
-					'<span class="inline-block w-3 h-3 rounded-full bg-green-500 mr-1"></span><strong>초록</strong>: 5, 10, 15, 20, 25, 30, 35, 40, 45'
+					'<span class="inline-block w-3 h-3 rounded-full bg-yellow-500 mr-1"></span><strong>노랑</strong>: 1~10번',
+					'<span class="inline-block w-3 h-3 rounded-full bg-blue-500 mr-1"></span><strong>파랑</strong>: 11~20번',
+					'<span class="inline-block w-3 h-3 rounded-full bg-red-500 mr-1"></span><strong>빨강</strong>: 21~30번',
+					'<span class="inline-block w-3 h-3 rounded-full bg-gray-500 mr-1"></span><strong>회색</strong>: 31~40번',
+					'<span class="inline-block w-3 h-3 rounded-full bg-green-500 mr-1"></span><strong>초록</strong>: 41~45번'
 				]
 			}
 		]}

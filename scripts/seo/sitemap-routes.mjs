@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -6,7 +7,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..");
 const WEB_ROOT = path.join(REPO_ROOT, "pages", "www");
 const NEWS_ROOT = path.join(WEB_ROOT, "src", "content", "news");
-const NEWS_OG_CACHE_BUSTER = "2026-03-25-2";
+const NEWS_OG_CACHE_BUSTER = "2026-09-12-1";
 const RECENT_ROUNDS = [10, 20, 50, 100];
 const RECENT_SECTIONS = [
 	"ac",
@@ -66,7 +67,13 @@ function toYyyyMmDd(value) {
 
 function sourceFileLastMod(filePath) {
 	try {
-		return fs.statSync(filePath).mtime.toISOString().slice(0, 10);
+		return toYyyyMmDd(
+			execFileSync(
+				"git",
+				["log", "-1", "--format=%cI", "--", path.relative(REPO_ROOT, filePath)],
+				{ cwd: REPO_ROOT, encoding: "utf8" },
+			).trim(),
+		);
 	} catch {
 		return undefined;
 	}
@@ -75,27 +82,145 @@ function sourceFileLastMod(filePath) {
 export function buildSitemapEntries() {
 	const newsFiles = readNewsFiles();
 	const staticEntries = [
-		{ path: "/", changefreq: "hourly", priority: "1.0", source: "src/routes/+page.svelte" },
-		{ path: "/news", changefreq: "daily", priority: "0.85", source: "src/routes/news/+page.svelte" },
-		{ path: "/stats", changefreq: "daily", priority: "0.85", source: "src/routes/stats/+page.svelte" },
-		{ path: "/guide", changefreq: "monthly", priority: "0.7", source: "src/routes/guide/+page.svelte" },
-		{ path: "/history", changefreq: "weekly", priority: "0.8", source: "src/routes/history/+page.svelte" },
-		{ path: "/qr-scan", changefreq: "monthly", priority: "0.5", source: "src/routes/qr-scan/+page.svelte" },
-		{ path: "/generator", changefreq: "weekly", priority: "0.8", source: "src/routes/generator/+page.svelte" },
-		{ path: "/winning-stores", changefreq: "weekly", priority: "0.7", source: "src/routes/winning-stores/+page.svelte" },
-		{ path: "/stats/bonus", changefreq: "daily", priority: "0.8", source: "src/routes/stats/bonus/+page.svelte" },
-		{ path: "/stats/ac", changefreq: "daily", priority: "0.75", source: "src/routes/stats/ac/+page.svelte" },
-		{ path: "/stats/odd-even", changefreq: "daily", priority: "0.75", source: "src/routes/stats/odd-even/+page.svelte" },
-		{ path: "/stats/high-low", changefreq: "daily", priority: "0.75", source: "src/routes/stats/high-low/+page.svelte" },
-		{ path: "/stats/colors", changefreq: "daily", priority: "0.75", source: "src/routes/stats/colors/+page.svelte" },
-		{ path: "/stats/sections", changefreq: "daily", priority: "0.75", source: "src/routes/stats/sections/+page.svelte" },
-		{ path: "/stats/pairs", changefreq: "daily", priority: "0.75", source: "src/routes/stats/pairs/+page.svelte" },
-		{ path: "/stats/repeat", changefreq: "daily", priority: "0.75", source: "src/routes/stats/repeat/+page.svelte" },
-		{ path: "/stats/unit-digit", changefreq: "daily", priority: "0.75", source: "src/routes/stats/unit-digit/+page.svelte" },
-		{ path: "/stats/numbers", changefreq: "daily", priority: "0.8", source: "src/routes/stats/numbers/+page.svelte" },
-		{ path: "/privacy", changefreq: "monthly", priority: "0.4", source: "src/routes/privacy/+page.svelte" },
-		{ path: "/terms-of-service", changefreq: "monthly", priority: "0.4", source: "src/routes/terms-of-service/+page.svelte" },
+		{
+			path: "/",
+			changefreq: "hourly",
+			priority: "1.0",
+			source: "src/routes/+page.svelte",
+		},
+		{
+			path: "/news",
+			changefreq: "daily",
+			priority: "0.85",
+			source: "src/routes/news/+page.svelte",
+		},
+		{
+			path: "/stats",
+			changefreq: "daily",
+			priority: "0.85",
+			source: "src/routes/stats/+page.svelte",
+		},
+		{
+			path: "/guide",
+			changefreq: "monthly",
+			priority: "0.7",
+			source: "src/routes/guide/+page.svelte",
+		},
+		{
+			path: "/history",
+			changefreq: "weekly",
+			priority: "0.8",
+			source: "src/routes/history/+page.svelte",
+		},
+		{
+			path: "/qr-scan",
+			changefreq: "monthly",
+			priority: "0.5",
+			source: "src/routes/qr-scan/+page.svelte",
+		},
+		{
+			path: "/generator",
+			changefreq: "weekly",
+			priority: "0.8",
+			source: "src/routes/generator/+page.svelte",
+		},
+		{
+			path: "/winning-stores",
+			changefreq: "weekly",
+			priority: "0.7",
+			source: "src/routes/winning-stores/+page.svelte",
+		},
+		{
+			path: "/stats/bonus",
+			changefreq: "daily",
+			priority: "0.8",
+			source: "src/routes/stats/bonus/+page.svelte",
+		},
+		{
+			path: "/stats/ac",
+			changefreq: "daily",
+			priority: "0.75",
+			source: "src/routes/stats/ac/+page.svelte",
+		},
+		{
+			path: "/stats/odd-even",
+			changefreq: "daily",
+			priority: "0.75",
+			source: "src/routes/stats/odd-even/+page.svelte",
+		},
+		{
+			path: "/stats/high-low",
+			changefreq: "daily",
+			priority: "0.75",
+			source: "src/routes/stats/high-low/+page.svelte",
+		},
+		{
+			path: "/stats/colors",
+			changefreq: "daily",
+			priority: "0.75",
+			source: "src/routes/stats/colors/+page.svelte",
+		},
+		{
+			path: "/stats/sections",
+			changefreq: "daily",
+			priority: "0.75",
+			source: "src/routes/stats/sections/+page.svelte",
+		},
+		{
+			path: "/stats/pairs",
+			changefreq: "daily",
+			priority: "0.75",
+			source: "src/routes/stats/pairs/+page.svelte",
+		},
+		{
+			path: "/stats/repeat",
+			changefreq: "daily",
+			priority: "0.75",
+			source: "src/routes/stats/repeat/+page.svelte",
+		},
+		{
+			path: "/stats/unit-digit",
+			changefreq: "daily",
+			priority: "0.75",
+			source: "src/routes/stats/unit-digit/+page.svelte",
+		},
+		{
+			path: "/stats/numbers",
+			changefreq: "daily",
+			priority: "0.8",
+			source: "src/routes/stats/numbers/+page.svelte",
+		},
+		{
+			path: "/privacy",
+			changefreq: "monthly",
+			priority: "0.4",
+			source: "src/routes/privacy/+page.svelte",
+		},
+		{
+			path: "/terms-of-service",
+			changefreq: "monthly",
+			priority: "0.4",
+			source: "src/routes/terms-of-service/+page.svelte",
+		},
 	];
+
+	staticEntries.push(
+		...[
+			["/about", "about"],
+			["/contact", "contact"],
+			["/editorial-policy", "editorial-policy"],
+			["/data-sources", "data-sources"],
+			["/methodology", "methodology"],
+			["/docs", "docs"],
+			["/compare", "compare"],
+			["/authors/645-live-auto-news", "authors/645-live-auto-news"],
+		].map(([path, route]) => ({
+			path,
+			changefreq: "monthly",
+			priority: "0.4",
+			source: `src/routes/${route}/+page.svelte`,
+		})),
+	);
 
 	const liveNumberEntries = Array.from({ length: 45 }, (_, index) => ({
 		path: `/n/${index + 1}`,
@@ -152,12 +277,23 @@ export function buildSitemapEntries() {
 				path: entry.path,
 				changefreq: entry.changefreq,
 				priority: entry.priority,
-				lastmod: entry.lastmod || (sourcePath ? sourceFileLastMod(sourcePath) : undefined),
+				lastmod:
+					entry.lastmod ||
+					(/^\/(?:stats|n)(?:\/|$)|^\/(?:history|winning-stores)?$/.test(
+						entry.path,
+					)
+						? undefined
+						: sourcePath
+							? sourceFileLastMod(sourcePath)
+							: undefined),
 				image: entry.image,
 				imageTitle: entry.imageTitle,
 			};
 		})
-		.filter((entry, index, all) => all.findIndex((candidate) => candidate.path === entry.path) === index);
+		.filter(
+			(entry, index, all) =>
+				all.findIndex((candidate) => candidate.path === entry.path) === index,
+		);
 
 	return entries;
 }

@@ -1,7 +1,7 @@
 <script lang="ts">
+import { JsonLd, MetaTags } from "svelte-meta-tags";
 import { RecentAnalysisInput } from "$lib/components/stats";
 import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
-import { JsonLd, MetaTags } from "svelte-meta-tags";
 import type { PageData } from "./$types";
 
 let { data }: { data: PageData } = $props();
@@ -37,14 +37,21 @@ const lowPercentage = $derived(
 const highPercentage = $derived(
 	getPercentage(data.highLowStats.summary.highCount, totalNumbers),
 );
+
+const pageTitle = $derived(
+	`최근 ${data.selectedRounds}회 로또 고저 분포와 회차별 기록`,
+);
+const pageDescription = $derived(
+	`로또 6/45 최근 ${data.selectedRounds}회차 추첨 결과에서 저구간 1~22와 고구간 23~45의 출현 분포를 확인하세요. 회차당 평균 개수와 고저 비율, 자주 나타난 조합을 비교하고 기간을 선택해 회차별 당첨번호의 분포를 살펴볼 수 있습니다.`,
+);
 </script>
 
 <MetaTags
-	title="로또 6/45 고저 분석 통계 | 고저 번호 분포 분석"
+	title={pageTitle}
 	titleTemplate="%s | 645.live"
-	description={`로또 6/45 고저 번호 분포를 분석합니다 (최근 ${data.selectedRounds}회차). 저구간(1-22), 고구간(23-45)의 분포 패턴과 균형성을 제공합니다.`}
+	description={pageDescription}
 	canonical={`https://645.live/stats/high-low/recent/${data.selectedRounds}`}
-	keywords={["로또", "고저분석", "번호분포", "로또통계", "고저패턴", "번호균형", "로또예측", "6/45통계", "고저별통계", "번호고저분석"]}
+	keywords={["로또", "고저분석", "번호분포", "로또통계", "고저패턴", "번호균형", "6/45통계", "고저별통계", "번호고저분석"]}
 	robots="index,follow"
 	additionalRobotsProps={{
 		maxSnippet: 320,
@@ -55,10 +62,6 @@ const highPercentage = $derived(
 		{
 			name: 'application-name',
 			content: '645.live'
-		},
-		{
-			name: 'theme-color',
-			content: '#3B82F6'
 		},
 		{
 			name: 'format-detection',
@@ -80,8 +83,8 @@ const highPercentage = $derived(
 	openGraph={{
 		type: 'article',
 		url: `https://645.live/stats/high-low/recent/${data.selectedRounds}`,
-		title: `로또 6/45 고저 분석 통계 | 번호 분포 패턴 (최근 ${data.selectedRounds}회차)`,
-		description: `로또 6/45 고저 번호 분포를 분석합니다 (최근 ${data.selectedRounds}회차). 저구간과 고구간의 균형성과 분포 패턴을 제공합니다.`,
+		title: pageTitle,
+		description: pageDescription,
 		locale: 'ko_KR',
 		images: [{
 			url: `https://645.live/og?${new URLSearchParams({
@@ -100,15 +103,13 @@ const highPercentage = $derived(
 		article: {
 			section: '로또 통계',
 			tags: ['로또', '고저분석', '번호분포', '로또통계', '고저패턴', '번호균형', '6/45통계', '고저별통계'],
-			publishedTime: '2024-01-01T00:00:00.000Z',
-			modifiedTime: new Date().toISOString()
 		}
 	}}
 	twitter={{
 		cardType: 'summary_large_image',
 		site: '@645live',
-		title: `로또 6/45 고저 분석 통계 (최근 ${data.selectedRounds}회차)`,
-		description: '고저 번호 분포 분석으로 로또 번호 균형성을 파악하세요.',
+		title: pageTitle,
+		description: pageDescription,
 		image: `https://645.live/og?${new URLSearchParams({
 			title: encodeURIComponent(`고저 분석 (${data.selectedRounds}회차)`),
 			description: encodeURIComponent(`저구간 ${lowPercentage}% | 고구간 ${highPercentage}%`),
@@ -161,24 +162,15 @@ const highPercentage = $derived(
 	}}
 />
 
-<div class="p-3 sm:p-4 md:p-6 space-y-4 sm:space-y-6 max-sm:px-0">
+<div class="stats-page">
 	<!-- Breadcrumbs -->
 	<Breadcrumbs items={breadcrumbItems} />
 
 	<!-- 페이지 헤더 -->
-	<div class="text-center space-y-2 sm:space-y-3">
-		<h1 class="text-xl sm:text-2xl md:text-3xl font-bold text-primary px-2">로또 6/45 고저 분석 상세 분석</h1>
-		<p class="text-sm sm:text-base text-base-content/70 px-2">
-			최근 <strong class="text-primary">{data.selectedRounds}회차</strong>의 <strong>고저 번호 분포</strong>와 패턴을 상세히 분석합니다.
-			저구간 평균 <strong class="text-secondary">{data.highLowStats.summary.lowAverage}개</strong>, 고구간 평균 <strong class="text-accent">{data.highLowStats.summary.highAverage}개</strong>의 고저 분포 분석을 통해 
-			당첨번호 패턴을 파악해보세요.
-		</p>
-		<div class="flex flex-col sm:flex-row justify-center gap-2 sm:gap-4 text-xs sm:text-sm text-base-content/60 mt-3 sm:mt-4 px-2">
-			<span>📊 저구간 비율: <strong class="text-primary">{lowPercentage}%</strong></span>
-			<span>📈 분석 회차: <strong class="text-secondary">{data.selectedRounds}회</strong></span>
-			<span>🎯 고구간 비율: <strong class="text-accent">{highPercentage}%</strong></span>
-		</div>
-	</div>
+	<header class="stats-recent-heading space-y-2">
+		<h1 class="font-bold">최근 {data.selectedRounds}회 고저 분포</h1>
+		<p>저구간 1~22와 고구간 23~45의 출현 개수를 비교하세요.</p>
+	</header>
 
 	<RecentAnalysisInput
 		maxRounds={data.totalRounds}
@@ -246,7 +238,7 @@ const highPercentage = $derived(
 		<div class="card-body p-3 sm:p-4 md:p-6">
 			<h2 class="card-title text-base sm:text-lg">고저 패턴 분포</h2>
 			<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-				{#each sortedPatterns as [pattern, count]}
+				{#each sortedPatterns as [pattern, count] (pattern)}
 					{@const [low, high] = pattern.split(':').map(num => Number(num) || 0)}
 					<div class="p-3 sm:p-4 rounded-lg border bg-base-200">
 						<div class="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-2 gap-1 sm:gap-0">
@@ -258,11 +250,11 @@ const highPercentage = $derived(
 						</div>
 						<div class="flex space-x-1 justify-start">
 							<!-- 저 구간 표시 -->
-							{#each Array(Math.min(Math.max(low || 0, 0), 6)) as _}
+							{#each Array(Math.min(Math.max(low || 0, 0), 6)) as _, index (index)}
 								<div class="w-3 h-3 sm:w-4 sm:h-4 bg-blue-500 rounded"></div>
 							{/each}
 							<!-- 고 구간 표시 -->
-							{#each Array(Math.min(Math.max(high || 0, 0), 6)) as _}
+							{#each Array(Math.min(Math.max(high || 0, 0), 6)) as _, index (index)}
 								<div class="w-3 h-3 sm:w-4 sm:h-4 bg-red-500 rounded"></div>
 							{/each}
 						</div>
@@ -289,7 +281,7 @@ const highPercentage = $derived(
 							</tr>
 						</thead>
 						<tbody>
-							{#each data.highLowStats.records as record}
+							{#each data.highLowStats.records as record (record.round)}
 								{@const isBalanced = Math.abs(record.low_count - record.high_count) <= 1}
 								
 								<tr>
@@ -339,7 +331,7 @@ const highPercentage = $derived(
 						<li><strong>고저 분포 균형:</strong> 저구간과 고구간의 균형성</li>
 						<li><strong>출현 패턴:</strong> 저구간이나 고구간에 집중되는 경향</li>
 						<li><strong>트렌드 분석:</strong> 최근 {data.selectedRounds}회차의 고저 분포 변화 추이</li>
-						<li><strong>예측 참고:</strong> 고저 균형성을 통한 향후 번호 선택 가이드</li>
+						<li><strong>해석 기준:</strong> 과거 출현 분포는 다음 추첨의 개별 번호 확률을 높이지 않습니다.</li>
 					</ul>
 				</div>
 				

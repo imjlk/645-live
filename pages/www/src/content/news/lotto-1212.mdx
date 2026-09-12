@@ -3,33 +3,21 @@ title: "제1212회 로또 1등 12명, 인당 26억5천만 원 수령"
 date: "2026-02-21"
 category: "로또분석"
 tags: ["로또1212회", "1등당첨", "당첨판매점", "경기집중", "번호분석"]
-description: "경기 지역 1등 집중, 91개소 당첨 판매점 분석"
+description: "경기 지역 1등 판매점과 91개 당첨 판매점 집계"
+summary: "경기 지역 1등 판매점과 91개 당첨 판매점 집계"
+seoDescription: "제1212회 로또 당첨번호는 5·8·25·31·41·44, 보너스는 45입니다. 1등 12명이 각각 2,654,089,032원을 받는 결과를 정리하고, 경기 지역 1등 판매점과 전체 91개 당첨 판매점 집계를 살펴봅니다."
 author: "645.live 자동뉴스"
 thumbnail: "/og/news/lotto-1212?title=%EC%A0%9C1212%ED%9A%8C%20%EB%A1%9C%EB%98%90%201%EB%93%B1%2012%EB%AA%85%2C%20%EC%9D%B8%EB%8B%B9%2026%EC%96%B55%EC%B2%9C%EB%A7%8C%20%EC%9B%90%20%EC%88%98%EB%A0%B9&description=%EA%B2%BD%EA%B8%B0%20%EC%A7%80%EC%97%AD%201%EB%93%B1%20%EC%A7%91%EC%A4%91%2C%2091%EA%B0%9C%EC%86%8C%20%EB%8B%B9%EC%B2%A8%20%ED%8C%90%EB%A7%A4%EC%A0%90%20%EB%B6%84%EC%84%9D&round=1212"
 ---
 
 <script>
-  import LottoNumbers from '$lib/components/news/LottoNumbers.svelte';
-  import Card from '$lib/ui/Card.svelte';
+  import DrawSummary from '$lib/components/news/DrawSummary.svelte';
+  import AdSlot from '$lib/components/ads/AdSlot.svelte';
   import Alert from '$lib/components/news/Alert.svelte';
   import Table from '$lib/components/news/Table.svelte';
-  import Tabs from '$lib/components/news/Tabs.svelte';
-  import TabsList from '$lib/components/news/TabsList.svelte';
-  import TabsTrigger from '$lib/components/news/TabsTrigger.svelte';
-  import TabsContent from '$lib/components/news/TabsContent.svelte';
 </script>
 
-## 이번 회차 핵심 요약
-
-<Card variant="bordered">
-  <ul>
-    <li><strong>추첨일</strong>: 2026-02-21</li>
-    <li><strong>당첨번호</strong>: 5, 8, 25, 31, 41, 44 + 보너스 45</li>
-    <li><strong>1등 당첨자</strong>: 12명</li>
-    <li><strong>1인당 1등 당첨금</strong>: 2,654,089,032원</li>
-    <li><strong>총 판매액</strong>: 65,863,966,662원</li>
-  </ul>
-</Card>
+<DrawSummary round={1212} date="2026-02-21" numbers={[5, 8, 25, 31, 41, 44]} bonus={45} winners={12} prize={2654089032} totalSales={65863966662} />
 
 제1212회 로또복권 추첨에서 12명의 1등 당첨자가 배출되어 각각 26억 5,408만 원을 수령하게 되었습니다. 이번 회차 총판매액은 658억 6,396만 원으로 집계되었으며, 1등 당첨금 누적액은 318억 4,906만 원에 달했습니다. 당첨번호는 5, 8, 25, 31, 41, 44이며 보너스번호는 45입니다.
 
@@ -37,9 +25,6 @@ thumbnail: "/og/news/lotto-1212?title=%EC%A0%9C1212%ED%9A%8C%20%EB%A1%9C%EB%98%9
 
 번호 패턴 분석에서 홀수 4개·짝수 2개로 홀수 우세를 보였으며, 저위와 고위가 각각 2개씩 균형을 이뤘습니다. 연속번호 쌍은 없었던 것으로 확인되었습니다. 시스템은 이번 회차에서 '지역 집중' 현상을 감지했는데, 경기 지역의 1등 당첨 비중이 전체의 33.3%를 차지한 점이 특징적입니다.
 
-## 당첨번호
-
-<LottoNumbers numbers={[5, 8, 25, 31, 41, 44]} bonus={45} round={1212} />
 
 ## 특이점 분석
 
@@ -55,6 +40,8 @@ thumbnail: "/og/news/lotto-1212?title=%EC%A0%9C1212%ED%9A%8C%20%EB%A1%9C%EB%98%9
 경기 지역의 1등 당첨집중 현상은 해당 지역 판매량 비중이나 인구 대비 로또 구매 성향을 반영할 수 있습니다. 그러나 단일 회차 데이터이므로 일반화하기는 어려우며, 장기간 누적 데이터를 통한 지역별 당첨 비율 분석이 필요합니다. 2등 당첨점 79곳 중 경기가 23곳을 차지한 점도 판매량과의 연관성을 고려해볼 수 있습니다.
 
 번호 조합에서 홀수 우세와 저·고 균형은 무작위 추첨의 일반적인 특성에 부합합니다. 연속번호 쌍이 없었던 점은 전체 번호 분포가 넓게 형성되었음을 의미하며, 특정 구간 편중 없이 고르게 분포했습니다. 자동 선택 비중 91.7%(11/12)는 로또 구매 행태에서 자동 선호 경향을 재확인시켜 줍니다.
+
+<AdSlot placement="article-inline" format="horizontal" />
 
 ## 지역별 당첨점 현황 (상위)
 
@@ -108,61 +95,15 @@ thumbnail: "/og/news/lotto-1212?title=%EC%A0%9C1212%ED%9A%8C%20%EB%A1%9C%EB%98%9
   </tbody>
 </Table>
 
-<Tabs defaultValue="insight">
-  <TabsList>
-    <TabsTrigger value="insight">요약 인사이트</TabsTrigger>
-    <TabsTrigger value="stores">당첨점 규모</TabsTrigger>
-  </TabsList>
-  <TabsContent value="insight">
-    <p>이번 1212회차는 1등 당첨자가 12명으로 다소 많은 편에 속합니다. 역대 평균 1등 당첨자 수와 비교할 때 상위권에 해당하며, 이는 당첨번호 조합이 일반적인 선택 패턴과 어느 정도 일치했음을 시사합니다. 개별 당첨금 26억 원대는 상대적으로 낮은 편이지만, 당첨 확률 자체는 동일하므로 통계적 의미에서 큰 차이는 없습니다. 경기 지역의 1등 당첨집중 현상은 해당 지역 판매량 비중이나 인구 대비 로또 구매 성향을 반영할 수 있습니다. 그러나 단일 회차 데이터이므로 일반화하기는 어려우며, 장기간 누적 데이터를 통한 지역별 당첨 비율 분석이 필요합니다. 2등 당첨점 79곳 중 경기가 23곳을 차지한 점도 판매량과의 연관성을 고려해볼 수 있습니다. 번호 조합에서 홀수 우세와 저·고 균형은 무작위 추첨의 일반적인 특성에 부합합니다. 연속번호 쌍이 없었던 점은 전체 번호 분포가 넓게 형성되었음을 의미하며, 특정 구간 편중 없이 고르게 분포했습니다. 자동 선택 비중 91.7%(11/12)는 로또 구매 행태에서 자동 선호 경향을 재확인시켜 줍니다.</p>
-  </TabsContent>
-  <TabsContent value="stores">
-    <p>제1212회는 총 91개 당첨점이 집계되었습니다. 집계 데이터는 이후 정정될 수 있습니다.</p>
-  </TabsContent>
-</Tabs>
+<p class="news-data-note">제1212회는 총 91개 당첨점이 집계되었습니다. 집계 데이터는 이후 정정될 수 있습니다.</p>
 
 ## 이번 회차에서 이어서 볼 통계
 
-이번 회차 특징과 맞는 통계를 카드에서 바로 이동해 확인해보세요.
-
-<div class="not-prose grid grid-cols-1 md:grid-cols-2 gap-3 my-6">
-<a href="/winning-stores?round=1212" class="group block rounded-2xl border border-base-300 bg-gradient-to-br from-base-100 to-base-200/70 p-0.5 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all no-underline">
-  <div class="h-full rounded-2xl bg-base-100 p-4">
-    <div class="flex items-start gap-3">
-      <span class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-lg">🏪</span>
-      <div class="min-w-0 flex-1">
-        <h3 class="text-base font-semibold text-base-content group-hover:text-primary transition-colors">회차별 당첨점 조회</h3>
-        <p class="mt-1 text-sm leading-relaxed text-base-content/70">지역 집중 이상징후와 연계하여 1등 판매점 지역 분포 구체적 제시 필요</p>
-      </div>
-      <span class="text-base-content/40 group-hover:text-primary transition-colors">↗</span>
-    </div>
-  </div>
-</a>
-<a href="/stats" class="group block rounded-2xl border border-base-300 bg-gradient-to-br from-base-100 to-base-200/70 p-0.5 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all no-underline">
-  <div class="h-full rounded-2xl bg-base-100 p-4">
-    <div class="flex items-start gap-3">
-      <span class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-lg">📊</span>
-      <div class="min-w-0 flex-1">
-        <h3 class="text-base font-semibold text-base-content group-hover:text-primary transition-colors">전체 통계 메인</h3>
-        <p class="mt-1 text-sm leading-relaxed text-base-content/70">회차별 핵심 당첨 현황 및 판매액 등 기본 통계 제공</p>
-      </div>
-      <span class="text-base-content/40 group-hover:text-primary transition-colors">↗</span>
-    </div>
-  </div>
-</a>
-<a href="/stats/numbers" class="group block rounded-2xl border border-base-300 bg-gradient-to-br from-base-100 to-base-200/70 p-0.5 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all no-underline">
-  <div class="h-full rounded-2xl bg-base-100 p-4">
-    <div class="flex items-start gap-3">
-      <span class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-lg">🔢</span>
-      <div class="min-w-0 flex-1">
-        <h3 class="text-base font-semibold text-base-content group-hover:text-primary transition-colors">번호별 통계</h3>
-        <p class="mt-1 text-sm leading-relaxed text-base-content/70">당첨번호 6개와 보너스번호 명확한 시각화 필요</p>
-      </div>
-      <span class="text-base-content/40 group-hover:text-primary transition-colors">↗</span>
-    </div>
-  </div>
-</a>
-</div>
+<nav class="news-related-links" aria-label="관련 통계">
+<a class="news-related-link" href="/winning-stores?round=1212"><span><strong>회차별 당첨점 조회</strong><small>지역 집중 이상징후와 연계하여 1등 판매점 지역 분포 구체적 제시 필요</small></span><span aria-hidden="true">↗</span></a>
+<a class="news-related-link" href="/stats"><span><strong>전체 통계 메인</strong><small>회차별 핵심 당첨 현황 및 판매액 등 기본 통계 제공</small></span><span aria-hidden="true">↗</span></a>
+<a class="news-related-link" href="/stats/numbers"><span><strong>번호별 통계</strong><small>당첨번호 6개와 보너스번호 명확한 시각화 필요</small></span><span aria-hidden="true">↗</span></a>
+</nav>
 
 <Alert type="info">
   로또는 운이 좋을 때만 당첨되는 복권이므로 생활비나 대출금으로 구매하지 마시고 여유 자금 범위 내에서 건전하게 즐기시기 바랍니다.

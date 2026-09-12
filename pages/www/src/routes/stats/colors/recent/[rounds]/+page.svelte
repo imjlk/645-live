@@ -1,9 +1,10 @@
 <!-- @ts-nocheck -->
 <script lang="ts">
 // @ts-nocheck
+
+import { JsonLd, MetaTags } from "svelte-meta-tags";
 import { RecentAnalysisInput } from "$lib/components/stats";
 import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
-import { JsonLd, MetaTags } from "svelte-meta-tags";
 import type { PageData } from "./$types";
 
 let { data }: { data: PageData } = $props();
@@ -36,7 +37,7 @@ const colorInfo = {
 		range: "31-40",
 		class: "bg-gray-500",
 		bgClass: "bg-gray-500/20 dark:bg-gray-400/20",
-		textClass: "text-gray-600 dark:text-gray-400",
+		textClass: "text-base-content/70",
 	},
 	green: {
 		name: "초록",
@@ -66,14 +67,21 @@ const breadcrumbItems = [
 	{ label: "색상분석", href: "/stats/colors" },
 	{ label: "최근 회차 분석", current: true },
 ];
+
+const pageTitle = $derived(
+	`최근 ${data.selectedRounds}회 로또 색상 분포와 번호 구간 통계`,
+);
+const pageDescription = $derived(
+	`로또 6/45 최근 ${data.selectedRounds}회차 추첨 결과에서 당첨번호를 노랑·파랑·빨강·회색·초록 구간으로 나눠 확인하세요. 색상별 출현 횟수와 평균 개수, 자주 나타난 조합을 비교하고 기간을 바꿔 회차별 분포와 실제 당첨번호를 살펴볼 수 있습니다.`,
+);
 </script>
 
 <MetaTags
-	title={`로또 6/45 색상 분석 (최근 ${data.selectedRounds}회차) | 색상 구간별 상세 분석`}
+	title={pageTitle}
 	titleTemplate="%s | 645.live"
-	description={`로또 6/45 최근 ${data.selectedRounds}회차 색상 구간별 상세 분석. 노랑 평균 ${data.colorStats.summary.colorAverages.yellow}개, 파랑 평균 ${data.colorStats.summary.colorAverages.blue}개 등 색상 분포 패턴 및 복잡도 분석을 통한 당첨번호 예측 정보 제공.`}
+	description={pageDescription}
 	canonical={`https://645.live/stats/colors/recent/${data.selectedRounds}`}
-	keywords={[`로또 ${data.selectedRounds}회차`, "색상분석", "구간별분석", "색상패턴", "로또통계", "색상분포", "6/45통계", "번호예측"]}
+	keywords={[`로또 ${data.selectedRounds}회차`, "색상분석", "구간별분석", "색상패턴", "로또통계", "색상분포", "6/45통계"]}
 	robots="index,follow"
 	additionalRobotsProps={{
 		maxSnippet: 320,
@@ -84,10 +92,6 @@ const breadcrumbItems = [
 		{
 			name: 'application-name',
 			content: '645.live'
-		},
-		{
-			name: 'theme-color',
-			content: '#3B82F6'
 		},
 		{
 			name: 'format-detection',
@@ -109,8 +113,8 @@ const breadcrumbItems = [
 	openGraph={{
 		type: 'article',
 		url: `https://645.live/stats/colors/recent/${data.selectedRounds}`,
-		title: `로또 6/45 색상 분석 (최근 ${data.selectedRounds}회차) | 상세 통계`,
-		description: `최근 ${data.selectedRounds}회차 색상 분석 - 노랑 ${data.colorStats.summary.colorAverages.yellow}개, 파랑 ${data.colorStats.summary.colorAverages.blue}개, 빨강 ${data.colorStats.summary.colorAverages.red}개`,
+		title: pageTitle,
+		description: pageDescription,
 		locale: 'ko_KR',
 		images: [{
 			url: `https://645.live/og?${new URLSearchParams({
@@ -129,15 +133,13 @@ const breadcrumbItems = [
 		article: {
 			section: '로또 통계',
 			tags: ['로또', '색상분석', '구간별분석', '당첨번호', '통계분석', '6/45', `${data.selectedRounds}회차`],
-			publishedTime: '2024-01-01T00:00:00.000Z',
-			modifiedTime: new Date().toISOString()
 		}
 	}}
 	twitter={{
 		cardType: 'summary_large_image',
 		site: '@645live',
-		title: `로또 6/45 색상 분석 ${data.selectedRounds}회차 분석`,
-		description: `최근 ${data.selectedRounds}회차 색상 분석 - 노랑 ${data.colorStats.summary.colorAverages.yellow}개, 파랑 ${data.colorStats.summary.colorAverages.blue}개, 빨강 ${data.colorStats.summary.colorAverages.red}개`,
+		title: pageTitle,
+		description: pageDescription,
 		image: `https://645.live/og?${new URLSearchParams({
 			title: encodeURIComponent(`색상 분석 (${data.selectedRounds}회차)`),
 			description: encodeURIComponent(`5색 구간별 평균 분포 분석`),
@@ -205,26 +207,16 @@ const breadcrumbItems = [
 	}}
 />
 
-<div class="p-3 sm:p-6 space-y-4 sm:space-y-6 max-sm:px-0">
+<div class="stats-page">
 	<!-- Breadcrumbs -->
 	<Breadcrumbs items={breadcrumbItems} />
 
 	<!-- 페이지 헤더 -->
-	<div class="text-center space-y-2">
-		<h1 class="text-xl sm:text-2xl lg:text-3xl font-bold text-primary">로또 6/45 색상 분석 상세 분석</h1>
-		<p class="text-base-content/70">
-			최근 <strong class="text-primary">{data.selectedRounds}회차</strong>의 <strong>색상 구간별 분포</strong>와 패턴을 상세히 분석합니다.<br />
-			노랑 평균 <strong class="text-secondary">{data.colorStats.summary.colorAverages.yellow}개</strong>, 파랑 평균 <strong class="text-accent">{data.colorStats.summary.colorAverages.blue}개</strong>의 색상 분포 분석을 통해 
-			당첨번호 패턴을 파악해보세요.
-		</p>
-		<div class="flex flex-col sm:flex-row justify-center gap-2 sm:gap-4 text-xs sm:text-sm text-base-content/60 mt-4">
-			<span>📊 최빈 색상: <strong class="text-primary">{colorInfo[data.colorStats.summary.mostFrequentColor[0] as keyof typeof colorInfo]?.name}</strong></span>
-			<span>📈 분석 회차: <strong class="text-secondary">{data.selectedRounds}회</strong></span>
-			<span>🎯 평균 개수: <strong class="text-accent">{data.colorStats.summary.mostFrequentColor[1]}개</strong></span>
-		</div>
-	</div>
+	<header class="stats-recent-heading space-y-2">
+		<h1 class="font-bold">최근 {data.selectedRounds}회 색상 분포</h1>
+		<p>번호 색상별 출현 개수와 같은 색상 조합의 빈도를 확인하세요.</p>
+	</header>
 
-	<!-- 최근 회차 분석 -->
 	<RecentAnalysisInput
 		maxRounds={data.totalRounds}
 		basePath="/stats/colors"
@@ -235,7 +227,7 @@ const breadcrumbItems = [
 
 	<!-- 요약 통계 -->
 	<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-		{#each Object.entries(data.colorStats.summary.colorAverages) as [colorKey, average]}
+		{#each Object.entries(data.colorStats.summary.colorAverages) as [colorKey, average] (colorKey)}
 			{@const info = colorInfo[colorKey as keyof typeof colorInfo]}
 			
 			<div class="stat bg-primary text-primary-content rounded-lg">
@@ -251,7 +243,7 @@ const breadcrumbItems = [
 		<div class="card-body p-3 sm:p-6">
 			<h2 class="card-title text-lg sm:text-xl">색상 구간별 출현 빈도</h2>
 			<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
-				{#each Object.entries(colorInfo) as [key, info]}
+				{#each Object.entries(colorInfo) as [key, info] (key)}
 					{@const count = Number(data.colorStats.summary.colorCounts[key as keyof typeof data.colorStats.summary.colorCounts]) || 0}
 					{@const totalNumbers = data.colorStats.summary.totalDraws * 6}
 					<div class="p-3 sm:p-4 rounded-lg border {info.bgClass}">
@@ -259,12 +251,12 @@ const breadcrumbItems = [
 							<div class="w-3 h-3 sm:w-4 sm:h-4 rounded-full {info.class} mr-2"></div>
 							<span class="font-semibold text-sm sm:text-base {info.textClass}">{info.name}</span>
 						</div>
-						<div class="text-xs text-gray-600 mb-2">{info.range}</div>
+						<div class="text-xs text-base-content/70 mb-2">{info.range}</div>
 						<div class="text-sm sm:text-lg font-bold {info.textClass} mb-1">{count}</div>
 						<div class="text-xs {info.textClass} mb-2">
 							{getPercentage(count, totalNumbers)}%
 						</div>
-						<div class="w-full bg-white/50 rounded-full h-1.5 sm:h-2">
+						<div class="w-full bg-base-100/70 rounded-full h-1.5 sm:h-2">
 							<div
 								class="{info.class} h-1.5 sm:h-2 rounded-full transition-all duration-300"
 								style="width: {getPercentage(count, totalNumbers)}%"
@@ -281,12 +273,12 @@ const breadcrumbItems = [
 		<div class="card-body p-3 sm:p-6">
 			<h2 class="card-title text-lg sm:text-xl">자주 나오는 색상 패턴 (상위 10개)</h2>
 			<div class="space-y-2 sm:space-y-3">
-				{#each sortedPatterns as [pattern, count]}
+				{#each sortedPatterns as [pattern, count] (pattern)}
 					{@const colors = pattern.split('-')}
 					<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between p-2 sm:p-3 bg-base-200 rounded-lg">
 						<div class="flex flex-col sm:flex-row sm:items-center sm:space-x-4 space-y-2 sm:space-y-0">
 							<div class="flex items-center space-x-1 flex-wrap">
-								{#each colors as colorCount, index}
+								{#each colors as colorCount, index (index)}
 									{@const colorKey = Object.keys(colorInfo)[index] as keyof typeof colorInfo}
 									{@const info = colorInfo[colorKey]}
 									<div class="flex items-center">
@@ -324,13 +316,13 @@ const breadcrumbItems = [
 							<th class="text-yellow-600 min-w-[50px] text-center text-xs sm:text-sm">노랑</th>
 							<th class="text-blue-600 min-w-[50px] text-center text-xs sm:text-sm">파랑</th>
 							<th class="text-red-600 min-w-[50px] text-center text-xs sm:text-sm">빨강</th>
-							<th class="text-gray-600 min-w-[50px] text-center text-xs sm:text-sm">회색</th>
+							<th class="text-base-content/70 min-w-[50px] text-center text-xs sm:text-sm">회색</th>
 							<th class="text-green-600 min-w-[50px] text-center text-xs sm:text-sm">초록</th>
 							<th class="min-w-[80px] text-center text-xs sm:text-sm">색상 조합</th>
 						</tr>
 					</thead>
 					<tbody>
-						{#each data.colorStats.records as record}
+						{#each data.colorStats.records as record (record.round)}
 							{@const colorCounts = [
 								record.yellow_count,
 								record.blue_count,
@@ -403,7 +395,7 @@ const breadcrumbItems = [
 						<li><strong>색상 분포 패턴:</strong> 번호 구간별 색상 조합의 균형성</li>
 						<li><strong>출현 빈도:</strong> 각 색상 구간의 출현 횟수와 비율</li>
 						<li><strong>트렌드 분석:</strong> 최근 {data.selectedRounds}회차의 색상 분포 변화 추이</li>
-						<li><strong>예측 참고:</strong> 통계적 패턴을 통한 향후 번호 선택 가이드</li>
+						<li><strong>해석 기준:</strong> 과거 출현 분포는 다음 추첨의 개별 번호 확률을 높이지 않습니다.</li>
 					</ul>
 				</div>
 			</div>

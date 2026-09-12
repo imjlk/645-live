@@ -1,255 +1,268 @@
 <script lang="ts">
-	import {
-		LottoBall,
-		StatsPageHero,
-		StatsSummary,
-		StatsTable,
-	} from "$lib/components/stats";
-	import {
-		createBreadcrumbSchema,
-		createCollectionPageSchema,
-		createOrganizationSchema,
-		createWebSiteSchema,
-		getGenericOgImage,
-	} from "$lib/seo/index.js";
-	import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
-	import LinkButton from "$lib/ui/LinkButton.svelte";
-	import { JsonLd, MetaTags } from "svelte-meta-tags";
-	import type { PageData } from "./$types";
+import { JsonLd, MetaTags } from "svelte-meta-tags";
+import {
+	LottoBall,
+	StatsPageHero,
+	StatsSummary,
+	StatsTable,
+} from "$lib/components/stats";
+import {
+	createBreadcrumbSchema,
+	createCollectionPageSchema,
+	createOrganizationSchema,
+	createWebSiteSchema,
+	getGenericOgImage,
+} from "$lib/seo/index.js";
+import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
+import LinkButton from "$lib/ui/LinkButton.svelte";
+import type { PageData } from "./$types";
 
-	let { data }: { data: PageData } = $props();
+let { data }: { data: PageData } = $props();
 
-	const analysis = $derived(data.bonusAnalysis);
-	const pageTitle = "로또 보너스 번호 통계 | 많이 나온 보너스 번호·최근 흐름 분석";
-	const pageDescription =
-		"역대 로또 보너스 번호 출현 횟수와 최근 10·50·100회 흐름을 확인하세요. 많이 나온 보너스 번호, 적게 나온 번호, 본 번호와의 차이, 보너스 포함 통계를 한 번에 비교합니다.";
-	const ogImage = $derived(
-		getGenericOgImage({
-			title: "로또 보너스 번호 통계",
-			description: `최신 ${analysis.latestRound}회차 기준 보너스 번호 흐름과 출현 순위를 한 화면에서 비교하세요.`,
-			layout: "blog",
-			theme: "dark",
-		}),
-	);
+const analysis = $derived(data.bonusAnalysis);
+const pageTitle =
+	"로또 보너스 번호 통계 | 많이 나온 보너스 번호·최근 흐름 분석";
+const pageDescription =
+	"역대 로또 보너스 번호 출현 횟수와 최근 10·50·100회 흐름을 확인하세요. 많이 나온 보너스 번호, 적게 나온 번호, 본 번호와의 차이, 보너스 포함 통계를 한 번에 비교합니다.";
+const ogImage = $derived(
+	getGenericOgImage({
+		title: "로또 보너스 번호 통계",
+		description: `최신 ${analysis.latestRound}회차 기준 보너스 번호 흐름과 출현 순위를 한 화면에서 비교하세요.`,
+		layout: "blog",
+		theme: "dark",
+	}),
+);
 
-	const breadcrumbItems = [
-		{ label: "홈", href: "/" },
-		{ label: "통계", href: "/stats" },
-		{ label: "보너스 번호", href: "/stats/bonus", current: true },
-	];
+const breadcrumbItems = [
+	{ label: "홈", href: "/" },
+	{ label: "통계", href: "/stats" },
+	{ label: "보너스 번호", href: "/stats/bonus", current: true },
+];
 
-	const breadcrumbSchema = createBreadcrumbSchema([
-		{ name: "홈", path: "/" },
-		{ name: "로또 통계", path: "/stats" },
-		{ name: "보너스 번호 통계", path: "/stats/bonus" },
-	]);
-	const collectionSchema = createCollectionPageSchema({
-		path: "/stats/bonus",
-		name: "로또 보너스 번호 통계",
-		description: pageDescription,
-	});
+const breadcrumbSchema = createBreadcrumbSchema([
+	{ name: "홈", path: "/" },
+	{ name: "로또 통계", path: "/stats" },
+	{ name: "보너스 번호 통계", path: "/stats/bonus" },
+]);
+const collectionSchema = createCollectionPageSchema({
+	path: "/stats/bonus",
+	name: "로또 보너스 번호 통계",
+	description: pageDescription,
+});
 
-	const faqItems = [
-		{
-			question: "보너스 번호는 무엇인가요?",
-			answer:
-				"보너스 번호는 각 회차에서 6개 본 번호와 별도로 추첨되는 일곱 번째 번호이며, 2등 판정에 직접 사용됩니다.",
+const faqItems = [
+	{
+		question: "보너스 번호는 무엇인가요?",
+		answer:
+			"보너스 번호는 각 회차에서 6개 본 번호와 별도로 추첨되는 일곱 번째 번호이며, 2등 판정에 직접 사용됩니다.",
+	},
+	{
+		question: "보너스 번호 통계는 어떻게 해석하면 되나요?",
+		answer:
+			"보너스 번호 통계는 특정 번호가 보너스로 자주 등장했는지, 최근 10·50·100회 흐름에서 어떤 구간과 색상이 상대적으로 많았는지 살펴보는 참고 지표입니다.",
+	},
+	{
+		question: "본 번호 통계와 보너스 번호 통계는 왜 따로 보나요?",
+		answer:
+			"보너스 번호는 회차마다 1개만 추첨되기 때문에 본 번호 통계와 기대값이 다릅니다. 두 통계를 함께 비교하면 특정 번호가 본 번호와 보너스로 각각 얼마나 자주 나왔는지 구분할 수 있습니다.",
+	},
+	{
+		question: "보너스 포함 합산 순위는 무엇을 뜻하나요?",
+		answer:
+			"본 번호 출현 횟수와 보너스 출현 횟수를 합친 값으로, 어떤 번호가 전체 추첨 결과에서 얼마나 자주 등장했는지 한 번에 비교하기 위한 지표입니다.",
+	},
+	{
+		question: "보너스 번호 흐름이 과거 회차 비교에 도움이 되나요?",
+		answer:
+			"보너스 번호 흐름은 과거 데이터를 해석하는 데는 도움이 되지만, 다음 회차 당첨을 보장하지는 않습니다. 이 페이지의 통계는 참고용으로 보는 것이 가장 적절합니다.",
+	},
+];
+
+const faqSchema = {
+	"@type": "FAQPage",
+	mainEntity: faqItems.map((item) => ({
+		"@type": "Question",
+		name: item.question,
+		acceptedAnswer: {
+			"@type": "Answer",
+			text: item.answer,
 		},
-		{
-			question: "보너스 번호 통계는 어떻게 해석하면 되나요?",
-			answer:
-				"보너스 번호 통계는 특정 번호가 보너스로 자주 등장했는지, 최근 10·50·100회 흐름에서 어떤 구간과 색상이 상대적으로 많았는지 살펴보는 참고 지표입니다.",
-		},
-		{
-			question: "본 번호 통계와 보너스 번호 통계는 왜 따로 보나요?",
-			answer:
-				"보너스 번호는 회차마다 1개만 추첨되기 때문에 본 번호 통계와 기대값이 다릅니다. 두 통계를 함께 비교하면 특정 번호가 본 번호에 강한지, 보너스에서 상대적으로 자주 보이는지 구분할 수 있습니다.",
-		},
-		{
-			question: "보너스 포함 합산 순위는 무엇을 뜻하나요?",
-			answer:
-				"본 번호 출현 횟수와 보너스 출현 횟수를 합친 값으로, 어떤 번호가 전체 추첨 결과에서 얼마나 자주 등장했는지 한 번에 비교하기 위한 지표입니다.",
-		},
-		{
-			question: "보너스 번호 흐름이 다음 회차 예측에 도움이 되나요?",
-			answer:
-				"보너스 번호 흐름은 과거 데이터를 해석하는 데는 도움이 되지만, 다음 회차 당첨을 보장하지는 않습니다. 이 페이지의 통계는 참고용으로 보는 것이 가장 적절합니다.",
-		},
-	];
+	})),
+};
 
-	const faqSchema = {
-		"@type": "FAQPage",
-		mainEntity: faqItems.map((item) => ({
-			"@type": "Question",
-			name: item.question,
-			acceptedAnswer: {
-				"@type": "Answer",
-				text: item.answer,
-			},
-		})),
+function getColorClass(color: string | undefined): string {
+	const colorMap: Record<string, string> = {
+		yellow: "stats-ball-yellow",
+		blue: "stats-ball-blue",
+		red: "stats-ball-red",
+		grey: "stats-ball-grey",
+		green: "stats-ball-green",
 	};
+	return colorMap[color ?? "grey"] || "stats-ball-grey";
+}
 
-	function getColorClass(color: string | undefined): string {
-		const colorMap: Record<string, string> = {
-			yellow: "bg-yellow-500",
-			blue: "bg-blue-500",
-			red: "bg-red-500",
-			grey: "bg-gray-500",
-			green: "bg-green-500",
+function getColorLabel(color: string | undefined): string {
+	const colorMap: Record<string, string> = {
+		yellow: "노랑",
+		blue: "파랑",
+		red: "빨강",
+		grey: "회색",
+		green: "초록",
+	};
+	return colorMap[color ?? "grey"] || "회색";
+}
+
+const topShareNumber = $derived(analysis.topBonusShareNumbers[0] ?? null);
+const maxBonusDeviation = $derived(
+	analysis.topBonusNumber
+		? Number(analysis.topBonusNumber.bonus_deviation ?? 0)
+		: 0,
+);
+const rankingRows = $derived(analysis.bonusNumberStats);
+const topBonusRows = $derived(rankingRows.slice(0, 5));
+const bottomBonusRows = $derived(
+	[...rankingRows]
+		.sort((a, b) => a.bonus_count - b.bonus_count || a.number - b.number)
+		.slice(0, 5),
+);
+const recentlyMissingPreview = $derived(
+	analysis.recentlyMissingNumbers.slice(0, 12),
+);
+const topRecentLeader = $derived(analysis.comparisonHighlights.recentLeader);
+const combinedRankingRows = $derived(
+	[...rankingRows]
+		.filter((row) => typeof row.rank_delta === "number")
+		.sort((a, b) => Math.abs(b.rank_delta ?? 0) - Math.abs(a.rank_delta ?? 0))
+		.slice(0, 12),
+);
+const parityDistribution = $derived(
+	rankingRows.reduce(
+		(acc, row) => {
+			if (row.number % 2 === 0) {
+				acc.even += row.bonus_count;
+			} else {
+				acc.odd += row.bonus_count;
+			}
+			return acc;
+		},
+		{ odd: 0, even: 0 },
+	),
+);
+const highLowDistribution = $derived(
+	rankingRows.reduce(
+		(acc, row) => {
+			if (row.number >= 23) {
+				acc.high += row.bonus_count;
+			} else {
+				acc.low += row.bonus_count;
+			}
+			return acc;
+		},
+		{ low: 0, high: 0 },
+	),
+);
+const sectionDistribution = $derived(
+	[1, 2, 3, 4, 5].map((section) => {
+		const count = rankingRows
+			.filter((row) => row.section === section)
+			.reduce((sum, row) => sum + row.bonus_count, 0);
+		return {
+			section,
+			count,
+			share:
+				analysis.totalRounds > 0
+					? ((count / analysis.totalRounds) * 100).toFixed(1)
+					: "0.0",
 		};
-		return colorMap[color ?? "grey"] || "bg-gray-500";
-	}
-
-	function getColorLabel(color: string | undefined): string {
-		const colorMap: Record<string, string> = {
-			yellow: "노랑",
-			blue: "파랑",
-			red: "빨강",
-			grey: "회색",
-			green: "초록",
+	}),
+);
+const colorDistribution = $derived(
+	["yellow", "blue", "red", "grey", "green"].map((color) => {
+		const count = rankingRows
+			.filter((row) => row.color === color)
+			.reduce((sum, row) => sum + row.bonus_count, 0);
+		return {
+			color,
+			label: getColorLabel(color),
+			count,
+			share:
+				analysis.totalRounds > 0
+					? ((count / analysis.totalRounds) * 100).toFixed(1)
+					: "0.0",
 		};
-		return colorMap[color ?? "grey"] || "회색";
-	}
+	}),
+);
+const comparisonCards = $derived([
+	{
+		label: "보너스 강세 번호",
+		stat: analysis.comparisonHighlights.bonusHeavy,
+		copy: analysis.comparisonHighlights.bonusHeavy
+			? `${analysis.comparisonHighlights.bonusHeavy.number}번은 본 번호 순위보다 보너스 순위가 ${analysis.comparisonHighlights.bonusHeavy.rank_delta}계단 더 높습니다.`
+			: "본 번호와 보너스 순위 차이를 계산할 데이터가 아직 없습니다.",
+	},
+	{
+		label: "본 번호 강세 번호",
+		stat: analysis.comparisonHighlights.mainHeavy,
+		copy: analysis.comparisonHighlights.mainHeavy
+			? `${analysis.comparisonHighlights.mainHeavy.number}번은 본 번호 쪽이 더 강하고, 보너스 순위는 상대적으로 낮습니다.`
+			: "본 번호 강세 번호를 계산할 데이터가 아직 없습니다.",
+	},
+	{
+		label: "합산 기준 선두",
+		stat: analysis.comparisonHighlights.combinedLeader,
+		copy: analysis.comparisonHighlights.combinedLeader
+			? `${analysis.comparisonHighlights.combinedLeader.number}번은 본 번호와 보너스를 합쳐 ${analysis.comparisonHighlights.combinedLeader.combined_count}회로 가장 많이 등장했습니다.`
+			: "합산 기준 선두 번호를 계산할 데이터가 아직 없습니다.",
+	},
+	{
+		label: "최근 100회 선두",
+		stat: analysis.comparisonHighlights.recentLeader,
+		copy: analysis.comparisonHighlights.recentLeader
+			? `${analysis.comparisonHighlights.recentLeader.number}번이 최근 100회 보너스로 ${analysis.comparisonHighlights.recentLeader.recent_100_bonus_count}회 등장했습니다.`
+			: "최근 100회 선두 번호를 계산할 데이터가 아직 없습니다.",
+	},
+]);
+const insightCards = $derived([
+	{
+		step: "01",
+		badge: "기준선",
+		title: "기대값 먼저 보기",
+		summary: `전체 ${analysis.totalRounds}회차 기준 번호당 기대 보너스 횟수는 ${analysis.expectedBonusCount.toFixed(1)}회입니다. 이 기준선에서 얼마나 위나 아래에 있는지를 먼저 보는 것이 가장 빠른 해석입니다.`,
+		points: [
+			"편차가 큰 번호는 장기 기준선보다 얼마나 많이 혹은 적게 나왔는지 바로 보여줍니다.",
+			"횟수만 보지 말고 기대값 대비 편차를 같이 봐야 숫자의 의미가 선명해집니다.",
+		],
+	},
+	{
+		step: "02",
+		badge: "비교",
+		title: "본 번호와 함께 비교하기",
+		summary:
+			"보너스 순위와 본 번호 순위를 함께 보면 특정 번호가 본 번호와 보너스로 각각 얼마나 나왔는지 한 번에 읽을 수 있습니다.",
+		points: [
+			"보너스 순위와 본 번호 순위 차이는 번호의 성격 차이를 가장 직관적으로 보여줍니다.",
+			"합산 등장 횟수는 본 번호와 보너스를 묶은 전체 노출감을 보여줍니다.",
+		],
+	},
+	{
+		step: "03",
+		badge: "흐름",
+		title: "최근 흐름 해석하기",
+		summary:
+			"최근 10회는 단기 쏠림을, 최근 50·100회는 더 완만한 평균 흐름을 보여줍니다. 짧은 구간만 보고 판단하지 말고 전체 통계와 함께 보는 편이 좋습니다.",
+		points: [
+			"최근 10회는 변화 감지용, 최근 50·100회는 완만한 평균 흐름 확인용으로 보는 편이 안정적입니다.",
+			"색상·구간·홀짝 분포까지 함께 보면 최근 보너스 번호가 어디에 몰렸는지 더 쉽게 파악할 수 있습니다.",
+		],
+	},
+]);
 
-	const topShareNumber = $derived(analysis.topBonusShareNumbers[0] ?? null);
-	const maxBonusDeviation = $derived(
-		analysis.topBonusNumber ? Number(analysis.topBonusNumber.bonus_deviation ?? 0) : 0,
-	);
-	const rankingRows = $derived(analysis.bonusNumberStats);
-	const topBonusRows = $derived(rankingRows.slice(0, 5));
-	const bottomBonusRows = $derived(
-		[...rankingRows]
-			.sort((a, b) => a.bonus_count - b.bonus_count || a.number - b.number)
-			.slice(0, 5),
-	);
-	const recentlyMissingPreview = $derived(analysis.recentlyMissingNumbers.slice(0, 12));
-	const topRecentLeader = $derived(analysis.comparisonHighlights.recentLeader);
-	const combinedRankingRows = $derived(
-		[...rankingRows]
-			.filter((row) => typeof row.rank_delta === "number")
-			.sort((a, b) => Math.abs(b.rank_delta ?? 0) - Math.abs(a.rank_delta ?? 0))
-			.slice(0, 12),
-	);
-	const parityDistribution = $derived(
-		rankingRows.reduce(
-			(acc, row) => {
-				if (row.number % 2 === 0) {
-					acc.even += row.bonus_count;
-				} else {
-					acc.odd += row.bonus_count;
-				}
-				return acc;
-			},
-			{ odd: 0, even: 0 },
-		),
-	);
-	const highLowDistribution = $derived(
-		rankingRows.reduce(
-			(acc, row) => {
-				if (row.number >= 23) {
-					acc.high += row.bonus_count;
-				} else {
-					acc.low += row.bonus_count;
-				}
-				return acc;
-			},
-			{ low: 0, high: 0 },
-		),
-	);
-	const sectionDistribution = $derived(
-		[1, 2, 3, 4, 5].map((section) => {
-			const count = rankingRows
-				.filter((row) => row.section === section)
-				.reduce((sum, row) => sum + row.bonus_count, 0);
-			return {
-				section,
-				count,
-				share: analysis.totalRounds > 0 ? ((count / analysis.totalRounds) * 100).toFixed(1) : "0.0",
-			};
-		}),
-	);
-	const colorDistribution = $derived(
-		["yellow", "blue", "red", "grey", "green"].map((color) => {
-			const count = rankingRows
-				.filter((row) => row.color === color)
-				.reduce((sum, row) => sum + row.bonus_count, 0);
-			return {
-				color,
-				label: getColorLabel(color),
-				count,
-				share: analysis.totalRounds > 0 ? ((count / analysis.totalRounds) * 100).toFixed(1) : "0.0",
-			};
-		}),
-	);
-	const comparisonCards = $derived([
-		{
-			label: "보너스 강세 번호",
-			stat: analysis.comparisonHighlights.bonusHeavy,
-			copy: analysis.comparisonHighlights.bonusHeavy
-				? `${analysis.comparisonHighlights.bonusHeavy.number}번은 본 번호 순위보다 보너스 순위가 ${analysis.comparisonHighlights.bonusHeavy.rank_delta}계단 더 높습니다.`
-				: "본 번호와 보너스 순위 차이를 계산할 데이터가 아직 없습니다.",
-		},
-		{
-			label: "본 번호 강세 번호",
-			stat: analysis.comparisonHighlights.mainHeavy,
-			copy: analysis.comparisonHighlights.mainHeavy
-				? `${analysis.comparisonHighlights.mainHeavy.number}번은 본 번호 쪽이 더 강하고, 보너스 순위는 상대적으로 낮습니다.`
-				: "본 번호 강세 번호를 계산할 데이터가 아직 없습니다.",
-		},
-		{
-			label: "합산 기준 선두",
-			stat: analysis.comparisonHighlights.combinedLeader,
-			copy: analysis.comparisonHighlights.combinedLeader
-				? `${analysis.comparisonHighlights.combinedLeader.number}번은 본 번호와 보너스를 합쳐 ${analysis.comparisonHighlights.combinedLeader.combined_count}회로 가장 많이 등장했습니다.`
-				: "합산 기준 선두 번호를 계산할 데이터가 아직 없습니다.",
-		},
-		{
-			label: "최근 100회 선두",
-			stat: analysis.comparisonHighlights.recentLeader,
-			copy: analysis.comparisonHighlights.recentLeader
-				? `${analysis.comparisonHighlights.recentLeader.number}번이 최근 100회 보너스로 ${analysis.comparisonHighlights.recentLeader.recent_100_bonus_count}회 등장했습니다.`
-				: "최근 100회 선두 번호를 계산할 데이터가 아직 없습니다.",
-		},
-	]);
-	const insightCards = $derived([
-		{
-			step: "01",
-			badge: "기준선",
-			title: "기대값 먼저 보기",
-			summary: `전체 ${analysis.totalRounds}회차 기준 번호당 기대 보너스 횟수는 ${analysis.expectedBonusCount.toFixed(1)}회입니다. 이 기준선에서 얼마나 위나 아래에 있는지를 먼저 보는 것이 가장 빠른 해석입니다.`,
-			points: [
-				"편차가 큰 번호는 장기 기준선보다 얼마나 많이 혹은 적게 나왔는지 바로 보여줍니다.",
-				"횟수만 보지 말고 기대값 대비 편차를 같이 봐야 숫자의 의미가 선명해집니다.",
-			],
-		},
-		{
-			step: "02",
-			badge: "비교",
-			title: "본 번호와 함께 비교하기",
-			summary: "보너스 순위와 본 번호 순위를 함께 보면 특정 번호가 보너스에서 상대적으로 강한지, 본 번호 쪽이 더 강한지 한 번에 읽을 수 있습니다.",
-			points: [
-				"보너스 순위와 본 번호 순위 차이는 번호의 성격 차이를 가장 직관적으로 보여줍니다.",
-				"합산 등장 횟수는 본 번호와 보너스를 묶은 전체 노출감을 보여줍니다.",
-			],
-		},
-		{
-			step: "03",
-			badge: "흐름",
-			title: "최근 흐름 해석하기",
-			summary: "최근 10회는 단기 쏠림을, 최근 50·100회는 더 완만한 평균 흐름을 보여줍니다. 짧은 구간만 보고 판단하지 말고 전체 통계와 함께 보는 편이 좋습니다.",
-			points: [
-				"최근 10회는 변화 감지용, 최근 50·100회는 완만한 평균 흐름 확인용으로 보는 편이 안정적입니다.",
-				"색상·구간·홀짝 분포까지 함께 보면 최근 보너스 번호가 어디에 몰렸는지 더 쉽게 파악할 수 있습니다.",
-			],
-		},
-	]);
-
-	function rankDeltaLabel(value: number | undefined): string {
-		if (typeof value !== "number" || value === 0) {
-			return "변화 없음";
-		}
-		return value > 0 ? `${value}계단 상승` : `${Math.abs(value)}계단 하락`;
+function rankDeltaLabel(value: number | undefined): string {
+	if (typeof value !== "number" || value === 0) {
+		return "변화 없음";
 	}
+	return value > 0 ? `${value}계단 상승` : `${Math.abs(value)}계단 하락`;
+}
 </script>
 
 <MetaTags
@@ -316,7 +329,7 @@
 />
 <JsonLd schema={faqSchema} />
 
-<div class="p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-6 max-sm:px-0">
+<div class="stats-page">
 	<Breadcrumbs items={breadcrumbItems} />
 
 	<StatsPageHero
@@ -395,7 +408,7 @@
 			</p>
 
 			<div class="mt-4 grid gap-4 lg:grid-cols-2">
-				<div class="rounded-3xl border border-base-300/60 bg-base-200/60 p-4">
+				<div class="rounded-xl border border-base-300/60 bg-base-200/60 p-4">
 					<p class="text-xs font-semibold uppercase tracking-[0.18em] text-base-content/50">많이 나온 보너스 번호</p>
 					<div class="mt-3 space-y-2">
 						{#each topBonusRows as row (row.number)}
@@ -412,7 +425,7 @@
 						{/each}
 					</div>
 				</div>
-				<div class="rounded-3xl border border-base-300/60 bg-base-200/60 p-4">
+				<div class="rounded-xl border border-base-300/60 bg-base-200/60 p-4">
 					<p class="text-xs font-semibold uppercase tracking-[0.18em] text-base-content/50">적게 나온 보너스 번호</p>
 					<div class="mt-3 space-y-2">
 						{#each bottomBonusRows as row (row.number)}
@@ -449,7 +462,7 @@
 							sticky: true,
 							minWidth: "72px",
 							render: (_value: unknown, row: any) => `
-								<a href="/stats/numbers/${row.number}" class="inline-flex items-center justify-center w-8 h-8 rounded-full text-white font-bold text-xs ${getColorClass(row.color)}">
+								<a href="/stats/numbers/${row.number}" class="inline-flex items-center justify-center w-8 h-8 rounded-full font-bold text-xs ${getColorClass(row.color)}">
 									${row.number}
 								</a>
 							`,
@@ -512,11 +525,11 @@
 			<div class="card-body">
 				<h2 class="card-title text-lg sm:text-xl">보너스 번호와 본 번호는 어떻게 다른가요?</h2>
 				<p class="text-sm leading-6 text-base-content/70">
-					공식 통계가 잘 보여주지 않는 차별점은 본 번호 통계와 보너스 통계를 나란히 비교하는 것입니다. 어떤 번호가 보너스에서 상대적으로 강한지, 본 번호에 비해 순위가 어떻게 달라지는지 바로 읽을 수 있게 정리했습니다.
+					본 번호와 보너스의 출현 횟수·순위를 나란히 확인하세요. 합산 순위는 두 출현 횟수를 더한 값입니다.
 				</p>
 				<div class="mt-4 grid gap-3 sm:grid-cols-2">
 					{#each comparisonCards as card (card.label)}
-						<div class="rounded-3xl border border-base-300/60 bg-base-200/65 p-4">
+						<div class="rounded-xl border border-base-300/60 bg-base-200/65 p-4">
 							<p class="text-xs font-semibold uppercase tracking-[0.18em] text-base-content/50">{card.label}</p>
 							{#if card.stat}
 								<div class="mt-3 flex items-center gap-3">
@@ -574,7 +587,7 @@
 							sticky: true,
 							minWidth: "72px",
 							render: (_value: unknown, row: any) => `
-								<a href="/stats/numbers/${row.number}" class="inline-flex items-center justify-center w-8 h-8 rounded-full text-white font-bold text-xs ${getColorClass(row.color)}">
+								<a href="/stats/numbers/${row.number}" class="inline-flex items-center justify-center w-8 h-8 rounded-full font-bold text-xs ${getColorClass(row.color)}">
 									${row.number}
 								</a>
 							`,
@@ -645,15 +658,15 @@
 					</div>
 				</div>
 				<div class="space-y-3">
-					<div class="rounded-3xl border border-base-300/60 bg-base-200/55 p-4">
+					<div class="rounded-xl border border-base-300/60 bg-base-200/55 p-4">
 						<p class="text-xs font-semibold uppercase tracking-[0.18em] text-base-content/50">최근 50회</p>
 						<p class="mt-3 text-sm leading-6 text-base-content/72">{analysis.recent50Summary}</p>
 					</div>
-					<div class="rounded-3xl border border-base-300/60 bg-base-200/55 p-4">
+					<div class="rounded-xl border border-base-300/60 bg-base-200/55 p-4">
 						<p class="text-xs font-semibold uppercase tracking-[0.18em] text-base-content/50">최근 100회</p>
 						<p class="mt-3 text-sm leading-6 text-base-content/72">{analysis.recent100Summary}</p>
 					</div>
-					<div class="rounded-3xl border border-base-300/60 bg-base-200/55 p-4">
+					<div class="rounded-xl border border-base-300/60 bg-base-200/55 p-4">
 						<p class="text-xs font-semibold uppercase tracking-[0.18em] text-base-content/50">최근 100회 미출현</p>
 						<div class="mt-3 flex flex-wrap gap-2">
 							{#if recentlyMissingPreview.length > 0}
@@ -670,20 +683,20 @@
 		</div>
 	</section>
 
-	<section class="rounded-[2rem] border border-base-300/60 bg-gradient-to-br from-warning/10 via-base-100 to-warning/5 p-5 shadow-sm sm:p-6">
+	<section class="rounded-xl border border-base-300/60 bg-base-200 p-5 shadow-sm sm:p-6">
 		<div class="max-w-3xl">
-			<p class="text-xs font-semibold uppercase tracking-[0.22em] text-warning">⭐ Insight Guide</p>
+			<p class="text-xs font-semibold uppercase tracking-[0.22em] text-warning">통계 읽는 법</p>
 			<h2 class="mt-3 text-2xl font-black tracking-[-0.04em] text-base-content sm:text-3xl">
 				보너스 번호를 읽는 방법
 			</h2>
 			<p class="mt-3 text-sm leading-7 text-base-content/72 sm:text-base">
-				이 섹션은 긴 설명을 읽기보다, 어떤 순서로 지표를 보면 보너스 통계가 빨리 읽히는지 안내하는 요약 카드입니다.
+				본 번호와 보너스의 집계 범위를 구분하고, 같은 기간의 출현 횟수를 비교하세요.
 			</p>
 		</div>
 
 		<div class="mt-5 grid gap-3">
 			{#each insightCards as card (card.step)}
-				<article class="rounded-[1.7rem] border border-base-300/60 bg-base-100/90 p-4 shadow-sm sm:p-5">
+				<article class="rounded-xl border border-base-300/60 bg-base-100/90 p-4 shadow-sm sm:p-5">
 					<div class="flex items-start gap-4">
 						<div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-warning text-warning-content">
 							<span class="text-sm font-black tracking-[0.08em]">{card.step}</span>
@@ -719,7 +732,7 @@
 				보너스는 회차마다 1개만 추첨되기 때문에, 조합보다는 어느 구간과 색상에 상대적으로 많이 분포했는지 보는 쪽이 더 직관적입니다.
 			</p>
 			<div class="mt-5 grid gap-4 lg:grid-cols-3">
-				<div class="rounded-3xl border border-base-300/60 bg-base-200/55 p-4">
+				<div class="rounded-xl border border-base-300/60 bg-base-200/55 p-4">
 					<p class="text-xs font-semibold uppercase tracking-[0.18em] text-base-content/50">구간 분포</p>
 					<div class="mt-3 space-y-2">
 						{#each sectionDistribution as item (item.section)}
@@ -730,7 +743,7 @@
 						{/each}
 					</div>
 				</div>
-				<div class="rounded-3xl border border-base-300/60 bg-base-200/55 p-4">
+				<div class="rounded-xl border border-base-300/60 bg-base-200/55 p-4">
 					<p class="text-xs font-semibold uppercase tracking-[0.18em] text-base-content/50">홀짝·고저 분포</p>
 					<div class="mt-3 space-y-2 text-sm">
 						<div class="flex items-center justify-between">
@@ -751,7 +764,7 @@
 						</div>
 					</div>
 				</div>
-				<div class="rounded-3xl border border-base-300/60 bg-base-200/55 p-4">
+				<div class="rounded-xl border border-base-300/60 bg-base-200/55 p-4">
 					<p class="text-xs font-semibold uppercase tracking-[0.18em] text-base-content/50">색상 분포</p>
 					<div class="mt-3 space-y-2">
 						{#each colorDistribution as item (item.color)}
@@ -782,7 +795,7 @@
 			</div>
 			<div class="mt-5 grid gap-3">
 				{#each faqItems as item (item.question)}
-					<div class="rounded-3xl border border-base-300/60 bg-base-200/55 p-4">
+					<div class="rounded-xl border border-base-300/60 bg-base-200/55 p-4">
 						<h3 class="text-base font-semibold text-base-content">{item.question}</h3>
 						<p class="mt-2 text-sm leading-6 text-base-content/72">{item.answer}</p>
 					</div>

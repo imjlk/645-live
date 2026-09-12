@@ -1,8 +1,8 @@
 import {
-	SITE_ORIGIN,
-	getCanonicalNewsOgUrl,
-	isAbsoluteHttpUrl,
-} from "$lib/seo/index.js";
+	type NewsMetadata,
+	normalizeNewsDescriptions,
+} from "$lib/components/news/metadata.js";
+import { getCanonicalNewsOgUrl, isAbsoluteHttpUrl } from "$lib/seo/index.js";
 
 export type NewsPostSummary = {
 	slug: string;
@@ -11,6 +11,8 @@ export type NewsPostSummary = {
 	publishedAt?: string;
 	updatedAt?: string;
 	description: string;
+	summary: string;
+	seoDescription: string;
 	category: string;
 	thumbnail: string;
 	tags: string[];
@@ -19,10 +21,16 @@ export type NewsPostSummary = {
 };
 
 function getNewsModules() {
-	return import.meta.glob("/src/content/news/*.mdx", { eager: true });
+	return import.meta.glob<{ metadata?: NewsMetadata }>(
+		"/src/content/news/*.mdx",
+		{ eager: true },
+	);
 }
 
-function resolveNewsThumbnail(slug: string, metadata: Record<string, unknown>): string {
+function resolveNewsThumbnail(
+	slug: string,
+	metadata: Record<string, unknown>,
+): string {
 	const rawThumbnail =
 		typeof metadata.thumbnail === "string" ? metadata.thumbnail.trim() : "";
 
@@ -45,7 +53,7 @@ export function getAllNewsPosts(): NewsPostSummary[] {
 	const posts = getNewsModules();
 
 	return Object.entries(posts)
-		.map(([filePath, module]: [string, any]) => {
+		.map(([filePath, module]) => {
 			const slug = filePath.split("/").pop()?.replace(".mdx", "") ?? "";
 			const metadata = module.metadata || {};
 
@@ -55,7 +63,7 @@ export function getAllNewsPosts(): NewsPostSummary[] {
 				date: metadata.date || new Date().toISOString().split("T")[0],
 				publishedAt: metadata.publishedAt || undefined,
 				updatedAt: metadata.updatedAt || undefined,
-				description: metadata.description || "",
+				...normalizeNewsDescriptions(metadata),
 				category: metadata.category || "뉴스",
 				thumbnail: resolveNewsThumbnail(slug, metadata),
 				tags: Array.isArray(metadata.tags) ? metadata.tags : [],

@@ -1,7 +1,7 @@
 <script lang="ts">
+import { JsonLd, MetaTags } from "svelte-meta-tags";
 import { RecentAnalysisInput } from "$lib/components/stats";
 import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
-import { JsonLd, MetaTags } from "svelte-meta-tags";
 import type { PageData } from "./$types";
 
 interface Props {
@@ -28,7 +28,7 @@ const digitInfo = {
 		name: "0",
 		class: "bg-gray-500",
 		bgClass: "bg-gray-500/20 dark:bg-gray-400/20",
-		textClass: "text-gray-600 dark:text-gray-400",
+		textClass: "text-base-content/70",
 	},
 	digit1: {
 		name: "1",
@@ -97,14 +97,21 @@ const sortedPatterns = $derived(
 		.sort(([, a], [, b]) => Number(b) - Number(a))
 		.slice(0, 10), // 상위 10개만 표시
 );
+
+const pageTitle = $derived(
+	`최근 ${data.selectedRounds}회 로또 끝수 분포와 회차별 기록`,
+);
+const pageDescription = $derived(
+	`로또 6/45 최근 ${data.selectedRounds}회차 추첨 결과에서 당첨번호의 끝자리 0~9별 출현 횟수와 평균을 확인하세요. 자주 나온 끝수와 적게 나온 끝수, 회차별 끝자리 조합을 비교하고 기간을 바꿔 각 숫자의 실제 출현 분포를 살펴볼 수 있습니다.`,
+);
 </script>
 
 <MetaTags
-	title="로또 6/45 끝자리수 분석 통계 | 끝자리 숫자 분포 분석"
+	title={pageTitle}
 	titleTemplate="%s | 645.live"
-	description={`로또 6/45 끝자리수 분포를 분석합니다 (최근 ${data.selectedRounds}회차). 0부터 9까지 각 끝자리 숫자의 출현 빈도와 패턴을 제공합니다.`}
+	description={pageDescription}
 	canonical={`https://645.live/stats/unit-digit/recent/${data.selectedRounds}`}
-	keywords={["로또", "끝자리수", "끝자리분석", "로또통계", "숫자패턴", "끝자리패턴", "로또예측", "6/45통계", "끝자리수분석", "숫자분포분석"]}
+	keywords={["로또", "끝자리수", "끝자리분석", "로또통계", "숫자패턴", "끝자리패턴", "6/45통계", "끝자리수분석", "숫자분포분석"]}
 	robots="index,follow"
 	additionalRobotsProps={{
 		maxSnippet: 320,
@@ -115,10 +122,6 @@ const sortedPatterns = $derived(
 		{
 			name: 'application-name',
 			content: '645.live'
-		},
-		{
-			name: 'theme-color',
-			content: '#3B82F6'
 		},
 		{
 			name: 'format-detection',
@@ -140,8 +143,8 @@ const sortedPatterns = $derived(
 	openGraph={{
 		type: 'article',
 		url: `https://645.live/stats/unit-digit/recent/${data.selectedRounds}`,
-		title: `로또 6/45 끝자리수 분석 통계 | 끝자리 숫자 분포 패턴 (최근 ${data.selectedRounds}회차)`,
-		description: `로또 6/45 끝자리수 분포를 분석합니다 (최근 ${data.selectedRounds}회차). 0부터 9까지 각 끝자리 숫자의 출현 빈도와 균형성을 제공합니다.`,
+		title: pageTitle,
+		description: pageDescription,
 		locale: 'ko_KR',
 		images: [{
 			url: `https://645.live/og?title=${encodeURIComponent(`끝자리수 분석 (최근 ${data.selectedRounds}회차)`)}&description=${encodeURIComponent(`0-9 끝자리 분포 분석 - 가장 많은 끝자리: ${data.unitDigitStats.summary.mostFrequentDigit[0]} (${data.unitDigitStats.summary.mostFrequentDigit[1]}개)`)}&layout=minimal&theme=dark`,
@@ -154,15 +157,13 @@ const sortedPatterns = $derived(
 		article: {
 			section: '로또 통계',
 			tags: ['로또', '끝자리수', '끝자리분석', '로또통계', '숫자패턴', '끝자리패턴', '6/45통계', '끝자리수분석'],
-			publishedTime: '2024-01-01T00:00:00.000Z',
-			modifiedTime: new Date().toISOString()
 		}
 	}}
 	twitter={{
 		cardType: 'summary_large_image',
 		site: '@645live',
-		title: `로또 6/45 끝자리수 분석 통계 (최근 ${data.selectedRounds}회차)`,
-		description: '끝자리 숫자 분포 분석으로 로또 번호 패턴을 파악하세요.',
+		title: pageTitle,
+		description: pageDescription,
 		image: `https://645.live/og?title=${encodeURIComponent(`끝자리수 분석 (최근 ${data.selectedRounds}회차)`)}&description=${encodeURIComponent(`0-9 끝자리 분포 분석 - 가장 많은 끝자리: ${data.unitDigitStats.summary.mostFrequentDigit[0]} (${data.unitDigitStats.summary.mostFrequentDigit[1]}개)`)}&layout=minimal&theme=dark`,
 		imageAlt: '로또 6/45 끝자리수 분석 통계'
 	}}
@@ -214,24 +215,15 @@ const sortedPatterns = $derived(
 	}}
 />
 
-<div class="p-6 space-y-6 max-sm:px-0">
+<div class="stats-page">
 	<!-- Breadcrumbs -->
 	<Breadcrumbs items={breadcrumbItems} />
 
 	<!-- 페이지 헤더 -->
-	<div class="text-center space-y-2">
-		<h1 class="text-3xl font-bold text-primary">로또 6/45 끝자리수 분석 상세 분석</h1>
-		<p class="text-base-content/70">
-			최근 <strong class="text-primary">{data.selectedRounds}회차</strong>의 <strong>끝자리 숫자 분포</strong>와 패턴을 상세히 분석합니다.<br />
-			0 끝자리 평균 <strong class="text-secondary">{data.unitDigitStats.summary.digitAverages.digit0}개</strong>, 1 끝자리 평균 <strong class="text-accent">{data.unitDigitStats.summary.digitAverages.digit1}개</strong>의 끝자리수 분포 분석을 통해 
-			당첨번호 패턴을 파악해보세요.
-		</p>
-		<div class="flex justify-center gap-4 text-sm text-base-content/60 mt-4">
-			<span>📊 최빈 끝자리: <strong class="text-primary">{digitInfo[data.unitDigitStats.summary.mostFrequentDigit[0] as unknown as keyof typeof digitInfo]?.name}</strong></span>
-			<span>📈 분석 회차: <strong class="text-secondary">{data.selectedRounds}회</strong></span>
-			<span>🎯 평균 개수: <strong class="text-accent">{data.unitDigitStats.summary.mostFrequentDigit[1]}개</strong></span>
-		</div>
-	</div>
+	<header class="stats-recent-heading space-y-2">
+		<h1 class="font-bold">최근 {data.selectedRounds}회 끝수 분포</h1>
+		<p>끝자리 0~9의 출현 개수와 회차별 조합을 확인하세요.</p>
+	</header>
 
 	<RecentAnalysisInput
 		maxRounds={data.totalRounds}
@@ -243,7 +235,7 @@ const sortedPatterns = $derived(
 
 	<!-- 요약 통계 -->
 	<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-		{#each Object.entries(data.unitDigitStats.summary.digitAverages).slice(0, 5) as [digitKey, average]}
+		{#each Object.entries(data.unitDigitStats.summary.digitAverages).slice(0, 5) as [digitKey, average] (digitKey)}
 			{@const info = digitInfo[digitKey as keyof typeof digitInfo]}
 			
 			<div class="stat bg-primary text-primary-content rounded-lg">
@@ -259,7 +251,7 @@ const sortedPatterns = $derived(
 		<div class="card-body p-3 sm:p-6">
 			<h2 class="card-title text-lg sm:text-xl">끝자리수별 출현 빈도</h2>
 			<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-10 gap-4">
-				{#each Object.entries(digitInfo) as [key, info]}
+				{#each Object.entries(digitInfo) as [key, info] (key)}
 					{@const count = data.unitDigitStats.summary.digitCounts[key as keyof typeof data.unitDigitStats.summary.digitCounts]}
 					{@const totalNumbers = data.unitDigitStats.summary.totalDraws * 6}
 					<div class="p-4 rounded-lg {info.bgClass}">
@@ -272,7 +264,7 @@ const sortedPatterns = $derived(
 						<div class="text-center text-xs {info.textClass} mb-2">
 							{getPercentage(count, totalNumbers)}%
 						</div>
-						<div class="w-full bg-white/50 rounded-full h-2">
+						<div class="w-full bg-base-100/70 rounded-full h-2">
 							<div
 								class="{info.class} h-2 rounded-full transition-all duration-300"
 								style="width: {getPercentage(count, totalNumbers)}%"
@@ -289,12 +281,12 @@ const sortedPatterns = $derived(
 		<div class="card-body p-3 sm:p-6">
 			<h2 class="card-title text-lg sm:text-xl">자주 나오는 끝자리수 패턴 (상위 10개)</h2>
 			<div class="space-y-3">
-				{#each sortedPatterns as [pattern, count]}
+				{#each sortedPatterns as [pattern, count] (pattern)}
 					{@const digits = pattern.split('-')}
 					<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 bg-base-200 rounded-lg gap-3">
 						<div class="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
 							<div class="flex items-center space-x-1 flex-wrap">
-								{#each digits as digitCount, index}
+								{#each digits as digitCount, index (index)}
 									{@const digitKey = Object.keys(digitInfo)[index] as keyof typeof digitInfo}
 									{@const info = digitInfo[digitKey]}
 									<div class="flex items-center">
@@ -329,7 +321,7 @@ const sortedPatterns = $derived(
 					<thead>
 						<tr>
 							<th class="sticky left-0 bg-base-200 z-10 text-xs sm:text-sm min-w-[60px]">회차</th>
-							<th class="text-gray-600 min-w-[40px] text-center text-xs sm:text-sm">0</th>
+							<th class="text-base-content/70 min-w-[40px] text-center text-xs sm:text-sm">0</th>
 							<th class="text-red-600 min-w-[40px] text-center text-xs sm:text-sm">1</th>
 							<th class="text-orange-600 min-w-[40px] text-center text-xs sm:text-sm">2</th>
 							<th class="text-yellow-600 min-w-[40px] text-center text-xs sm:text-sm">3</th>
@@ -343,7 +335,7 @@ const sortedPatterns = $derived(
 						</tr>
 					</thead>
 					<tbody>
-						{#each data.unitDigitStats.records as record}
+						{#each data.unitDigitStats.records as record (record.round)}
 							{@const digitCounts = [
 								record.digit_0_count,
 								record.digit_1_count,
@@ -445,7 +437,7 @@ const sortedPatterns = $derived(
 						<li><strong>끝자리 분포 균형:</strong> 0부터 9까지 각 끝자리 숫자의 출현 빈도</li>
 						<li><strong>편중 패턴:</strong> 특정 끝자리 숫자에 집중되는 경향이나 분산 패턴</li>
 						<li><strong>트렌드 분석:</strong> 최근 {data.selectedRounds}회차의 끝자리수 분포 변화 추이</li>
-						<li><strong>예측 참고:</strong> 끝자리수 균형성을 통한 향후 번호 선택 가이드</li>
+						<li><strong>해석 기준:</strong> 과거 출현 분포는 다음 추첨의 개별 번호 확률을 높이지 않습니다.</li>
 					</ul>
 				</div>
 			</div>

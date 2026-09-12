@@ -45,7 +45,7 @@ const nextLabel = $derived(
 	robots="noindex,nofollow"
 />
 
-<div class="min-h-screen bg-base-200 px-4 py-10 sm:py-16">
+<div class="content-page">
 	<div class="mx-auto flex max-w-5xl justify-center">
 		<div class="card w-full max-w-md border border-base-300 bg-base-100 shadow-xl">
 			<div class="card-body gap-6 p-6 sm:p-8">

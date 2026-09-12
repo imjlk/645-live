@@ -3,8 +3,8 @@
  * SvelteKit 앱에서 사용 - DB 우선, API 폴백
  */
 
-import { env } from "$env/dynamic/public";
 import { initClient } from "trailbase";
+import { getTrailbaseBrowserBaseUrl } from "$lib/trailbase/browser-base";
 import {
 	type LatestLottoInfo,
 	type LottoDrawResult,
@@ -38,9 +38,7 @@ export function calculateDisplayRound(): number {
 export async function getLatestLottoRound(): Promise<LatestLottoInfo | null> {
 	// 먼저 데이터베이스에서 시도
 	try {
-		const client = initClient(
-			env.PUBLIC_TRAILBASE_URL || "http://localhost:4000",
-		);
+		const client = initClient(getTrailbaseBrowserBaseUrl());
 		const api = client.records("lotto_draw_results");
 
 		const response = await api.list({
@@ -82,14 +80,13 @@ export async function getLottoNumbers(
 ): Promise<LottoDrawResult | null> {
 	// 먼저 데이터베이스에서 시도
 	try {
-		const client = initClient(
-			env.PUBLIC_TRAILBASE_URL || "http://localhost:4000",
-		);
+		const client = initClient(getTrailbaseBrowserBaseUrl());
 		const api = client.records("lotto_draw_results");
 
 		const response = await api.list({
 			// TrailBase의 필터 문법에 맞춰서 수정 - 정확한 round 매칭
-			pagination: { limit: 100 }, // 충분한 수를 가져와서 클라이언트 사이드에서 필터링
+			filters: [{ column: "round", op: "equal", value: String(drwNo) }],
+			pagination: { limit: 1 },
 		});
 
 		if (response.records && response.records.length > 0) {

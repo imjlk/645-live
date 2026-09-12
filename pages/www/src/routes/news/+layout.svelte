@@ -1,10 +1,22 @@
 <script lang="ts">
-	let { children } = $props();
+let { children } = $props();
 </script>
 
-<!-- News Layout: Nests inside global +layout.svelte -->
-<div>
-	<div class="bg-base-100 rounded-box shadow-sm p-6 md:p-8">
-		{@render children()}
-	</div>
+<div class="news-page">
+	{@render children()}
 </div>
+
+<style>
+	.news-page {
+		width: 100%;
+		max-width: 1200px;
+		min-width: 0;
+		margin-inline: auto;
+		padding: 24px 16px 48px;
+		color: var(--color-base-content);
+	}
+
+	@media (min-width: 768px) {
+		.news-page { padding: 40px 32px 64px; }
+	}
+</style>

@@ -5,33 +5,21 @@ publishedAt: "2026-07-04T21:21:00+09:00"
 updatedAt: "2026-07-04T21:48:01.074+09:00"
 category: "로또분석"
 tags: ["로또1231회", "당첨번호", "번호패턴", "짝수우세", "연속번호"]
-description: "연번 13·14 등장, 전 회차와 겹침 없이 새 번호 조합 형성"
+description: "13·14 연속번호, 직전 회차와 겹치지 않은 조합"
+summary: "13·14 연속번호, 직전 회차와 겹치지 않은 조합"
+seoDescription: "제1231회 로또 당첨번호는 4·13·14·18·31·38, 보너스는 15입니다. 1등 17명이 각각 1,652,990,074원을 받는 결과를 정리하고, 13·14 연속번호와 직전 회차와 겹치지 않은 번호 구성을 살펴봅니다."
 author: "645.live 자동뉴스"
 thumbnail: "/og/news/lotto-1231?rev=2026-03-25-2&v=2026-07-04T21%3A48%3A01.074%2B09%3A00"
 ---
 
 <script>
-  import LottoNumbers from '$lib/components/news/LottoNumbers.svelte';
-  import Card from '$lib/ui/Card.svelte';
+  import DrawSummary from '$lib/components/news/DrawSummary.svelte';
+  import AdSlot from '$lib/components/ads/AdSlot.svelte';
   import Alert from '$lib/components/news/Alert.svelte';
   import Table from '$lib/components/news/Table.svelte';
-  import Tabs from '$lib/components/news/Tabs.svelte';
-  import TabsList from '$lib/components/news/TabsList.svelte';
-  import TabsTrigger from '$lib/components/news/TabsTrigger.svelte';
-  import TabsContent from '$lib/components/news/TabsContent.svelte';
 </script>
 
-## 이번 회차 핵심 요약
-
-<Card variant="bordered">
-  <ul>
-    <li><strong>추첨일</strong>: 2026-07-04</li>
-    <li><strong>당첨번호</strong>: 4, 13, 14, 18, 31, 38 + 보너스 15</li>
-    <li><strong>1등 당첨자</strong>: 17명</li>
-    <li><strong>1인당 1등 당첨금</strong>: 1,652,990,074원</li>
-    <li><strong>총 판매액</strong>: 59,042,291,693원</li>
-  </ul>
-</Card>
+<DrawSummary round={1231} date="2026-07-04" numbers={[4, 13, 14, 18, 31, 38]} bonus={15} winners={17} prize={1652990074} totalSales={59042291693} />
 
 제1231회 로또추첨에서 당첨번호 4, 13, 14, 18, 31, 38에 보너스번호 15가 나왔다. 이번 회차는 10번대 구간에 번호 3개(13, 14, 18)가 집중된 것이 가장 두드러지는 특징이다. 전체 6개 당첨번호 중 짝수가 4개(4, 14, 18, 38)를 차지하며 홀수 2개(13, 31)보다 압도적으로 우세했고, 연속번호 13과 14가 나란히 등장했다.
 
@@ -41,9 +29,6 @@ thumbnail: "/og/news/lotto-1231?rev=2026-03-25-2&v=2026-07-04T21%3A48%3A01.074%2
 
 당첨 판매점은 총 104곳으로, 경기(24곳)와 서울(19곳)이 전체의 약 41%를 차지했다. 세부 지역별로는 서울 강동구, 충남 천안시, 전북 정읍시가 각각 4곳으로 최다 당첨 지역에 이름을 올렸으며, 번호 선택 방식은 자동 15건, 수동 2건으로 집계되었다.
 
-## 당첨번호
-
-<LottoNumbers numbers={[4, 13, 14, 18, 31, 38]} bonus={15} round={1231} />
 
 ## 특이점 분석
 
@@ -57,6 +42,8 @@ thumbnail: "/og/news/lotto-1231?rev=2026-03-25-2&v=2026-07-04T21%3A48%3A01.074%2
 연속번호 측면에서도 주목할 만하다. 1230회에서 8과 9가 연번으로 등장한 데 이어 이번 회차에서도 13과 14가 붙어 나왔다. 1228회의 29~31까지 포함하면 최근 4개 회차 중 3회차에서 연속번호가 출현한 셈으로, 단기적으로 연번 출현 빈도가 높아지는 경향이 확인된다. 단, 이는 과거 추첨 결과의 통계적 경향일 뿐 미래 당첨 확률과는 무관하다.
 
 짝수 비율은 4대2로 최근 흐름과 유사하다. 1230회에서도 짝수가 우세했고, 1228회 역시 짝수 중심 번호가 많았다. 다만 이번 회차는 홀수가 2개에 그쳐 극단적인 짝수 쏠림을 보였으며, 번호 선택 시 홀짝 균형을 기대한 구매자에게는 예상 밖의 결과였을 가능성이 있다.
+
+<AdSlot placement="article-inline" format="horizontal" />
 
 ## 지역별 당첨점 현황 (상위)
 
@@ -110,85 +97,17 @@ thumbnail: "/og/news/lotto-1231?rev=2026-03-25-2&v=2026-07-04T21%3A48%3A01.074%2
   </tbody>
 </Table>
 
-<Tabs defaultValue="insight">
-  <TabsList>
-    <TabsTrigger value="insight">요약 인사이트</TabsTrigger>
-    <TabsTrigger value="stores">당첨점 규모</TabsTrigger>
-  </TabsList>
-  <TabsContent value="insight">
-    <p>이번 회차 당첨번호에서 가장 눈에 띄는 것은 10번대 구간의 밀집 현상이다. 13, 14, 18은 물론 보너스번호 15까지 포함하면 10번대에만 4개 번호가 몰려 있어, 번호가 전 구간에 고르게 분산되기보다 특정 구간에 집중되는 패턴이 뚜렷하게 나타났다. 이러한 구간 쏠림은 난수 추첨임에도 불구하고 특정 회차에서 반복적으로 관찰되는 흥미로운 특징이다. 연속번호 측면에서도 주목할 만하다. 1230회에서 8과 9가 연번으로 등장한 데 이어 이번 회차에서도 13과 14가 붙어 나왔다. 1228회의 29~31까지 포함하면 최근 4개 회차 중 3회차에서 연속번호가 출현한 셈으로, 단기적으로 연번 출현 빈도가 높아지는 경향이 확인된다. 단, 이는 과거 추첨 결과의 통계적 경향일 뿐 미래 당첨 확률과는 무관하다. 짝수 비율은 4대2로 최근 흐름과 유사하다. 1230회에서도 짝수가 우세했고, 1228회 역시 짝수 중심 번호가 많았다. 다만 이번 회차는 홀수가 2개에 그쳐 극단적인 짝수 쏠림을 보였으며, 번호 선택 시 홀짝 균형을 기대한 구매자에게는 예상 밖의 결과였을 가능성이 있다.</p>
-  </TabsContent>
-  <TabsContent value="stores">
-    <p>제1231회는 총 104개 당첨점이 집계되었습니다. 집계 데이터는 이후 정정될 수 있습니다.</p>
-  </TabsContent>
-</Tabs>
+<p class="news-data-note">제1231회는 총 104개 당첨점이 집계되었습니다. 집계 데이터는 이후 정정될 수 있습니다.</p>
 
 ## 이번 회차에서 이어서 볼 통계
 
-이번 회차 특징과 맞는 통계를 카드에서 바로 이동해 확인해보세요.
-
-<div class="not-prose grid grid-cols-1 md:grid-cols-2 gap-3 my-6">
-<a href="/stats/numbers" class="group block rounded-2xl border border-base-300 bg-gradient-to-br from-base-100 to-base-200/70 p-0.5 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all no-underline">
-  <div class="h-full rounded-2xl bg-base-100 p-4">
-    <div class="flex items-start gap-3">
-      <span class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-lg">🔢</span>
-      <div class="min-w-0 flex-1">
-        <h3 class="text-base font-semibold text-base-content group-hover:text-primary transition-colors">번호별 통계</h3>
-        <p class="mt-1 text-sm leading-relaxed text-base-content/70">10번대 밀집 패턴과 보너스번호 15를 포함한 번호 분포 시각화를 위해</p>
-      </div>
-      <span class="text-base-content/40 group-hover:text-primary transition-colors">↗</span>
-    </div>
-  </div>
-</a>
-<a href="/stats/odd-even" class="group block rounded-2xl border border-base-300 bg-gradient-to-br from-base-100 to-base-200/70 p-0.5 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all no-underline">
-  <div class="h-full rounded-2xl bg-base-100 p-4">
-    <div class="flex items-start gap-3">
-      <span class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-lg">⚖️</span>
-      <div class="min-w-0 flex-1">
-        <h3 class="text-base font-semibold text-base-content group-hover:text-primary transition-colors">홀짝 분석</h3>
-        <p class="mt-1 text-sm leading-relaxed text-base-content/70">짝수 4 대 홀수 2의 극단적 비율을 명확히 확인하기 위해</p>
-      </div>
-      <span class="text-base-content/40 group-hover:text-primary transition-colors">↗</span>
-    </div>
-  </div>
-</a>
-<a href="/stats/sections" class="group block rounded-2xl border border-base-300 bg-gradient-to-br from-base-100 to-base-200/70 p-0.5 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all no-underline">
-  <div class="h-full rounded-2xl bg-base-100 p-4">
-    <div class="flex items-start gap-3">
-      <span class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-lg">🧩</span>
-      <div class="min-w-0 flex-1">
-        <h3 class="text-base font-semibold text-base-content group-hover:text-primary transition-colors">구간별 분석</h3>
-        <p class="mt-1 text-sm leading-relaxed text-base-content/70">구간별 번호 분포에서 10번대 쏠림 현상을 한눈에 파악하기 위해</p>
-      </div>
-      <span class="text-base-content/40 group-hover:text-primary transition-colors">↗</span>
-    </div>
-  </div>
-</a>
-<a href="/stats/pairs" class="group block rounded-2xl border border-base-300 bg-gradient-to-br from-base-100 to-base-200/70 p-0.5 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all no-underline">
-  <div class="h-full rounded-2xl bg-base-100 p-4">
-    <div class="flex items-start gap-3">
-      <span class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-lg">👥</span>
-      <div class="min-w-0 flex-1">
-        <h3 class="text-base font-semibold text-base-content group-hover:text-primary transition-colors">번호 쌍 통계</h3>
-        <p class="mt-1 text-sm leading-relaxed text-base-content/70">최근 회차 연속번호 출현 경향(8·9, 29~31, 13·14) 추적을 위해</p>
-      </div>
-      <span class="text-base-content/40 group-hover:text-primary transition-colors">↗</span>
-    </div>
-  </div>
-</a>
-<a href="/stats/repeat" class="group block rounded-2xl border border-base-300 bg-gradient-to-br from-base-100 to-base-200/70 p-0.5 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all no-underline">
-  <div class="h-full rounded-2xl bg-base-100 p-4">
-    <div class="flex items-start gap-3">
-      <span class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-lg">🔁</span>
-      <div class="min-w-0 flex-1">
-        <h3 class="text-base font-semibold text-base-content group-hover:text-primary transition-colors">연속 중복 통계</h3>
-        <p class="mt-1 text-sm leading-relaxed text-base-content/70">직전 1230회와의 번호 겹침이 전혀 없음을 확인하기 위해</p>
-      </div>
-      <span class="text-base-content/40 group-hover:text-primary transition-colors">↗</span>
-    </div>
-  </div>
-</a>
-</div>
+<nav class="news-related-links" aria-label="관련 통계">
+<a class="news-related-link" href="/stats/numbers"><span><strong>번호별 통계</strong><small>10번대 밀집 패턴과 보너스번호 15를 포함한 번호 분포 시각화를 위해</small></span><span aria-hidden="true">↗</span></a>
+<a class="news-related-link" href="/stats/odd-even"><span><strong>홀짝 분석</strong><small>짝수 4 대 홀수 2의 극단적 비율을 명확히 확인하기 위해</small></span><span aria-hidden="true">↗</span></a>
+<a class="news-related-link" href="/stats/sections"><span><strong>구간별 분석</strong><small>구간별 번호 분포에서 10번대 쏠림 현상을 한눈에 파악하기 위해</small></span><span aria-hidden="true">↗</span></a>
+<a class="news-related-link" href="/stats/pairs"><span><strong>번호 쌍 통계</strong><small>최근 회차 연속번호 출현 경향(8·9, 29~31, 13·14) 추적을 위해</small></span><span aria-hidden="true">↗</span></a>
+<a class="news-related-link" href="/stats/repeat"><span><strong>연속 중복 통계</strong><small>직전 1230회와의 번호 겹침이 전혀 없음을 확인하기 위해</small></span><span aria-hidden="true">↗</span></a>
+</nav>
 
 <Alert type="info">
   로또는 확률 게임이며 과거 번호 패턴이 미래 당첨 결과에 영향을 주지 않으므로, 건전한 범위 내에서 책임감 있게 구매하시기 바랍니다.

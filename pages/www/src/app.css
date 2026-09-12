@@ -1,58 +1,235 @@
 @import "tailwindcss";
-@plugin "daisyui";
-
+@plugin "daisyui" {
+	themes: false;
+}
+@plugin "daisyui/theme" {
+	name: "light";
+	default: true;
+	prefersdark: false;
+	color-scheme: light;
+	--color-base-100: #ffffff;
+	--color-base-200: #f5f7fa;
+	--color-base-300: #dce3ec;
+	--color-base-content: #172338;
+	--color-primary: #2458cc;
+	--color-primary-content: #ffffff;
+	--color-secondary: #475c76;
+	--color-secondary-content: #ffffff;
+	--color-accent: #14725a;
+	--color-accent-content: #ffffff;
+	--color-neutral: #243248;
+	--color-neutral-content: #f7f9fc;
+	--color-info: #e6efff;
+	--color-info-content: #19437c;
+	--color-success: #e0f3e9;
+	--color-success-content: #19543a;
+	--color-warning: #fff1cf;
+	--color-warning-content: #764b09;
+	--color-error: #fce8e5;
+	--color-error-content: #982e28;
+	--radius-selector: 0.5rem;
+	--radius-field: 0.5rem;
+	--radius-box: 0.75rem;
+	--size-selector: 0.25rem;
+	--size-field: 0.25rem;
+	--border: 1px;
+	--depth: 0;
+	--noise: 0;
+}
+@plugin "daisyui/theme" {
+	name: "dark";
+	default: false;
+	prefersdark: true;
+	color-scheme: dark;
+	--color-base-100: #131c29;
+	--color-base-200: #1c2939;
+	--color-base-300: #34465c;
+	--color-base-content: #ecf1f8;
+	--color-primary: #a5beff;
+	--color-primary-content: #14213a;
+	--color-secondary: #b0c4df;
+	--color-secondary-content: #14213a;
+	--color-accent: #8edbc1;
+	--color-accent-content: #12372d;
+	--color-neutral: #d9e3f3;
+	--color-neutral-content: #192539;
+	--color-info: #203b5d;
+	--color-info-content: #c5dfff;
+	--color-success: #214435;
+	--color-success-content: #b8e9cf;
+	--color-warning: #4c3b20;
+	--color-warning-content: #f9d89e;
+	--color-error: #4e2c31;
+	--color-error-content: #ffc7c3;
+	--radius-selector: 0.5rem;
+	--radius-field: 0.5rem;
+	--radius-box: 0.75rem;
+	--size-selector: 0.25rem;
+	--size-field: 0.25rem;
+	--border: 1px;
+	--depth: 0;
+	--noise: 0;
+}
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 :root {
-	/* --font-sans: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji" */
-	/* 한글 폰트 폴백 */
 	--default-font-family:
-		"Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic",
-		/* 시스템 폰트 폴백 */
-		-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-		"Helvetica Neue", Arial, sans-serif,
-		/* 이모지 폰트 */
-		"Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
-
+		"Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", -apple-system,
+		BlinkMacSystemFont, "Segoe UI", sans-serif;
+	--page-gutter: clamp(1rem, 3vw, 2rem);
+	--section-space: clamp(1.75rem, 4vw, 3rem);
+	--mobile-nav-height: calc(4rem + env(safe-area-inset-bottom, 0px));
+	--text-muted: color-mix(
+		in oklab,
+		var(--color-base-content) 72%,
+		var(--color-base-100)
+	);
+	--lotto-yellow: light-dark(#f9edbf, #4d4121);
+	--lotto-yellow-content: light-dark(#72520a, #ffe6a1);
+	--lotto-blue: light-dark(#dfebff, #243f63);
+	--lotto-blue-content: light-dark(#244f8d, #c8e0ff);
+	--lotto-red: light-dark(#fbe3e0, #522e32);
+	--lotto-red-content: light-dark(#8b332b, #ffd1ca);
+	--lotto-grey: light-dark(#e6eaf0, #394757);
+	--lotto-grey-content: light-dark(#3f4b5d, #e7edf5);
+	--lotto-green: light-dark(#ddf0e5, #254b3a);
+	--lotto-green-content: light-dark(#28573f, #c0eed6);
 	word-break: keep-all;
 }
-
 body {
+	margin: 0;
+	background: var(--color-base-100);
+	color: var(--color-base-content);
 	font-family: var(--default-font-family);
-	/* 폰트 렌더링 최적화 */
 	-webkit-font-smoothing: antialiased;
 	-moz-osx-font-smoothing: grayscale;
-	text-rendering: optimizeLegibility;
-	transition: font-family 0.3s ease;
 }
-
-::view-transition {
+button,
+a,
+input,
+select,
+textarea,
+summary {
+	-webkit-tap-highlight-color: transparent;
+}
+button,
+a,
+summary {
+	touch-action: manipulation;
+}
+:focus-visible {
+	outline: 2px solid var(--color-primary);
+	outline-offset: 4px;
+}
+img,
+video {
+	max-width: 100%;
+}
+button,
+input,
+select,
+textarea {
+	font: inherit;
+}
+.app-shell {
+	min-height: 100dvh;
+	display: flex;
+	flex-direction: column;
+}
+.page-shell {
+	flex: 1;
+	width: 100%;
+	max-width: 1240px;
+	min-width: 0;
+	margin-inline: auto;
+}
+.content-page {
+	width: 100%;
+	min-width: 0;
+	padding: var(--section-space) var(--page-gutter);
+}
+.page-header {
+	margin-bottom: 1.75rem;
+}
+.page-header h1 {
+	font-size: clamp(1.65rem, 3vw, 2.25rem);
+	font-weight: 750;
+	line-height: 1.25;
+	letter-spacing: -0.045em;
+}
+.page-header p {
+	margin-top: 0.6rem;
+	color: var(--text-muted);
+	font-size: 0.9375rem;
+	line-height: 1.75;
+	max-width: 65ch;
+}
+.section-heading {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	flex-wrap: wrap;
+	gap: 0.75rem;
+	margin-bottom: 1.25rem;
+}
+.section-heading h2 {
+	font-size: 1.2rem;
+	font-weight: 700;
+	letter-spacing: -0.03em;
+}
+.section-label {
+	font-size: 0.75rem;
+	color: var(--text-muted);
+	font-weight: 600;
+}
+.number-value {
+	font-variant-numeric: tabular-nums;
+}
+.skip-link {
 	position: fixed;
-	inset: 0;
-	z-index: 10;
+	top: -5rem;
+	left: 1rem;
+	z-index: 100;
+	padding: 0.75rem 1rem;
+	background: var(--color-base-100);
+	border: 2px solid var(--color-primary);
+	border-radius: 0.5rem;
 }
-
+.skip-link:focus {
+	top: 1rem;
+}
+.btn {
+	font-weight: 600;
+	box-shadow: none;
+}
+.table {
+	font-variant-numeric: tabular-nums;
+}
+details > summary {
+	cursor: pointer;
+}
 ::view-transition-group(*) {
-	animation-duration: 0.25s;
+	animation-duration: 160ms;
 }
-
-::view-transition-old(*) {
-	z-index: 1;
+@media (max-width: 767px) {
+	.app-shell {
+		padding-bottom: var(--mobile-nav-height);
+	}
+	input,
+	select,
+	textarea {
+		font-size: 16px;
+	}
+	.page-header {
+		margin-bottom: 1.5rem;
+	}
 }
-
-::view-transition-new(*) {
-	z-index: 2;
-}
-
-/* 모바일 네비게이션이 모든 요소보다 위에 오도록 강제 */
-nav[aria-label*="모바일"],
-.btm-nav,
-nav.fixed.bottom-0 {
-	z-index: 2147483647 !important; /* CSS 최대 z-index */
-	position: fixed !important;
-}
-
-/* View Transition 중에도 모바일 네비게이션 스냅샷이 최상위 유지 */
-::view-transition-group(mobile-navigation),
-::view-transition-old(mobile-navigation),
-::view-transition-new(mobile-navigation) {
-	z-index: 2147483647 !important;
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		scroll-behavior: auto !important;
+		animation-duration: 0.01ms !important;
+		animation-iteration-count: 1 !important;
+		transition-duration: 0.01ms !important;
+	}
 }

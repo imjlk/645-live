@@ -1,6 +1,7 @@
+import { error } from "@sveltejs/kit";
+import { initClient } from "trailbase";
 import { PUBLIC_TRAILBASE_URL } from "$env/static/public";
 import { getSingleStatsFreshness } from "$lib/trailbase/stats-freshness";
-import { initClient } from "trailbase";
 import type { PageServerLoad } from "./$types";
 
 const client = initClient(PUBLIC_TRAILBASE_URL || "http://localhost:4000");
@@ -9,21 +10,15 @@ const client = initClient(PUBLIC_TRAILBASE_URL || "http://localhost:4000");
 export const prerender = false;
 
 export const load: PageServerLoad = async ({ params }) => {
+	const selectedNumber = Number(params.number);
+	if (
+		!Number.isInteger(selectedNumber) ||
+		selectedNumber < 1 ||
+		selectedNumber > 45
+	) {
+		error(404, "1부터 45까지의 번호를 선택해주세요.");
+	}
 	try {
-		const numberParam = params.number;
-		const selectedNumber = Number(numberParam);
-
-		// 유효성 검사
-		if (
-			Number.isNaN(selectedNumber) ||
-			selectedNumber < 1 ||
-			selectedNumber > 45
-		) {
-			throw new Error(
-				"잘못된 번호 파라미터입니다. 1~45 사이의 번호를 입력해주세요.",
-			);
-		}
-
 		// 전체 회차 수 조회
 		const [totalRoundsResponse, freshness] = await Promise.all([
 			client.records("lotto_draw_results").list({

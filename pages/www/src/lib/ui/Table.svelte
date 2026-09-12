@@ -240,29 +240,29 @@ const getSortIcon = (column: TableColumn<T>): string => {
     position: sticky;
     top: 0;
     z-index: 10;
-    border-bottom: 2px solid oklch(var(--b3));
+    border-bottom: 2px solid var(--color-base-300);
   }
   
   .table td {
-    border-bottom: 1px solid oklch(var(--b3) / 0.5);
+    border-bottom: 1px solid color-mix(in oklch, var(--color-base-300) 50%, transparent);
   }
   
   /* Row hover effects */
   .table tbody tr:hover {
     transform: translateY(-1px);
-    box-shadow: 0 2px 4px oklch(var(--b3) / 0.3);
+    box-shadow: 0 2px 4px color-mix(in oklch, var(--color-base-300) 30%, transparent);
   }
   
   /* Focus styles for accessibility */
   .table th[tabindex]:focus,
   .table tr[tabindex]:focus {
-    outline: 2px solid oklch(var(--p));
+    outline: 2px solid var(--color-primary);
     outline-offset: -2px;
   }
   
   /* Sortable header styling */
   .table th.cursor-pointer:hover {
-    background-color: oklch(var(--b3));
+    background-color: var(--color-base-300);
   }
   
   /* High contrast mode support */

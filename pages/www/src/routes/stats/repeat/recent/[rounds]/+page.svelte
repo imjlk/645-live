@@ -1,7 +1,7 @@
 <script lang="ts">
+import { JsonLd, MetaTags } from "svelte-meta-tags";
 import { RecentAnalysisInput } from "$lib/components/stats";
 import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
-import { JsonLd, MetaTags } from "svelte-meta-tags";
 import type { PageData } from "./$types";
 
 let { data }: { data: PageData } = $props();
@@ -71,14 +71,21 @@ const sortedRepeatCounts = $derived(
 		([, a], [, b]) => Number(b) - Number(a),
 	),
 );
+
+const pageTitle = $derived(
+	`최근 ${data.selectedRounds}회 로또 회차 간 중복 번호 통계`,
+);
+const pageDescription = $derived(
+	`로또 6/45 최근 ${data.selectedRounds}회차 추첨 결과에서 직전 회차와 겹친 당첨번호의 개수와 출현 빈도를 확인하세요. 중복이 없는 회차부터 여러 번호가 다시 나온 회차까지 분포를 비교하고, 기간별 평균과 회차별 중복 번호 기록을 살펴볼 수 있습니다.`,
+);
 </script>
 
 <MetaTags
-	title="로또 6/45 연속번호 중복 분석 통계 | 회차간 중복 패턴 분석"
+	title={pageTitle}
 	titleTemplate="%s | 645.live"
-	description={`로또 6/45 연속 회차 간 중복 번호 패턴을 분석합니다 (최근 ${data.selectedRounds}회차). 이전 회차와의 번호 중복 빈도와 연속성 트렌드를 제공합니다.`}
+	description={pageDescription}
 	canonical={`https://645.live/stats/repeat/recent/${data.selectedRounds}`}
-	keywords={["로또", "연속번호", "중복번호", "로또통계", "번호패턴", "연속성분석", "로또예측", "6/45통계", "로또연속성", "번호중복분석"]}
+	keywords={["로또", "연속번호", "중복번호", "로또통계", "번호패턴", "연속성분석", "6/45통계", "로또연속성", "번호중복분석"]}
 	robots="index,follow"
 	additionalRobotsProps={{
 		maxSnippet: 320,
@@ -89,10 +96,6 @@ const sortedRepeatCounts = $derived(
 		{
 			name: 'application-name',
 			content: '645.live'
-		},
-		{
-			name: 'theme-color',
-			content: '#3B82F6'
 		},
 		{
 			name: 'format-detection',
@@ -114,8 +117,8 @@ const sortedRepeatCounts = $derived(
 	openGraph={{
 		type: 'article',
 		url: `https://645.live/stats/repeat/recent/${data.selectedRounds}`,
-		title: `로또 6/45 연속번호 중복 분석 통계 | 회차간 중복 패턴 (최근 ${data.selectedRounds}회차)`,
-		description: `로또 6/45 연속 회차 간 중복 번호 패턴을 분석합니다 (최근 ${data.selectedRounds}회차). 이전 회차와의 번호 중복 빈도와 연속성 트렌드를 제공합니다.`,
+		title: pageTitle,
+		description: pageDescription,
 		locale: 'ko_KR',
 		images: [{
 			url: 'https://645.live/images/lotto-repeat-stats.png',
@@ -129,15 +132,13 @@ const sortedRepeatCounts = $derived(
 		article: {
 			section: '로또 통계',
 			tags: ['로또', '연속번호', '중복번호', '로또통계', '번호패턴', '연속성분석', '6/45통계', '로또연속성'],
-			publishedTime: '2024-01-01T00:00:00.000Z',
-			modifiedTime: new Date().toISOString()
 		}
 	}}
 	twitter={{
 		cardType: 'summary_large_image',
 		site: '@645live',
-		title: `로또 6/45 연속번호 중복 분석 통계 (최근 ${data.selectedRounds}회차)`,
-		description: '회차간 중복 패턴 분석으로 로또 번호 연속성을 파악하세요.',
+		title: pageTitle,
+		description: pageDescription,
 		image: 'https://645.live/images/lotto-repeat-stats.png',
 		imageAlt: '로또 6/45 연속번호 중복 분석 통계'
 	}}
@@ -184,18 +185,15 @@ const sortedRepeatCounts = $derived(
 	}}
 />
 
-<div class="p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-6 max-sm:px-0">
+<div class="stats-page">
 	<!-- Breadcrumbs -->
 	<Breadcrumbs items={breadcrumbItems} />
 
 	<!-- 페이지 헤더 -->
-	<div class="text-center space-y-2">
-		<h1 class="text-2xl sm:text-3xl font-bold text-primary">연속번호 중복 분석 통계</h1>
-		<p class="text-sm sm:text-base text-base-content/70">
-			최근 <span class="font-semibold text-primary">{data.selectedRounds}회차</span>의 연속 회차 간 중복 번호 패턴을 분석합니다.<br />
-			이전 회차와 현재 회차의 번호 중복 빈도와 연속성을 확인하세요.
-		</p>
-	</div>
+	<header class="stats-recent-heading space-y-2">
+		<h1 class="font-bold">최근 {data.selectedRounds}회 회차 간 중복 번호</h1>
+		<p>직전 회차와 겹친 번호의 개수와 중복 빈도를 확인하세요.</p>
+	</header>
 
 	<RecentAnalysisInput
 		maxRounds={data.totalRounds}
@@ -241,7 +239,7 @@ const sortedRepeatCounts = $derived(
 			</p>
 			
 			<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-2 sm:gap-4">
-				{#each sortedRepeatCounts as [repeatCount, count]}
+				{#each sortedRepeatCounts as [repeatCount, count] (repeatCount)}
 					{@const percentage = data.repeatStats.summary.totalDraws > 0 ? ((Number(count) / data.repeatStats.summary.totalDraws) * 100).toFixed(1) : "0.0"}
 					{@const analysis = getRepeatAnalysis(Number(repeatCount))}
 					
@@ -261,7 +259,7 @@ const sortedRepeatCounts = $derived(
 			<div class="mt-4 sm:mt-6 p-3 sm:p-4 bg-base-200 rounded-lg">
 				<h3 class="font-semibold mb-2 sm:mb-3 text-sm sm:text-base">중복 패턴 분석</h3>
 				<div class="grid grid-cols-1 gap-3 sm:gap-4 text-xs sm:text-sm">
-					{#each sortedRepeatCounts as [repeatCount, count]}
+					{#each sortedRepeatCounts as [repeatCount, count] (repeatCount)}
 						{@const percentage = data.repeatStats.summary.totalDraws > 0 ? ((Number(count) / data.repeatStats.summary.totalDraws) * 100).toFixed(1) : "0.0"}
 						{@const analysis = getRepeatAnalysis(Number(repeatCount))}
 						
@@ -295,7 +293,7 @@ const sortedRepeatCounts = $derived(
 						</tr>
 					</thead>
 					<tbody>
-						{#each data.repeatStats.records.slice(0, 20) as stat}
+						{#each data.repeatStats.records.slice(0, 20) as stat (stat.round)}
 							{@const statRecord = stat as { round: number; repeat_count: number }}
 							{@const analysis = getRepeatAnalysis(statRecord.repeat_count)}
 							<tr>

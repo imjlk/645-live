@@ -1,8 +1,8 @@
-import { getScanPreviewState } from "$lib/server/scan-preview.js";
-import { TRAILBASE_URL } from "$env/static/private";
-import { calculateDisplayRound } from "$lib/utils/lotto-api";
 import { error } from "@sveltejs/kit";
 import { initClient } from "trailbase";
+import { TRAILBASE_URL } from "$env/static/private";
+import { getScanPreviewState } from "$lib/server/scan-preview.js";
+import { calculateDisplayRound } from "$lib/utils/lotto-api";
 import type { PageServerLoad } from "./$types";
 
 const client = initClient(TRAILBASE_URL || "http://localhost:4000");
@@ -45,13 +45,11 @@ interface NumberDetails {
 }
 
 export const load: PageServerLoad = async ({ params }) => {
+	const ballNumber = Number(params.index);
+	if (!Number.isInteger(ballNumber) || ballNumber < 1 || ballNumber > 45) {
+		error(404, "1부터 45까지의 번호를 선택해주세요.");
+	}
 	try {
-		const ballNumber = Number(params.index);
-
-		if (Number.isNaN(ballNumber) || ballNumber < 1 || ballNumber > 45) {
-			error(404, { message: "Ball number must be between 1 and 45" });
-		}
-
 		// Get total rounds by reading the latest round number
 		const latestRoundResponse = await client
 			.records("lotto_draw_results")

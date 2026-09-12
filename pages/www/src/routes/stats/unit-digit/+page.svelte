@@ -1,8 +1,8 @@
 <script lang="ts">
+import { JsonLd, MetaTags } from "svelte-meta-tags";
 import { RecentAnalysisInput, StatsPageHero } from "$lib/components/stats";
 import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
 import LinkButton from "$lib/ui/LinkButton.svelte";
-import { JsonLd, MetaTags } from "svelte-meta-tags";
 import type { PageData } from "./$types";
 
 interface Props {
@@ -47,11 +47,9 @@ const getDigitLightColorClass = (digit: string) => {
 		"bg-indigo-500/20 text-indigo-600 dark:text-indigo-400",
 		"bg-teal-500/20 text-teal-600 dark:text-teal-400",
 		"bg-orange-500/20 text-orange-600 dark:text-orange-400",
-		"bg-gray-500/20 text-gray-600 dark:text-gray-400",
+		"bg-gray-500/20 text-base-content/70",
 	];
-	return (
-		colors[Number(digit)] || "bg-gray-500/20 text-gray-600 dark:text-gray-400"
-	);
+	return colors[Number(digit)] || "bg-gray-500/20 text-base-content/70";
 };
 
 // 데이터 검증 및 안전한 접근 (Svelte 5 $derived 사용)
@@ -112,14 +110,19 @@ let digitTotalsMax = $derived(
 		? Math.max(...Object.values(safeDigitTotals).map((value) => Number(value)))
 		: 0,
 );
+
+const pageTitle = $derived(`로또 끝수 분포와 회차별 기록`);
+const pageDescription = $derived(
+	`로또 6/45 전체 ${data.totalRounds}회차 추첨 결과에서 당첨번호의 끝자리 0~9별 출현 횟수와 평균을 확인하세요. 자주 나온 끝수와 적게 나온 끝수, 회차별 끝자리 조합을 비교하고 기간을 바꿔 각 숫자의 실제 출현 분포를 살펴볼 수 있습니다.`,
+);
 </script>
 
 <MetaTags
-	title="로또 6/45 끝수 분석 통계 | 끝자리 숫자별 출현 패턴"
+	title={pageTitle}
 	titleTemplate="%s | 645.live"
-	description="로또 6/45 당첨번호의 끝수(0-9) 분포 및 출현 패턴을 분석합니다. 각 끝수별 출현 빈도와 통계를 확인하세요."
+	description={pageDescription}
 	canonical="https://645.live/stats/unit-digit"
-	keywords={["로또", "끝수분석", "끝자리숫자", "로또통계", "끝수패턴", "로또예측", "6/45통계", "끝수분포", "숫자분석", "로또끝수통계"]}
+	keywords={["로또", "끝수분석", "끝자리숫자", "로또통계", "끝수패턴", "6/45통계", "끝수분포", "숫자분석", "로또끝수통계"]}
 	robots="index,follow"
 	additionalRobotsProps={{
 		maxSnippet: 320,
@@ -130,10 +133,6 @@ let digitTotalsMax = $derived(
 		{
 			name: 'application-name',
 			content: '645.live'
-		},
-		{
-			name: 'theme-color',
-			content: '#3B82F6'
 		},
 		{
 			name: 'format-detection',
@@ -155,8 +154,8 @@ let digitTotalsMax = $derived(
 	openGraph={{
 		type: 'article',
 		url: 'https://645.live/stats/unit-digit',
-		title: '로또 6/45 끝수 분석 통계 | 끝자리 숫자별 출현 패턴',
-		description: '로또 6/45 당첨번호의 끝수(0-9) 분포 및 출현 패턴을 분석합니다. 각 끝수별 출현 빈도와 통계를 확인하세요.',
+		title: pageTitle,
+		description: pageDescription,
 		locale: 'ko_KR',
 		images: [{
 			url: `https://645.live/og?title=${encodeURIComponent('로또 6/45 끝수 분석')}&description=${encodeURIComponent(`0-9 끝자리 완전분석 - 최다: ${safeMostFrequentDigit[0]} (${safeMostFrequentDigit[1]}회) - 최소: ${safeLeastFrequentDigit[0]} (${safeLeastFrequentDigit[1]}회)`)}&layout=minimal&theme=dark`,
@@ -169,15 +168,13 @@ let digitTotalsMax = $derived(
 		article: {
 			section: '로또 통계',
 			tags: ['로또', '끝수분석', '끝자리숫자', '로또통계', '끝수패턴', '6/45통계', '끝수분포', '숫자분석'],
-			publishedTime: '2024-01-01T00:00:00.000Z',
-			modifiedTime: new Date().toISOString()
 		}
 	}}
 	twitter={{
 		cardType: 'summary_large_image',
 		site: '@645live',
-		title: '로또 6/45 끝수 분석 통계',
-		description: '끝자리 숫자별 출현 패턴으로 로또 번호 분석을 파악하세요.',
+		title: pageTitle,
+		description: pageDescription,
 		image: `https://645.live/og?title=${encodeURIComponent('로또 6/45 끝수 분석')}&description=${encodeURIComponent(`0-9 끝자리 완전분석 - 최다: ${safeMostFrequentDigit[0]} (${safeMostFrequentDigit[1]}회) - 최소: ${safeLeastFrequentDigit[0]} (${safeLeastFrequentDigit[1]}회)`)}&layout=minimal&theme=dark`,
 		imageAlt: '로또 6/45 끝수 분석 통계'
 	}}
@@ -224,14 +221,14 @@ let digitTotalsMax = $derived(
 	}}
 />
 
-<div class="p-6 space-y-6 max-sm:px-0">
+<div class="stats-page">
 	<!-- Breadcrumbs -->
 	<Breadcrumbs items={breadcrumbItems} />
 
 	<StatsPageHero
-		eyebrow="Unit Digit Pattern"
+		eyebrow="공식 추첨 통계"
 		title="끝수 분석 통계"
-		description={`로또 6/45 당첨번호의 끝수(0-9) 분포와 출현 패턴을 분석합니다. 어떤 끝수가 상대적으로 강했고 약했는지, 회차별 기대 평균과 함께 비교할 수 있습니다.`}
+		description="로또 6/45 당첨번호의 끝수(0-9) 분포와 출현 패턴을 분석합니다. 어떤 끝수가 상대적으로 강했고 약했는지, 회차별 기대 평균과 함께 비교할 수 있습니다."
 		metrics={[
 			{
 				label: "최다 끝수",
@@ -297,7 +294,7 @@ let digitTotalsMax = $derived(
 			</p>
 			
 			<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
-				{#each Object.entries(safeDigitTotals) as [digit, total]}
+				{#each Object.entries(safeDigitTotals) as [digit, total] (digit)}
 					<div class="text-center space-y-2 p-4 bg-base-200 rounded-lg">
 						<div class="inline-flex items-center justify-center w-12 h-12 rounded-full {getDigitColorClass(digit)} text-white text-xl font-bold">
 							{digit}
@@ -323,7 +320,7 @@ let digitTotalsMax = $derived(
 			<div class="card-body p-3 sm:p-6">
 				<h3 class="card-title text-lg sm:text-xl">끝수별 총 출현 횟수</h3>
 				<div class="space-y-3">
-					{#each Object.entries(safeDigitTotals) as [digit, total]}
+					{#each Object.entries(safeDigitTotals) as [digit, total] (digit)}
 						<div class="flex items-center justify-between">
 							<div class="flex items-center">
 								<div class="w-6 h-6 rounded-full {getDigitColorClass(digit)} mr-3 text-white text-sm font-bold flex items-center justify-center">
@@ -350,14 +347,14 @@ let digitTotalsMax = $derived(
 			<div class="card-body p-3 sm:p-6">
 				<h3 class="card-title text-lg sm:text-xl">끝수별 개수 분포</h3>
 				<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 text-xs">
-					{#each Object.entries(safeDigitTotals) as [digit, total]}
+					{#each Object.entries(safeDigitTotals) as [digit, total] (digit)}
 						<div class="text-center">
 							<div class="w-6 h-6 rounded-full {getDigitColorClass(digit)} mx-auto mb-1 text-white text-xs font-bold flex items-center justify-center">
 								{digit}
 							</div>
 							<div class="font-medium text-xs mb-2">끝수 {digit}</div>
 							<div class="space-y-1">
-								{#each Object.entries(safeDigitCountDistribution[digit] || {}) as [count, freq]}
+								{#each Object.entries(safeDigitCountDistribution[digit] || {}) as [count, freq] (count)}
 									<div class="flex justify-between text-xs">
 										<span>{count}개</span>
 										<span class="text-base-content/70">{freq}</span>
@@ -393,7 +390,7 @@ let digitTotalsMax = $derived(
 						</tr>
 					</thead>
 					<tbody>
-						{#each safeRecentStats as stat}
+						{#each safeRecentStats as stat (stat.round)}
 							{@const statRecord = stat as Record<string, any>}
 							<tr>
 								<td class="font-semibold sticky left-0 bg-base-100 z-10 text-xs sm:text-sm">{statRecord.round}회</td>

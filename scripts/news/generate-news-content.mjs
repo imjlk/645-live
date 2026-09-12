@@ -314,7 +314,9 @@ function extractScanSummary(scanRow, analysis) {
 			number,
 			count: safeInt(scanRow[`scan_count_${number}`]),
 		};
-	}).sort((left, right) => right.count - left.count || left.number - right.number);
+	}).sort(
+		(left, right) => right.count - left.count || left.number - right.number,
+	);
 
 	const topScanned = counts.filter((item) => item.count > 0).slice(0, 6);
 	const topScannedNumbers = topScanned.map((item) => item.number);
@@ -354,7 +356,9 @@ function pickByRound(round, variants) {
 }
 
 function formatNumberList(numbers) {
-	const list = Array.isArray(numbers) ? numbers.filter((value) => value > 0) : [];
+	const list = Array.isArray(numbers)
+		? numbers.filter((value) => value > 0)
+		: [];
 	if (list.length === 0) return "";
 	return list.join(", ");
 }
@@ -362,7 +366,9 @@ function formatNumberList(numbers) {
 function buildScanNarrative(scanSummary, analysis) {
 	if (!scanSummary) return "";
 
-	const topNumbersText = formatNumberList(scanSummary.topScannedNumbers.slice(0, 4));
+	const topNumbersText = formatNumberList(
+		scanSummary.topScannedNumbers.slice(0, 4),
+	);
 	const overlapText =
 		scanSummary.winningOverlapCount > 0
 			? `상위 스캔 번호 중 실제 당첨번호와 겹친 숫자는 ${formatNumberList(scanSummary.winningOverlap)} ${scanSummary.winningOverlapCount}개였습니다.`
@@ -387,9 +393,12 @@ function buildScanNarrative(scanSummary, analysis) {
 
 function getSelectionLead(analysis) {
 	const selectionParts = [];
-	if (analysis.autoCount > 0) selectionParts.push(`자동 ${analysis.autoCount}곳`);
-	if (analysis.manualCount > 0) selectionParts.push(`수동 ${analysis.manualCount}곳`);
-	if (analysis.semiCount > 0) selectionParts.push(`반자동 ${analysis.semiCount}곳`);
+	if (analysis.autoCount > 0)
+		selectionParts.push(`자동 ${analysis.autoCount}곳`);
+	if (analysis.manualCount > 0)
+		selectionParts.push(`수동 ${analysis.manualCount}곳`);
+	if (analysis.semiCount > 0)
+		selectionParts.push(`반자동 ${analysis.semiCount}곳`);
 	return selectionParts.length > 0
 		? `선택 방식 기준으로는 ${selectionParts.join(", ")} 흐름이 보였습니다.`
 		: "";
@@ -445,7 +454,8 @@ function buildAngleRecommendedStats(analysis, angle, scanSummary) {
 	const links = [];
 
 	const push = (key, label, reason, extra = {}) => {
-		if (links.some((item) => item.key === key && item.href === extra.href)) return;
+		if (links.some((item) => item.key === key && item.href === extra.href))
+			return;
 
 		if (key === "number_focus") {
 			if (!extra.number) return;
@@ -500,8 +510,16 @@ function buildAngleRecommendedStats(analysis, angle, scanSummary) {
 			);
 			break;
 		case "number_pattern":
-			push("odd_even", "홀짝 분석", "이번 회차의 홀짝 비율이 평균 패턴에서 얼마나 벗어났는지 확인");
-			push("high_low", "고저번대 통계", "저번호·고번호 쏠림을 장기 데이터와 비교");
+			push(
+				"odd_even",
+				"홀짝 분석",
+				"이번 회차의 홀짝 비율이 평균 패턴에서 얼마나 벗어났는지 확인",
+			);
+			push(
+				"high_low",
+				"고저번대 통계",
+				"저번호·고번호 쏠림을 장기 데이터와 비교",
+			);
 			push("repeat", "연속 중복 통계", "연속번호와 반복 출현 흐름을 함께 확인");
 			break;
 		case "region_distribution":
@@ -510,18 +528,50 @@ function buildAngleRecommendedStats(analysis, angle, scanSummary) {
 				`${analysis.round}회차 당첨점 조회`,
 				"지역별 1등·2등 판매점 주소와 선택 방식을 바로 확인",
 			);
-			push("colors", "색깔별 통계", "집중된 번호 구간이 색상 분포와 연결되는지 확인");
-			push("sections", "구간별 분석", "번호대 분포와 판매점 집중 흐름을 함께 보기 좋음");
+			push(
+				"colors",
+				"색깔별 통계",
+				"집중된 번호 구간이 색상 분포와 연결되는지 확인",
+			);
+			push(
+				"sections",
+				"구간별 분석",
+				"번호대 분포와 판매점 집중 흐름을 함께 보기 좋음",
+			);
 			break;
 		case "round_comparison":
-			push("repeat", "연속 중복 통계", "직전 회차와 겹친 번호가 장기적으로 얼마나 자주 나오는지 확인");
-			push("pairs", "번호 쌍 통계", "연속 회차 사이 함께 등장한 번호 조합을 더 자세히 비교");
-			push("winning_stores", "당첨점 비교", "직전 회차와 판매점 분포 차이를 함께 체크");
+			push(
+				"repeat",
+				"연속 중복 통계",
+				"직전 회차와 겹친 번호가 장기적으로 얼마나 자주 나오는지 확인",
+			);
+			push(
+				"pairs",
+				"번호 쌍 통계",
+				"연속 회차 사이 함께 등장한 번호 조합을 더 자세히 비교",
+			);
+			push(
+				"winning_stores",
+				"당첨점 비교",
+				"직전 회차와 판매점 분포 차이를 함께 체크",
+			);
 			break;
 		default:
-			push("winning_stores", "당첨점 조회", "고액 당첨 회차의 판매점 분포와 선택 방식을 확인");
-			push("ac", "AC값 통계", "당첨자 수와 조합 복잡도의 관계를 함께 살펴볼 수 있음");
-			push("pairs", "번호 쌍 통계", "당첨 조합의 페어 빈도를 장기 데이터와 비교");
+			push(
+				"winning_stores",
+				"당첨점 조회",
+				"고액 당첨 회차의 판매점 분포와 선택 방식을 확인",
+			);
+			push(
+				"ac",
+				"AC값 통계",
+				"당첨자 수와 조합 복잡도의 관계를 함께 살펴볼 수 있음",
+			);
+			push(
+				"pairs",
+				"번호 쌍 통계",
+				"당첨 조합의 페어 빈도를 장기 데이터와 비교",
+			);
 			break;
 	}
 
@@ -529,13 +579,18 @@ function buildAngleRecommendedStats(analysis, angle, scanSummary) {
 }
 
 function buildCandidateSimilarity(candidate, references) {
-	const recentReferences = Array.isArray(references) ? references.slice(0, 3) : [];
+	const recentReferences = Array.isArray(references)
+		? references.slice(0, 3)
+		: [];
 	if (recentReferences.length === 0) return 0;
 
 	return recentReferences.reduce((maxScore, reference) => {
 		const score = Math.max(
 			tokenSimilarity(candidate.title, reference.title),
-			tokenSimilarity(firstParagraph(candidate.lead), firstParagraph(reference.lead)),
+			tokenSimilarity(
+				firstParagraph(candidate.lead),
+				firstParagraph(reference.lead),
+			),
 			tokenSimilarity(candidate.insight, reference.insight),
 		);
 		return Math.max(maxScore, score);
@@ -543,7 +598,9 @@ function buildCandidateSimilarity(candidate, references) {
 }
 
 function tokenSimilarity(left, right) {
-	const leftTokens = new Set(normalizeSimilarityText(left).split(" ").filter(Boolean));
+	const leftTokens = new Set(
+		normalizeSimilarityText(left).split(" ").filter(Boolean),
+	);
 	const rightTokens = new Set(
 		normalizeSimilarityText(right).split(" ").filter(Boolean),
 	);
@@ -572,7 +629,9 @@ function buildPreviousRoundContext(analysis, previousDraw) {
 	const previousRound = safeInt(previousDraw.round);
 	if (!previousRound) return null;
 
-	const previousNumbers = getNumbers(previousDraw).sort((left, right) => left - right);
+	const previousNumbers = getNumbers(previousDraw).sort(
+		(left, right) => left - right,
+	);
 	const repeatedNumbers = analysis.numbers.filter((number) =>
 		previousNumbers.includes(number),
 	);
@@ -817,6 +876,7 @@ function sanitizeMdxBlock(value, fallback = "") {
 
 function normalizeBlock(value, fallback) {
 	const raw = String(value ?? "")
+		.replace(/\\n/g, "\n")
 		.replace(/\r/g, "")
 		.trim();
 	if (!raw) return fallback;
@@ -954,11 +1014,15 @@ function buildFallbackBulletPoints(draw, analysis, variant, previous) {
 	];
 
 	if (buildSelectionSummary(analysis)) {
-		points.push(`1등 판매점 선택 방식 기준으로는 ${buildSelectionSummary(analysis)} 분포가 확인됩니다.`);
+		points.push(
+			`1등 판매점 선택 방식 기준으로는 ${buildSelectionSummary(analysis)} 분포가 확인됩니다.`,
+		);
 	}
 
 	if (variant === "pattern") {
-		points.push(`번호 패턴 기준으로는 ${buildPatternSummary(analysis)}이 이번 회차에서 동시에 관측됐습니다.`);
+		points.push(
+			`번호 패턴 기준으로는 ${buildPatternSummary(analysis)}이 이번 회차에서 동시에 관측됐습니다.`,
+		);
 	}
 
 	if (analysis.dominantRegion) {
@@ -1038,7 +1102,9 @@ function buildAnglePayload(
 	const round = analysis.round;
 	const bonus = safeInt(draw.bonus_number);
 	const scanNarrative = buildScanNarrative(scanSummary, analysis);
-	const previousNarrative = previous ? buildPreviousRoundSentence(previous) : "";
+	const previousNarrative = previous
+		? buildPreviousRoundSentence(previous)
+		: "";
 	const selectionLead = getSelectionLead(analysis);
 	const regionNarrative = analysis.dominantRegion
 		? `${analysis.dominantRegion.region} 지역은 전체 당첨점의 ${formatRatio(analysis.dominantRatio)}를 차지하며 이번 회차 판매점 분포에서 가장 먼저 눈에 띄었습니다.`
@@ -1079,7 +1145,8 @@ function buildAnglePayload(
 			bulletPoints = [
 				`당첨번호는 ${analysis.numbers.join(", ")}이고 보너스번호는 ${bonus}입니다.`,
 				`1등 당첨자는 ${analysis.winnerCount}명이며 1인당 당첨금은 ${formatWon(analysis.winnerAmount)}입니다.`,
-				scanNarrative || `총 판매액은 ${formatWon(analysis.totalSales)}이며 스캔 관심도와 실제 결과 차이를 함께 볼 수 있습니다.`,
+				scanNarrative ||
+					`총 판매액은 ${formatWon(analysis.totalSales)}이며 스캔 관심도와 실제 결과 차이를 함께 볼 수 있습니다.`,
 				previousNarrative || regionNarrative,
 			];
 			break;
@@ -1100,7 +1167,9 @@ function buildAnglePayload(
 				`당첨번호는 ${analysis.numbers.join(", ")} + 보너스 ${bonus}입니다.`,
 				`${buildPatternSummary(analysis)}이 동시에 나타났습니다.`,
 				`홀짝은 ${analysis.oddCount}:${analysis.evenCount}, 저번호/고번호는 ${analysis.lowCount}:${analysis.highCount} 분포입니다.`,
-				scanNarrative || previousNarrative || `1등 판매점은 ${analysis.firstStoreCount}개, 전체 당첨점은 ${analysis.storesCount}개입니다.`,
+				scanNarrative ||
+					previousNarrative ||
+					`1등 판매점은 ${analysis.firstStoreCount}개, 전체 당첨점은 ${analysis.storesCount}개입니다.`,
 			];
 			break;
 		case "region_distribution":
@@ -1114,7 +1183,8 @@ function buildAnglePayload(
 			].filter(Boolean);
 			insightParagraphs = [
 				`판매점 분포는 단순히 “어디서 많이 나왔나”를 넘어서, 온라인 포함 여부와 생활권 밀도, 자동·수동 선택 흐름을 함께 해석해야 의미가 살아납니다. 같은 상위 지역이라도 1등 중심인지 2등 중심인지에 따라 기사 초점이 달라집니다.`,
-				selectionLead || `1등 판매점 기준으로는 지역별 편차가 확실히 나타났습니다.`,
+				selectionLead ||
+					`1등 판매점 기준으로는 지역별 편차가 확실히 나타났습니다.`,
 				scanNarrative || previousNarrative || patternNarrative,
 			];
 			bulletPoints = [
@@ -1122,7 +1192,8 @@ function buildAnglePayload(
 				analysis.dominantRegion
 					? `${analysis.dominantRegion.region} 지역이 전체 당첨점의 ${formatRatio(analysis.dominantRatio)}를 차지했습니다.`
 					: "지역별 분포는 여러 권역으로 분산됐습니다.",
-				selectionLead || `당첨번호는 ${analysis.numbers.join(", ")} + 보너스 ${bonus}입니다.`,
+				selectionLead ||
+					`당첨번호는 ${analysis.numbers.join(", ")} + 보너스 ${bonus}입니다.`,
 				scanNarrative ||
 					previousNarrative ||
 					`상위 주소 기준으로 먼저 확인된 곳은 ${analysis.areaRows[0]?.area || "주요 상권"}입니다.`,
@@ -1146,7 +1217,8 @@ function buildAnglePayload(
 			];
 			bulletPoints = [
 				`당첨번호는 ${analysis.numbers.join(", ")} + 보너스 ${bonus}입니다.`,
-				previousNarrative || `직전 회차 대비 변화를 확인할 수 있는 비교형 회차입니다.`,
+				previousNarrative ||
+					`직전 회차 대비 변화를 확인할 수 있는 비교형 회차입니다.`,
 				`1등 당첨자는 ${analysis.winnerCount}명, 1인당 당첨금은 ${formatWon(analysis.winnerAmount)}입니다.`,
 				scanNarrative || regionNarrative,
 			];
@@ -1197,12 +1269,18 @@ function buildAnglePayload(
 			].filter(Boolean),
 			round,
 		),
-		lead: normalizeBlock(filteredLead, buildFallbackLead(draw, analysis, variant, previous)),
+		lead: normalizeBlock(
+			filteredLead,
+			buildFallbackLead(draw, analysis, variant, previous),
+		),
 		bullet_points: bulletPoints
 			.map((item) => normalizeLine(item, ""))
 			.filter(Boolean)
 			.slice(0, 4),
-		insight: normalizeBlock(filteredInsight, buildFallbackInsight(analysis, variant, previous)),
+		insight: normalizeBlock(
+			filteredInsight,
+			buildFallbackInsight(analysis, variant, previous),
+		),
 		caution_message:
 			"복권은 건전한 오락으로 즐겨주세요. 과도한 구매는 경제적 부담을 유발할 수 있습니다.",
 		recommended_stats: buildAngleRecommendedStats(analysis, angle, scanSummary),
@@ -1210,7 +1288,40 @@ function buildAnglePayload(
 	};
 }
 
-function fallbackPayload(draw, analysis, previousDraw, scanSummary = null, recentReferences = []) {
+function buildSeoDescription(draw, analysis) {
+	const result = `제${analysis.round}회 로또 당첨번호는 ${analysis.numbers.join("·")}, 보너스는 ${safeInt(draw.bonus_number)}입니다.`;
+	const prize =
+		analysis.winnerCount > 0
+			? `1등은 ${analysis.winnerCount}명, 1인당 당첨금은 ${formatWon(analysis.winnerAmount)}입니다.`
+			: "이번 회차에는 1등 당첨자가 나오지 않았습니다.";
+	return `${result} ${prize} 번호 구성과 지역·주소별 당첨 판매점 집계를 함께 정리했습니다.`;
+}
+
+function normalizePayloadDescriptions(payload, fallback = payload) {
+	const summary = normalizeLine(
+		payload.summary || payload.description,
+		fallback.summary || fallback.description,
+	);
+	const candidate = normalizeLine(
+		payload.seoDescription,
+		fallback.seoDescription || fallback.description,
+	);
+	const length = [...candidate].length;
+	// Use a complete, data-grounded fallback instead of truncating text or adding filler.
+	const seoDescription =
+		length >= 90 && length <= 160
+			? candidate
+			: fallback.seoDescription || candidate;
+	return { ...payload, summary, description: summary, seoDescription };
+}
+
+function fallbackPayload(
+	draw,
+	analysis,
+	previousDraw,
+	scanSummary = null,
+	recentReferences = [],
+) {
 	const variant = getFallbackVariant(analysis);
 	const previous = buildPreviousRoundContext(analysis, previousDraw);
 	const angleOrder = selectStoryAngles(analysis, scanSummary, previous);
@@ -1234,25 +1345,34 @@ function fallbackPayload(draw, analysis, previousDraw, scanSummary = null, recen
 		}
 
 		if (similarity < 0.62) {
-			return candidate;
+			return normalizePayloadDescriptions({
+				...candidate,
+				seoDescription: buildSeoDescription(draw, analysis),
+			});
 		}
 	}
 
-	return (
-		selected || {
+	return normalizePayloadDescriptions({
+		...(selected || {
 			title: pickTitle(analysis, variant).title,
 			description: pickTitle(analysis, variant).description,
 			category: "로또분석",
 			tags: buildFallbackTags(analysis, variant),
 			lead: buildFallbackLead(draw, analysis, variant, previous),
-			bullet_points: buildFallbackBulletPoints(draw, analysis, variant, previous),
+			bullet_points: buildFallbackBulletPoints(
+				draw,
+				analysis,
+				variant,
+				previous,
+			),
 			insight: buildFallbackInsight(analysis, variant, previous),
 			caution_message:
 				"복권은 건전한 오락으로 즐겨주세요. 과도한 구매는 경제적 부담을 유발할 수 있습니다.",
 			recommended_stats: buildRecommendedStatsLinks(analysis, variant),
 			story_angle: angleOrder[0] || "winner_payout",
-		}
-	);
+		}),
+		seoDescription: buildSeoDescription(draw, analysis),
+	});
 }
 
 function tryParseJson(text) {
@@ -1292,24 +1412,34 @@ function sanitizeAiPayload(rawPayload, round, fallback) {
 				.slice(0, 4)
 		: [];
 
-	return {
-		title: normalizeLine(rawPayload.title, fallback.title),
-		description: normalizeLine(rawPayload.description, fallback.description),
-		category: normalizeLine(rawPayload.category, fallback.category),
-		tags: normalizeTags(rawPayload.tags, round),
-		lead: normalizeBlock(rawPayload.lead, fallback.lead),
-		bullet_points:
-			bulletPoints.length > 0 ? bulletPoints : fallback.bullet_points,
-		insight: normalizeBlock(rawPayload.insight, fallback.insight),
-		caution_message: normalizeLine(
-			rawPayload.caution_message,
-			fallback.caution_message,
-		),
-		recommended_stats: normalizeRecommendedStats(
-			rawPayload.recommended_stats,
-			round,
-		),
-	};
+	return normalizePayloadDescriptions(
+		{
+			title: normalizeLine(rawPayload.title, fallback.title),
+			summary: normalizeLine(
+				rawPayload.summary || rawPayload.description,
+				fallback.summary,
+			),
+			seoDescription: normalizeLine(
+				rawPayload.seoDescription,
+				fallback.seoDescription,
+			),
+			category: normalizeLine(rawPayload.category, fallback.category),
+			tags: normalizeTags(rawPayload.tags, round),
+			lead: normalizeBlock(rawPayload.lead, fallback.lead),
+			bullet_points:
+				bulletPoints.length > 0 ? bulletPoints : fallback.bullet_points,
+			insight: normalizeBlock(rawPayload.insight, fallback.insight),
+			caution_message: normalizeLine(
+				rawPayload.caution_message,
+				fallback.caution_message,
+			),
+			recommended_stats: normalizeRecommendedStats(
+				rawPayload.recommended_stats,
+				round,
+			),
+		},
+		fallback,
+	);
 }
 
 async function fetchJson(url) {
@@ -1581,7 +1711,9 @@ async function getScanRow(round) {
 }
 
 function parseExistingTimestamp(source, key) {
-	return source.match(new RegExp(`^${key}:\\s*["']?([^"'\\n]+)["']?`, "m"))?.[1];
+	return source.match(
+		new RegExp(`^${key}:\\s*["']?([^"'\\n]+)["']?`, "m"),
+	)?.[1];
 }
 
 function extractSection(source, startHeading, endHeading) {
@@ -1589,9 +1721,11 @@ function extractSection(source, startHeading, endHeading) {
 	if (startIndex < 0) return "";
 	const contentStart = startIndex + startHeading.length;
 	const endIndex = endHeading ? source.indexOf(endHeading, contentStart) : -1;
-	const raw = (endIndex >= 0
-		? source.slice(contentStart, endIndex)
-		: source.slice(contentStart))
+	const raw = (
+		endIndex >= 0
+			? source.slice(contentStart, endIndex)
+			: source.slice(contentStart)
+	)
 		.replace(/<[^>]+>/g, " ")
 		.replace(/^- /gm, " ")
 		.replace(/\{[^}]+\}/g, " ")
@@ -1615,10 +1749,13 @@ async function loadRecentNewsReferences() {
 
 		references.push({
 			round: Number.parseInt(matched[1], 10),
-			title:
-				source.match(/^title:\s*["']?([^"'\n]+)["']?/m)?.[1] || "",
+			title: source.match(/^title:\s*["']?([^"'\n]+)["']?/m)?.[1] || "",
 			lead: extractSection(source, "</Card>", "## 당첨번호"),
-			insight: extractSection(source, "## 특이점 분석", "## 지역별 당첨점 현황"),
+			insight: extractSection(
+				source,
+				"## 특이점 분석",
+				"## 지역별 당첨점 현황",
+			),
 			publishedAt: parseExistingTimestamp(source, "publishedAt"),
 			updatedAt: parseExistingTimestamp(source, "updatedAt"),
 		});
@@ -1693,7 +1830,13 @@ function aiInputPayload(draw, _stores, analysis, context = {}) {
 	};
 }
 
-async function generatePayloadWithAi(draw, stores, analysis, fallback, context = {}) {
+async function generatePayloadWithAi(
+	draw,
+	stores,
+	analysis,
+	fallback,
+	context = {},
+) {
 	if (!USE_AI || !ZAI_API_KEY) {
 		return fallback;
 	}
@@ -1706,19 +1849,22 @@ async function generatePayloadWithAi(draw, stores, analysis, fallback, context =
 		"반드시 tool call(save_news_payload)로만 응답한다.",
 		"각 항목 규칙:",
 		"- title: 40자 이내",
-		"- description: 20~40자",
-		"- description은 title과 중복 표현을 피하고 핵심 키워드 중심으로 작성",
+		"- summary: 목록 카드용 25~55자의 짧고 구체적인 요약",
+		"- seoDescription: 검색 결과용 90~140자 안팎의 고유한 설명. 해당 회차 번호·당첨금·기사 주제를 자연스러운 문장으로 작성",
+		"- 글자 수를 맞추기 위한 상용구·키워드 나열·제목 반복을 피한다",
 		'- category: "로또분석" 권장',
 		"- tags: 3~5개",
-		"- lead: 2~4문단, 합계 350자 이상",
+		"- lead: 핵심 결과를 설명하는 1~2문단, 120~240자 안팎",
 		"- bullet_points: 3~4개",
-		"- insight: 2~4문단, 합계 300자 이상",
+		"- insight: lead와 중복하지 않는 해설 1~2문단, 120~280자 안팎",
 		"- caution_message: 건전 구매 안내 1문장",
 		"- recommended_stats: 2~5개. 각 항목은 {key, reason} 형식",
 		"- key 허용값: stats_main, winning_stores, numbers, odd_even, high_low, sections, pairs, repeat, colors, unit_digit, ac",
 		"- 첫 문단은 이번 회차에서 무엇이 달랐는지 바로 설명한다.",
-		"- 둘째 문단은 왜 이 결과가 의미 있는지 해석한다.",
-		"- 최소 1개 문단은 내부 스캔 데이터 또는 직전 회차 비교를 사용한다.",
+		"- 결과의 원인이나 미래 당첨 확률을 추정하지 말고 확인 가능한 구성·차이만 설명한다.",
+		"- 내부 스캔 데이터나 직전 회차 비교는 입력에 값이 있을 때만 사용하고 표본 범위를 밝힌다.",
+		"- 스캔 빈도를 관심도·인기도·적중률·예측 성능으로 표현하지 않는다.",
+		"- 자동/수동 당첨 건수만으로 어느 방식의 당첨 확률이 높다고 주장하지 않는다.",
 		"- 최근 기사와 유사한 문장 반복을 피하고 suggested_story_angle을 우선 반영한다.",
 		"입력 데이터:",
 		JSON.stringify(input),
@@ -1728,13 +1874,14 @@ async function generatePayloadWithAi(draw, stores, analysis, fallback, context =
 		"다음 JSON 데이터로 로또 뉴스 payload를 생성하라.",
 		"사실 기반의 중립적 문체를 사용하되 해설 기사처럼 작성하라.",
 		"반드시 JSON 객체만 반환하라.",
-		"필수 키: title, description, category, tags, lead, bullet_points, insight, caution_message, recommended_stats",
-		"title은 40자 이내, description은 20~40자로 작성하라.",
-		"description은 title과 같은 표현 반복 없이 키워드 위주로 작성하라.",
+		"필수 키: title, summary, seoDescription, category, tags, lead, bullet_points, insight, caution_message, recommended_stats",
+		"title은 40자 이내, summary는 목록용 25~55자, seoDescription은 검색용 90~140자 안팎으로 작성하라.",
+		"seoDescription에는 해당 회차 번호·당첨금·기사 주제를 담고 상용구·키워드 나열·제목 반복을 피하라.",
 		"tags는 문자열 배열(3~5개), bullet_points는 문자열 배열(3~4개)이어야 한다.",
-		"lead와 insight는 각각 2~4문단으로 충분히 길게 작성하라.",
-		"첫 문단은 무엇이 달랐는지, 둘째 문단은 왜 의미 있는지 설명하라.",
-		"최소 1개 문단은 내부 스캔 데이터 또는 직전 회차 비교를 사용하라.",
+		"lead는 120~240자, insight는 120~280자 안팎의 1~2문단이며 내용을 반복하지 말라.",
+		"확인 가능한 번호 구성과 회차별 차이를 설명하고 결과의 원인이나 미래 당첨 확률은 추정하지 말라.",
+		"스캔 집계는 입력 데이터가 있을 때만 표본 범위를 밝혀 비교하라. 관심도·인기도·적중률로 표현하지 말라.",
+		"자동/수동 당첨 건수만으로 어느 방식의 당첨 확률이 높다고 주장하지 말라.",
 		"recommended_stats는 2~5개 배열이며 각 항목은 {key, reason} 형식이다.",
 		"key 허용값: stats_main, winning_stores, numbers, odd_even, high_low, sections, pairs, repeat, colors, unit_digit, ac",
 		JSON.stringify(input),
@@ -1829,7 +1976,8 @@ async function generatePayloadWithAi(draw, stores, analysis, fallback, context =
 							type: "object",
 							properties: {
 								title: { type: "string" },
-								description: { type: "string" },
+								summary: { type: "string" },
+								seoDescription: { type: "string" },
 								category: { type: "string" },
 								tags: {
 									type: "array",
@@ -1872,7 +2020,8 @@ async function generatePayloadWithAi(draw, stores, analysis, fallback, context =
 							},
 							required: [
 								"title",
-								"description",
+								"summary",
+								"seoDescription",
 								"category",
 								"tags",
 								"lead",
@@ -1978,7 +2127,10 @@ function renderAreaRows(rows) {
 		.join("\n      ");
 }
 
-function buildRecommendedStatsLinks(analysis, variant = getFallbackVariant(analysis)) {
+function buildRecommendedStatsLinks(
+	analysis,
+	variant = getFallbackVariant(analysis),
+) {
 	const links = [];
 
 	const push = (key, label, reason) => {
@@ -2029,7 +2181,10 @@ function buildRecommendedStatsLinks(analysis, variant = getFallbackVariant(analy
 		push("repeat", "연속 중복 통계", "연속/중복 출현 패턴의 최근 추세를 검증");
 	}
 
-	if (analysis.oddCount !== analysis.evenCount || analysis.anomalies.includes("all_odd_even")) {
+	if (
+		analysis.oddCount !== analysis.evenCount ||
+		analysis.anomalies.includes("all_odd_even")
+	) {
 		push(
 			"odd_even",
 			"홀짝 분석",
@@ -2037,7 +2192,11 @@ function buildRecommendedStatsLinks(analysis, variant = getFallbackVariant(analy
 		);
 	}
 
-	if (analysis.highCount >= 3 || analysis.lowCount >= 3 || variant === "pattern") {
+	if (
+		analysis.highCount >= 3 ||
+		analysis.lowCount >= 3 ||
+		variant === "pattern"
+	) {
 		push(
 			"high_low",
 			"고저번대 통계",
@@ -2046,7 +2205,10 @@ function buildRecommendedStatsLinks(analysis, variant = getFallbackVariant(analy
 		push("sections", "구간별 분석", "번호대(1~10, 11~20...)별 분포 편중 확인");
 	}
 
-	if (analysis.anomalies.includes("region_concentration") || variant === "region_concentration") {
+	if (
+		analysis.anomalies.includes("region_concentration") ||
+		variant === "region_concentration"
+	) {
 		push(
 			"winning_stores",
 			"지역 집중 당첨점 상세",
@@ -2085,19 +2247,21 @@ function renderMdx(draw, analysis, payload, metadata = {}) {
 	const drawDate = formatDate(draw.draw_date);
 	const publishedAt = metadata.publishedAt || `${drawDate}T21:21:00+09:00`;
 	const updatedAt = metadata.updatedAt || publishedAt;
-	const ogCacheBuster = "2026-03-25-2";
+	const ogCacheBuster = "2026-09-12-1";
 	const finalTitle = normalizeLine(payload.title, `제${round}회 로또 분석`);
-	const finalDescription = normalizeLine(
-		payload.description,
-		"당첨번호·당첨금·지역분포·당첨점 통계 요약",
-	);
+	const copy = normalizePayloadDescriptions(payload, {
+		...payload,
+		description: payload.description || "당첨번호와 당첨금, 지역별 판매점 집계",
+		seoDescription: buildSeoDescription(draw, analysis),
+	});
+	const finalSummary = copy.summary;
+	const finalSeoDescription = copy.seoDescription;
 	const thumbnail = `/og/news/lotto-${round}?rev=${encodeURIComponent(ogCacheBuster)}&v=${encodeURIComponent(updatedAt || publishedAt || drawDate)}`;
 	const safeLead = sanitizeMdxBlock(payload.lead, "핵심 요약을 준비 중입니다.");
 	const safeInsight = sanitizeMdxBlock(
 		payload.insight,
 		"이번 회차 인사이트를 정리 중입니다.",
 	);
-	const insightCompact = safeInsight.replace(/\s*\n+\s*/g, " ").trim();
 	const safeCautionMessage = sanitizeMdxInline(
 		payload.caution_message,
 		"복권은 건전한 오락으로 즐겨주세요.",
@@ -2111,24 +2275,12 @@ function renderMdx(draw, analysis, payload, metadata = {}) {
 			: buildRecommendedStatsLinks(analysis);
 	const recommendedStatsCards = recommendedStatsLinks
 		.map((link) => {
-			const icon = escapeHtml(link.icon || "📊");
 			const label = escapeHtml(link.label);
 			const href = escapeHtml(link.href);
 			const reason = escapeHtml(
 				link.reason || "이번 회차 데이터와 직접 연결되는 통계입니다.",
 			);
-			return `<a href="${href}" class="group block rounded-2xl border border-base-300 bg-gradient-to-br from-base-100 to-base-200/70 p-0.5 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all no-underline">
-  <div class="h-full rounded-2xl bg-base-100 p-4">
-    <div class="flex items-start gap-3">
-      <span class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-lg">${icon}</span>
-      <div class="min-w-0 flex-1">
-        <h3 class="text-base font-semibold text-base-content group-hover:text-primary transition-colors">${label}</h3>
-        <p class="mt-1 text-sm leading-relaxed text-base-content/70">${reason}</p>
-      </div>
-      <span class="text-base-content/40 group-hover:text-primary transition-colors">↗</span>
-    </div>
-  </div>
-</a>`;
+			return `<a class="news-related-link" href="${href}"><span><strong>${label}</strong><small>${reason}</small></span><span aria-hidden="true">↗</span></a>`;
 		})
 		.join("\n");
 
@@ -2139,45 +2291,31 @@ publishedAt: ${yamlString(publishedAt)}
 updatedAt: ${yamlString(updatedAt)}
 category: ${yamlString(payload.category)}
 tags: [${payload.tags.map((tag) => yamlString(tag)).join(", ")}]
-description: ${yamlString(finalDescription)}
+description: ${yamlString(finalSummary)}
+summary: ${yamlString(finalSummary)}
+seoDescription: ${yamlString(finalSeoDescription)}
 author: ${yamlString("645.live 자동뉴스")}
 thumbnail: ${yamlString(thumbnail)}
 ---
 
 <script>
-  import LottoNumbers from '$lib/components/news/LottoNumbers.svelte';
-  import Card from '$lib/ui/Card.svelte';
+  import DrawSummary from '$lib/components/news/DrawSummary.svelte';
+  import AdSlot from '$lib/components/ads/AdSlot.svelte';
   import Alert from '$lib/components/news/Alert.svelte';
   import Table from '$lib/components/news/Table.svelte';
-  import Tabs from '$lib/components/news/Tabs.svelte';
-  import TabsList from '$lib/components/news/TabsList.svelte';
-  import TabsTrigger from '$lib/components/news/TabsTrigger.svelte';
-  import TabsContent from '$lib/components/news/TabsContent.svelte';
 </script>
 
-## 이번 회차 핵심 요약
-
-<Card variant="bordered">
-  <ul>
-    <li><strong>추첨일</strong>: ${drawDate}</li>
-    <li><strong>당첨번호</strong>: ${analysis.numbers.join(", ")} + 보너스 ${bonus}</li>
-    <li><strong>1등 당첨자</strong>: ${analysis.winnerCount}명</li>
-    <li><strong>1인당 1등 당첨금</strong>: ${formatWon(analysis.winnerAmount)}</li>
-    <li><strong>총 판매액</strong>: ${formatWon(analysis.totalSales)}</li>
-  </ul>
-</Card>
+<DrawSummary round={${round}} date="${drawDate}" numbers={[${analysis.numbers.join(", ")}]} bonus={${bonus}} winners={${analysis.winnerCount}} prize={${analysis.winnerAmount}} totalSales={${analysis.totalSales}} />
 
 ${safeLead}
-
-## 당첨번호
-
-<LottoNumbers numbers={[${analysis.numbers.join(", ")}]} bonus={${bonus}} round={${round}} />
 
 ## 특이점 분석
 
 ${bulletList}
 
 ${safeInsight}
+
+<AdSlot placement="article-inline" format="horizontal" />
 
 ## 지역별 당첨점 현황 (상위)
 
@@ -2211,26 +2349,13 @@ ${safeInsight}
   </tbody>
 </Table>
 
-<Tabs defaultValue="insight">
-  <TabsList>
-    <TabsTrigger value="insight">요약 인사이트</TabsTrigger>
-    <TabsTrigger value="stores">당첨점 규모</TabsTrigger>
-  </TabsList>
-  <TabsContent value="insight">
-    <p>${insightCompact}</p>
-  </TabsContent>
-  <TabsContent value="stores">
-    <p>제${round}회는 총 ${analysis.storesCount}개 당첨점이 집계되었습니다. 집계 데이터는 이후 정정될 수 있습니다.</p>
-  </TabsContent>
-</Tabs>
+<p class="news-data-note">제${round}회는 총 ${analysis.storesCount}개 당첨점이 집계되었습니다. 집계 데이터는 이후 정정될 수 있습니다.</p>
 
 ## 이번 회차에서 이어서 볼 통계
 
-이번 회차 특징과 맞는 통계를 카드에서 바로 이동해 확인해보세요.
-
-<div class="not-prose grid grid-cols-1 md:grid-cols-2 gap-3 my-6">
+<nav class="news-related-links" aria-label="관련 통계">
 ${recommendedStatsCards}
-</div>
+</nav>
 
 <Alert type="info">
   ${safeCautionMessage}
@@ -2239,8 +2364,10 @@ ${recommendedStatsCards}
 }
 
 function stripManagedTimestamps(source) {
-	return String(source ?? "")
-		.replace(/^updatedAt:\s*["']?[^"'\n]+["']?\n/m, "");
+	return String(source ?? "").replace(
+		/^updatedAt:\s*["']?[^"'\n]+["']?\n/m,
+		"",
+	);
 }
 
 async function writeNewsFile(round, content) {
@@ -2319,10 +2446,11 @@ async function main() {
 			existingSource,
 			"publishedAt",
 		);
-		const publishedAt =
-			existingPublishedAt?.startsWith(formatDate(draw.draw_date))
-				? existingPublishedAt
-				: defaultPublishedAt;
+		const publishedAt = existingPublishedAt?.startsWith(
+			formatDate(draw.draw_date),
+		)
+			? existingPublishedAt
+			: defaultPublishedAt;
 		const stableUpdatedAt =
 			parseExistingTimestamp(existingSource, "updatedAt") || publishedAt;
 		const draftMdx = renderMdx(draw, analysis, payload, {
@@ -2330,7 +2458,8 @@ async function main() {
 			updatedAt: stableUpdatedAt,
 		});
 		const hasMaterialChange =
-			stripManagedTimestamps(existingSource) !== stripManagedTimestamps(draftMdx);
+			stripManagedTimestamps(existingSource) !==
+			stripManagedTimestamps(draftMdx);
 		const mdx = renderMdx(draw, analysis, payload, {
 			publishedAt,
 			updatedAt: hasMaterialChange ? getKstTimestamp() : stableUpdatedAt,

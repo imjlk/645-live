@@ -1,507 +1,167 @@
 <script lang="ts">
-import { goto } from "$app/navigation";
-import { resolve } from "$app/paths";
-import { StatsPageHero } from "$lib/components/stats";
-import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
-import LinkButton from "$lib/ui/LinkButton.svelte";
 import { JsonLd, MetaTags } from "svelte-meta-tags";
+import { resolve } from "$app/paths";
+import AdSlot from "$lib/components/ads/AdSlot.svelte";
+import { LottoBall, StatsPageHero } from "$lib/components/stats";
+import { getGenericOgImage } from "$lib/seo/index.js";
 import type { PageData } from "./$types";
 
-interface Props {
-	data: PageData;
-}
-
-let { data }: Props = $props();
-
-// 사용자 입력 상태 - Svelte 5 runes
-let inputValue = $state("");
-
-$effect(() => {
-	inputValue = String(data.selectedNumber);
-});
-
-// 입력값 유효성 검사
-const validateInput = (value: string): boolean => {
-	const str = String(value || "");
-	if (str.trim() === "") return false;
-	const num = Number(str);
-	return !Number.isNaN(num) && num >= 1 && num <= 45;
-};
-
-// 다른 번호 분석 페이지로 이동
-const navigateToNumber = async () => {
-	const inputStr = String(inputValue || "");
-
-	if (inputStr.trim() === "") {
-		alert("분석할 번호를 입력해주세요.");
-		return;
-	}
-
-	if (validateInput(inputStr)) {
-		const number = Number(inputStr);
-		try {
-			await goto(resolve(`/stats/numbers/${number}`));
-		} catch (error) {
-			console.error("Navigation error:", error);
-			alert("페이지 이동 중 오류가 발생했습니다.");
-		}
-	} else {
-		alert("1부터 45까지의 번호를 입력해주세요.");
-	}
-};
-
-// Enter 키 처리
-const handleKeydown = (event: KeyboardEvent) => {
-	if (event.key === "Enter") {
-		navigateToNumber();
-	}
-};
-
-// 출현 빈도 분석
-const getFrequencyAnalysis = (frequency: string): string => {
-	const freq = Number.parseFloat(frequency);
-	const expected = (6 / 45) * 100; // 약 13.33%
-
-	if (freq > expected + 2) return "높음";
-	if (freq < expected - 2) return "낮음";
-	return "보통";
-};
-
-// 색상 정보 - Svelte 5 $derived
-let colorDetail = $derived(
+let { data }: { data: PageData } = $props();
+const selected = $derived(data.selectedNumber);
+const colorDetail = $derived(
 	data.colorInfo[data.numberStats.color as keyof typeof data.colorInfo],
 );
-const bonusExpectedCount = $derived(data.totalRounds > 0 ? data.totalRounds / 45 : 0);
-const bonusDeviation = $derived(data.numberStats.bonus_count - bonusExpectedCount);
-const totalAppearances = $derived(data.totalAppearances || 0);
+const bonusExpectedCount = $derived(data.totalRounds / 45);
+const bonusDeviation = $derived(
+	data.numberStats.bonus_count - bonusExpectedCount,
+);
+const totalAppearances = $derived(data.totalAppearances);
 const bonusShare = $derived(
 	totalAppearances > 0
 		? ((data.numberStats.bonus_count / totalAppearances) * 100).toFixed(1)
 		: "0.0",
 );
-const bonusFrequencyLabel = $derived(
-	bonusDeviation > 1
-		? "평균보다 높음"
-		: bonusDeviation < -1
-			? "평균보다 낮음"
-			: "평균과 비슷함",
+const pageTitle = $derived(`로또 ${selected}번 출현 횟수와 최근 추첨 이력`);
+const pageDescription = $derived(
+	`로또 6/45 ${selected}번의 전체 ${data.totalRounds}회 추첨 기록을 확인하세요. 본 번호로 ${data.numberStats.draw_count}회, 보너스로 ${data.numberStats.bonus_count}회 나왔으며 마지막 본 번호 출현은 ${data.numberStats.last_draw_round}회입니다. 최근 출현 이력과 기대값 대비 차이를 함께 비교할 수 있습니다.`,
 );
-
-// Breadcrumbs 데이터
-const breadcrumbItems = [
-	{ label: "홈", href: "/" },
-	{ label: "통계", href: "/stats" },
-	{ label: "번호별통계", href: "/stats/numbers" },
-	{ label: "번호별 상세", current: true },
-];
+const ogImage = $derived(
+	getGenericOgImage({
+		title: pageTitle,
+		description: pageDescription,
+		layout: "minimal",
+		theme: "dark",
+	}),
+);
+const dateFormatter = new Intl.DateTimeFormat("ko-KR", {
+	year: "numeric",
+	month: "2-digit",
+	day: "2-digit",
+	timeZone: "Asia/Seoul",
+});
 </script>
 
-<MetaTags
-	title={`로또 번호 ${data.selectedNumber}번 상세 분석 | 출현 빈도 및 패턴 분석`}
-	titleTemplate="%s | 645.live"
-	description={`로또 6/45 번호 ${data.selectedNumber}번 상세 분석. 총 ${data.numberStats.draw_count}회 출현, 출현율 ${data.numberStats.averageFrequency}%. 최근 당첨 이력과 패턴을 분석합니다.`}
-	canonical={`https://645.live/stats/numbers/${data.selectedNumber}`}
-	keywords={[`로또 ${data.selectedNumber}번`, "번호분석", "출현빈도", "당첨패턴", "로또통계", "번호별통계", "6/45통계", "번호예측"]}
-	robots="index,follow"
-	additionalRobotsProps={{
-		maxSnippet: 320,
-		maxImagePreview: 'large',
-		maxVideoPreview: 60
-	}}
-	additionalMetaTags={[
-		{
-			name: 'application-name',
-			content: '645.live'
-		},
-		{
-			name: 'theme-color',
-			content: '#3B82F6'
-		},
-		{
-			name: 'format-detection',
-			content: 'telephone=no'
-		},
-		{
-			name: 'author',
-			content: '645.live'
-		},
-		{
-			name: 'generator',
-			content: 'SvelteKit'
-		},
-		{
-			property: 'article:publisher',
-			content: 'https://645.live'
-		}
-	]}
-	openGraph={{
-		type: 'article',
-		url: `https://645.live/stats/numbers/${data.selectedNumber}`,
-		title: `로또 번호 ${data.selectedNumber}번 상세 분석 | 출현 빈도 ${data.numberStats.averageFrequency}%`,
-		description: `로또 6/45 번호 ${data.selectedNumber}번 상세 분석 - 총 ${data.numberStats.draw_count}회 출현, 보너스 ${data.numberStats.bonus_count}회. 최근 당첨 이력과 패턴 분석.`,
-		locale: 'ko_KR',
-		images: [{
-			url: `https://645.live/og?${new URLSearchParams({
-				title: encodeURIComponent(`${data.selectedNumber}번 상세 분석`),
-				description: encodeURIComponent(`출현 ${data.numberStats.draw_count}회 (${data.numberStats.averageFrequency}%) | 보너스 ${data.numberStats.bonus_count}회 | ${colorDetail?.name || data.numberStats.color}색 | 편차 ${data.numberStats.deviation}`),
-				layout: 'minimal',
-				theme: data.numberStats.color === 'yellow' ? 'light' : 'dark',
-				format: 'svg'
-			}).toString()}`,
-			width: 1200,
-			height: 630,
-			alt: `로또 번호 ${data.selectedNumber}번 분석`,
-			type: 'image/svg+xml'
-		}],
-		siteName: '645.live',
-		article: {
-			section: '로또 통계',
-			tags: ['로또', '번호분석', '출현빈도', '당첨번호', '통계분석', '6/45', `${data.selectedNumber}번`],
-			publishedTime: '2024-01-01T00:00:00.000Z',
-			modifiedTime: new Date().toISOString()
-		}
-	}}
-	twitter={{
-		cardType: 'summary_large_image',
-		site: '@645live',
-		title: `로또 번호 ${data.selectedNumber}번 분석`,
-		description: `출현 ${data.numberStats.draw_count}회 (${data.numberStats.averageFrequency}%) | 보너스 ${data.numberStats.bonus_count}회`,
-		image: `https://645.live/og?${new URLSearchParams({
-			title: encodeURIComponent(`로또 ${data.selectedNumber}번 분석`),
-			description: encodeURIComponent(`출현 ${data.numberStats.draw_count}회 | 출현률 ${data.numberStats.averageFrequency}%`),
-			layout: 'minimal',
-			theme: data.numberStats.color === 'yellow' ? 'light' : 'dark',
-			format: 'svg'
-		}).toString()}`,
-		imageAlt: `로또 번호 ${data.selectedNumber}번 분석`
-	}}
+<MetaTags title={pageTitle} titleTemplate="%s | 645.live" description={pageDescription} canonical={`https://645.live/stats/numbers/${selected}`}
+	openGraph={{ type: "website", title: pageTitle, description: pageDescription, url: `https://645.live/stats/numbers/${selected}`, siteName: "645.live", locale: "ko_KR", images: [ogImage] }}
+	twitter={{ cardType: "summary_large_image", title: pageTitle, description: pageDescription, image: ogImage.url, imageAlt: ogImage.alt }}
 />
 
-<JsonLd
-	schema={{
-		'@type': 'Dataset',
-		name: `로또 번호 ${data.selectedNumber}번 분석 데이터`,
-		description: `로또 6/45 번호 ${data.selectedNumber}번의 상세 분석 데이터. 출현 빈도 ${data.numberStats.averageFrequency}%, 총 ${data.numberStats.draw_count}회 출현 및 최근 당첨 이력을 포함합니다.`,
-		url: `https://645.live/stats/numbers/${data.selectedNumber}`,
-		creator: {
-			'@type': 'Organization',
-			name: '645.live'
-		},
-		license: 'https://645.live/terms-of-service',
-		temporalCoverage: `전체 ${data.totalRounds}회차`,
-		spatial: {
-			'@type': 'Country',
-			name: '대한민국'
-		},
-		variableMeasured: [
-			{
-				'@type': 'PropertyValue',
-				name: '출현 횟수',
-				value: data.numberStats.draw_count
-			},
-			{
-				'@type': 'PropertyValue',
-				name: '보너스 출현 횟수',
-				value: data.numberStats.bonus_count
-			},
-			{
-				'@type': 'PropertyValue',
-				name: '출현 빈도',
-				value: `${data.numberStats.averageFrequency}%`
-			},
-			{
-				'@type': 'PropertyValue',
-				name: '마지막 출현 회차',
-				value: data.numberStats.last_draw_round
-			}
-		],
-		mainEntity: {
-			'@type': 'Thing',
-			name: `로또 번호 ${data.selectedNumber}`,
-			description: `로또 6/45 번호 ${data.selectedNumber}번의 통계 정보`
-		}
-	}}
-/>
+<JsonLd schema={{
+	"@type": "Dataset", name: pageTitle, description: pageDescription,
+	url: `https://645.live/stats/numbers/${selected}`,
+	creator: { "@type": "Organization", name: "645.live" },
+	license: "https://645.live/terms-of-service",
+	variableMeasured: [
+		{ "@type": "PropertyValue", name: "본 번호 출현 횟수", value: data.numberStats.draw_count },
+		{ "@type": "PropertyValue", name: "보너스 출현 횟수", value: data.numberStats.bonus_count },
+		{ "@type": "PropertyValue", name: "본 번호 출현율", value: `${data.numberStats.averageFrequency}%` },
+		{ "@type": "PropertyValue", name: "마지막 본 번호 출현 회차", value: data.numberStats.last_draw_round }
+	]
+}} />
 
-<div class="p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-5 lg:space-y-6 max-sm:px-0">
-	<!-- Breadcrumbs -->
-	<Breadcrumbs items={breadcrumbItems} />
-
+<div class="stats-page number-detail">
+	<nav class="breadcrumb" aria-label="현재 위치"><a href={resolve("/stats")}>통계</a><span aria-hidden="true">/</span><a href={resolve("/stats/numbers")}>번호별 통계</a><span aria-hidden="true">/</span><span>{selected}번</span></nav>
 	<StatsPageHero
-		eyebrow="Number Detail"
-		title={`번호 ${data.selectedNumber}번 상세 분석`}
-		description={`로또 6/45 번호 ${data.selectedNumber}번의 상세 통계입니다. 총 ${data.numberStats.draw_count}회 출현해 ${data.numberStats.averageFrequency}%의 출현율을 보였고, 기대값 대비 얼마나 많이 혹은 적게 등장했는지 함께 확인할 수 있습니다.`}
+		eyebrow="공식 추첨 통계"
+		title={`${selected}번 출현 기록`}
+		description={`본 번호와 보너스의 출현 횟수를 구분해 확인하세요. ${colorDetail?.name ?? ""} 구간 · ${selected % 2 === 0 ? "짝수" : "홀수"} · ${data.isHighNumber ? "23~45 고구간" : "1~22 저구간"}`}
 		freshness={data.freshness}
 		metrics={[
-			{
-				label: "출현 횟수",
-				value: `${data.numberStats.draw_count}회`,
-				note: `전체 ${data.totalRounds}회차 기준`,
-				tone: "primary",
-			},
-			{
-				label: "보너스 출현",
-				value: `${data.numberStats.bonus_count}회`,
-				note: "보너스 번호 등장 횟수",
-				tone: "secondary",
-			},
-			{
-				label: "출현율",
-				value: `${data.numberStats.averageFrequency}%`,
-				note: getFrequencyAnalysis(data.numberStats.averageFrequency),
-				tone: "accent",
-			},
-			{
-				label: "마지막 출현",
-				value: `${data.numberStats.last_draw_round}회`,
-				note: "가장 최근 등장 회차",
-			},
+			{ label: "본 번호 출현", value: `${data.numberStats.draw_count}회`, note: `전체 ${data.totalRounds}회 기준` },
+			{ label: "보너스 출현", value: `${data.numberStats.bonus_count}회`, note: "본 번호와 별도 집계" },
+			{ label: "본 번호 출현율", value: `${data.numberStats.averageFrequency}%`, note: "출현 회차 ÷ 전체 회차" },
+			{ label: "마지막 본 번호", value: `${data.numberStats.last_draw_round}회`, note: "가장 최근 출현 회차" }
 		]}
 	/>
 
-	<!-- 번호 분석 변경 -->
-	<div class="card bg-base-100 shadow-sm">
-		<div class="card-body p-3 sm:p-4">
-			<h2 class="card-title text-base sm:text-lg">다른 번호 분석</h2>
-			<div class="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
-				<div class="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-2 w-full">
-					<label for="number-input" class="text-xs sm:text-sm font-medium whitespace-nowrap">번호 (1-45):</label>
-					<input
-						id="number-input"
-						type="text"
-						inputmode="numeric"
-						pattern="[0-9]*"
-						bind:value={inputValue}
-						onkeydown={handleKeydown}
-						class="input input-bordered input-sm w-full sm:w-20 text-center"
-						placeholder="1"
-					/>
-				</div>
-				<div class="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-					<button
-						type="button"
-						onclick={navigateToNumber}
-						class="btn btn-primary btn-sm w-full sm:w-auto"
-					>
-						분석하기
-					</button>
-					<LinkButton
-						href="/stats/numbers"
-						class="btn btn-outline btn-sm w-full sm:w-auto"
-					>
-						전체 번호 보기
-					</LinkButton>
-				</div>
-			</div>
-		</div>
+	<div class="number-controls">
+		<nav aria-label="이전 다음 번호">
+			{#if selected > 1}<a href={resolve("/stats/numbers/[number]", { number: String(selected - 1) })}>← {selected - 1}번</a>{/if}
+			<a href={resolve("/stats/numbers")}>전체 번호</a>
+			{#if selected < 45}<a href={resolve("/stats/numbers/[number]", { number: String(selected + 1) })}>{selected + 1}번 →</a>{/if}
+		</nav>
+		<details><summary>번호 선택</summary><div class="number-picker">
+			{#each Array.from({ length: 45 }, (_, i) => i + 1) as number (number)}
+				<a href={resolve("/stats/numbers/[number]", { number: String(number) })} class:current={selected === number} aria-current={selected === number ? "page" : undefined} aria-label={`${number}번 추첨 통계`}>{number}</a>
+			{/each}
+		</div></details>
 	</div>
 
-	<!-- 번호 기본 정보 -->
-	<div class="card bg-base-100 shadow-sm">
-		<div class="card-body">
-			<h2 class="card-title">번호 기본 정보</h2>
-			<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-				<!-- 번호 표시 -->
-				<div class="text-center p-4 sm:p-6 bg-primary/10 rounded-lg">
-					<div class="text-4xl sm:text-5xl lg:text-6xl font-bold text-primary mb-2">{data.selectedNumber}</div>
-					<div class="text-xs sm:text-sm text-base-content/70">번호</div>
-				</div>
+	<AdSlot placement="stats-inline" format="horizontal" />
 
-				<!-- 색상 정보 -->
-				{#if colorDetail}
-				<div class="text-center p-4 sm:p-6 bg-base-200 rounded-lg">
-					<div class="w-10 h-10 sm:w-12 sm:h-12 {colorDetail.bgClass} rounded-full mx-auto mb-3"></div>
-					<div class="text-base sm:text-lg font-semibold {colorDetail.textClass}">{colorDetail.name}</div>
-					<div class="text-xs sm:text-sm text-base-content/70">{colorDetail.range}</div>
-				</div>
-				{/if}
-
-				<!-- 고저 구분 -->
-				<div class="text-center p-4 sm:p-6 bg-base-200 rounded-lg">
-					<div class="text-lg sm:text-xl lg:text-2xl font-bold mb-2 {data.isHighNumber ? 'text-red-600' : 'text-blue-600'}">
-						{data.isHighNumber ? '고숫자' : '저숫자'}
-					</div>
-					<div class="text-xs sm:text-sm text-base-content/70">
-						{data.isHighNumber ? '23-45 구간' : '1-22 구간'}
-					</div>
-				</div>
-			</div>
-		</div>
-	</div>
-
-	<!-- 출현 통계 -->
-	<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-		<div class="stat bg-primary text-primary-content rounded-lg p-3 sm:p-4">
-			<div class="stat-title text-primary-content/70 text-xs sm:text-sm">본 번호 출현</div>
-			<div class="stat-value text-lg sm:text-xl lg:text-2xl">{data.numberStats.draw_count}회</div>
-			<div class="stat-desc text-primary-content/70 text-xs sm:text-sm">전체 {data.totalRounds}회차 중</div>
-		</div>
-		
-		<div class="stat bg-secondary text-secondary-content rounded-lg p-3 sm:p-4">
-			<div class="stat-title text-secondary-content/70 text-xs sm:text-sm">보너스 출현</div>
-			<div class="stat-value text-lg sm:text-xl lg:text-2xl">{data.numberStats.bonus_count}회</div>
-			<div class="stat-desc text-secondary-content/70 text-xs sm:text-sm">보너스 번호로</div>
-		</div>
-		
-		<div class="stat bg-accent text-accent-content rounded-lg p-3 sm:p-4">
-			<div class="stat-title text-accent-content/70 text-xs sm:text-sm">출현율</div>
-			<div class="stat-value text-lg sm:text-xl lg:text-2xl">{data.numberStats.averageFrequency}%</div>
-			<div class="stat-desc text-accent-content/70 text-xs sm:text-sm">{getFrequencyAnalysis(data.numberStats.averageFrequency)}</div>
-		</div>
-		
-		<div class="stat bg-info text-info-content rounded-lg p-3 sm:p-4">
-			<div class="stat-title text-info-content/70 text-xs sm:text-sm">마지막 출현</div>
-			<div class="stat-value text-lg sm:text-xl lg:text-2xl">{data.numberStats.last_draw_round}회</div>
-			<div class="stat-desc text-info-content/70 text-xs sm:text-sm">최근 회차</div>
-		</div>
-	</div>
-
-	<!-- 기대값 대비 분석 -->
-	<div class="card bg-base-100 shadow-sm">
-		<div class="card-body">
-			<h2 class="card-title">기대값 대비 분석</h2>
-			<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-				<div class="text-center p-3 sm:p-4 bg-base-200 rounded-lg">
-					<div class="text-sm sm:text-base lg:text-lg font-semibold text-primary">실제 출현</div>
-					<div class="text-lg sm:text-xl lg:text-2xl font-bold">{data.numberStats.draw_count}회</div>
-				</div>
-				<div class="text-center p-3 sm:p-4 bg-base-200 rounded-lg">
-					<div class="text-sm sm:text-base lg:text-lg font-semibold text-secondary">기대값</div>
-					<div class="text-lg sm:text-xl lg:text-2xl font-bold">{data.numberStats.expectedFrequency}회</div>
-				</div>
-				<div class="text-center p-3 sm:p-4 bg-base-200 rounded-lg">
-					<div class="text-sm sm:text-base lg:text-lg font-semibold text-accent">편차</div>
-					<div class="text-lg sm:text-xl lg:text-2xl font-bold {Number(data.numberStats.deviation) > 0 ? 'text-success' : 'text-error'}">
-						{Number(data.numberStats.deviation) > 0 ? '+' : ''}{data.numberStats.deviation}
-					</div>
-				</div>
-			</div>
-			<div class="mt-3 sm:mt-4 p-3 sm:p-4 bg-info/10 rounded-lg">
-				<p class="text-xs sm:text-sm text-info">
-					💡 각 번호의 이론적 출현 기대값은 전체 회차 × 6 ÷ 45 = {data.numberStats.expectedFrequency}회입니다.
-					{Number(data.numberStats.deviation) > 0 ? '이 번호는 기대값보다 많이 출현했습니다.' : '이 번호는 기대값보다 적게 출현했습니다.'}
-				</p>
-			</div>
-		</div>
-	</div>
-
-	<div class="card bg-base-100 shadow-sm">
-		<div class="card-body">
-			<div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-				<div>
-					<h2 class="card-title">보너스 번호 관점에서 보기</h2>
-					<p class="text-sm leading-6 text-base-content/70">
-						{data.selectedNumber}번은 본 번호로 {data.numberStats.draw_count}회, 보너스 번호로 {data.numberStats.bonus_count}회 등장했습니다. 합산 기준으로는 총 {totalAppearances}회 등장했고, 보너스 기준으로는 {bonusFrequencyLabel} 흐름입니다.
-					</p>
-				</div>
-				<LinkButton href="/stats/bonus" class="btn btn-outline btn-sm">
-					보너스 번호 통계 보기
-				</LinkButton>
-			</div>
-
-			<div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-				<div class="rounded-2xl border border-base-300/60 bg-base-200/60 p-4">
-					<div class="text-xs font-semibold uppercase tracking-[0.16em] text-base-content/50">보너스 출현</div>
-					<div class="mt-2 text-2xl font-black text-base-content">{data.numberStats.bonus_count}회</div>
-					<div class="mt-1 text-xs text-base-content/60">전체 {data.totalRounds}회차 기준</div>
-				</div>
-				<div class="rounded-2xl border border-base-300/60 bg-base-200/60 p-4">
-					<div class="text-xs font-semibold uppercase tracking-[0.16em] text-base-content/50">기대값 대비</div>
-					<div class="mt-2 text-2xl font-black {bonusDeviation > 0 ? 'text-emerald-600' : bonusDeviation < 0 ? 'text-rose-600' : 'text-base-content'}">
-						{bonusDeviation > 0 ? "+" : ""}{bonusDeviation.toFixed(1)}
-					</div>
-					<div class="mt-1 text-xs text-base-content/60">번호당 기대 보너스 {bonusExpectedCount.toFixed(1)}회</div>
-				</div>
-				<div class="rounded-2xl border border-base-300/60 bg-base-200/60 p-4">
-					<div class="text-xs font-semibold uppercase tracking-[0.16em] text-base-content/50">보너스 비중</div>
-					<div class="mt-2 text-2xl font-black text-base-content">{bonusShare}%</div>
-					<div class="mt-1 text-xs text-base-content/60">본 번호 + 보너스 합산 대비</div>
-				</div>
-			</div>
-
-			<div class="mt-4 rounded-2xl bg-warning/10 p-4 text-sm leading-6 text-base-content/72">
-				보너스 번호는 회차마다 1개만 추첨되기 때문에 본 번호 출현 통계와 기대값이 다릅니다. 그래서 본 번호 순위와 보너스 출현 흐름을 함께 봐야 이 번호가 어디에서 상대적으로 강한지 더 정확하게 읽을 수 있습니다.
-			</div>
-		</div>
-	</div>
-
-	<!-- 최근 출현 이력 -->
-	{#if data.recentDraws.length > 0}
-	<div class="card bg-base-100 shadow-sm">
-		<div class="card-body">
-			<h2 class="card-title text-base sm:text-lg">최근 출현 이력 (최근 20회)</h2>
-			
-			<div class="overflow-x-auto">
-				<table class="table table-zebra w-full min-w-[640px]">
-					<thead>
+	<section aria-labelledby="recent-draws-heading">
+		<div class="section-heading"><h2 id="recent-draws-heading">최근 출현 이력</h2><p>본 번호·보너스로 등장한 최근 20개 기록</p></div>
+		{#if data.recentDraws.length > 0}
+			<!-- Keyboard users need a focusable horizontal scroll region. -->
+			<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+			<div class="draw-table-scroll" tabindex="0" role="region" aria-label="최근 출현 이력 표, 가로 스크롤 가능">
+				<table class="table table-zebra draw-table">
+					<thead><tr><th scope="col">회차 / 추첨일</th><th scope="col">당첨번호</th><th scope="col">보너스</th><th scope="col">출현 유형</th></tr></thead>
+					<tbody>{#each data.recentDraws as draw (draw.round)}
 						<tr>
-							<th class="sticky left-0 bg-base-100 text-xs sm:text-sm min-w-[60px]">회차</th>
-							<th class="text-xs sm:text-sm min-w-[200px]">당첨번호</th>
-							<th class="text-xs sm:text-sm min-w-[60px]">보너스</th>
-							<th class="text-xs sm:text-sm min-w-[80px]">출현 유형</th>
-							<th class="text-xs sm:text-sm min-w-[80px]">추첨일</th>
+							<th scope="row"><a href={resolve(`/history?round=${draw.round}`)}>{draw.round}회</a><small>{dateFormatter.format(new Date(draw.drawDate))}</small></th>
+							<td><div class="winning-numbers">{#each [...draw.numbers].sort((a, b) => a - b) as number (number)}<span class:highlight={number === selected}><LottoBall {number} size="small" /></span>{/each}</div></td>
+							<td><span class:highlight={draw.bonusNumber === selected}><LottoBall number={draw.bonusNumber} size="small" /></span></td>
+							<td>{draw.isMain ? "본 번호" : "보너스"}</td>
 						</tr>
-					</thead>
-					<tbody>
-						{#each data.recentDraws as draw (draw.round)}
-							<tr>
-								<td class="sticky left-0 bg-base-100 font-semibold text-xs sm:text-sm">{draw.round}회</td>
-								<td>
-									<div class="flex gap-1 flex-wrap">
-										{#each draw.numbers.sort((a, b) => a - b) as num (num)}
-											<span class="w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs font-bold {num === data.selectedNumber ? 'bg-primary text-primary-content' : 'bg-base-300 text-base-content'}">
-												{num}
-											</span>
-										{/each}
-									</div>
-								</td>
-								<td class="text-center">
-									<span class="w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs font-bold mx-auto {draw.bonusNumber === data.selectedNumber ? 'bg-warning text-warning-content' : 'bg-base-300 text-base-content'}">
-										{draw.bonusNumber}
-									</span>
-								</td>
-								<td>
-									{#if draw.isMain}
-										<span class="badge badge-primary badge-sm">본 번호</span>
-									{:else if draw.isBonus}
-										<span class="badge badge-warning badge-sm">보너스</span>
-									{:else}
-										<span class="badge badge-ghost badge-sm">-</span>
-									{/if}
-								</td>
-								<td class="text-xs sm:text-sm text-base-content/70">
-									{new Date(draw.drawDate).toLocaleDateString('ko-KR')}
-								</td>
-							</tr>
-						{/each}
-					</tbody>
+					{/each}</tbody>
 				</table>
 			</div>
-		</div>
-	</div>
-	{/if}
+		{:else}<p class="muted">최근 출현 기록을 불러오지 못했어요.</p>{/if}
+	</section>
 
-	<!-- 번호 분석 정보 -->
-	<div class="card bg-base-100 shadow-sm">
-		<div class="card-body">
-			<h2 class="card-title text-base sm:text-lg">번호 분석 정보</h2>
-			<div class="space-y-3 sm:space-y-4 text-xs sm:text-sm">
-				<p class="text-sm sm:text-base leading-relaxed">
-					번호 <strong class="text-primary">{data.selectedNumber}번</strong>은 전체 {data.totalRounds}회차 중 
-					<strong class="text-secondary">{data.numberStats.draw_count}회</strong> 출현하여 
-					<strong class="text-accent">{data.numberStats.averageFrequency}%</strong>의 출현율을 보입니다.
-				</p>
-				
-				<div class="bg-info/5 p-3 sm:p-4 rounded-lg">
-					<h3 class="font-semibold text-info mb-2 text-sm sm:text-base">💡 이 번호의 특징</h3>
-					<ul class="list-disc list-inside space-y-1 text-base-content/70 text-xs sm:text-sm">
-						<li><strong>색상 구간:</strong> {colorDetail?.name} ({colorDetail?.range})</li>
-						<li><strong>고저 구분:</strong> {data.isHighNumber ? '고숫자 (23-45)' : '저숫자 (1-22)'}</li>
-						<li><strong>출현 빈도:</strong> {getFrequencyAnalysis(data.numberStats.averageFrequency)} (기대값 대비 {Number(data.numberStats.deviation) > 0 ? '+' : ''}{data.numberStats.deviation})</li>
-						<li><strong>최근 출현:</strong> {data.numberStats.last_draw_round}회차</li>
-					</ul>
-				</div>
-			</div>
-		</div>
+	<div class="analysis-columns">
+		<section>
+			<div class="section-heading"><h2>기대값과의 차이</h2></div>
+			<dl class="comparison-list">
+				<div><dt>실제 본 번호 출현</dt><dd>{data.numberStats.draw_count}회</dd></div>
+				<div><dt>이론적 기대값</dt><dd>{data.numberStats.expectedFrequency}회</dd></div>
+				<div><dt>실제 횟수 − 기대값</dt><dd>{Number(data.numberStats.deviation) > 0 ? "+" : ""}{data.numberStats.deviation}회</dd></div>
+			</dl>
+			<p class="muted">본 번호 기대값은 전체 {data.totalRounds}회 × 6 ÷ 45입니다. 이 차이는 과거 추첨 결과의 편차이며, 다음 회차에 보정되어 나오는 값이 아닙니다.</p>
+		</section>
+		<section>
+			<div class="section-heading"><h2>보너스 출현 비교</h2><a href={resolve("/stats/bonus")}>보너스 통계 →</a></div>
+			<dl class="comparison-list">
+				<div><dt>본 번호 + 보너스</dt><dd>{totalAppearances}회</dd></div>
+				<div><dt>합산 중 보너스 비중</dt><dd>{bonusShare}%</dd></div>
+				<div><dt>보너스 기대값과의 차이</dt><dd>{bonusDeviation > 0 ? "+" : ""}{bonusDeviation.toFixed(1)}회</dd></div>
+			</dl>
+			<p class="muted">보너스는 회차마다 1개이므로 기대값은 {bonusExpectedCount.toFixed(1)}회입니다. 본 번호 출현 횟수와 계산 기준이 다릅니다.</p>
+		</section>
 	</div>
+
+	<p class="interpretation">과거 출현 빈도는 다음 추첨에서 개별 번호가 나올 가능성을 높이지 않습니다.</p>
+	<footer><a href={resolve("/n/[index]", { index: String(selected) })}>{selected}번의 스캔 집계 보기 →</a><a href={resolve("/stats")}>다른 통계 살펴보기 →</a></footer>
 </div>
+
+<style>
+	.breadcrumb { display: flex; flex-wrap: wrap; gap: 0.5rem; font-size: 0.8125rem; color: color-mix(in oklab, var(--color-base-content) 68%, transparent); }
+	.number-controls { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: flex-start; justify-content: space-between; }
+	.number-controls nav { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+	.number-controls nav a, summary { display: inline-flex; align-items: center; min-height: 2.75rem; padding: 0.6rem 0.8rem; border: 1px solid var(--color-base-300); border-radius: 0.5rem; font-size: 0.8125rem; font-weight: 600; cursor: pointer; }
+	.number-picker { display: grid; grid-template-columns: repeat(6, 2.75rem); gap: 0.35rem; padding-top: 0.75rem; }
+	.number-picker a { display: grid; place-items: center; min-height: 2.75rem; border: 1px solid var(--color-base-300); border-radius: 0.5rem; font-size: 0.875rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+	.number-picker .current { background: var(--color-primary); border-color: var(--color-primary); color: var(--color-primary-content); }
+	.section-heading { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0.4rem 1rem; margin-bottom: 1rem; }
+	h2 { font-size: 1.125rem; font-weight: 700; letter-spacing: -0.02em; }
+	.section-heading p, .section-heading a { font-size: 0.8125rem; }
+	.section-heading p { color: color-mix(in oklab, var(--color-base-content) 68%, transparent); }
+	.section-heading a { color: var(--color-primary); font-weight: 600; }
+	.draw-table-scroll { overflow-x: auto; border-block: 1px solid var(--color-base-300); }
+	.draw-table { min-width: 29rem; }
+	.draw-table th { white-space: nowrap; }
+	.draw-table th a { color: var(--color-primary); }
+	.draw-table small { display: block; margin-top: 0.3rem; color: color-mix(in oklab, var(--color-base-content) 65%, transparent); font-size: 0.75rem; font-weight: 400; }
+	.winning-numbers { display: flex; align-items: center; gap: 0.4rem; }
+	.highlight { display: inline-flex; outline: 2px solid var(--color-primary); outline-offset: 2px; border-radius: 50%; }
+	.analysis-columns { display: grid; gap: 1.5rem; }
+	.comparison-list > div { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; padding-block: 0.85rem; border-bottom: 1px solid var(--color-base-300); }
+	dt { font-size: 0.875rem; color: color-mix(in oklab, var(--color-base-content) 75%, transparent); }
+	dd { font-weight: 650; font-size: 0.9375rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
+	.muted { margin-top: 0.85rem; font-size: 0.8125rem; line-height: 1.7; color: color-mix(in oklab, var(--color-base-content) 72%, transparent); }
+	.interpretation { padding: 1rem; border-radius: 0.6rem; background: var(--color-base-200); font-size: 0.875rem; line-height: 1.65; }
+	footer { display: flex; flex-wrap: wrap; gap: 1rem; color: var(--color-primary); font-size: 0.875rem; font-weight: 600; }
+	a:focus-visible, summary:focus-visible, .draw-table-scroll:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 3px; }
+	@media (min-width: 768px) { .analysis-columns { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2rem; } }
+</style>

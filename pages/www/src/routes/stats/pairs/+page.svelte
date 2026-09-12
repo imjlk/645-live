@@ -1,12 +1,12 @@
 <script lang="ts">
+import { JsonLd, MetaTags } from "svelte-meta-tags";
+import { resolve } from "$app/paths";
 import {
 	GuideSection,
-	RecentAnalysisInput,
 	StatsPageHero,
 	StatsSummary,
 } from "$lib/components/stats";
 import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
-import { JsonLd, MetaTags } from "svelte-meta-tags";
 import type { PageData } from "./$types";
 
 let { data }: { data: PageData } = $props();
@@ -23,15 +23,15 @@ const getNumberColorClass = (number: number) => {
 	const remainder = number % 5;
 	switch (remainder) {
 		case 1:
-			return "bg-yellow-500";
+			return "stats-ball-yellow";
 		case 2:
-			return "bg-blue-500";
+			return "stats-ball-blue";
 		case 3:
-			return "bg-red-500";
+			return "stats-ball-red";
 		case 4:
-			return "bg-gray-500";
+			return "stats-ball-grey";
 		case 0:
-			return "bg-green-500";
+			return "stats-ball-green";
 		default:
 			return "bg-gray-400";
 	}
@@ -52,14 +52,19 @@ const pairDistributionMax = $derived(
 		? Math.max(...Object.values(data.pairCountDistribution))
 		: 0,
 );
+
+const pageTitle = $derived(`로또 함께 나온 번호쌍 통계`);
+const pageDescription = $derived(
+	`로또 6/45 전체 ${data.totalRounds}회차 추첨 결과에서 같은 회차에 함께 나온 두 번호의 출현 횟수를 확인하세요. 자주 나온 번호쌍과 전체 조합의 빈도 분포, 번호별 동반 출현 합계를 비교할 수 있습니다. 과거 동반 출현은 다음 추첨의 확률을 높이지 않습니다.`,
+);
 </script>
 
 <MetaTags
-	title="로또 6/45 번호쌍 분석 통계 | 동반 출현 패턴 분석"
+	title={pageTitle}
 	titleTemplate="%s | 645.live"
-	description="🔥 로또 6/45 최강 번호 조합 공개! 가장 많이 함께 나오는 황금 번호 쌍 분석으로 당첨 확률을 높여보세요!"
+	description={pageDescription}
 	canonical="https://645.live/stats/pairs"
-	keywords={["로또번호쌍", "로또동반출현", "로또번호조합", "로또쌍분석", "6/45통계", "번호조합분석", "로또번호추천", "로또쌍통계", "동반출현분석", "번호조합패턴"]}
+	keywords={["로또번호쌍", "로또동반출현", "로또번호조합", "로또쌍분석", "6/45통계", "번호조합분석", "로또쌍통계", "동반출현분석", "번호조합패턴"]}
 	robots="index,follow"
 	additionalRobotsProps={{
 		maxSnippet: 320,
@@ -70,10 +75,6 @@ const pairDistributionMax = $derived(
 		{
 			name: 'application-name',
 			content: '645.live'
-		},
-		{
-			name: 'theme-color',
-			content: '#3B82F6'
 		},
 		{
 			name: 'format-detection',
@@ -95,8 +96,8 @@ const pairDistributionMax = $derived(
 	openGraph={{
 		type: 'article',
 		url: 'https://645.live/stats/pairs',
-		title: '로또 6/45 번호쌍 분석 통계 | 동반 출현 패턴',
-		description: '🔥 로또 6/45 최강 번호 조합 공개! 가장 많이 함께 나오는 황금 번호 쌍 분석으로 당첨 확률을 높여보세요!',
+		title: pageTitle,
+		description: pageDescription,
 		locale: 'ko_KR',
 		images: [{
 			url: `https://645.live/og?${new URLSearchParams({
@@ -115,15 +116,13 @@ const pairDistributionMax = $derived(
 		article: {
 			section: '로또 통계',
 			tags: ['로또', '번호쌍분석', '동반출현', '번호조합', '로또통계', '6/45통계', '로또쌍분석', '번호조합분석'],
-			publishedTime: '2024-01-01T00:00:00.000Z',
-			modifiedTime: new Date().toISOString()
 		}
 	}}
 	twitter={{
 		cardType: 'summary_large_image',
 		site: '@645live',
-		title: '로또 6/45 번호쌍 분석 통계',
-		description: '🔥 로또 6/45 최강 번호 조합 공개! 황금 번호 쌍 분석으로 당첨 확률을 높여보세요!',
+		title: pageTitle,
+		description: pageDescription,
 		image: `https://645.live/og?${new URLSearchParams({
 			title: encodeURIComponent('로또 6/45 번호쌍 분석'),
 			description: encodeURIComponent(`${data.totalPairs}개 번호쌍 동반출현 패턴 분석`),
@@ -176,12 +175,12 @@ const pairDistributionMax = $derived(
 	}}
 />
 
-<div class="p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-6 max-sm:px-0">
+<div class="stats-page">
 	<!-- Breadcrumbs -->
 	<Breadcrumbs items={breadcrumbItems} />
 
 	<StatsPageHero
-		eyebrow="Pair Correlation"
+		eyebrow="공식 추첨 통계"
 		title="번호쌍 분석 통계"
 		description={`로또 6/45 당첨번호의 동반 출현 패턴을 분석합니다. 어떤 번호쌍이 함께 자주 등장하는지, 전체 ${data.totalPairs}개 번호쌍의 결합 흐름을 한 화면에서 읽을 수 있습니다.`}
 		metrics={[
@@ -200,7 +199,7 @@ const pairDistributionMax = $derived(
 			{
 				label: "최대 기록",
 				value: `${data.maxPairCount}회`,
-				note: "가장 강한 번호쌍",
+				note: "함께 가장 많이 나온 쌍",
 				tone: "accent",
 			},
 			{
@@ -212,10 +211,6 @@ const pairDistributionMax = $derived(
 	/>
 
 	<!-- 최근 회차 분석 -->
-	<RecentAnalysisInput 
-		maxRounds={data.totalRounds || 0}
-		basePath="/stats/pairs"
-	/>
 
 	<!-- 통계 요약 -->
 	<div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
@@ -247,7 +242,7 @@ const pairDistributionMax = $derived(
 			<div class="card-body p-4 sm:p-6">
 				<h2 class="card-title text-lg sm:text-xl">동반 출현 횟수 분포</h2>
 				<div class="space-y-2 sm:space-y-3">
-					{#each Object.entries(data.pairCountDistribution) as [range, count]}
+					{#each Object.entries(data.pairCountDistribution) as [range, count] (range)}
 						<div class="flex items-center justify-between">
 							<span class="text-xs sm:text-sm font-medium">{range}회</span>
 							<div class="flex items-center">
@@ -270,11 +265,11 @@ const pairDistributionMax = $derived(
 				<h2 class="card-title text-lg sm:text-xl">가장 활발한 번호 <span class="text-sm font-normal text-base-content/70">(총 동반 출현 횟수)</span></h2>
 				{#if data.topNumbersByPairCount && data.topNumbersByPairCount.length > 0}
 					<div class="space-y-2">
-						{#each data.topNumbersByPairCount as [number, totalPairCount], index}
+						{#each data.topNumbersByPairCount as [number, totalPairCount], index (number)}
 							<div class="flex items-center justify-between">
 								<div class="flex items-center">
 									<span class="text-xs sm:text-sm text-base-content/70 mr-2 w-4 sm:w-6">{index + 1}.</span>
-									<a href="/n/{number}" class="lotto-ball-mobile {getNumberColorClass(number)} hover:scale-110 transition-transform">{number}</a>
+									<a href={resolve("/stats/numbers/[number]", { number: String(number) })} class="lotto-ball-mobile {getNumberColorClass(number)} hover:scale-110 transition-transform">{number}</a>
 								</div>
 								<span class="text-xs sm:text-sm font-medium text-base-content">{totalPairCount.toLocaleString()}회</span>
 							</div>
@@ -306,7 +301,7 @@ const pairDistributionMax = $derived(
 						</tr>
 					</thead>
 					<tbody>
-						{#each data.pairStats as stat, index}
+						{#each data.pairStats as stat, index (`${stat.number_a}-${stat.number_b}`)}
 							{@const statRecord = stat as { id: number; number_a: number; number_b: number; pair_count: number }}
 							{@const grade = getPairGrade(statRecord.pair_count)}
 							{@const rank = index + 1}
@@ -314,7 +309,7 @@ const pairDistributionMax = $derived(
 								<td class="sticky left-0 bg-base-100 z-10">
 										<div class="text-xs sm:text-sm font-medium">
 											{#if rank <= 3}
-												<span class="inline-flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full {rank === 1 ? 'bg-yellow-400' : rank === 2 ? 'bg-gray-400' : 'bg-amber-600'} text-white text-xs font-bold">
+												<span class="inline-flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-base-200 text-base-content text-xs font-bold">
 													{rank}
 												</span>
 											{:else}
@@ -324,11 +319,11 @@ const pairDistributionMax = $derived(
 									</td>
 									<td>
 										<div class="flex items-center space-x-1 sm:space-x-2">
-											<a href="/n/{statRecord.number_a}" class="lotto-ball-mobile {getNumberColorClass(statRecord.number_a)} hover:scale-110 transition-transform">
+											<a href={resolve("/stats/numbers/[number]", { number: String(statRecord.number_a) })} class="lotto-ball-mobile {getNumberColorClass(statRecord.number_a)} hover:scale-110 transition-transform">
 												{statRecord.number_a}
 											</a>
 											<span class="text-base-content/40 text-xs sm:text-sm">+</span>
-											<a href="/n/{statRecord.number_b}" class="lotto-ball-mobile {getNumberColorClass(statRecord.number_b)} hover:scale-110 transition-transform">
+											<a href={resolve("/stats/numbers/[number]", { number: String(statRecord.number_b) })} class="lotto-ball-mobile {getNumberColorClass(statRecord.number_b)} hover:scale-110 transition-transform">
 												{statRecord.number_b}
 											</a>
 										</div>
@@ -392,7 +387,7 @@ const pairDistributionMax = $derived(
 		width: 2rem;
 		height: 2rem;
 		border-radius: 50%;
-		color: white;
+		color: inherit;
 		font-weight: bold;
 		font-size: 0.875rem;
 	}
@@ -404,7 +399,7 @@ const pairDistributionMax = $derived(
 		width: 1.75rem;
 		height: 1.75rem;
 		border-radius: 50%;
-		color: white;
+		color: inherit;
 		font-weight: bold;
 		font-size: 0.75rem;
 	}
@@ -423,7 +418,7 @@ const pairDistributionMax = $derived(
 		align-items: center;
 		padding: 0.5rem 1rem;
 		border: 1px solid #d1d5db;
-		background-color: white;
+		background-color: inherit;
 		font-size: 0.875rem;
 		font-weight: 500;
 		color: #6b7280;

@@ -5,33 +5,21 @@ publishedAt: "2026-03-21T21:21:00+09:00"
 updatedAt: "2026-03-23T11:25:27.956+09:00"
 category: "로또분석"
 tags: ["로또", "1216회", "당첨번호", "당첨점", "직전회차비교"]
-description: "제1216회와 직전 회차를 비교해 당첨자 수, 반복 번호, 판매점 흐름 차이를 정리했습니다."
+description: "직전 회차와 겹친 번호, 당첨자 수와 판매점 변화"
+summary: "직전 회차와 겹친 번호, 당첨자 수와 판매점 변화"
+seoDescription: "제1216회 로또 당첨번호는 3·10·14·15·23·24, 보너스는 25입니다. 1등 14명이 각각 2,148,654,000원을 받는 결과를 정리하고, 직전 회차와 겹친 번호, 당첨자 수와 판매점 변화 내용을 살펴봅니다."
 author: "645.live 자동뉴스"
 thumbnail: "/og/news/lotto-1216?v=2026-03-23T11%3A25%3A27.956%2B09%3A00"
 ---
 
 <script>
-  import LottoNumbers from '$lib/components/news/LottoNumbers.svelte';
-  import Card from '$lib/ui/Card.svelte';
+  import DrawSummary from '$lib/components/news/DrawSummary.svelte';
+  import AdSlot from '$lib/components/ads/AdSlot.svelte';
   import Alert from '$lib/components/news/Alert.svelte';
   import Table from '$lib/components/news/Table.svelte';
-  import Tabs from '$lib/components/news/Tabs.svelte';
-  import TabsList from '$lib/components/news/TabsList.svelte';
-  import TabsTrigger from '$lib/components/news/TabsTrigger.svelte';
-  import TabsContent from '$lib/components/news/TabsContent.svelte';
 </script>
 
-## 이번 회차 핵심 요약
-
-<Card variant="bordered">
-  <ul>
-    <li><strong>추첨일</strong>: 2026-03-21</li>
-    <li><strong>당첨번호</strong>: 3, 10, 14, 15, 23, 24 + 보너스 25</li>
-    <li><strong>1등 당첨자</strong>: 14명</li>
-    <li><strong>1인당 1등 당첨금</strong>: 2,148,654,000원</li>
-    <li><strong>총 판매액</strong>: 62,778,263,417원</li>
-  </ul>
-</Card>
+<DrawSummary round={1216} date="2026-03-21" numbers={[3, 10, 14, 15, 23, 24]} bonus={25} winners={14} prize={2148654000} totalSales={62778263417} />
 
 제1216회 로또는 직전 회차와 비교했을 때 변화 폭이 읽히는 추첨이었습니다. 이번 회차 당첨번호는 3, 10, 14, 15, 23, 24이고 1등 당첨자는 14명으로 집계됐습니다.
 
@@ -39,9 +27,6 @@ thumbnail: "/og/news/lotto-1216?v=2026-03-23T11%3A25%3A27.956%2B09%3A00"
 
 직전 1215회와 겹친 번호는 15 1개, 1등 당첨자는 직전보다 2명 줄었습니다.
 
-## 당첨번호
-
-<LottoNumbers numbers={[3, 10, 14, 15, 23, 24]} bonus={25} round={1216} />
 
 ## 특이점 분석
 
@@ -55,6 +40,8 @@ thumbnail: "/og/news/lotto-1216?v=2026-03-23T11%3A25%3A27.956%2B09%3A00"
 당첨자 수 변화는 기사 체감 온도를 바꾸는 핵심 변수입니다. 같은 당첨번호 구조라도 1등 인원과 판매점 분포가 바뀌면 독자의 관심 포인트도 달라집니다.
 
 경기 지역은 전체 당첨점의 30.7%를 차지하며 이번 회차 판매점 분포에서 가장 먼저 눈에 띄었습니다.
+
+<AdSlot placement="article-inline" format="horizontal" />
 
 ## 지역별 당첨점 현황 (상위)
 
@@ -108,73 +95,16 @@ thumbnail: "/og/news/lotto-1216?v=2026-03-23T11%3A25%3A27.956%2B09%3A00"
   </tbody>
 </Table>
 
-<Tabs defaultValue="insight">
-  <TabsList>
-    <TabsTrigger value="insight">요약 인사이트</TabsTrigger>
-    <TabsTrigger value="stores">당첨점 규모</TabsTrigger>
-  </TabsList>
-  <TabsContent value="insight">
-    <p>직전 1215회와의 차이를 보면 이번 회차는 반복 번호 15가 다시 등장했다는 점이 먼저 보입니다. 이런 비교는 단기 회차 흐름을 읽을 때 특히 유용합니다. 당첨자 수 변화는 기사 체감 온도를 바꾸는 핵심 변수입니다. 같은 당첨번호 구조라도 1등 인원과 판매점 분포가 바뀌면 독자의 관심 포인트도 달라집니다. 경기 지역은 전체 당첨점의 30.7%를 차지하며 이번 회차 판매점 분포에서 가장 먼저 눈에 띄었습니다.</p>
-  </TabsContent>
-  <TabsContent value="stores">
-    <p>제1216회는 총 101개 당첨점이 집계되었습니다. 집계 데이터는 이후 정정될 수 있습니다.</p>
-  </TabsContent>
-</Tabs>
+<p class="news-data-note">제1216회는 총 101개 당첨점이 집계되었습니다. 집계 데이터는 이후 정정될 수 있습니다.</p>
 
 ## 이번 회차에서 이어서 볼 통계
 
-이번 회차 특징과 맞는 통계를 카드에서 바로 이동해 확인해보세요.
-
-<div class="not-prose grid grid-cols-1 md:grid-cols-2 gap-3 my-6">
-<a href="/stats" class="group block rounded-2xl border border-base-300 bg-gradient-to-br from-base-100 to-base-200/70 p-0.5 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all no-underline">
-  <div class="h-full rounded-2xl bg-base-100 p-4">
-    <div class="flex items-start gap-3">
-      <span class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-lg">📊</span>
-      <div class="min-w-0 flex-1">
-        <h3 class="text-base font-semibold text-base-content group-hover:text-primary transition-colors">전체 통계 메인</h3>
-        <p class="mt-1 text-sm leading-relaxed text-base-content/70">이번 회차 해석을 장기 흐름과 바로 연결해서 보기 좋은 기준 페이지</p>
-      </div>
-      <span class="text-base-content/40 group-hover:text-primary transition-colors">↗</span>
-    </div>
-  </div>
-</a>
-<a href="/stats/repeat" class="group block rounded-2xl border border-base-300 bg-gradient-to-br from-base-100 to-base-200/70 p-0.5 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all no-underline">
-  <div class="h-full rounded-2xl bg-base-100 p-4">
-    <div class="flex items-start gap-3">
-      <span class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-lg">🔁</span>
-      <div class="min-w-0 flex-1">
-        <h3 class="text-base font-semibold text-base-content group-hover:text-primary transition-colors">연속 중복 통계</h3>
-        <p class="mt-1 text-sm leading-relaxed text-base-content/70">직전 회차와 겹친 번호가 장기적으로 얼마나 자주 나오는지 확인</p>
-      </div>
-      <span class="text-base-content/40 group-hover:text-primary transition-colors">↗</span>
-    </div>
-  </div>
-</a>
-<a href="/stats/pairs" class="group block rounded-2xl border border-base-300 bg-gradient-to-br from-base-100 to-base-200/70 p-0.5 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all no-underline">
-  <div class="h-full rounded-2xl bg-base-100 p-4">
-    <div class="flex items-start gap-3">
-      <span class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-lg">👥</span>
-      <div class="min-w-0 flex-1">
-        <h3 class="text-base font-semibold text-base-content group-hover:text-primary transition-colors">번호 쌍 통계</h3>
-        <p class="mt-1 text-sm leading-relaxed text-base-content/70">연속 회차 사이 함께 등장한 번호 조합을 더 자세히 비교</p>
-      </div>
-      <span class="text-base-content/40 group-hover:text-primary transition-colors">↗</span>
-    </div>
-  </div>
-</a>
-<a href="/winning-stores?round=1216" class="group block rounded-2xl border border-base-300 bg-gradient-to-br from-base-100 to-base-200/70 p-0.5 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all no-underline">
-  <div class="h-full rounded-2xl bg-base-100 p-4">
-    <div class="flex items-start gap-3">
-      <span class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-lg">🏪</span>
-      <div class="min-w-0 flex-1">
-        <h3 class="text-base font-semibold text-base-content group-hover:text-primary transition-colors">당첨점 비교</h3>
-        <p class="mt-1 text-sm leading-relaxed text-base-content/70">직전 회차와 판매점 분포 차이를 함께 체크</p>
-      </div>
-      <span class="text-base-content/40 group-hover:text-primary transition-colors">↗</span>
-    </div>
-  </div>
-</a>
-</div>
+<nav class="news-related-links" aria-label="관련 통계">
+<a class="news-related-link" href="/stats"><span><strong>전체 통계 메인</strong><small>이번 회차 해석을 장기 흐름과 바로 연결해서 보기 좋은 기준 페이지</small></span><span aria-hidden="true">↗</span></a>
+<a class="news-related-link" href="/stats/repeat"><span><strong>연속 중복 통계</strong><small>직전 회차와 겹친 번호가 장기적으로 얼마나 자주 나오는지 확인</small></span><span aria-hidden="true">↗</span></a>
+<a class="news-related-link" href="/stats/pairs"><span><strong>번호 쌍 통계</strong><small>연속 회차 사이 함께 등장한 번호 조합을 더 자세히 비교</small></span><span aria-hidden="true">↗</span></a>
+<a class="news-related-link" href="/winning-stores?round=1216"><span><strong>당첨점 비교</strong><small>직전 회차와 판매점 분포 차이를 함께 체크</small></span><span aria-hidden="true">↗</span></a>
+</nav>
 
 <Alert type="info">
   복권은 건전한 오락으로 즐겨주세요. 과도한 구매는 경제적 부담을 유발할 수 있습니다.

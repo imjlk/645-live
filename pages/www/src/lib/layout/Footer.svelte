@@ -1,24 +1,31 @@
 <script lang="ts">
-import LinkButton from "$lib/ui/LinkButton.svelte";
-
-let currentYear = $state(new Date().getFullYear());
+import { resolve } from "$app/paths";
+const links = [
+	["/about", "서비스 소개"],
+	["/data-sources", "데이터 출처"],
+	["/editorial-policy", "편집 원칙"],
+	["/guide", "이용 가이드"],
+	["/docs", "API·연동 문서"],
+	["/status", "서비스 상태"],
+	["/contact", "문의"],
+	["/privacy", "개인정보 처리방침"],
+	["/terms-of-service", "이용약관"],
+] as const;
 </script>
-
-<footer class="flex flex-col md:flex-row justify-between items-center px-4 py-2 bg-base-content text-base-100 rounded-t-4xl pt-6 pb-12">
-	<div class="flex flex-col items-center md:items-start space-y-1">
-		<div class="text-lg font-semibold">645.live</div>
-		<div class="text-sm opacity-75">공식 발표와 자체 스캔 데이터를 함께 정리하는 로또 645 정보 서비스</div>
-		<div class="text-xs opacity-60">© {currentYear} 645.live. All rights reserved.</div>
-	</div>
-	<div class="flex flex-wrap justify-center gap-1 md:justify-end">
-		<LinkButton href="/docs" class="btn-ghost shadow-none">개발자 문서</LinkButton>
-		<LinkButton href="/compare" class="btn-ghost shadow-none">왜 645.live인가</LinkButton>
-		<LinkButton href="/status" class="btn-ghost shadow-none">상태</LinkButton>
-		<LinkButton href="/contact" class="btn-ghost shadow-none">문의</LinkButton>
-		<LinkButton href="/about" class="btn-ghost shadow-none">소개</LinkButton>
-		<LinkButton href="/editorial-policy" class="btn-ghost shadow-none">편집 원칙</LinkButton>
-		<LinkButton href="/data-sources" class="btn-ghost shadow-none">데이터 출처</LinkButton>
-		<LinkButton href="/privacy" class="btn-ghost shadow-none">개인정보 처리방침</LinkButton>
-		<LinkButton href="/terms-of-service" class="btn-ghost shadow-none">이용약관</LinkButton>
-	</div>
+<footer class="site-footer">
+ <div class="footer-inner">
+  <div><a class="footer-brand" href={resolve("/")}>645.live</a><p>공식 추첨 결과와 이용자 스캔을 구분하는 로또 정보 서비스</p><small>© {new Date().getFullYear()} 645.live</small></div>
+  <nav aria-label="서비스 안내">{#each links as [href, label] (href)}<a href={resolve(href)}>{label}</a>{/each}</nav>
+ </div>
 </footer>
+<style>
+ .site-footer { border-top: 1px solid var(--color-base-300); margin-top: 1.5rem; background: var(--color-base-200); }
+ .footer-inner { max-width: 1240px; margin-inline: auto; padding: 2rem var(--page-gutter); display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; }
+ .footer-brand { font-weight: 800; font-size: 1.25rem; letter-spacing: -0.05em; }
+ p { margin-block: 0.6rem; color: var(--text-muted); font-size: 0.8125rem; line-height: 1.7; }
+ small { color: var(--text-muted); font-size: 0.75rem; }
+ nav { display: flex; flex-wrap: wrap; align-content: start; justify-content: end; gap: 0.25rem 1.25rem; }
+ nav a { color: var(--text-muted); font-size: 0.8125rem; padding-block: 0.55rem; }
+ nav a:hover { text-decoration: underline; }
+ @media (max-width: 767px) { .footer-inner { grid-template-columns: 1fr; gap: 1rem; } nav { justify-content: start; } }
+</style>

@@ -1,9 +1,13 @@
 <!-- @ts-nocheck -->
 <script lang="ts">
 // @ts-nocheck
-import { RecentAnalysisInput, StatsFreshnessNotice } from "$lib/components/stats";
-import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
+
 import { JsonLd, MetaTags } from "svelte-meta-tags";
+import {
+	RecentAnalysisInput,
+	StatsFreshnessNotice,
+} from "$lib/components/stats";
+import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
 import type { PageData } from "./$types";
 
 let { data }: { data: PageData } = $props();
@@ -52,14 +56,21 @@ const breadcrumbItems = [
 	{ label: "AC값", href: "/stats/ac" },
 	{ label: "최근 AC 트렌드", current: true },
 ];
+
+const pageTitle = $derived(
+	`최근 ${data.selectedRounds}회 로또 AC값 분포와 회차별 기록`,
+);
+const pageDescription = $derived(
+	`로또 6/45 최근 ${data.selectedRounds}회차 추첨 결과에서 AC값의 평균·최댓값·최솟값과 분포를 확인하세요. 번호 간 차이로 계산한 산술적 복잡도를 회차별 당첨번호와 함께 비교하고, 원하는 최근 기간을 선택해 변화와 계산 기준을 살펴볼 수 있습니다.`,
+);
 </script>
 
 <MetaTags
-	title={`로또 6/45 AC값 분석 (최근 ${data.selectedRounds}회차) | 산술적 복잡도 상세 분석`}
+	title={pageTitle}
 	titleTemplate="%s | 645.live"
-	description={`로또 6/45 최근 ${data.selectedRounds}회차 AC값 상세 분석. 평균 AC값 ${data.acStats.summary.avgAC.toFixed(2)}, 분포 패턴 및 복잡도 분석을 통한 당첨번호 예측 정보 제공.`}
+	description={pageDescription}
 	canonical={`https://645.live/stats/ac/recent/${data.selectedRounds}`}
-	keywords={[`로또 ${data.selectedRounds}회차`, "AC값 분석", "산술적복잡도", "당첨번호패턴", "로또통계", "복잡도분석", "6/45통계", "번호예측"]}
+	keywords={[`로또 ${data.selectedRounds}회차`, "AC값 분석", "산술적복잡도", "당첨번호패턴", "로또통계", "복잡도분석", "6/45통계"]}
 	robots="index,follow"
 	additionalRobotsProps={{
 		maxSnippet: 320,
@@ -70,10 +81,6 @@ const breadcrumbItems = [
 		{
 			name: 'application-name',
 			content: '645.live'
-		},
-		{
-			name: 'theme-color',
-			content: '#3B82F6'
 		},
 		{
 			name: 'format-detection',
@@ -95,8 +102,8 @@ const breadcrumbItems = [
 	openGraph={{
 		type: 'article',
 		url: `https://645.live/stats/ac/recent/${data.selectedRounds}`,
-		title: `로또 6/45 AC값 분석 (최근 ${data.selectedRounds}회차) | 상세 통계`,
-		description: `최근 ${data.selectedRounds}회차 AC값 상세 분석 - 평균 ${data.acStats.summary.avgAC.toFixed(2)}, 최대 ${data.acStats.summary.maxAC}, 최소 ${data.acStats.summary.minAC}`,
+		title: pageTitle,
+		description: pageDescription,
 		locale: 'ko_KR',
 		images: [{
 			url: `https://645.live/og?${new URLSearchParams({
@@ -115,15 +122,13 @@ const breadcrumbItems = [
 		article: {
 			section: '로또 통계',
 			tags: ['로또', 'AC값', '산술적복잡도', '당첨번호', '통계분석', '6/45', `${data.selectedRounds}회차`],
-			publishedTime: '2024-01-01T00:00:00.000Z',
-			modifiedTime: new Date().toISOString()
 		}
 	}}
 	twitter={{
 		cardType: 'summary_large_image',
 		site: '@645live',
-		title: `로또 6/45 AC값 ${data.selectedRounds}회차 분석`,
-		description: `평균 AC값 ${data.acStats.summary.avgAC.toFixed(2)} | 최대 ${data.acStats.summary.maxAC} | 최소 ${data.acStats.summary.minAC}`,
+		title: pageTitle,
+		description: pageDescription,
 		image: `https://645.live/og?${new URLSearchParams({
 			title: encodeURIComponent(`AC값 분석 (${data.selectedRounds}회차)`),
 			description: encodeURIComponent(`평균 ${data.acStats.summary.avgAC.toFixed(2)} | 범위 ${data.acStats.summary.minAC}-${data.acStats.summary.maxAC}`),
@@ -181,26 +186,17 @@ const breadcrumbItems = [
 	}}
 />
 
-<div class="p-4 sm:p-6 space-y-4 sm:space-y-6  max-sm:px-0">
+<div class="stats-page">
 	<!-- Breadcrumbs -->
 	<Breadcrumbs items={breadcrumbItems} />
 
 	<StatsFreshnessNotice freshness={data.freshness} />
 
 	<!-- 페이지 헤더 -->
-	<div class="text-center space-y-2">
-		<h1 class="text-2xl sm:text-3xl font-bold text-primary">로또 6/45 최근 {data.selectedRounds}회차 AC값 분석</h1>
-		<p class="text-sm sm:text-base text-base-content/70 px-2">
-			최근 <strong class="text-primary">{data.selectedRounds}회차</strong>의 <strong>AC값(Arithmetic Complexity)</strong> 분포와 패턴을 상세히 분석합니다.<br class="hidden sm:block" />
-			평균 AC값 <strong class="text-secondary">{data.acStats.summary.avgAC.toFixed(2)}</strong>, 범위 <strong class="text-accent">{data.acStats.summary.minAC}~{data.acStats.summary.maxAC}</strong>의 복잡도 분석을 통해 
-			당첨번호 패턴을 파악해보세요.
-		</p>
-		<div class="flex flex-col sm:flex-row justify-center gap-2 sm:gap-4 text-xs sm:text-sm text-base-content/60 mt-4">
-			<span>📊 평균 AC값: <strong class="text-primary">{data.acStats.summary.avgAC.toFixed(2)}</strong></span>
-			<span>📈 분석 회차: <strong class="text-secondary">{data.selectedRounds}회</strong></span>
-			<span>🎯 범위: <strong class="text-accent">{data.acStats.summary.minAC}~{data.acStats.summary.maxAC}</strong></span>
-		</div>
-	</div>
+	<header class="stats-recent-heading space-y-2">
+		<h1 class="font-bold">최근 {data.selectedRounds}회 AC값 분포</h1>
+		<p>번호 간 차이로 계산한 복잡도와 회차별 분포를 확인하세요.</p>
+	</header>
 
 	<RecentAnalysisInput
 		maxRounds={data.totalRounds}
@@ -330,7 +326,7 @@ const breadcrumbItems = [
 						<li><strong>복잡도 패턴:</strong> 번호 조합의 복잡성 분포</li>
 						<li><strong>출현 빈도:</strong> 각 AC값의 출현 횟수와 비율</li>
 						<li><strong>트렌드 분석:</strong> 최근 {data.selectedRounds}회차의 AC값 변화 추이</li>
-						<li><strong>예측 참고:</strong> 통계적 패턴을 통한 향후 번호 선택 가이드</li>
+						<li><strong>해석 기준:</strong> 과거 출현 분포는 다음 추첨의 개별 번호 확률을 높이지 않습니다.</li>
 					</ul>
 				</div>
 			</div>

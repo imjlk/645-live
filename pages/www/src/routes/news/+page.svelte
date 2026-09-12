@@ -1,305 +1,253 @@
 <script lang="ts">
-	// News index page - list all news articles
-	import { resolve } from "$app/paths";
-	import {
-		AUTO_NEWS_AUTHOR_PATH,
-		DATA_SOURCES_PATH,
-		EDITORIAL_POLICY_PATH,
-		createBreadcrumbSchema,
-		createCollectionPageSchema,
-		createItemListSchema,
-		createOrganizationSchema,
-		absoluteUrl
-	} from "$lib/seo/index.js";
-	import { JsonLd, MetaTags } from "svelte-meta-tags";
+import { JsonLd, MetaTags } from "svelte-meta-tags";
+import { resolve } from "$app/paths";
+import AdSlot from "$lib/components/ads/AdSlot.svelte";
+import {
+	absoluteUrl,
+	createBreadcrumbSchema,
+	createCollectionPageSchema,
+	createItemListSchema,
+	DATA_SOURCES_PATH,
+	EDITORIAL_POLICY_PATH,
+	getGenericOgImage,
+} from "$lib/seo/index.js";
+import type { PageData } from "./$types";
 
-	type NewsPost = {
-		slug: string;
-		title: string;
-		date: string;
-		publishedAt?: string;
-		updatedAt?: string;
-		description: string;
-		category: string;
-		thumbnail: string;
-	};
-
-	type FeedInsertion = {
-		key: string;
-		afterPostIndex: number;
-		colSpan: 'normal' | 'wide' | 'full';
-		label?: string;
-	};
-
-	type FeedItem =
-		| {
-			type: 'post';
-			key: string;
-			colSpan: 'normal';
-			post: NewsPost;
-		}
-		| {
-			type: 'insertion';
-			key: string;
-			colSpan: 'normal' | 'wide' | 'full';
-			label?: string;
-		};
-
-	let { data } = $props();
-	const newsPosts = $derived((data.posts ?? []) as NewsPost[]);
-	const pagination = $derived(data.pagination);
-	const currentPage = $derived(pagination?.page ?? 1);
-	const totalPages = $derived(pagination?.totalPages ?? 1);
-	const totalPosts = $derived(pagination?.totalPosts ?? newsPosts.length);
-	const pageTitle = $derived(currentPage > 1 ? `로또 뉴스 - ${currentPage}페이지 - 645.live` : '로또 뉴스 - 645.live');
-	const canonicalUrl = $derived(currentPage > 1
-		? `https://645.live/news?page=${currentPage}`
-		: 'https://645.live/news');
-	const collectionSchema = $derived(
-		createCollectionPageSchema({
-			path: currentPage > 1 ? `/news?page=${currentPage}` : "/news",
-			name: currentPage > 1 ? `로또 뉴스 ${currentPage}페이지` : "로또 뉴스",
-			description: "공식 발표와 645.live 자체 스캔 데이터를 함께 보는 최신 로또 뉴스 모음",
-		}),
+let { data }: { data: PageData } = $props();
+const posts = $derived(data.posts);
+const featured = $derived(posts[0]);
+const remainingPosts = $derived(posts.slice(1));
+const pagination = $derived(data.pagination);
+const currentPage = $derived(pagination.page);
+const pageTitle = $derived(
+	currentPage > 1
+		? `로또 뉴스 ${currentPage}페이지 · 회차별 결과 해설 | 645.live`
+		: "로또 뉴스 · 회차별 당첨 결과와 해설 | 645.live",
+);
+const pagePath = $derived(hrefForPage(currentPage));
+const canonicalUrl = $derived(absoluteUrl(pagePath));
+const articleRange = $derived(`${roundLabel(posts[0]?.slug)}${posts.length > 1 ? `부터 ${roundLabel(posts.at(-1)?.slug)}까지` : ""}`);
+const pageDescription = $derived(
+	currentPage > 1
+		? `로또 뉴스 ${currentPage}페이지에서 ${articleRange}의 결과를 확인하세요. 회차별 당첨번호와 1등 당첨금, 당첨자 수, 지역별 판매점 분포를 정리했습니다. 공식 추첨 결과와 645.live 등록 스캔 집계를 구분해 해설합니다.`
+		: "로또 6/45 회차별 당첨번호와 1등 당첨금, 당첨자 수, 지역별 판매점 정보를 기사로 확인하세요. 공식 추첨 결과와 645.live 등록 스캔 집계를 구분해 해설하며, 기사마다 발행 시각과 데이터 출처를 안내합니다.",
+);
+const ogImage = $derived(
+	getGenericOgImage({
+		title: "로또 뉴스",
+		description: "회차별 당첨 결과와 해설",
+		alt: "645.live 로또 뉴스",
+	}),
+);
+const collectionSchema = $derived(
+	createCollectionPageSchema({
+		path: pagePath,
+		name: pageTitle,
+		description: pageDescription,
+	}),
+);
+const itemListSchema = $derived(
+	createItemListSchema(
+		pagePath,
+		posts.map((post, index) => ({
+			position: (currentPage - 1) * pagination.pageSize + index + 1,
+			name: post.title,
+			url: absoluteUrl(`/news/posts/${encodeURIComponent(post.slug)}`),
+		})),
+	),
+);
+const breadcrumbSchema = $derived(
+	createBreadcrumbSchema([
+		{ name: "홈", path: "/" },
+		{ name: "로또 뉴스", path: "/news" },
+		...(currentPage > 1
+			? [{ name: `${currentPage}페이지`, path: pagePath }]
+			: []),
+	]),
+);
+const visiblePages = $derived.by(() => {
+	const start = Math.max(
+		1,
+		Math.min(currentPage - 2, pagination.totalPages - 4),
 	);
-	const itemListSchema = $derived(
-		createItemListSchema(
-			currentPage > 1 ? `/news?page=${currentPage}` : "/news",
-			newsPosts.map((post, index) => ({
-				position: index + 1,
-				name: post.title,
-				url: absoluteUrl(hrefForPost(post.slug)),
-			})),
-		),
+	return Array.from(
+		{ length: Math.min(5, pagination.totalPages) },
+		(_, index) => start + index,
 	);
-	const breadcrumbSchema = $derived(
-		createBreadcrumbSchema([
-			{ name: '홈', path: '/' },
-			{ name: '로또 뉴스', path: currentPage > 1 ? `/news?page=${currentPage}` : '/news' }
-		]),
-	);
+});
 
-	function hrefForPage(page: number): '/news' | `/news?${string}` {
-		return page <= 1 ? '/news' : `/news?page=${page}`;
-	}
+function hrefForPage(page: number): "/news" | `/news?${string}` {
+	return page <= 1 ? "/news" : `/news?page=${page}`;
+}
 
-	function hrefForPost(slug: string): `/news/posts/${string}` {
-		return `/news/posts/${encodeURIComponent(slug)}`;
-	}
+function roundLabel(slug?: string): string {
+	const round = slug?.match(/^lotto-(\d+)$/)?.[1];
+	return round ? `제${round}회` : "이전 기사";
+}
 
-	function normalizeFeedInsertions(raw: unknown): FeedInsertion[] {
-		if (!Array.isArray(raw)) return [];
-
-		return raw
-			.map((value, index) => {
-				const source = (value ?? {}) as Record<string, unknown>;
-				const afterPostIndex = Number.parseInt(String(source['afterPostIndex'] ?? ''), 10);
-				const colSpanValue = String(source['colSpan'] ?? 'full');
-				const colSpan: FeedInsertion['colSpan'] = colSpanValue === 'normal' || colSpanValue === 'wide' ? colSpanValue : 'full';
-				const labelValue = typeof source['label'] === 'string' ? source['label'] : null;
-				const normalized: FeedInsertion = {
-					key: String(source['key'] ?? `insertion-${index + 1}`),
-					afterPostIndex: Number.isFinite(afterPostIndex) ? afterPostIndex : index,
-					colSpan
-				};
-				if (labelValue !== null) {
-					normalized.label = labelValue;
-				}
-
-				return normalized;
-			})
-			.filter((item) => item.afterPostIndex >= 0)
-			.sort((a, b) => a.afterPostIndex - b.afterPostIndex);
-	}
-
-	function buildFeedItems(posts: NewsPost[], insertions: FeedInsertion[]): FeedItem[] {
-		const items: FeedItem[] = [];
-		const groupedInsertions: Record<number, FeedInsertion[]> = {};
-
-		for (const insertion of insertions) {
-			const group = groupedInsertions[insertion.afterPostIndex] ?? [];
-			group.push(insertion);
-			groupedInsertions[insertion.afterPostIndex] = group;
-		}
-
-		for (let index = 0; index < posts.length; index += 1) {
-			const post = posts[index];
-			if (!post) continue;
-			items.push({
-				type: 'post',
-				key: `post-${post.slug}`,
-				colSpan: 'normal',
-				post
-			});
-
-			const pendingInsertions = groupedInsertions[index];
-			if (!pendingInsertions) continue;
-
-			for (const insertion of pendingInsertions) {
-				items.push({
-					type: 'insertion',
-					key: `insertion-${insertion.key}`,
-					colSpan: insertion.colSpan,
-					...(insertion.label !== undefined ? { label: insertion.label } : {})
-				});
-			}
-		}
-
-		return items;
-	}
-
-	function feedColSpanClass(item: FeedItem): string {
-		if (item.colSpan === 'wide') return 'md:col-span-2';
-		if (item.colSpan === 'full') return 'md:col-span-2 lg:col-span-3';
-		return '';
-	}
-
-	function getPostDateLabel(post: NewsPost): string {
-		return (post.publishedAt || post.date || '').slice(0, 10);
-	}
-
-	function getVisiblePages(page: number, pages: number, windowSize = 5) {
-		if (pages <= windowSize) return Array.from({ length: pages }, (_, i) => i + 1);
-		const half = Math.floor(windowSize / 2);
-		let start = Math.max(1, page - half);
-		let end = Math.min(pages, start + windowSize - 1);
-		start = Math.max(1, end - windowSize + 1);
-		return Array.from({ length: end - start + 1 }, (_, i) => start + i);
-	}
-
-	const visiblePages = $derived(getVisiblePages(currentPage, totalPages));
-	const feedInsertions = $derived(normalizeFeedInsertions(data.feedInsertions));
-	const feedItems = $derived(buildFeedItems(newsPosts, feedInsertions));
+function dateLabel(date: string): string {
+	return date.slice(0, 10).replaceAll("-", ".");
+}
 </script>
 
 <svelte:head>
 	<link rel="alternate" type="application/rss+xml" title="645.live 로또 뉴스 RSS" href="/feed.xml" />
+	{#if pagination.prevPage}<link rel="prev" href={absoluteUrl(hrefForPage(pagination.prevPage))} />{/if}
+	{#if pagination.nextPage}<link rel="next" href={absoluteUrl(hrefForPage(pagination.nextPage))} />{/if}
 </svelte:head>
 
 <MetaTags
 	title={pageTitle}
-	description="공식 발표와 645.live 자체 스캔 데이터를 함께 보는 최신 로또 당첨 결과 분석 뉴스"
+	description={pageDescription}
 	canonical={canonicalUrl}
-	robots="index,follow"
-	openGraph={{
-		type: "website",
-		url: canonicalUrl,
-		title: pageTitle,
-		description: "공식 발표와 645.live 자체 스캔 데이터를 함께 보는 최신 로또 당첨 결과 분석 뉴스",
-		siteName: "645.live",
-	}}
-	twitter={{
-		cardType: "summary_large_image",
-		site: "@645live",
-		title: pageTitle,
-		description: "공식 발표와 645.live 자체 스캔 데이터를 함께 보는 최신 로또 당첨 결과 분석 뉴스",
-	}}
+	robots="index,follow,max-image-preview:large"
+	openGraph={{ type: 'website', url: canonicalUrl, title: pageTitle, description: pageDescription, siteName: '645.live', images: [ogImage] }}
+	twitter={{ cardType: 'summary_large_image', site: '@645live', title: pageTitle, description: pageDescription, image: ogImage.url, imageAlt: ogImage.alt }}
 />
-
 <JsonLd schema={collectionSchema} />
 <JsonLd schema={itemListSchema} />
 <JsonLd schema={breadcrumbSchema} />
-<JsonLd schema={createOrganizationSchema()} />
 
-<div class="space-y-8">
-	<!-- Page Header -->
-	<div class="text-center">
-		<h1 class="text-3xl font-bold text-base-content">📰 로또 뉴스</h1>
-		<p class="text-base-content/70 mt-2">공식 발표와 645.live 자체 스캔 데이터를 함께 보는 최신 회차 해설</p>
-		<div class="mt-4 flex flex-wrap justify-center gap-3 text-sm">
-			<a class="link link-primary" href={resolve(EDITORIAL_POLICY_PATH)}>편집 원칙 보기</a>
-			<a class="link link-primary" href={resolve(DATA_SOURCES_PATH)}>데이터 출처 보기</a>
-			<a class="link link-primary" href={resolve(AUTO_NEWS_AUTHOR_PATH)}>645.live 자동뉴스 소개</a>
+<header class="page-heading">
+	<div>
+		<p class="eyebrow">회차별 결과 해설</p>
+		<h1>로또 뉴스</h1>
+		<p class="intro">당첨번호와 당첨금, 지역별 판매점 정보를 함께 살펴보세요.</p>
+	</div>
+	<a class="text-link" href={resolve('/history')}>회차별 결과 <span aria-hidden="true">→</span></a>
+</header>
+
+{#if featured}
+	<article class="featured-story">
+		<a class="feature-image" href={resolve('/news/posts/[slug]', { slug: featured.slug })} aria-label={featured.title}>
+			<img src={featured.thumbnail} alt="" width="1200" height="630" fetchpriority="high" decoding="async" />
+		</a>
+		<div class="feature-copy">
+			<div class="story-meta">
+				<span>{currentPage === 1 ? '최근 발행' : `${currentPage}페이지`}</span>
+				<time datetime={featured.publishedAt || featured.date}>{dateLabel(featured.publishedAt || featured.date)}</time>
+			</div>
+			<h2><a href={resolve('/news/posts/[slug]', { slug: featured.slug })}>{featured.title}</a></h2>
+			<p>{featured.summary}</p>
+			<a class="text-link" href={resolve('/news/posts/[slug]', { slug: featured.slug })} aria-label={`${featured.title} 기사 읽기`}>기사 읽기 <span aria-hidden="true">→</span></a>
 		</div>
+	</article>
+
+	{#if remainingPosts.length > 0}
+	<div class="section-heading">
+		<h2>회차별 기사</h2>
+		<span>총 {pagination.totalPosts}개</span>
+	</div>
+	<div class="story-list">
+		{#each remainingPosts as post, index (post.slug)}
+			<article class="story-row">
+				<a class="story-image" href={resolve('/news/posts/[slug]', { slug: post.slug })} aria-label={post.title}>
+					<img src={post.thumbnail} alt="" width="1200" height="630" loading="lazy" decoding="async" />
+				</a>
+				<div class="story-copy">
+					<div class="story-meta">
+						<span>{roundLabel(post.slug)}</span>
+						<time datetime={post.publishedAt || post.date}>{dateLabel(post.publishedAt || post.date)}</time>
+					</div>
+					<h3><a href={resolve('/news/posts/[slug]', { slug: post.slug })}>{post.title}</a></h3>
+					<p>{post.summary}</p>
+				</div>
+				<a class="row-arrow" href={resolve('/news/posts/[slug]', { slug: post.slug })} aria-label={`${post.title} 기사 읽기`}>↗</a>
+			</article>
+			{#if index === 3}<AdSlot placement="news-inline" format="horizontal" />{/if}
+		{/each}
 	</div>
 
-	{#if newsPosts.length === 0}
-		<!-- Empty State -->
-		<div class="alert alert-info">
-			<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
-				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-			</svg>
-			<span>아직 등록된 뉴스가 없습니다.</span>
-		</div>
-	{:else}
-		<div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-			{#each feedItems as item (item.key)}
-				{#if item.type === 'post'}
-					<article class={`card bg-base-200 shadow-lg hover:shadow-xl transition-shadow ${feedColSpanClass(item)}`}>
-						<!-- Thumbnail -->
-						<figure class="aspect-video">
-							<img 
-								src={item.post.thumbnail} 
-								alt={item.post.title}
-								class="w-full h-full object-cover"
-								loading="lazy"
-							/>
-						</figure>
-						
-						<div class="card-body">
-							<div class="flex items-center gap-2 text-sm text-base-content/70 mb-2">
-								<span class="badge badge-primary badge-sm">{item.post.category}</span>
-								<span>{getPostDateLabel(item.post)}</span>
-							</div>
-							
-							<h2 class="card-title text-lg">
-									<a href={resolve(hrefForPost(item.post.slug))} class="hover:text-primary transition-colors">
-									{item.post.title}
-								</a>
-							</h2>
-							
-							<p class="text-base-content/80">{item.post.description}</p>
-							
-							<div class="card-actions justify-end">
-									<a
-										href={resolve(hrefForPost(item.post.slug))}
-										class="btn btn-primary btn-sm"
-										aria-label={`${item.post.title} 상세 분석 보기`}
-									>
-									{item.post.category} 상세 분석 보기
-								</a>
-							</div>
-						</div>
-					</article>
-				{:else}
-					<section
-						class={`card border border-dashed border-base-300 bg-base-100 ${feedColSpanClass(item)}`}
-						data-feed-insertion={item.key}
-						aria-label="중간 삽입 영역"
-					>
-						<div class="card-body p-4 sm:p-5">
-							<p class="text-sm text-base-content/60">{item.label ?? '추가 컨텐츠 영역'}</p>
-						</div>
-					</section>
-				{/if}
-			{/each}
-		</div>
-
-		{#if totalPages > 1}
-			<div class="mt-8 flex flex-col items-center gap-4">
-				<p class="text-sm text-base-content/70">총 {totalPosts}개 기사 · {currentPage}/{totalPages}페이지</p>
-					<nav class="join" aria-label="뉴스 페이지네이션">
-					{#if pagination?.hasPrev && pagination?.prevPage}
-							<a href={resolve(hrefForPage(pagination.prevPage))} class="join-item btn btn-outline btn-sm">이전</a>
-					{:else}
-						<button class="join-item btn btn-outline btn-sm btn-disabled" aria-disabled="true">이전</button>
-					{/if}
-
-					{#each visiblePages as page (page)}
-						{#if page === currentPage}
-							<button class="join-item btn btn-primary btn-sm" aria-current="page">{page}</button>
-						{:else}
-								<a href={resolve(hrefForPage(page))} class="join-item btn btn-outline btn-sm">{page}</a>
-						{/if}
-					{/each}
-
-					{#if pagination?.hasNext && pagination?.nextPage}
-							<a href={resolve(hrefForPage(pagination.nextPage))} class="join-item btn btn-outline btn-sm">다음</a>
-					{:else}
-						<button class="join-item btn btn-outline btn-sm btn-disabled" aria-disabled="true">다음</button>
-					{/if}
-				</nav>
-			</div>
-		{/if}
 	{/if}
-</div>
+
+	{#if pagination.totalPages > 1}
+		<nav class="pagination" aria-label="뉴스 페이지">
+			{#if pagination.prevPage}
+				<a class="page-direction" href={resolve(hrefForPage(pagination.prevPage))} rel="prev">이전</a>
+			{:else}<span class="page-direction disabled" aria-disabled="true">이전</span>{/if}
+			<div class="page-numbers">
+				{#each visiblePages as page (page)}
+					<a href={resolve(hrefForPage(page))} class:current={page === currentPage} aria-current={page === currentPage ? 'page' : undefined} aria-label={`${page}페이지`}>{page}</a>
+				{/each}
+			</div>
+			{#if pagination.nextPage}
+				<a class="page-direction" href={resolve(hrefForPage(pagination.nextPage))} rel="next">다음</a>
+			{:else}<span class="page-direction disabled" aria-disabled="true">다음</span>{/if}
+		</nav>
+	{/if}
+{:else}
+	<section class="empty-state">
+		<h2>아직 발행된 기사가 없어요</h2>
+		<p>회차별 당첨 결과와 번호 통계는 바로 확인할 수 있습니다.</p>
+		<a class="text-link" href={resolve('/stats')}>번호 통계 보기 <span aria-hidden="true">→</span></a>
+	</section>
+{/if}
+
+<footer class="editorial-footer">
+	<p>공식 추첨 결과와 이 사이트에 등록된 스캔 집계를 구분해 작성합니다.</p>
+	<nav aria-label="뉴스 작성 안내">
+		<a href={resolve(EDITORIAL_POLICY_PATH)}>편집 원칙</a>
+		<a href={resolve(DATA_SOURCES_PATH)}>데이터 출처</a>
+	</nav>
+</footer>
+
+<style>
+	.page-heading { display: flex; justify-content: space-between; align-items: end; gap: 24px; padding-bottom: 28px; border-bottom: 1px solid var(--color-base-300); }
+	.eyebrow { margin: 0 0 8px; color: var(--color-primary); font-size: 0.75rem; font-weight: 700; letter-spacing: 0.04em; }
+	h1 { margin: 0; font-size: clamp(2rem, 4vw, 3rem); line-height: 1.12; letter-spacing: -0.055em; font-weight: 800; }
+	.intro { margin: 12px 0 0; color: color-mix(in oklab, var(--color-base-content) 65%, transparent); font-size: 0.9375rem; line-height: 1.6; }
+	.text-link { display: inline-flex; align-items: center; min-height: 44px; gap: 12px; font-size: 0.875rem; font-weight: 650; color: var(--color-primary); text-decoration: none; white-space: nowrap; }
+	.text-link:hover { text-decoration: underline; text-underline-offset: 5px; }
+	.text-link span { transition: transform 160ms ease; }
+	.text-link:hover span { transform: translateX(3px); }
+	.featured-story { display: grid; grid-template-columns: 1.15fr 1fr; gap: 36px; align-items: center; padding-block: 32px 40px; }
+	.feature-image, .story-image { display: block; overflow: hidden; border-radius: 8px; background: var(--color-base-200); }
+	img { width: 100%; height: auto; aspect-ratio: 1200 / 630; object-fit: cover; transition: transform 240ms ease; }
+	.feature-image:hover img, .story-image:hover img { transform: scale(1.025); }
+	.story-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); font-size: 0.75rem; font-variant-numeric: tabular-nums; }
+	.story-meta > span { color: var(--color-primary); font-weight: 650; }
+	h2, h3 { color: var(--color-base-content); font-weight: 750; }
+	h2 a, h3 a { color: inherit; text-decoration: none; }
+	h2 a:hover, h3 a:hover { color: var(--color-primary); }
+	.feature-copy h2 { margin: 12px 0; font-size: clamp(1.5rem, 2.8vw, 2.125rem); line-height: 1.4; letter-spacing: -0.04em; text-wrap: pretty; }
+	.feature-copy p { margin: 0 0 16px; font-size: 0.9375rem; line-height: 1.7; color: color-mix(in oklab, var(--color-base-content) 70%, transparent); }
+	.section-heading { display: flex; align-items: baseline; justify-content: space-between; padding-block: 0 16px; border-bottom: 2px solid var(--color-base-content); }
+	.section-heading h2 { margin: 0; font-size: 1.125rem; }
+	.section-heading span { color: color-mix(in oklab, var(--color-base-content) 55%, transparent); font-size: 0.8125rem; }
+	.story-row { display: grid; grid-template-columns: 190px minmax(0, 1fr) 44px; gap: 28px; align-items: center; padding-block: 24px; border-bottom: 1px solid var(--color-base-300); }
+	.story-copy h3 { margin: 8px 0; font-size: 1.1875rem; letter-spacing: -0.025em; line-height: 1.5; }
+	.story-copy p { margin: 0; color: color-mix(in oklab, var(--color-base-content) 65%, transparent); font-size: 0.875rem; line-height: 1.65; }
+	.row-arrow { display: grid; place-items: center; min-width: 44px; min-height: 44px; color: color-mix(in oklab, var(--color-base-content) 55%, transparent); font-size: 1.5rem; text-decoration: none; border-radius: 50%; transition: background 160ms ease, color 160ms ease; }
+	.row-arrow:hover { background: var(--color-base-200); color: var(--color-primary); }
+	.pagination { display: flex; align-items: center; justify-content: center; gap: 24px; margin-top: 32px; font-size: 0.875rem; }
+	.page-numbers { display: flex; gap: 4px; }
+	.pagination a, .page-direction { display: grid; place-items: center; min-width: 44px; min-height: 44px; color: inherit; text-decoration: none; border-radius: 6px; }
+	.pagination a:hover { background: var(--color-base-200); }
+	.pagination a.current { background: var(--color-primary); color: var(--color-primary-content); font-weight: 700; }
+	.disabled { opacity: 0.35; }
+	.editorial-footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 24px; margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--color-base-300); color: color-mix(in oklab, var(--color-base-content) 60%, transparent); font-size: 0.8125rem; line-height: 1.7; }
+	.editorial-footer p { margin: 0; }
+	.editorial-footer nav { display: flex; gap: 20px; }
+	.editorial-footer a { display: inline-flex; align-items: center; min-height: 32px; text-decoration: none; color: inherit; }
+	.editorial-footer a:hover { color: var(--color-primary); text-decoration: underline; }
+	.empty-state { padding-block: 64px; }
+	.empty-state h2 { font-size: 1.375rem; margin-bottom: 12px; }
+	.empty-state p { color: color-mix(in oklab, var(--color-base-content) 65%, transparent); }
+	@media (max-width: 767px) {
+		.page-heading { gap: 16px; align-items: start; }
+		.page-heading > .text-link { display: none; }
+		.featured-story { grid-template-columns: 1fr; gap: 20px; padding-block: 24px 32px; }
+		.feature-copy h2 { font-size: 1.5rem; }
+		.feature-copy p { margin-bottom: 8px; }
+		.story-row { grid-template-columns: minmax(0, 1fr) 96px; gap: 16px; padding-block: 20px; align-items: start; }
+		.story-image { grid-column: 2; grid-row: 1; margin-top: 4px; }
+		.story-copy { grid-column: 1; grid-row: 1; }
+		.story-copy h3 { font-size: 1rem; margin-bottom: 0; }
+		.story-copy p, .row-arrow { display: none; }
+		.pagination { gap: 8px; }
+		.editorial-footer { margin-top: 32px; }
+	}
+	@media (prefers-reduced-motion: reduce) {
+		img, .text-link span, .row-arrow { transition: none; }
+	}
+</style>

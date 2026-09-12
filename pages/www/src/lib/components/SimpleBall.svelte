@@ -6,7 +6,6 @@ interface Props {
 	size?: "sm" | "md" | "lg";
 	class?: string;
 }
-
 let {
 	number,
 	isWinning = false,
@@ -15,42 +14,21 @@ let {
 	class: className = "",
 	...rest
 }: Props = $props();
-
-// Ball colors based on number ranges (similar to actual lotto colors)
-function getBallColor(num: number): string {
-	if (num >= 1 && num <= 10) return "bg-yellow-400 text-yellow-900";
-	if (num >= 11 && num <= 20) return "bg-blue-400 text-blue-900";
-	if (num >= 21 && num <= 30) return "bg-red-400 text-red-900";
-	if (num >= 31 && num <= 40) return "bg-gray-400 text-gray-900";
-	if (num >= 41 && num <= 45) return "bg-green-400 text-green-900";
-	return "bg-gray-300 text-gray-700";
-}
-
-function getSizeClasses(size: string): string {
-	switch (size) {
-		case "sm":
-			return "w-8 h-8 text-xs";
-		case "lg":
-			return "w-16 h-16 text-lg";
-		default:
-			return "w-12 h-12 text-sm";
-	}
-}
-
-const ballColorClass = $derived(
-	isWinning
-		? "bg-gradient-to-br from-yellow-300 to-yellow-500 text-yellow-900 ring-2 ring-yellow-400"
-		: getBallColor(number),
+const color = $derived(
+	number <= 10
+		? "yellow"
+		: number <= 20
+			? "blue"
+			: number <= 30
+				? "red"
+				: number <= 40
+					? "grey"
+					: "green",
 );
-const bonusClass = $derived(
-	isBonus ? "ring-2 ring-orange-400 ring-offset-2" : "",
-);
-const sizeClass = $derived(getSizeClasses(size));
 </script>
-
-<div 
-	class="flex items-center justify-center rounded-full font-bold shadow-md {ballColorClass} {bonusClass} {sizeClass} {className}"
-	{...rest}
->
-	{number}
-</div>
+<div class="simple-ball {size} {className}" class:winning={isWinning} class:bonus={isBonus} style:background={`var(--lotto-${color})`} style:color={`var(--lotto-${color}-content)`} {...rest}>{number}</div>
+<style>
+ .simple-ball{display:inline-flex;flex-shrink:0;align-items:center;justify-content:center;border-radius:50%;font-weight:750;font-variant-numeric:tabular-nums;}
+ .sm{width:2rem;height:2rem;font-size:.8125rem;}.md{width:3rem;height:3rem;font-size:1rem;}.lg{width:4rem;height:4rem;font-size:1.4rem;}
+ .winning{outline:2px solid var(--color-primary);outline-offset:2px;}.bonus{outline:2px solid var(--color-secondary);outline-offset:2px;}
+</style>

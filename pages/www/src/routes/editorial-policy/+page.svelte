@@ -1,7 +1,7 @@
 <script lang="ts">
 import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
 import { EDITORIAL_POLICY_PATH, absoluteUrl } from "$lib/seo/index.js";
-import { MetaTags } from "svelte-meta-tags";
+import MetaTags from "$lib/seo/PageMeta.svelte";
 
 const breadcrumbItems = [
 	{ label: "홈", href: "/" },
@@ -12,15 +12,15 @@ const breadcrumbItems = [
 <MetaTags
 	title="편집 원칙"
 	titleTemplate="%s | 645.live"
-	description="645.live 뉴스와 통계 페이지가 어떤 기준으로 자동 생성·갱신되는지 설명합니다."
+	description="645.live 로또 뉴스와 통계의 작성·갱신 기준을 확인하세요. 공식 추첨 결과와 이용자 스캔 데이터의 구분, 자동 생성 기사와 수정 이력, 오류 정정 방식, 광고와 정보 제공에 관한 편집 원칙을 안내합니다."
 	canonical={absoluteUrl(EDITORIAL_POLICY_PATH)}
 	robots="index,follow"
 />
 
-<div class="p-6 space-y-6">
+<div class="content-page space-y-6">
 	<Breadcrumbs items={breadcrumbItems} />
 
-	<div class="text-center space-y-2">
+	<div class="page-header space-y-2">
 		<h1 class="text-3xl font-bold text-primary">편집 원칙</h1>
 		<p class="text-base-content/70">
 			645.live는 공식 발표와 자체 데이터에 기반해 자동화된 기사와 통계를 제공하지만, 원본성·명확성·시의성을 가장 중요한 기준으로 둡니다.

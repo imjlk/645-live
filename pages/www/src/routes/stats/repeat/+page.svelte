@@ -1,8 +1,8 @@
 <script lang="ts">
+import { JsonLd, MetaTags } from "svelte-meta-tags";
 import { RecentAnalysisInput, StatsPageHero } from "$lib/components/stats";
 import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
 import LinkButton from "$lib/ui/LinkButton.svelte";
-import { JsonLd, MetaTags } from "svelte-meta-tags";
 import type { PageData } from "./$types";
 
 let { data }: { data: PageData } = $props();
@@ -60,14 +60,18 @@ const getRepeatAnalysis = (
 	};
 };
 
+const pageTitle = $derived(`로또 회차 간 중복 번호 통계`);
+const pageDescription = $derived(
+	`로또 6/45 전체 ${data.totalRounds}회차 추첨 결과에서 직전 회차와 겹친 당첨번호의 개수와 출현 빈도를 확인하세요. 중복이 없는 회차부터 여러 번호가 다시 나온 회차까지 분포를 비교하고, 기간별 평균과 회차별 중복 번호 기록을 살펴볼 수 있습니다.`,
+);
 </script>
 
 <MetaTags
-	title="로또 6/45 연속번호 분석 통계 | 회차간 중복 패턴 분석"
+	title={pageTitle}
 	titleTemplate="%s | 645.live"
-	description="로또 6/45 연속 회차 간 중복 번호 패턴을 분석합니다. 이전 회차와의 번호 중복 빈도와 연속성 트렌드를 제공합니다."
+	description={pageDescription}
 	canonical="https://645.live/stats/repeat"
-	keywords={["로또", "연속번호", "중복번호", "로또통계", "번호패턴", "연속성분석", "로또예측", "6/45통계", "로또연속성", "번호중복분석"]}
+	keywords={["로또", "연속번호", "중복번호", "로또통계", "번호패턴", "연속성분석", "6/45통계", "로또연속성", "번호중복분석"]}
 	robots="index,follow"
 	additionalRobotsProps={{
 		maxSnippet: 320,
@@ -78,10 +82,6 @@ const getRepeatAnalysis = (
 		{
 			name: 'application-name',
 			content: '645.live'
-		},
-		{
-			name: 'theme-color',
-			content: '#3B82F6'
 		},
 		{
 			name: 'format-detection',
@@ -103,8 +103,8 @@ const getRepeatAnalysis = (
 	openGraph={{
 		type: 'article',
 		url: 'https://645.live/stats/repeat',
-		title: '로또 6/45 연속번호 분석 통계 | 회차간 중복 패턴',
-		description: '로또 6/45 연속 회차 간 중복 번호 패턴을 분석합니다. 이전 회차와의 번호 중복 빈도와 연속성 트렌드를 제공합니다.',
+		title: pageTitle,
+		description: pageDescription,
 		locale: 'ko_KR',
 		images: [{
 			url: `https://645.live/og?${new URLSearchParams({
@@ -123,15 +123,13 @@ const getRepeatAnalysis = (
 		article: {
 			section: '로또 통계',
 			tags: ['로또', '연속번호', '중복번호', '로또통계', '번호패턴', '연속성분석', '6/45통계', '로또연속성'],
-			publishedTime: '2024-01-01T00:00:00.000Z',
-			modifiedTime: new Date().toISOString()
 		}
 	}}
 	twitter={{
 		cardType: 'summary_large_image',
 		site: '@645live',
-		title: '로또 6/45 연속번호 분석 통계',
-		description: '회차간 중복 패턴 분석으로 로또 번호 연속성을 파악하세요.',
+		title: pageTitle,
+		description: pageDescription,
 		image: `https://645.live/og?${new URLSearchParams({
 			title: encodeURIComponent('로또 6/45 연속번호 분석'),
 			description: encodeURIComponent(`평균 중복 ${data.averageRepeatCount}개 | 중복없음 ${data.zeroRepeatRate}%`),
@@ -184,14 +182,14 @@ const getRepeatAnalysis = (
 	}}
 />
 
-<div class="p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-6 max-sm:px-0">
+<div class="stats-page">
 	<!-- Breadcrumbs -->
 	<Breadcrumbs items={breadcrumbItems} />
 
 	<StatsPageHero
-		eyebrow="Repeat Pattern"
+		eyebrow="공식 추첨 통계"
 		title="연속번호 분석 통계"
-		description={`연속 회차 사이에 얼마나 많은 번호가 다시 등장하는지 분석합니다. 이전 회차와 현재 회차의 중복 빈도와 연속성을 통해 새 번호 위주의 흐름인지, 반복 출현이 강한 흐름인지 비교할 수 있습니다.`}
+		description="연속 회차 사이에 얼마나 많은 번호가 다시 등장하는지 분석합니다. 이전 회차와 현재 회차의 중복 빈도와 연속성을 통해 새 번호 위주의 흐름인지, 반복 출현이 강한 흐름인지 비교할 수 있습니다."
 		metrics={[
 			{
 				label: "평균 중복",
@@ -257,7 +255,7 @@ const getRepeatAnalysis = (
 			</p>
 			
 			<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-2 sm:gap-4">
-				{#each Object.entries(data.repeatCountDistribution || {}) as [repeatCount, count]}
+				{#each Object.entries(data.repeatCountDistribution || {}) as [repeatCount, count] (repeatCount)}
 					{@const percentage = data.totalRecords > 0 ? ((count / data.totalRecords) * 100).toFixed(1) : "0.0"}
 					{@const analysis = getRepeatAnalysis(Number(repeatCount))}
 					
@@ -277,7 +275,7 @@ const getRepeatAnalysis = (
 			<div class="mt-4 sm:mt-6 p-3 sm:p-4 bg-base-200 rounded-lg">
 				<h3 class="font-semibold mb-2 sm:mb-3 text-sm sm:text-base">중복 패턴 분석</h3>
 				<div class="grid grid-cols-1 gap-3 sm:gap-4 text-xs sm:text-sm">
-					{#each Object.entries(data.repeatCountDistribution || {}) as [repeatCount, count]}
+					{#each Object.entries(data.repeatCountDistribution || {}) as [repeatCount, count] (repeatCount)}
 						{@const percentage = data.totalRecords > 0 ? ((count / data.totalRecords) * 100).toFixed(1) : "0.0"}
 						{@const analysis = getRepeatAnalysis(Number(repeatCount))}
 						
@@ -311,7 +309,7 @@ const getRepeatAnalysis = (
 						</tr>
 					</thead>
 					<tbody>
-						{#each data.recentStats as stat}
+						{#each data.recentStats as stat (stat.round)}
 							{@const statRecord = stat as { round: number; repeat_count: number }}
 							{@const analysis = getRepeatAnalysis(statRecord.repeat_count)}
 							<tr>
@@ -353,7 +351,7 @@ const getRepeatAnalysis = (
 						</tr>
 					</thead>
 					<tbody>
-						{#each data.repeatStats as stat}
+						{#each data.repeatStats as stat (stat.round)}
 							{@const statRecord = stat as { round: number; repeat_count: number }}
 							{@const analysis = getRepeatAnalysis(statRecord.repeat_count)}
 							<tr>

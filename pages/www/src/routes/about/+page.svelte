@@ -1,8 +1,13 @@
 <script lang="ts">
 import { resolve } from "$app/paths";
 import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
-import { ABOUT_PATH, SITE_GITHUB, SITE_TWITTER, absoluteUrl } from "$lib/seo/index.js";
-import { MetaTags } from "svelte-meta-tags";
+import {
+	ABOUT_PATH,
+	SITE_GITHUB,
+	SITE_TWITTER,
+	absoluteUrl,
+} from "$lib/seo/index.js";
+import MetaTags from "$lib/seo/PageMeta.svelte";
 
 const breadcrumbItems = [
 	{ label: "홈", href: "/" },
@@ -15,15 +20,15 @@ const twitterUrl = `https://x.com/${SITE_TWITTER.replace(/^@/, "")}`;
 <MetaTags
 	title="645.live 소개"
 	titleTemplate="%s | 645.live"
-	description="645.live가 로또 회차 데이터, 자체 스캔 현황, 분석 기사를 어떤 기준으로 제공하는지 소개합니다."
+	description="645.live는 로또 6/45 공식 추첨 결과, 번호별 통계, 이용자 QR 스캔 기록을 제공하는 정보 서비스입니다. 당첨 결과와 스캔 집계를 구분하는 기준, 주요 기능, 데이터 출처와 이용 안내를 확인하세요."
 	canonical={absoluteUrl(ABOUT_PATH)}
 	robots="index,follow"
 />
 
-<div class="p-6 space-y-6">
+<div class="content-page space-y-6">
 	<Breadcrumbs items={breadcrumbItems} />
 
-	<div class="text-center space-y-2">
+	<div class="page-header space-y-2">
 		<h1 class="text-3xl font-bold text-primary">645.live 소개</h1>
 		<p class="text-base-content/70">
 			동행복권 공식 발표와 645.live 자체 스캔 데이터를 함께 정리해, 최근 회차를 빠르게 이해할 수 있도록 돕는 정보 서비스입니다.

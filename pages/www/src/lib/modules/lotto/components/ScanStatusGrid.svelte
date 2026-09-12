@@ -86,12 +86,14 @@ let numbers = $derived<BallNumber[]>(
 		value: ballValuesComposable.ballValues[i + 1] || 0,
 	})),
 );
-let headerRound = $derived(headlineRound ?? initialRound ?? latestRound ?? null);
+let headerRound = $derived(
+	headlineRound ?? initialRound ?? latestRound ?? null,
+);
 let isFallbackPreviewVisible = $derived(
 	allowFallbackPreview &&
-	showingFallbackPreview &&
-	!!fallbackPreviewRound &&
-	ballValuesComposable.currentRound === fallbackPreviewRound,
+		showingFallbackPreview &&
+		!!fallbackPreviewRound &&
+		ballValuesComposable.currentRound === fallbackPreviewRound,
 );
 
 // Subscription cleanup function
@@ -187,11 +189,11 @@ function handleBallGridKeydown(event: KeyboardEvent, ballIndex: number) {
 		maxItems: 45,
 		onActivate: (index) => {
 			const ballNumber = index + 1;
-				void goto(
-					resolve("/n/[index]", {
-						index: String(ballNumber),
-					}),
-				);
+			void goto(
+				resolve("/n/[index]", {
+					index: String(ballNumber),
+				}),
+			);
 		},
 		onEscape: () => {
 			focusedBallIndex = null;
@@ -307,12 +309,11 @@ onDestroy(() => {
 		clearTimeout(connectionTimeoutId);
 		connectionTimeoutId = null;
 	}
-
 });
 </script>
 
 {#if ballValuesComposable.error}
-	<div class="text-red-500 p-4 bg-red-50 dark:bg-red-900/20 rounded-lg mx-4 mt-4">
+	<div class="text-red-500 p-4 bg-red-50 dark:bg-red-900/20 rounded-lg mt-4">
 		<p>데이터 로딩 오류: {ballValuesComposable.error.message}</p>
 		{#if !connectionStatus.connected}
 			<p class="text-sm mt-2">연결 상태: {connectionStatus.connecting ? '연결 중...' : '연결 끊김'}</p>
@@ -320,7 +321,7 @@ onDestroy(() => {
 	</div>
 {:else if numbers.length > 0}
 	{#if isFallbackPreviewVisible}
-		<div class="alert alert-info mx-4 mt-4">
+		<div class="alert alert-info mt-4">
 			<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
 				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
 			</svg>
@@ -332,7 +333,7 @@ onDestroy(() => {
 			</div>
 		</div>
 
-		<div class="mx-4 mt-4 rounded-xl border border-base-300 bg-base-100 p-4 shadow-sm">
+		<div class="mt-4 rounded-xl border border-base-300 bg-base-100 p-4 shadow-sm">
 			<div class="flex flex-wrap items-center justify-between gap-3">
 				<div>
 					<p class="text-sm font-semibold text-base-content">최근 데이터 요약</p>
@@ -351,19 +352,19 @@ onDestroy(() => {
 			</div>
 		</div>
 	{:else if ballValuesComposable.totalScans === 0 && !ballValuesComposable.loading}
-		<div class="alert alert-info mx-4 mt-4">
+		<div class="alert alert-info mt-4">
 			<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
 				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
 			</svg>
 			<div class="flex-1">
-				<h3 class="font-bold">스캔 데이터 준비 중</h3>
+				<h3 class="font-bold">아직 등록된 스캔이 없어요</h3>
 				<div class="text-xs">
 					{#if ballValuesComposable.currentRound}
 						{ballValuesComposable.currentRound}회차의 스캔 데이터가 아직 수집되지 않았습니다. 
 					{:else}
 						최신 회차의 스캔 데이터를 준비 중입니다.
 					{/if}
-					곧 실시간 데이터가 표시됩니다.
+					첫 스캔이 등록되면 집계가 표시됩니다.
 				</div>
 			</div>
 		</div>
@@ -371,32 +372,32 @@ onDestroy(() => {
 	
 	<!-- Header with round and total scans info -->
 	{#if showHeader}
-		<div class="px-4 py-2 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-gray-800 dark:to-gray-700 rounded-xl mt-4 mb-3 max-sm:mx-0 mx-4 border border-blue-100 dark:border-gray-600 shadow-lg">
-			<div class="flex justify-between items-center">
+		<div class="px-3 py-3 bg-base-200 rounded-lg mt-4 mb-3 border border-base-300">
+			<div class="flex flex-wrap gap-3 justify-between items-center">
 				<div class="flex items-center gap-3">
 					<div class="flex items-center gap-2">
 						<div class="w-3 h-3 {connectionStatus.connected ? 'bg-green-500' : connectionStatus.connecting ? 'bg-yellow-500 animate-pulse' : 'bg-red-500'} rounded-full"></div>
-						<span class="text-xs text-gray-600 dark:text-gray-400">
+						<span class="text-xs text-base-content/70">
 							{connectionStatus.connected ? '연결됨' : connectionStatus.connecting ? '연결 중...' : `(재시도: ${connectionStatus.retryCount})`}
 							{#if connectionStatus.error}
 								- {connectionStatus.error.message}
 							{/if}
 						</span>
 					</div>
-					<span class="text-lg font-bold text-gray-800 dark:text-white">
+					<span class="text-lg font-bold text-base-content">
 						{#if headerRound}
 							{headerRound}회차
 							{#if isFallbackPreviewVisible}
-								<span class="ml-2 px-2 py-1 bg-amber-100 text-amber-800 dark:bg-amber-800 dark:text-amber-100 text-xs font-medium rounded-full">집계 준비 중</span>
+								<span class="ml-2 px-2 py-1 bg-warning text-warning-content text-xs font-medium rounded-full">집계 준비 중</span>
 							{:else if latestRound && headerRound === latestRound}
-								<span class="ml-2 px-2 py-1 bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100 text-xs font-medium rounded-full">발표됨</span>
+								<span class="ml-2 px-2 py-1 bg-success text-success-content text-xs font-medium rounded-full">발표됨</span>
 							{/if}
 						{:else}
 							로또 스캔 현황
 						{/if}
 					</span>
 				</div>
-				<div class="flex items-center gap-2 px-3 py-2 bg-white dark:bg-gray-800 rounded-lg shadow-md">
+				<div class="flex items-center gap-2 px-3 py-2 bg-base-100 rounded-lg">
 					{#if isFallbackPreviewVisible}
 						<svg class="w-4 h-4 text-blue-500" fill="currentColor" viewBox="0 0 24 24">
 							<path d="M12 6v6l4 2M22 12a10 10 0 11-20 0 10 10 0 0120 0z" />
@@ -425,7 +426,8 @@ onDestroy(() => {
 	{/if}
 	
 	<div 
-		class="grid grid-cols-5 sm:grid-cols-5 md:grid-cols-5 lg:grid-cols-5 p-0 py-4 sm:p-4 gap-2 sm:gap-3 md:gap-4"
+		class="scan-number-grid grid py-4 gap-2"
+		style={`--scan-mobile: ${gridColumns.mobile ?? 5}; --scan-desktop: ${gridColumns.desktop ?? 9};`}
 		role="grid"
 		aria-label="로또 번호별 스캔 현황"
 	>
@@ -484,7 +486,7 @@ onDestroy(() => {
 {:else}
 	<!-- Loading state -->
 	{#if ballValuesComposable.loading}
-		<div class="alert mx-4 mt-4">
+		<div class="alert mt-4">
 			<span class="loading loading-spinner loading-sm"></span>
 			<div>
 				<h3 class="font-bold">데이터 로딩 중...</h3>
@@ -501,10 +503,10 @@ onDestroy(() => {
 	
 	<!-- Skeleton loading state with round info -->
 	{#if showHeader}
-		<div class="skeleton h-14 mx-4 mt-4 mb-3 rounded-xl"></div>
+		<div class="skeleton h-14 mt-4 mb-3 rounded-xl"></div>
 	{/if}
 	
-	<div class="grid grid-cols-5 sm:grid-cols-5 md:grid-cols-5 lg:grid-cols-5 p-0 py-4 sm:p-4 gap-2 sm:gap-3 md:gap-4">
+	<div class="scan-number-grid grid py-4 gap-2">
 			{#each Array.from({ length: 45 }, (_, index) => index) as skeleton (skeleton)}
 				<div class="skeleton aspect-square w-full min-h-20 rounded-full"></div>
 			{/each}
@@ -518,6 +520,8 @@ onDestroy(() => {
 />
 
 <style>
+ .scan-number-grid { grid-template-columns: repeat(var(--scan-mobile, 5), minmax(0, 1fr)); }
+ @media (min-width:768px) { .scan-number-grid { grid-template-columns: repeat(var(--scan-desktop, 9), minmax(0, 1fr)); } }
 .ball-grid-item {
     aspect-ratio: 1;
     width: 100%;
@@ -534,9 +538,9 @@ onDestroy(() => {
 }
 
 .ball-grid-item:focus {
-    outline: 2px solid oklch(var(--p));
+    outline: 2px solid var(--color-primary);
     outline-offset: 2px;
-    box-shadow: 0 0 0 2px oklch(var(--p));
+    box-shadow: 0 0 0 2px var(--color-primary);
     transform: scale(1.05);
 }
 

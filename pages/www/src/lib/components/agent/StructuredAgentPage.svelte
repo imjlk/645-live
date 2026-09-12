@@ -1,29 +1,30 @@
 <script lang="ts">
-	import { resolve } from "$app/paths";
-	import type { AgentPage } from "$lib/agent/content";
+import { resolve } from "$app/paths";
+import type { AgentPage } from "$lib/agent/content";
 
-	let { page }: { page: AgentPage } = $props();
-	const resolveInternalHref = resolve as unknown as (href: string) => string;
-	const sectionLabel = $derived(page.key === "agent-home" ? "Section" : "섹션");
+let { page, headingLevel = 1 }: { page: AgentPage; headingLevel?: 1 | 2 } =
+	$props();
+const resolveInternalHref = resolve as unknown as (href: string) => string;
+const sectionLabel = $derived(page.key === "agent-home" ? "Section" : "섹션");
 </script>
 
-<div class="space-y-8 p-6">
+<div class="space-y-8">
 	<header class="space-y-3">
 		<p class="text-xs font-semibold uppercase tracking-[0.24em] text-primary/80">{page.eyebrow}</p>
-		<h1 class="text-3xl font-black tracking-[-0.04em] text-base-content sm:text-4xl">{page.title}</h1>
+		<svelte:element this={headingLevel === 1 ? "h1" : "h2"} class="text-3xl font-black tracking-[-0.04em] text-base-content sm:text-4xl">{page.title}</svelte:element>
 		<p class="max-w-3xl text-base leading-7 text-base-content/78">{page.description}</p>
 	</header>
 
 	<section class="grid gap-4 lg:grid-cols-2">
 		{#each page.intro as paragraph, index (`${page.key}-intro-${index}`)}
-			<p class="rounded-3xl border border-base-300/70 bg-base-100/80 p-5 text-sm leading-7 text-base-content/78 shadow-sm">
+			<p class="text-base leading-8 text-base-content/80">
 				{paragraph}
 			</p>
 		{/each}
 	</section>
 
 	{#each page.sections as section (`${page.key}-${section.title}`)}
-		<section class="space-y-4 rounded-[2rem] border border-base-300/70 bg-base-100/85 p-6 shadow-sm">
+		<section class="space-y-4 border-t border-base-300 pt-6">
 			<div class="space-y-2">
 				<p class="text-xs font-semibold tracking-[0.22em] text-base-content/45">{sectionLabel}</p>
 				<h2 class="text-2xl font-bold text-base-content">{section.title}</h2>
@@ -46,7 +47,7 @@
 			{/if}
 
 			{#if section.table}
-				<div class="overflow-x-auto rounded-2xl border border-base-300/70">
+				<div class="overflow-x-auto rounded-lg border border-base-300/70">
 					<table class="table table-zebra">
 						<thead>
 							<tr>
@@ -72,7 +73,7 @@
 				<div class="grid gap-3 md:grid-cols-2">
 					{#each section.links as link (`${section.title}-${link.label}-${link.href}`)}
 						<a
-							class="rounded-3xl border border-base-300/70 bg-base-200/60 p-4 transition hover:-translate-y-0.5 hover:bg-base-200"
+							class="rounded-lg border border-base-300/70 bg-base-200/60 p-4 transition hover:-translate-y-0.5 hover:bg-base-200"
 							href={
 								link.href.startsWith("http://") || link.href.startsWith("https://")
 									? link.href

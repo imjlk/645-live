@@ -2,7 +2,7 @@
 import { resolve } from "$app/paths";
 import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
 import { AUTO_NEWS_AUTHOR_PATH, absoluteUrl } from "$lib/seo/index.js";
-import { MetaTags } from "svelte-meta-tags";
+import MetaTags from "$lib/seo/PageMeta.svelte";
 
 const breadcrumbItems = [
 	{ label: "홈", href: "/" },
@@ -14,15 +14,15 @@ const breadcrumbItems = [
 <MetaTags
 	title="645.live 자동뉴스"
 	titleTemplate="%s | 645.live"
-	description="645.live 자동뉴스가 어떤 데이터와 규칙으로 로또 기사 초안을 생성하는지 소개합니다."
+	description="645.live 자동뉴스가 로또 회차별 기사를 작성하는 방식을 소개합니다. 공식 추첨 결과와 당첨 판매점, 사이트 스캔 데이터를 활용하는 범위, 자동 생성 콘텐츠의 한계와 수정·보완 원칙을 확인할 수 있습니다."
 	canonical={absoluteUrl(AUTO_NEWS_AUTHOR_PATH)}
 	robots="index,follow"
 />
 
-<div class="p-6 space-y-6">
+<div class="content-page space-y-6">
 	<Breadcrumbs items={breadcrumbItems} />
 
-	<div class="text-center space-y-2">
+	<div class="page-header space-y-2">
 		<h1 class="text-3xl font-bold text-primary">645.live 자동뉴스</h1>
 		<p class="text-base-content/70">
 			동행복권 공식 발표와 645.live 내부 통계 데이터를 바탕으로 최신 로또 기사를 자동 생성하는 에디토리얼 계정입니다.

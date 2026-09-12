@@ -14,19 +14,19 @@ export const load: PageServerLoad = async () => {
 		// 최신 회차 정보와 번호별 통계를 병렬로 가져오기
 		const [latestRoundInfo, numberStats, numberDetails, freshness] =
 			await Promise.all([
-			getLatestRoundInfo(),
-			getNumberStats("desc", 45),
-			statsClient.records("lotto_number_details").list({
-				order: ["number"],
-				pagination: { limit: 45 },
-			}),
-			getSingleStatsFreshness({
-				tableName: "lotto_number_stats",
-				sourceLabel: "번호별 통계",
-				orderField: "last_draw_round",
-				roundField: "last_draw_round",
-			}),
-		]);
+				getLatestRoundInfo(),
+				getNumberStats("desc", 45),
+				statsClient.records("lotto_number_details").list({
+					order: ["number"],
+					pagination: { limit: 45 },
+				}),
+				getSingleStatsFreshness({
+					tableName: "lotto_number_stats",
+					sourceLabel: "번호별 통계",
+					orderField: "last_draw_round",
+					roundField: "last_draw_round",
+				}),
+			]);
 
 		const totalRounds = latestRoundInfo?.round || 0;
 		const latestRound = latestRoundInfo?.round || 0;

@@ -2,7 +2,7 @@
 import { resolve } from "$app/paths";
 import Breadcrumbs from "$lib/ui/Breadcrumbs.svelte";
 import { absoluteUrl } from "$lib/seo/index.js";
-import { MetaTags } from "svelte-meta-tags";
+import MetaTags from "$lib/seo/PageMeta.svelte";
 
 // Breadcrumbs 데이터
 const breadcrumbItems = [
@@ -14,17 +14,17 @@ const breadcrumbItems = [
 <MetaTags
 	title="서비스 이용약관"
 	titleTemplate="%s | 645.live"
-	description="645.live 서비스 이용 조건과 책임 범위를 안내합니다."
+	description="645.live 서비스를 이용하기 전 회원과 운영자의 권리·의무, 이용 조건과 책임 범위를 확인하세요. 로또 정보와 통계의 이용 목적, 계정 및 서비스 운영 기준, 서비스 변경과 이용 제한에 관한 약관을 안내합니다."
 	canonical={absoluteUrl("/terms-of-service")}
 	robots="index,follow"
 />
 
-<div class="p-6 space-y-6">
+<div class="content-page space-y-6">
 	<!-- Breadcrumbs -->
 	<Breadcrumbs items={breadcrumbItems} />
 
 	<!-- 페이지 헤더 -->
-	<div class="text-center space-y-2">
+	<div class="page-header space-y-2">
 		<h1 class="text-3xl font-bold text-primary">서비스 이용약관</h1>
 		<p class="text-base-content/70">
 			645.live 서비스 이용과 관련한 기본 조건을 안내합니다.

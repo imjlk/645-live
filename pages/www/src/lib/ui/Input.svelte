@@ -194,7 +194,7 @@ export const getElement = () => inputElement;
   /* Enhanced focus styles */
   .input:focus {
     outline: none;
-    box-shadow: 0 0 0 2px oklch(var(--p) / 0.2);
+    box-shadow: 0 0 0 2px color-mix(in oklab, var(--color-primary) 20%, transparent);
   }
   
   /* High contrast mode support */
@@ -218,14 +218,14 @@ export const getElement = () => inputElement;
   
   /* Error state styling */
   .input[aria-invalid="true"] {
-    border-color: oklch(var(--er));
-    background-color: oklch(var(--er) / 0.05);
+    border-color: var(--color-error);
+    background-color: color-mix(in oklch, var(--color-error) 5%, transparent);
   }
   
   /* Disabled state */
   .input:disabled {
-    background-color: oklch(var(--b2));
-    color: oklch(var(--bc) / 0.6);
+    background-color: var(--color-base-200);
+    color: var(--text-muted);
     cursor: not-allowed;
   }
   

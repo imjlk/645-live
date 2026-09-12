@@ -1,91 +1,28 @@
 <script lang="ts">
+import { resolve } from "$app/paths";
 import { page } from "$app/state";
-import LinkButton from "$lib/ui/LinkButton.svelte";
 
-interface NavigationItem {
-	href: string;
-	label: string;
-	ariaLabel: string;
-	activePattern?: (pathname: string) => boolean;
-}
-
-const navigationItems: NavigationItem[] = [
-	{
-		href: "/guide",
-		label: "가이드",
-		ariaLabel: "로또 가이드 페이지로 이동",
-		activePattern: (pathname) => pathname === "/guide",
-	},
-	{
-		href: "/news",
-		label: "뉴스",
-		ariaLabel: "로또 뉴스 페이지로 이동",
-		activePattern: (pathname) => pathname.startsWith("/news"),
-	},
-	{
-		href: "/qr-scan",
-		label: "QR 스캔",
-		ariaLabel: "QR 스캔 페이지로 이동",
-		activePattern: (pathname) => pathname === "/qr-scan",
-	},
-	{
-		href: "/history",
-		label: "지난 회차",
-		ariaLabel: "지난 회차 히스토리 페이지로 이동",
-		activePattern: (pathname) => pathname === "/history",
-	},
-	{
-		href: "/generator",
-		label: "번호 생성기",
-		ariaLabel: "로또 번호 생성기 페이지로 이동",
-		activePattern: (pathname) => pathname.startsWith("/generator"),
-	},
-	{
-		href: "/stats",
-		label: "통계",
-		ariaLabel: "통계 분석 페이지로 이동",
-		activePattern: (pathname) => pathname.startsWith("/stats"),
-	},
-	{
-		href: "/winning-stores",
-		label: "당첨점",
-		ariaLabel: "당첨점 정보 페이지로 이동",
-		activePattern: (pathname) => pathname.startsWith("/winning-stores"),
-	},
-];
-
-function isActive(item: NavigationItem, pathname: string): boolean {
-	return item.activePattern
-		? item.activePattern(pathname)
-		: pathname === item.href;
-}
-
-function handleKeydown(event: KeyboardEvent, href: string) {
-	if (event.key === "Enter" || event.key === " ") {
-		event.preventDefault();
-		window.location.href = href;
-	}
-}
+let { compact = false }: { compact?: boolean } = $props();
+const items = [
+	{ href: "/history", label: "당첨 결과" },
+	{ href: "/qr-scan", label: "QR 확인" },
+	{ href: "/generator", label: "번호 만들기" },
+	{ href: "/stats", label: "통계" },
+	{ href: "/winning-stores", label: "당첨점" },
+	{ href: "/news", label: "소식" },
+	{ href: "/guide", label: "이용 가이드" },
+] as const;
 </script>
-
-<aside class="w-full sm:w-32 min-w-48 sm:flex-1 rounded-2xl bg-base-200" aria-label="주요 메뉴">
-	{#key page.url.pathname}
-	<nav aria-label="주요 페이지 네비게이션">
-		<ul class="flex flex-row sm:flex-col gap-4 overflow-scroll py-2 sm:py-4 px-3">
-			{#each navigationItems as item (item.href)}
-				<li class="flex-shrink-0">
-					<LinkButton 
-						class="btn-secondary btn-ghost rounded-full w-full whitespace-nowrap {isActive(item, page.url.pathname) ? 'btn-active' : ''}" 
-						href={item.href}
-						aria-label={item.ariaLabel}
-						tabindex={0}
-						onkeydown={(e) => handleKeydown(e, item.href)}
-					>
-						{item.label}
-					</LinkButton>
-				</li>
-			{/each}
-		</ul>
-	</nav>
-	{/key}
-</aside>
+<nav class:compact aria-label="주요 페이지">
+ {#each items as item (item.href)}
+  <a href={resolve(item.href)} aria-current={page.url.pathname.startsWith(item.href) ? "page" : undefined}>{item.label}</a>
+ {/each}
+</nav>
+<style>
+ nav { display: flex; flex-wrap: wrap; align-items: center; gap: 0.125rem; }
+ a { color: var(--text-muted); padding: 0.75rem 0.6rem; font-size: 0.875rem; font-weight: 500; border-radius: 0.5rem; white-space: nowrap; transition: background 150ms; }
+ a:hover { background: var(--color-base-200); color: var(--color-base-content); }
+ a[aria-current="page"] { color: var(--color-primary); font-weight: 700; }
+ .compact { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem; }
+ .compact a { padding: 0.75rem 1rem; }
+</style>

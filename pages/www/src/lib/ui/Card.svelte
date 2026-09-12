@@ -53,7 +53,6 @@ const handleCardClick = (event: MouseEvent) => {
 		event.currentTarget?.dispatchEvent(cardClickEvent);
 	}
 };
-
 </script>
 
 {#snippet content()}
@@ -128,7 +127,7 @@ const handleCardClick = (event: MouseEvent) => {
   
   /* Focus styles for accessibility */
   .card[role="button"]:focus {
-    outline: 2px solid oklch(var(--p));
+    outline: 2px solid var(--color-primary);
     outline-offset: 2px;
   }
   
