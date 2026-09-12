@@ -18,7 +18,6 @@ let { children } = $props();
 	.article-prose > :global(blockquote) { padding-left: 20px; margin: 24px 0; border-left: 3px solid var(--color-primary); color: color-mix(in oklab, var(--color-base-content) 70%, transparent); }
 	.article-prose > :global(p a), .article-prose > :global(ul a) { color: var(--color-primary); text-decoration: underline; text-underline-offset: 4px; }
 	.article-prose > :global(pre) { padding: 16px; margin-block: 24px; border-radius: 8px; background: var(--color-base-200); overflow-x: auto; }
-	.article-prose :global(table) { display: block; max-width: 100%; overflow-x: auto; }
 	.article-prose :global(img) { max-width: 100%; height: auto; }
 	.article-prose :global(.news-data-note) { font-size: 0.875rem; color: color-mix(in oklab, var(--color-base-content) 65%, transparent); margin-block: 16px 24px; }
 	.article-prose :global(.news-related-links) { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 24px; border-top: 1px solid var(--color-base-300); margin-block: 20px 28px; }
