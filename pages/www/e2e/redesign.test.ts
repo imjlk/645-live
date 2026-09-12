@@ -41,6 +41,27 @@ test("mobile navigation exposes all destinations without overflowing", async ({
 	expect(fits).toBe(true);
 });
 
+test("historical scan links hydrate cleanly and follow client navigation", async ({
+	page,
+}) => {
+	const hydrationWarnings: string[] = [];
+	page.on("console", (message) => {
+		if (/hydration[_\s]/i.test(message.text())) {
+			hydrationWarnings.push(message.text());
+		}
+	});
+	await page.goto("/?scanRound=1200#live-scans");
+	const round = page.locator("#live-scans .section-label");
+	await expect(round).toContainText("1200회");
+	await page.getByRole("link", { name: /^현재 판매 회차 보기/ }).click();
+	await expect(page.locator(".scan-round-note")).toHaveCount(0);
+	await expect(round).not.toContainText("1200회");
+	await page.goBack();
+	await expect(round).toContainText("1200회");
+	await expect(page.locator("#live-scans [data-ball-number]")).toHaveCount(45);
+	expect(hydrationWarnings).toEqual([]);
+});
+
 test("invalid number URLs return 404 instead of server errors", async ({
 	request,
 }) => {

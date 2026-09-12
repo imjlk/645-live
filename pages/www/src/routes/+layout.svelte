@@ -33,10 +33,7 @@ afterNavigate(() => trackPageView());
 
 let currentPath = $derived(page.url.pathname);
 let currentAbsoluteUrl = $derived(
-	new URL(
-		`${page.url.pathname}${browser ? page.url.search : ""}`,
-		SITE_ORIGIN,
-	).toString(),
+	new URL(page.url.pathname, SITE_ORIGIN).toString(),
 );
 const FORCE_SW_RESET_PARAM = "sw-reset";
 // Temporarily keep PWA surfaces dormant while clearing Search Console

@@ -26,9 +26,10 @@ let { data }: { data: PageData } = $props();
 type HomeDraw = Omit<LottoDrawResult, "totSellamnt">;
 let liveDraw = $state<HomeDraw | null>(null);
 let clientDisplayRound = $state<number | null>(null);
+let mounted = $state(false);
 const displayRound = $derived(clientDisplayRound ?? data.displayRound);
 const scanRound = $derived.by(() => {
-	const requested = browser
+	const requested = mounted
 		? Number(page.url.searchParams.get("scanRound"))
 		: 0;
 	return Number.isInteger(requested) &&
@@ -113,6 +114,7 @@ function parseLatestDraw(snapshot: unknown): HomeDraw | null {
 }
 
 onMount(() => {
+	mounted = true;
 	let activeRequest: AbortController | null = null;
 	let lastRequestedAt = 0;
 	const refresh = async () => {
@@ -255,6 +257,7 @@ const faq = [
       <a href={resolve("/stats/numbers")}><strong>번호별 출현 빈도</strong><span>1번부터 45번까지, 과거 추첨 기록 비교</span><b aria-hidden="true">↗</b></a>
       <a href={resolve("/stats/odd-even")}><strong>최근 회차의 홀짝 분포</strong><span>최근 10회부터 전체 회차까지 비교</span><b aria-hidden="true">↗</b></a>
       <a href={resolve("/winning-stores")}><strong>회차별 당첨 판매점</strong><span>1등·2등 당첨점과 주소 확인</span><b aria-hidden="true">↗</b></a>
+      <a href={resolve("/generator")}><strong>조건에 맞는 번호 만들기</strong><span>포함수·제외수·홀짝 조건으로 번호 생성</span><b aria-hidden="true">↗</b></a>
      </div>
     </section>
     {#if data.newsPosts.length > 0}
