@@ -3,6 +3,7 @@ import { unflatten } from "devalue";
 import { OG_DESIGN_VERSION } from "../../config/og.mjs";
 import { getPublicDataRevision } from "./public-data.mjs";
 
+const siteOrigin = "https://645.live";
 const root = new URL(
 	"../../pages/www/.svelte-kit/cloudflare/",
 	import.meta.url,
@@ -53,17 +54,16 @@ for (const file of html) {
 		const content = tag.match(/\scontent=(["'])(.*?)\1/)?.[2];
 		if (!content) continue;
 		// Svelte emits quoted metadata attributes and escapes query separators.
-		const url = new URL(content.replaceAll("&amp;", "&"), "https://645.live");
-		if (
-			url.origin !== "https://645.live" ||
-			!/^\/og(?:\/|$)/.test(url.pathname)
-		)
+		const url = new URL(content.replaceAll("&amp;", "&"), siteOrigin);
+		if (url.origin !== siteOrigin || !/^\/og(?:\/|$)/.test(url.pathname))
 			continue;
 		if (url.searchParams.get("rev") !== OG_DESIGN_VERSION)
 			throw new Error(`Stale/unversioned OG image in ${file.pathname}: ${url}`);
 		ogImagesChecked++;
 	}
 }
+if (ogImagesChecked === 0)
+	throw new Error("No OG image references matched in the static HTML output");
 let checked = 0;
 for (const file of files.filter((entry) =>
 	entry.pathname.endsWith("/__data.json"),
