@@ -23,6 +23,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -71,3 +73,44 @@ jobs:
 
       - name: Test TrailBase adapter
         run: bun --cwd packages/trailbase-adapter -- test --run
+
+  miniapp:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: oven-sh/setup-bun@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: dtolnay/rust-toolchain@1.96.0
+        with:
+          targets: wasm32-wasip2
+      - run: bun install --frozen-lockfile
+      - name: Check and test the native app
+        run: |
+          bun run miniapp:check
+          bun run miniapp:test
+          bunx biome check apps/toss packages/lotto-core
+      - name: Build the native miniapp
+        env:
+          LOTTO_APP_ENV: production
+        run: bun run toss build
+      - name: Check WASM
+        run: |
+          cargo fmt --manifest-path services/trailbase/miniapp-guest/Cargo.toml -- --check
+          cargo test --manifest-path services/trailbase/miniapp-guest/Cargo.toml --locked
+      - name: Exercise real TrailBase subscriptions
+        run: |
+          docker build -f services/trailbase/Dockerfile -t 645-trailbase:miniapp .
+          python3 scripts/miniapp/smoke.py --fresh-only
+          python3 scripts/miniapp/smoke.py --bots-only
+          python3 scripts/miniapp/promotion-smoke.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: 645-live-miniapp
+          path: apps/toss/645-live.ait
+          if-no-files-found: error
+          retention-days: 7

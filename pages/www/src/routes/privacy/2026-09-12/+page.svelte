@@ -12,7 +12,6 @@ const sections = [
 	{ id: "collection", title: "처리 목적과 항목" },
 	{ id: "scan-records", title: "QR과 스캔 기록" },
 	{ id: "retention", title: "보관과 파기" },
-	{ id: "miniapp", title: "토스 미니앱" },
 	{ id: "providers", title: "외부 서비스와 국외 처리" },
 	{ id: "cookies", title: "쿠키·광고·분석" },
 	{ id: "rights", title: "내 정보에 대한 권리" },
@@ -24,20 +23,21 @@ const sections = [
 </script>
 
 <MetaTags
-	title="개인정보 처리방침"
+	title="이전 개인정보 처리방침 (2026년 9월 12일)"
 	titleTemplate="%s | 645.live"
 	description="645.live의 회원가입 정보와 QR 스캔 기록을 수집·이용·보관하는 기준을 안내합니다. 국내 데이터 보관, 외부 서비스와 광고 쿠키, 회원 탈퇴 및 개인정보 열람·삭제 요청 방법과 개인정보 보호담당 연락처를 확인하세요."
-	canonical={absoluteUrl("/privacy")}
-	robots="index,follow"
+	canonical={absoluteUrl("/privacy/2026-09-12")}
+	robots="noindex,follow"
 />
 
 <div class="content-page privacy-page">
 	<Breadcrumbs items={breadcrumbItems} />
 	<header class="page-header">
 		<p class="section-label">서비스 이용 안내</p>
-		<h1 class="page-title">개인정보 처리방침</h1>
+		<h1 class="page-title">이전 개인정보 처리방침</h1>
+        <p>2026년 9월 12일~9월 13일에 적용된 방침입니다. <a href={resolve("/privacy")}>현재 개인정보 처리방침 보기</a></p>
 		<p>1990컴퍼니는 645.live에서 어떤 정보를 왜 처리하는지, 이용자가 이를 어떻게 관리할 수 있는지 안내합니다.</p>
-		<p class="effective-date">시행일: <time datetime="2026-09-14">2026년 9월 14일</time></p>
+		<p class="effective-date">시행일: <time datetime="2026-09-12">2026년 9월 12일</time></p>
 	</header>
 
 	<div class="privacy-summary">
@@ -88,21 +88,6 @@ const sections = [
 			<p>보관기간이 지나거나 처리 목적을 달성한 개인정보는 지체 없이 파기합니다. 전자적 정보는 데이터베이스와 저장소에서 삭제하며, 다른 법령에 따른 보존 의무가 있는 정보는 그 근거에 필요한 범위로 분리하여 보관합니다.</p>
 			<p>탈퇴 후에도 이미 개인별 기록과 분리해 합산한 번호별 통계는 남을 수 있습니다. 탈퇴한 기기의 해당 계정 기록은 삭제하지만, 다른 기기에 남은 기록은 각 기기에서 삭제해 주세요. 외부 광고·분석 서비스의 데이터는 해당 서비스의 삭제 방법과 보관 기준이 적용됩니다.</p>
 		</section>
-
-        <section id="miniapp" aria-labelledby="miniapp-heading">
-            <h2 id="miniapp-heading">토스 미니앱의 번호 생성과 보관</h2>
-            <p>이 항목은 토스에서 제공하는 ‘645LIVE 로또 번호생성기’를 이용할 때 적용됩니다. 웹사이트 회원가입과 별도로 동작하며, 645.live 회원 계정과 연동하지 않습니다. 번호 생성·보관과 출석 기능의 필수 정보는 요청한 서비스의 제공을 위해 처리하고, 선택한 결과 알림은 수신 동의 후 처리합니다.</p>
-            <dl class="data-list">
-                <div><dt>익명 이용과 생성 내역</dt><dd>토스 미니앱 전용 익명 식별자, 내부 이용자·세션 식별자, 임의로 부여한 별칭, 생성 회차·번호·시각, 요청 식별자, 접속 시각을 처리합니다. 익명 식별자는 조회용 변환값과 필요한 경우 암호화한 값으로 보관합니다. 토스 계정의 이름·전화번호·이메일은 번호 생성에 요구하지 않습니다.</dd></div>
-                <div><dt>공개되는 생성 정보</dt><dd>생성 번호·회차·별칭·생성 시각과 합산 통계는 미니앱과 645.live의 공개 API에서 조회할 수 있습니다. 토스 익명 식별자, 인증 정보와 이용자별 내부 기록은 공개하지 않습니다. 생성 정보는 실제 복권 구매나 QR 스캔 기록과 분리하여 처리합니다.</dd></div>
-                <div><dt>기기 보관함</dt><dd>이용자가 선택한 생성 번호·회차·보관 시각과 결과 확인 상태를 토스 앱의 기기 저장소에 보관합니다. 해당 기기에서 직접 삭제할 때까지 유지되며, 토스 앱 삭제 등으로 지워질 수 있습니다. 기기에 보관하는 행위가 실제 복권 구매를 의미하지 않습니다.</dd></div>
-                <div><dt>출석과 광고 이용권</dt><dd>내부 이용자 식별자, 출석일·시각, 이용권 종류·만료 시각, 광고 요청과 SDK 이벤트·완료 시각을 처리합니다. 출석 확인, 기능 제공, 중복 지급과 비정상 요청 방지에 사용합니다. 광고를 클릭하도록 요구하거나 클릭을 조건으로 이용권을 지급하지 않습니다.</dd></div>
-                <div><dt>결과 알림과 프로모션 · 선택 기능</dt><dd>기능이 제공되는 경우 이용자의 선택에 따라 알림 템플릿·동의 상태와 시각, 신청 회차, 발송 상태를 처리합니다. 프로모션을 신청하면 캠페인·지급 요청 식별자, 지급 금액·상태·처리 시각을 처리합니다. 수신자 확인과 요청한 알림·혜택 제공에 필요한 미니앱 익명 식별자 및 요청 정보는 비바리퍼블리카(토스)의 국내 서버 API로 전송합니다. <a href="https://toss.im/privacy-policy" target="_blank" rel="noreferrer">토스 개인정보 처리방침</a>에서 토스의 처리와 권리행사 방법을 확인할 수 있습니다.</dd></div>
-            </dl>
-            <p>서버의 생성 내역과 요청 기록은 90일, 광고 요청·완료 기록은 30일, 처리 완료된 알림 발송 기록은 90일 동안 보관한 후 정기 삭제합니다. 미발송 회차 알림 신청은 14일이 지나면 삭제합니다. 익명 이용 정보, 출석, 알림 동의와 프로모션 지급 기록은 미니앱 이용 데이터 삭제 시 함께 삭제합니다. 기기에 보관한 번호는 서버 생성 내역의 보관기간이 지나도 기기에 남습니다.</p>
-            <p>보관함에서 번호별 삭제를 선택하거나, 설정의 ‘내 미니앱 데이터 삭제’를 이용해 서버의 본인 생성 내역과 이용 정보 및 해당 기기의 보관함을 삭제할 수 있습니다. 알림은 보관함의 수신 설정에서 끌 수 있으며, 열람·정정·삭제 등 추가 요청은 <a href="mailto:support@645.live">support@645.live</a>로 접수할 수 있습니다.</p>
-            <p>미니앱 광고에는 토스 인앱 광고 SDK를 사용합니다. 토스 애즈 또는 Google AdMob 등 연결된 광고 네트워크에서 기기·광고 식별자, IP 주소와 광고 노출·상호작용 정보를 처리할 수 있습니다. 광고 네트워크의 정보 처리와 국외 처리 여부 및 관리 방법은 <a href="https://toss.im/privacy-policy" target="_blank" rel="noreferrer">토스 개인정보 처리방침</a>과 <a href="https://policies.google.com/technologies/ads?hl=ko" target="_blank" rel="noreferrer">Google 광고 개인정보 안내</a>에서 확인할 수 있습니다. 이용 기기의 광고·추적 설정에서도 허용 범위를 관리할 수 있습니다.</p>
-        </section>
 
 		<section id="providers" aria-labelledby="providers-heading">
 			<h2 id="providers-heading">4. 외부 서비스와 국외 처리</h2>
@@ -176,9 +161,8 @@ const sections = [
 
 		<section id="changes" aria-labelledby="changes-heading">
 			<h2 id="changes-heading">10. 처리방침 변경</h2>
-			<p>이 방침은 2026년 9월 14일부터 적용합니다. 이번 개정에서는 토스 미니앱의 익명 이용, 생성 번호의 공개, 기기 보관함, 출석·광고 이용권, 선택적 알림·프로모션의 처리 항목과 보관·삭제 방법을 추가했습니다.</p>
+			<p>이 방침은 2026년 9월 12일부터 적용합니다. 이번 개정에서는 운영자·담당자 연락처, 회원가입·QR 기록의 처리, 기기와 서버 기록의 차이, 외부 서비스, 쿠키 관리와 권리행사 방법을 구체화했습니다.</p>
 			<p>법령이나 서비스의 처리 방식이 바뀌면 이 페이지에 변경 내용과 시행일을 공개합니다. 별도의 동의나 안내가 필요한 변경은 그 절차를 함께 진행합니다.</p>
-			<p><a href={resolve("/privacy/2026-09-12")}>이전 개인정보 처리방침 보기 (2026년 9월 12일~9월 13일 적용)</a></p>
 			<p><a href={resolve("/privacy/2026-03-01")}>이전 개인정보 처리방침 보기 (2026년 3월 1일~9월 11일 적용)</a></p>
 		</section>
 	</article>

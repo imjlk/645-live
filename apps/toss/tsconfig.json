@@ -1,0 +1,22 @@
+{
+	"compilerOptions": {
+		"target": "ESNext",
+		"module": "ESNext",
+		"moduleResolution": "bundler",
+		"lib": ["ESNext"],
+		"types": ["react-native", "node"],
+		"jsx": "react-native",
+		"esModuleInterop": true,
+		"strict": true,
+		"skipLibCheck": true,
+		"resolveJsonModule": true
+	},
+	"include": [
+		"src",
+		"pages",
+		"index.ts",
+		"require.context.ts",
+		"granite.config.ts"
+	],
+	"exclude": ["**/*.test.ts", "node_modules"]
+}

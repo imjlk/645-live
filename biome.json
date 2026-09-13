@@ -19,14 +19,22 @@
 			"!**/package-lock.json",
 			"!**/bun.lockb",
 			"!**/worker-configuration.d.ts",
-			"!services/"
+			"!services/",
+			"!vendor/",
+			"!apps/toss/require.context.ts"
 		]
 	},
 	"formatter": {
 		"enabled": true,
 		"indentStyle": "tab"
 	},
-	"assist": { "actions": { "source": { "organizeImports": "on" } } },
+	"assist": {
+		"actions": {
+			"source": {
+				"organizeImports": "on"
+			}
+		}
+	},
 	"linter": {
 		"enabled": true,
 		"rules": {

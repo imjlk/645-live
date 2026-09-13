@@ -1,0 +1,43 @@
+{
+	"name": "@645/toss",
+	"version": "0.1.0",
+	"private": true,
+	"scripts": {
+		"dev": "granite dev",
+		"build": "ait build",
+		"check": "tsc --noEmit",
+		"test": "bun test src",
+		"deploy": "ait deploy",
+		"build:production": "LOTTO_APP_ENV=production ait build"
+	},
+	"dependencies": {
+		"@apps-in-toss/framework": "^2.6.1",
+		"@apps-in-toss/native-modules": "^2.6.1",
+		"@granite-js/native": "1.0.28",
+		"@granite-js/react-native": "1.0.28",
+		"@trailbase-apps-in-toss-kit/ait-rn": "workspace:*",
+		"@trailbase-apps-in-toss-kit/trailbase-client": "workspace:*",
+		"@toss/tds-react-native": "^2.0.3",
+		"brick-module": "0.5.2",
+		"fast-text-encoding": "^1.0.6",
+		"react": "19.2.3",
+		"react-native": "0.85.3",
+		"react-native-safe-area-context": "5.6.2",
+		"trailbase": "0.14.0",
+		"web-streams-polyfill": "^4.2.0",
+		"@645/lotto-core": "workspace:*"
+	},
+	"devDependencies": {
+		"@apps-in-toss/ait-format": "1.0.0",
+		"@babel/core": "7.29.7",
+		"@babel/runtime": "7.29.7",
+		"@granite-js/plugin-env": "1.0.28",
+		"@granite-js/plugin-hermes": "1.0.28",
+		"@granite-js/plugin-router": "1.0.28",
+		"@types/babel__core": "^7.20.5",
+		"@types/node": "^22.19.19",
+		"@types/react": "19.2.15",
+		"babel-preset-granite": "1.0.28",
+		"typescript": "^5.9.3"
+	}
+}

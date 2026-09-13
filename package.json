@@ -9,12 +9,17 @@
 		"indexnow": "bun --cwd workers/indexnow-645-live --",
 		"sdk": "bun --cwd packages/sdk --",
 		"cli": "bun --cwd packages/cli --",
-		"format": "biome check --write package.json biome.json && biome check --write pages && biome check --write workers && biome check --write packages && biome check --write scripts",
-		"lint": "biome lint package.json biome.json && biome lint pages && biome lint workers && biome lint packages && biome lint scripts",
+		"format": "biome check --write package.json biome.json && biome check --write pages && biome check --write workers && biome check --write packages && biome check --write scripts && biome check --write apps",
+		"lint": "biome lint package.json biome.json && biome lint pages && biome lint workers && biome lint packages && biome lint scripts && biome lint apps",
 		"clean": "find . \\( -name 'node_modules' -o -name '.svelte-kit' \\) -type d -exec rm -rf {} + && rm -rf bun.lockb",
 		"trail": "docker run --pull=always --network host --mount type=bind,source=$PWD/services/trailbase/traildepot,target=/app/traildepot trailbase/trailbase:0.33.15 /app/trail",
 		"news:generate": "node scripts/news/generate-news-content.mjs",
-		"stats:indexnow": "node scripts/seo/submit-stats-indexnow.mjs"
+		"stats:indexnow": "node scripts/seo/submit-stats-indexnow.mjs",
+		"toss": "bun --cwd apps/toss --",
+		"miniapp:check": "bun run --cwd packages/lotto-core check && bun run toss check",
+		"miniapp:test": "bun test packages/lotto-core apps/toss/src --timeout 10000",
+		"miniapp:wasm": "cargo build --manifest-path services/trailbase/miniapp-guest/Cargo.toml --release --target wasm32-wasip2",
+		"miniapp:smoke": "python3 scripts/miniapp/smoke.py"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.4.7",
@@ -27,7 +32,10 @@
 		"packages": [
 			"pages/*",
 			"workers/*",
-			"packages/*"
+			"packages/*",
+			"apps/*",
+			"vendor/trailbase-apps-in-toss-kit/packages/ait-rn",
+			"vendor/trailbase-apps-in-toss-kit/packages/trailbase-client"
 		],
 		"catalog": {
 			"vite": "^8.0.0",
