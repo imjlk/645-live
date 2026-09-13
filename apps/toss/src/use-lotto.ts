@@ -53,6 +53,7 @@ export function useLotto() {
 	const [reducedMotion, setReducedMotion] = useState(true);
 	const [celebration, setCelebration] = useState<string | null>(null);
 	const [revision, setRevision] = useState(0);
+	const [refreshing, setRefreshing] = useState(false);
 	const pending = useRef<{
 		id: string;
 		round: number;
@@ -62,6 +63,13 @@ export function useLotto() {
 	const actionLock = useRef(false);
 	const seenWins = useRef(new Set<string>());
 	const store = useMemo(() => (user ? api.saved(user) : null), [api, user]);
+	const clearNotice = useCallback(() => setNotice(null), []);
+	const retry = useCallback(() => {
+		if (!actionLock.current) {
+			api.reconnect();
+			setRevision((v) => v + 1);
+		}
+	}, [api]);
 
 	const run = useCallback(async (name: string, task: () => Promise<void>) => {
 		if (actionLock.current) return;
@@ -130,6 +138,7 @@ export function useLotto() {
 	// biome-ignore lint/correctness/useExhaustiveDependencies: Revision represents an explicit user retry.
 	useEffect(() => {
 		let cancelled = false;
+		setRefreshing(true);
 		setError(null);
 		void (async () => {
 			try {
@@ -149,6 +158,8 @@ export function useLotto() {
 				await refreshPrivate();
 			} catch (e) {
 				if (!cancelled) setError(message(e));
+			} finally {
+				if (!cancelled) setRefreshing(false);
 			}
 		})();
 		return () => {
@@ -254,6 +265,9 @@ export function useLotto() {
 	const roundsKey = [...new Set(saved.map((s) => s.round))]
 		.sort((a, b) => b - a)
 		.join(",");
+	useEffect(() => {
+		if (reducedMotion) setCelebration(null);
+	}, [reducedMotion]);
 	const resultTime = context?.latestDraw
 		? resultFingerprint(context.latestDraw)
 		: "";
@@ -265,16 +279,25 @@ export function useLotto() {
 		void (async () => {
 			const rounds = roundsKey.split(",").map(Number);
 			const collected: Record<number, Draw> = {};
+			let failed = false;
 			for (let start = 0; start < rounds.length; start += 4) {
 				const values = await Promise.allSettled(
 					rounds.slice(start, start + 4).map((round) => api.draw(round)),
 				);
 				if (closed) return;
-				for (const value of values)
+				for (const value of values) {
 					if (value.status === "fulfilled" && value.value)
 						collected[value.value.round] = value.value;
+					if (value.status === "rejected") failed = true;
+				}
 			}
-			if (!closed) setResults((prev) => ({ ...prev, ...collected }));
+			if (!closed) {
+				setResults((prev) => ({ ...prev, ...collected }));
+				if (failed)
+					setError(
+						"일부 당첨 결과를 불러오지 못했어요. 연결을 확인하고 다시 시도해 주세요.",
+					);
+			}
 		})();
 		return () => {
 			closed = true;
@@ -347,24 +370,30 @@ export function useLotto() {
 		adConfig,
 		attendance,
 		busy,
+		refreshing,
 		error,
 		notice,
 		connection,
 		reducedMotion,
 		celebration,
-		clearNotice: () => setNotice(null),
+		clearNotice,
 		clearError: () => setError(null),
 		finishCelebration: () => setCelebration(null),
-		retry: () => setRevision((v) => v + 1),
+		retry,
 		generate: (options: GenerationOptions = EMPTY_OPTIONS) =>
 			run("generate", async () => {
 				const round = await api.context();
 				setContext(round);
-				if (!pending.current)
+				const serializedOptions = JSON.stringify(options);
+				if (
+					!pending.current ||
+					pending.current.round !== round.targetRound ||
+					JSON.stringify(pending.current.options) !== serializedOptions
+				)
 					pending.current = {
 						id: newRequestId(),
 						round: round.targetRound,
-						options: JSON.parse(JSON.stringify(options)),
+						options: JSON.parse(serializedOptions),
 					};
 				const request = pending.current;
 				try {
@@ -448,7 +477,10 @@ export function useLotto() {
 			run("promotion", async () => {
 				const result = await api.request<{ status: string; amount: number }>(
 					"/api/app/v1/attendance/promotion/claim",
-					{ campaignId: attendance?.promotion?.campaignId },
+					{
+						campaignId: attendance?.promotion?.campaignId,
+						claimId: attendance?.promotion?.claimId,
+					},
 				);
 				await refreshPrivate();
 				setNotice(
@@ -461,13 +493,21 @@ export function useLotto() {
 			}),
 		withdraw: () =>
 			run("withdraw", async () => {
-				await api.withdraw();
+				if (!store) throw new Error("보관함 연결을 먼저 확인해 주세요.");
+				// Clear the explicitly selected device data before revoking its server identity;
+				// a storage failure remains retryable under the same identity.
+				setSaved(await store.clear());
+				const result = await api.withdraw();
 				setUser(null);
 				setSaved([]);
 				setSavedReady(false);
 				setAdConfig(null);
 				setAttendance(null);
 				setNotice("미니앱 이용 데이터와 기기 보관함을 삭제했어요.");
+				if (!result.credentialsCleared)
+					setError(
+						"데이터 삭제는 완료했어요. 기기의 연결 정보를 정리하려면 토스 앱을 다시 열어 주세요.",
+					);
 			}),
 	};
 }

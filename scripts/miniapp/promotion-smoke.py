@@ -10,7 +10,7 @@ import threading
 import time
 import uuid
 
-from smoke import command, expect, request
+from smoke import cleanup_case, command, expect, request
 
 
 def run():
@@ -80,14 +80,15 @@ def run():
                     except OSError:
                         pass
                     time.sleep(.2)
-                status, session = request(base, '/api/app/v1/session/bootstrap', {'anonymousHash': 'dev-anon-' + uuid.uuid4().hex})
+                seed = 'dev-anon-' + uuid.uuid4().hex
+                status, session = request(base, '/api/app/v1/session/bootstrap', {'anonymousHash': seed})
                 expect(status, 200, 'promotion fixture bootstrap')
                 tokens = session['authTokens']
                 auth = {'Authorization': 'Bearer ' + tokens['authToken'], 'CSRF-Token': tokens['csrfToken'], 'Refresh-Token': tokens['refreshToken']}
                 user = list(base64.urlsafe_b64decode(session['user']['id'] + '=='))
                 def fixture(statements):
                     # Run inside the same VM as SQLite; host WAL mmap coherence differs on macOS.
-                    script = "import {Database} from 'bun:sqlite'; const db=new Database('/app/traildepot/data/main.db'); const rows=await Bun.stdin.json(); db.transaction(()=>{for(const [sql,params] of rows) db.query(sql).run(...params.map(v=>Array.isArray(v)?Buffer.from(v):v));})(); db.close();"
+                    script = "import {Database} from 'bun:sqlite'; const db=new Database('/app/traildepot/data/main.db'); const rows=await Bun.stdin.json(); db.exec('PRAGMA foreign_keys=ON'); db.transaction(()=>{for(const [sql,params] of rows) db.query(sql).run(...params.map(v=>Array.isArray(v)?Buffer.from(v):v));})(); db.close();"
                     result = subprocess.run(['docker','exec','-i',name,'bun','-e',script], input=json.dumps(statements), text=True, capture_output=True, timeout=10)
                     assert result.returncode == 0, 'isolated promotion fixture failed'
                 now = request(base, '/api/app/v1/attendance/status', headers=auth)[1]['serverTime']
@@ -111,6 +112,11 @@ def run():
                 expect(status, 200, 'status-only reconciliation')
                 assert result['status'] == 'success' and len(grants) == 1
                 assert request(base, path, body, auth)[1]['status'] == 'success' and len(grants) == 1
+                claim_id = visible['claimId']
+                fixture([("DELETE FROM promotion_campaigns WHERE id='fixture-1'", [])])
+                orphan = request(base, '/api/app/v1/attendance/status', headers=auth)[1]['promotion']
+                assert orphan['campaignId'] is None and orphan['claimId'] == claim_id
+                assert request(base, path, {'claimId': claim_id}, auth)[1]['status'] == 'success'
                 fixture([("INSERT INTO promotion_campaigns(id,feature_key,provider_promotion_code,reward_amount,status,starts_at,ends_at,budget_limit_amount,max_grant_count,created_at,updated_at) VALUES ('fixture-2','ait_lotto_attendance','unknown-outcome',1,'ACTIVE',?,?,1,1,?,?)", [now - 500, now + 86400000, now, now])])
                 status, _ = request(base, path, {'campaignId': 'fixture-2'}, auth)
                 expect(status, 500, 'ambiguous provider outcome')
@@ -119,12 +125,31 @@ def run():
                 expect(status, 200, 'unknown outcome review')
                 assert result['status'] == 'needs_review' and len(grants) == 2
                 assert len(set(grants)) == 2
+                fixture([("INSERT INTO promotion_campaigns(id,feature_key,provider_promotion_code,reward_amount,status,starts_at,ends_at,budget_limit_amount,max_grant_count,created_at,updated_at) VALUES ('fixture-3','ait_lotto_attendance','withdrawal-test',1,'ACTIVE',?,?,10,10,?,?)", [now - 250, now + 86400000, now, now])])
+                expect(request(base, path, {'campaignId': 'fixture-3'}, auth)[0], 200, 'third campaign')
+                assert len(grants) == 3
+                expect(request(base, '/api/app/v1/session/withdraw', {}, auth)[0], 200, 'withdraw after grant request')
+                status, restored = request(base, '/api/app/v1/session/bootstrap', {'anonymousHash': seed})
+                expect(status, 200, 'recreate anonymous profile')
+                assert restored['user']['id'] != session['user']['id']
+                tokens = restored['authTokens']
+                auth = {'Authorization': 'Bearer ' + tokens['authToken'], 'CSRF-Token': tokens['csrfToken'], 'Refresh-Token': tokens['refreshToken']}
+                user = list(base64.urlsafe_b64decode(restored['user']['id'] + '=='))
+                fixture([('INSERT INTO ait_lotto_attendance(user_id,day,created_at) VALUES (?,?,?)', [user, day - n, now]) for n in range(5)])
+                visible = request(base, '/api/app/v1/attendance/status', headers=auth)[1]['promotion']
+                assert visible['status'] == 'already_claimed' and not visible['eligible']
+                status, result = request(base, path, {'campaignId': 'fixture-3'}, auth)
+                expect(status, 409, 'withdrawal must not allow another reward')
+                assert result['error']['code'] == 'PROMOTION_ALREADY_CLAIMED' and len(grants) == 3
+                usage = command('docker','exec',name,'bun','-e',"import {Database} from 'bun:sqlite'; const db=new Database('/app/traildepot/data/main.db',{readonly:true}); console.log(db.query(\"SELECT reserved_amount FROM ait_lotto_promotion_usage WHERE campaign_id='fixture-3'\").get().reserved_amount); db.close();")
+                assert usage == '1', 'withdrawal replenished campaign budget'
                 print(json.dumps({'case': 'promotion-retries', 'passed': [
                     'one grant under concurrent requests', 'status-only reconciliation',
-                    'exhausted campaign remains visible', 'unknown outcomes never issue a second grant'
+                    'exhausted or deleted campaign remains readable', 'unknown outcomes never issue a second grant',
+                    'withdrawal preserves budget and blocks repeat claims'
                 ]}), flush=True)
             finally:
-                subprocess.run(['docker', 'rm', '-f', name], capture_output=True)
+                cleanup_case(name, folder, '645-trailbase:miniapp')
     finally:
         server.shutdown()
         server.server_close()

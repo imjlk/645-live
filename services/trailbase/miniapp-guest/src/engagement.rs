@@ -3,7 +3,7 @@ use serde::Deserialize;
 use serde_json::{Value as Json, json};
 use trailbase_guest_common::{
     apps_in_toss_messages as messages, apps_in_toss_proxy as proxy, promotion_rewards as rewards,
-    responses::*,
+    responses::*, session::hmac_hex,
 };
 use trailbase_wasm::{
     db::{Transaction, Value},
@@ -59,19 +59,26 @@ pub(crate) async fn attendance_status(req: &mut Request) -> ApiResult<Json> {
     let promotion = if let Some(c) = campaign {
         let existing = db::tx_query(
             &mut tx,
-            "SELECT status FROM promotion_reward_ledger WHERE user_id = ?1 AND campaign_id = ?2",
+            "SELECT status,id FROM promotion_reward_ledger WHERE user_id = ?1 AND campaign_id = ?2",
             &[Value::Blob(user.id.clone()), Value::Text(c.id.clone())],
         )?;
-        json!({"campaignId":c.id,"amount":c.amount,"eligible":count>=5 && checked,"status":existing.first().map(|r|db::text(&r[0],"status")).transpose()?})
+        let identity = promotion_identity(&mut tx, &user.id, &c.id)?;
+        let claimed = !db::tx_query(&mut tx, "SELECT 1 FROM ait_lotto_promotion_reservations WHERE campaign_id=?1 AND identity_hmac=?2", &[Value::Text(c.id.clone()),Value::Text(identity)])?.is_empty();
+        let status = existing
+            .first()
+            .map(|r| db::text(&r[0], "status"))
+            .transpose()?
+            .or_else(|| claimed.then(|| "already_claimed".into()));
+        json!({"campaignId":c.id,"claimId":existing.first().map(|r|db::text(&r[1],"claim")).transpose()?,"amount":c.amount,"eligible":count>=5 && checked && !claimed,"status":status})
     } else {
         // Existing claims stay reachable when a campaign ends or uses its final slot.
         let existing = db::tx_query(
             &mut tx,
-            "SELECT campaign_id,reward_amount,status FROM promotion_reward_ledger WHERE user_id=?1 AND source_type='ait_lotto_attendance' ORDER BY created_at DESC LIMIT 1",
+            "SELECT campaign_id,reward_amount,status,id FROM promotion_reward_ledger WHERE user_id=?1 AND source_type='ait_lotto_attendance' ORDER BY created_at DESC LIMIT 1",
             &[Value::Blob(user.id)],
         )?;
         existing.first().map(|r| -> ApiResult<Json> {
-            Ok(json!({"campaignId":db::text(&r[0],"campaign")?,"amount":db::integer(&r[1],"amount")?,"eligible":false,"status":db::text(&r[2],"status")?}))
+            Ok(json!({"campaignId":db::nullable_text(&r[0])?,"claimId":db::text(&r[3],"claim")?,"amount":db::integer(&r[1],"amount")?,"eligible":false,"status":db::text(&r[2],"status")?}))
         }).transpose()?.unwrap_or(Json::Null)
     };
     db::tx_commit(&mut tx)?;
@@ -191,6 +198,20 @@ pub(crate) struct Campaign {
     code: String,
     amount: i64,
 }
+fn promotion_identity(tx: &mut Transaction, user: &[u8], campaign: &str) -> ApiResult<String> {
+    let rows = db::tx_query(
+        tx,
+        "SELECT anonymous_hash_hmac FROM ait_lotto_profiles WHERE user_id=?1",
+        &[Value::Blob(user.to_vec())],
+    )?;
+    let row = rows
+        .first()
+        .ok_or_else(|| unauthorized("AUTH_REQUIRED", "연결을 다시 확인해 주세요."))?;
+    hmac_hex(
+        &settings::required("AIT_IDENTITY_HMAC_SECRET")?,
+        &format!("promotion:{campaign}:{}", db::text(&row[0], "identity")?),
+    )
+}
 fn active_campaign(tx: &mut Transaction, now: i64) -> ApiResult<Option<Campaign>> {
     if settings::string_or("AIT_PROMOTIONS_ENABLED", "false") != "true"
         || settings::string("MTLS_PROXY_URL").is_none()
@@ -199,7 +220,7 @@ fn active_campaign(tx: &mut Transaction, now: i64) -> ApiResult<Option<Campaign>
     }
     let rows = db::tx_query(
         tx,
-        "SELECT id, provider_promotion_code, reward_amount FROM promotion_campaigns c WHERE feature_key = 'ait_lotto_attendance' AND status = 'ACTIVE' AND starts_at <= ?1 AND ends_at > ?1 AND budget_limit_amount >= reward_amount + (SELECT coalesce(sum(reward_amount),0) FROM promotion_reward_ledger WHERE campaign_id = c.id AND status IN ('pending','success','recorded')) AND (max_grant_count IS NULL OR max_grant_count > (SELECT count(*) FROM promotion_reward_ledger WHERE campaign_id = c.id AND status IN ('pending','success','recorded'))) ORDER BY starts_at DESC LIMIT 1",
+        "SELECT id, provider_promotion_code, reward_amount FROM promotion_campaigns c WHERE feature_key = 'ait_lotto_attendance' AND status = 'ACTIVE' AND starts_at <= ?1 AND ends_at > ?1 AND budget_limit_amount >= reward_amount + coalesce((SELECT reserved_amount FROM ait_lotto_promotion_usage WHERE campaign_id=c.id),0) AND (max_grant_count IS NULL OR max_grant_count > coalesce((SELECT grant_count FROM ait_lotto_promotion_usage WHERE campaign_id=c.id),0)) ORDER BY starts_at DESC LIMIT 1",
         &[Value::Integer(now)],
     )?;
     rows.first()
@@ -232,6 +253,7 @@ pub(crate) async fn proxy_post(path: &str, payload: Json) -> ApiResult<Json> {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct Claim {
     campaign_id: Option<String>,
+    claim_id: Option<String>,
 }
 
 pub(crate) async fn claim_promotion(req: &mut Request) -> ApiResult<Json> {
@@ -242,6 +264,14 @@ pub(crate) async fn claim_promotion(req: &mut Request) -> ApiResult<Json> {
     let mut tx = db::tx()?;
     let user = auth::user(req, &mut tx)?;
     let now = db::now_ms_tx(&mut tx)?;
+    if let Some(id) = input.claim_id {
+        if id.len() > 128 {
+            return Err(bad_request("INVALID_CLAIM", "지급 요청을 확인해 주세요."));
+        }
+        db::tx_commit(&mut tx)?;
+        // Claim IDs remain stable even when an operator removes the campaign.
+        return reconcile_claim(&user.id, &id).await;
+    }
     let campaign = active_campaign(&mut tx, now)?;
     let requested = input
         .campaign_id
@@ -303,12 +333,33 @@ pub(crate) async fn claim_promotion(req: &mut Request) -> ApiResult<Json> {
     if current.id != campaign.id {
         return Err(conflict("CAMPAIGN_CHANGED", "프로모션 정보가 바뀌었어요."));
     }
-    let user_key = user
-        .id
-        .iter()
-        .map(|b| format!("{b:02x}"))
-        .collect::<String>();
-    let request_id = format!("ait-attendance-{}-{user_key}", current.id);
+    let identity = promotion_identity(&mut tx, &user.id, &current.id)?;
+    let request_id = format!("ait-attendance-{identity}");
+    let reserved = db::tx_execute(
+        &mut tx,
+        "INSERT OR IGNORE INTO ait_lotto_promotion_reservations(campaign_id,identity_hmac,reward_amount,created_at) VALUES (?1,?2,?3,?4)",
+        &[
+            Value::Text(current.id.clone()),
+            Value::Text(identity),
+            Value::Integer(current.amount),
+            Value::Integer(now),
+        ],
+    )?;
+    if reserved == 0 {
+        let existing = db::tx_query(
+            &mut tx,
+            "SELECT id FROM promotion_reward_ledger WHERE user_id=?1 AND provider_request_id=?2",
+            &[Value::Blob(user.id.clone()), Value::Text(request_id)],
+        )?;
+        db::tx_commit(&mut tx)?;
+        return match existing.first() {
+            Some(row) => reconcile_claim(&user.id, &db::text(&row[0], "claim")?).await,
+            None => Err(conflict(
+                "PROMOTION_ALREADY_CLAIMED",
+                "이미 신청한 프로모션이에요. 지급 확인은 support@645.live로 문의해 주세요.",
+            )),
+        };
+    }
     let ledger = rewards::insert_promotion_reward_ledger_tx(
         &mut tx,
         rewards::DEFAULT_PROMOTION_REWARD_LEDGER_TABLE,
@@ -365,7 +416,7 @@ fn claim_status(user: &[u8], id: &str) -> ApiResult<Json> {
     let now = db::now_ms_tx(&mut tx)?;
     let rows = db::tx_query(
         &mut tx,
-        "SELECT status,reward_amount,provider_transaction_key,created_at FROM promotion_reward_ledger WHERE id=?1 AND user_id=?2",
+        "SELECT status,reward_amount,provider_transaction_key,created_at,campaign_id FROM promotion_reward_ledger WHERE id=?1 AND user_id=?2 AND source_type='ait_lotto_attendance'",
         &[Value::Text(id.into()), Value::Blob(user.to_vec())],
     )?;
     let r = rows
@@ -373,8 +424,9 @@ fn claim_status(user: &[u8], id: &str) -> ApiResult<Json> {
         .ok_or_else(|| not_found("CLAIM_NOT_FOUND", "지급 요청을 확인하지 못했어요."))?;
     let status = db::text(&r[0], "status")?;
     let needs_review = status == "pending"
-        && db::nullable_text(&r[2])?.is_none()
-        && now - db::integer(&r[3], "created")? > 600_000;
+        && (db::nullable_text(&r[4])?.is_none()
+            || db::nullable_text(&r[2])?.is_none()
+                && now - db::integer(&r[3], "created")? > 600_000);
     let value = json!({"status":if needs_review {"needs_review"}else{&status},"amount":db::integer(&r[1],"amount")?});
     db::tx_commit(&mut tx)?;
     Ok(value)
@@ -387,7 +439,7 @@ pub(crate) async fn reconcile_claim(user: &[u8], id: &str) -> ApiResult<Json> {
     let now = db::now_ms_tx(&mut tx)?;
     let rows = db::tx_query(
         &mut tx,
-        "SELECT l.provider_transaction_key,l.provider_request_id,c.provider_promotion_code,l.reward_amount,p.anonymous_key_sealed FROM promotion_reward_ledger l JOIN promotion_campaigns c ON c.id=l.campaign_id JOIN ait_lotto_profiles p ON p.user_id=l.user_id WHERE l.id=?1 AND l.user_id=?2 AND l.status IN ('pending','failed') AND p.disabled=0 AND l.provider_transaction_key IS NOT NULL",
+        "SELECT l.provider_transaction_key,l.provider_request_id,c.provider_promotion_code,l.reward_amount,p.anonymous_key_sealed FROM promotion_reward_ledger l JOIN promotion_campaigns c ON c.id=l.campaign_id JOIN ait_lotto_profiles p ON p.user_id=l.user_id WHERE l.id=?1 AND l.user_id=?2 AND l.source_type='ait_lotto_attendance' AND l.status IN ('pending','failed') AND p.disabled=0 AND l.provider_transaction_key IS NOT NULL",
         &[Value::Text(id.into()), Value::Blob(user.to_vec())],
     )?;
     db::tx_commit(&mut tx)?;

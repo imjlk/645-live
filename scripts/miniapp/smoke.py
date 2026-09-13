@@ -3,6 +3,8 @@ from pathlib import Path
 import argparse
 import concurrent.futures
 import json
+import os
+import platform
 import shutil
 import sqlite3
 import subprocess
@@ -36,6 +38,14 @@ def request(base, path, body=None, headers=None):
 
 def expect(status, expected, name):
     assert status == expected, f'{name}: expected HTTP {expected}, got {status}'
+
+def cleanup_case(name, folder, image):
+    subprocess.run(['docker', 'rm', '-f', name], capture_output=True)
+    if platform.system() == 'Linux':
+        # CI runs Docker as root. Return only this disposable depot to its host owner
+        # so TemporaryDirectory can remove the runtime's 0700/0600 private files.
+        command('docker', 'run', '--rm', '--network', 'none', '-v', f'{folder}:/cleanup',
+            '--entrypoint', 'chown', image, '-R', f'{os.getuid()}:{os.getgid()}', '/cleanup')
 
 def run_case(image, copy_existing):
     name = '645-miniapp-test-' + uuid.uuid4().hex[:8]
@@ -84,7 +94,7 @@ def run_case(image, copy_existing):
             payload={'requestId':uuid.uuid4().hex,'round':round,'options':{'fixed':[],'excluded':[],'oddCount':None}}
             expect(request(base,'/api/app/v1/lotto/generations',payload)[0],401,'anonymous write')
             expect(request(base,'/api/records/v1/lotto_public_generations',{'round':round},auth)[0],403,'record write ACL')
-            for table in ['ait_lotto_profiles','ait_lotto_generation_origins','ait_lotto_generation_requests','ait_lotto_ad_sessions','message_outbox','promotion_reward_ledger']:
+            for table in ['ait_lotto_profiles','ait_lotto_generation_origins','ait_lotto_generation_requests','ait_lotto_ad_sessions','message_outbox','promotion_reward_ledger','ait_lotto_promotion_reservations','ait_lotto_promotion_usage']:
                 status,private=request(base,f'/api/records/v1/{table}')
                 assert status in (400,401,403,404) or private is None or (isinstance(private,dict) and 'error' in private), f'{table} exposed (status={status}, keys={list(private) if isinstance(private,dict) else type(private).__name__})'
             checks.append('private identity and origin metadata inaccessible')
@@ -178,7 +188,7 @@ def run_case(image, copy_existing):
                 if ('ERROR' in line or 'miniapp ' in line) and not any(word in line.lower() for word in ['token','secret','password','email']): print(line[-400:],flush=True)
             raise
         finally:
-            subprocess.run(['docker','rm','-f',name],capture_output=True)
+            cleanup_case(name, folder, image)
 
 def run_bot_case(image):
     name='645-miniapp-bots-'+uuid.uuid4().hex[:8]
@@ -206,7 +216,7 @@ def run_bot_case(image):
             with sqlite3.connect(f'file:{folder}/data/main.db?mode=ro',uri=True) as db:
                 assert db.execute("SELECT count(*) FROM ait_lotto_generation_origins WHERE actor_kind='bot'").fetchone()[0]>=1
             print(json.dumps({'case':'scheduled-bot','passed':['bot uses shared counters and public feed','origin stays private']},ensure_ascii=False),flush=True)
-        finally:subprocess.run(['docker','rm','-f',name],capture_output=True)
+        finally:cleanup_case(name, folder, image)
 
 if __name__=='__main__':
     parser=argparse.ArgumentParser();parser.add_argument('--image',default='645-trailbase:miniapp');parser.add_argument('--fresh-only',action='store_true');parser.add_argument('--bots-only',action='store_true');args=parser.parse_args()

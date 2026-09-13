@@ -80,7 +80,10 @@ export function LottoScreen() {
 	// biome-ignore lint/correctness/useExhaustiveDependencies: Each selected tab resets scroll and enters once.
 	useEffect(() => {
 		scroll.current?.scrollTo({ y: 0, animated: false });
-		if (model.reducedMotion) return;
+		if (model.reducedMotion) {
+			enter.setValue(1);
+			return;
+		}
 		enter.setValue(0);
 		const a = Animated.timing(enter, {
 			toValue: 1,
@@ -277,7 +280,7 @@ export function LottoScreen() {
 					contentContainerStyle={{ paddingBottom: 24 }}
 					refreshControl={
 						<RefreshControl
-							refreshing={false}
+							refreshing={model.refreshing}
 							onRefresh={model.retry}
 							tintColor={theme.blue}
 						/>
@@ -576,7 +579,10 @@ export function LottoScreen() {
 															? result.rank
 																? `${result.rank}등 번호 일치`
 																: `${result.matches.length}개 일치`
-															: "추첨 결과 기다리는 중"}
+															: item.round <=
+																	(model.context?.latestDraw?.round ?? 0)
+																? "결과 확인 필요"
+																: "추첨 결과 기다리는 중"}
 													</Text>
 												</View>
 												<Balls
@@ -1014,15 +1020,20 @@ export function LottoScreen() {
 													(!model.attendance.promotion.eligible &&
 														!model.attendance.promotion.status) ||
 													!!model.busy ||
-													model.attendance.promotion.status === "success"
+													["success", "already_claimed"].includes(
+														model.attendance.promotion.status ?? "",
+													)
 												}
 												onPress={() => void model.promotion()}
 											>
 												{model.attendance.promotion.status === "success"
 													? "지급 완료"
-													: model.attendance.promotion.status
-														? "지급 상태 확인"
-														: "출석 혜택 받기"}
+													: model.attendance.promotion.status ===
+															"already_claimed"
+														? "이전에 신청한 프로모션"
+														: model.attendance.promotion.status
+															? "지급 상태 확인"
+															: "출석 혜택 받기"}
 											</Button>
 										</View>
 									) : null}
@@ -1064,7 +1075,14 @@ export function LottoScreen() {
 										display="full"
 										type="dark"
 										style="weak"
-										onPress={() => void openURL("mailto:support@645.live")}
+										onPress={() =>
+											void openURL("mailto:support@645.live").catch(() =>
+												Alert.alert(
+													"문의 이메일",
+													"support@645.live로 연락해 주세요.",
+												),
+											)
+										}
 									>
 										문의하기
 									</Button>

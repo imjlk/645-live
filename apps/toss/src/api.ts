@@ -46,7 +46,8 @@ export type Attendance = {
 	notificationsEnabled: boolean;
 	serverTime: number;
 	promotion: null | {
-		campaignId: string;
+		campaignId: string | null;
+		claimId: string | null;
 		amount: number;
 		eligible: boolean;
 		status: string | null;
@@ -141,6 +142,10 @@ export function createApi() {
 	let client: ReturnType<typeof initClient> | null = null;
 	let currentUser: User | null = null;
 	let pending: Promise<User> | null = null;
+	let epoch = 0;
+	let paused = false;
+	const interrupted = () =>
+		new Error("연결 요청을 중단했어요. 다시 연결해 주세요.");
 	function initialize(tokens: unknown) {
 		const normalized = toTrailBaseSdkTokens(tokens);
 		client = initClient(
@@ -213,11 +218,14 @@ export function createApi() {
 			error instanceof TrailBaseHttpError && error.status === 401,
 	});
 	async function ensure(): Promise<User> {
+		if (paused) throw interrupted();
 		if (currentUser) return currentUser;
 		if (pending) return pending;
+		const attempt = epoch;
 		pending = manager
 			.getOrCreateAppSession()
 			.then((session) => {
+				if (attempt !== epoch || paused) throw interrupted();
 				const tokens =
 					normalizeTrailBaseAuthTokens(session) ?? session.authTokens;
 				if (!tokens) throw new Error("연결 정보를 확인하지 못했어요.");
@@ -231,17 +239,24 @@ export function createApi() {
 		return pending;
 	}
 	async function request<T>(path: string, body?: unknown): Promise<T> {
+		const attempt = epoch;
 		await ensure();
+		if (attempt !== epoch || paused) throw interrupted();
 		try {
 			if (!client) throw new Error("세션을 다시 연결해 주세요.");
-			return await requestWith<T>(client, path, body);
+			const result = await requestWith<T>(client, path, body);
+			if (attempt !== epoch || paused) throw interrupted();
+			return result;
 		} catch (error) {
+			if (attempt !== epoch || paused) throw interrupted();
 			if (error instanceof TrailBaseHttpError && error.status === 401) {
 				currentUser = null;
 				await manager.clearSessions();
 				await ensure();
 				if (!client) throw new Error("세션을 다시 연결해 주세요.");
-				return requestWith<T>(client, path, body);
+				const result = await requestWith<T>(client, path, body);
+				if (attempt !== epoch || paused) throw interrupted();
+				return result;
 			}
 			throw error;
 		}
@@ -305,18 +320,36 @@ export function createApi() {
 			}
 		},
 		async withdraw() {
-			await request("/api/app/v1/session/withdraw", {});
-			if (currentUser)
-				await createSavedStore(
-					storage.storage,
-					`645-live.saved.v1.${currentUser.id}`,
-				).clear();
-			await manager.clearSessions();
+			paused = false;
+			await ensure();
+			if (!client) throw new Error("세션을 다시 연결해 주세요.");
+			epoch += 1;
+			paused = true;
+			manager.cancelPendingOperations();
+			// Old heartbeat/ad responses cannot re-bootstrap the account after deletion.
+			await requestWith(client, "/api/app/v1/session/withdraw", {});
 			currentUser = null;
 			client = null;
+			try {
+				await manager.clearSessions();
+				return { credentialsCleared: true };
+			} catch {
+				// The server has already revoked these credentials. Never bootstrap a new
+				// identity as part of retrying a completed deletion.
+				return { credentialsCleared: false };
+			}
 		},
 		dispose() {
+			epoch += 1;
+			paused = true;
 			manager.cancelPendingOperations();
+		},
+		reconnect() {
+			if (paused) {
+				paused = false;
+				currentUser = null;
+				client = null;
+			}
 		},
 	};
 }

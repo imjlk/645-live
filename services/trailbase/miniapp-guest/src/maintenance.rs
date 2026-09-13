@@ -63,6 +63,9 @@ pub async fn notification_job() -> JobJson<Json> {
     job_result(notifications().await)
 }
 async fn notifications() -> ApiResult<Json> {
+    if crate::enabled().is_err() {
+        return Ok(json!({"skipped":true}));
+    }
     let Some(template) = engagement::notification_template() else {
         return Ok(json!({"skipped":true}));
     };
@@ -198,6 +201,7 @@ fn retention() -> ApiResult<Json> {
         "DELETE FROM ait_lotto_result_watches WHERE created_at < ?1-1209600000",
         "DELETE FROM ait_lotto_entitlements WHERE expires_at < ?1-86400000",
         "DELETE FROM message_outbox WHERE created_at < ?1-7776000000 AND status IN ('SENT','FAILED','SKIPPED','CANCELLED')",
+        "DELETE FROM ait_lotto_promotion_reservations WHERE campaign_id IN (SELECT id FROM promotion_campaigns WHERE ends_at < ?1-7776000000)",
     ] {
         db::tx_execute(&mut tx, sql, &[Value::Integer(now)])?;
     }
@@ -209,14 +213,16 @@ pub async fn promotion_job() -> JobJson<Json> {
     job_result(reconcile_promotions().await)
 }
 async fn reconcile_promotions() -> ApiResult<Json> {
-    crate::enabled()?;
+    if crate::enabled().is_err() {
+        return Ok(json!({"skipped":true}));
+    }
     if settings::string_or("AIT_PROMOTIONS_ENABLED", "false") != "true" {
         return Ok(json!({"skipped":true}));
     }
     let mut tx = db::tx()?;
     let rows = db::tx_query(
         &mut tx,
-        "SELECT id,user_id FROM promotion_reward_ledger WHERE source_type='ait_lotto_attendance' AND status='pending' AND provider_transaction_key IS NOT NULL ORDER BY updated_at LIMIT 5",
+        "SELECT l.id,l.user_id FROM promotion_reward_ledger l JOIN promotion_campaigns c ON c.id=l.campaign_id JOIN ait_lotto_profiles p ON p.user_id=l.user_id WHERE l.source_type='ait_lotto_attendance' AND l.status='pending' AND l.provider_transaction_key IS NOT NULL AND p.disabled=0 ORDER BY l.updated_at LIMIT 5",
         &[],
     )?;
     db::tx_commit(&mut tx)?;
