@@ -28,11 +28,6 @@ on:
         options:
           - "true"
           - "false"
-  schedule:
-    # GitHub Actions cron uses UTC. 12:21 UTC = 21:21 KST every Saturday.
-    - cron: "21 12 * * 6"
-    # Backup run after the later winning-store catch-up window. 13:21 UTC = 22:21 KST.
-    - cron: "21 13 * * 6"
 
 permissions:
   contents: write
@@ -69,21 +64,12 @@ jobs:
           ZAI_BASE_URL: ${{ vars.ZAI_BASE_URL }}
           ZAI_MODEL: ${{ vars.ZAI_MODEL || 'glm-5.3' }}
           ZAI_REASONING_EFFORT: ${{ vars.ZAI_REASONING_EFFORT || 'low' }}
-          NEWS_SCHEDULE_LOOKBACK_ROUNDS: ${{ vars.NEWS_SCHEDULE_LOOKBACK_ROUNDS || '10' }}
-          NEWS_SCHEDULE_USE_AI: ${{ vars.NEWS_SCHEDULE_USE_AI || 'true' }}
-          NEWS_SCHEDULE_MAX_GENERATE_ROUNDS: ${{ vars.NEWS_SCHEDULE_MAX_GENERATE_ROUNDS || '10' }}
           NEWS_MAX_GENERATE_ROUNDS: ${{ vars.NEWS_MAX_GENERATE_ROUNDS || '0' }}
         run: |
           LOOKBACK_ROUNDS="$INPUT_LOOKBACK_ROUNDS"
           FORCE="$INPUT_FORCE"
           USE_AI="$INPUT_USE_AI"
           MAX_GENERATE_ROUNDS="$NEWS_MAX_GENERATE_ROUNDS"
-
-          if [ "$GITHUB_EVENT_NAME" = "schedule" ]; then
-            LOOKBACK_ROUNDS="$NEWS_SCHEDULE_LOOKBACK_ROUNDS"
-            USE_AI="$NEWS_SCHEDULE_USE_AI"
-            MAX_GENERATE_ROUNDS="$NEWS_SCHEDULE_MAX_GENERATE_ROUNDS"
-          fi
 
           export LOOKBACK_ROUNDS FORCE USE_AI MAX_GENERATE_ROUNDS
           echo "Generate config: event=$GITHUB_EVENT_NAME lookback=$LOOKBACK_ROUNDS use_ai=$USE_AI max_generate_rounds=$MAX_GENERATE_ROUNDS force=$FORCE round=$ROUND"

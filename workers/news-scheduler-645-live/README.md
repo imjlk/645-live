@@ -1,12 +1,12 @@
 # News scheduler
 
-Cloudflare Cron calls the existing `news-content.yml` workflow on `main` every Saturday at 21:21 and 22:21 KST. GitHub's existing schedule remains a backup. The workflow generates missing MDX, pushes changes, and lets the Pages Git integration deploy them.
+Cloudflare Cron calls the existing `news-content.yml` workflow on `main` every Saturday at 21:21 and 22:21 KST. It is the only recurring trigger for news generation. The GitHub workflow accepts `workflow_dispatch` from this Worker or a manual run, generates missing MDX, pushes changes, and lets the Pages Git integration deploy them.
 
 The Worker does not regenerate existing articles (`force=false`) or retry ambiguous dispatch requests. News and static-data jobs share a concurrency group with `queue: max` so a newly queued refresh cannot replace a pending news job.
 
 ## Credentials and deployment
 
-- `GITHUB_ACTIONS_TOKEN`: a fine-grained GitHub token scoped to `imjlk/645-live`, with repository **Actions: read and write**. Record its expiration and rotate it before expiry. Do not copy a general GitHub CLI login token into this Worker.
+- `GITHUB_ACTIONS_TOKEN`: a fine-grained GitHub token scoped to `imjlk/645-live`, with repository **Actions: read and write**. The production token has no expiration. Do not copy a general GitHub CLI login token into this Worker.
 - `NEWS_RUN_TOKEN`: a separate randomly generated operator secret for manual checks. It grants access only to this Worker's fixed news dispatch route.
 
 Use the package directory for these commands:
