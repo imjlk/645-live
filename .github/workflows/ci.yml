@@ -88,6 +88,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@1.96.0
         with:
           targets: wasm32-wasip2
+          components: rustfmt
       - run: bun install --frozen-lockfile
       - name: Check and test the native app
         run: |
