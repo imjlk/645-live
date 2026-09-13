@@ -460,13 +460,14 @@ export function useLotto() {
 				const rounds = saved
 					.map((v) => v.round)
 					.filter((r) => r >= (context?.targetRound ?? 1) - 1);
-				const opted = await setResultNotification(
-					api,
-					template,
-					enabled,
-					rounds,
-				);
-				await refreshPrivate();
+				let opted: boolean;
+				try {
+					opted = await setResultNotification(api, template, enabled, rounds);
+				} finally {
+					// Agreement may succeed before a round watch fails. Keep the switch
+					// consistent with the saved consent even on that partial failure.
+					await refreshPrivate();
+				}
 				setNotice(
 					opted
 						? "보관한 번호의 결과가 나오면 알려드릴게요."
