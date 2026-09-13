@@ -81,6 +81,8 @@ sync_traildepot_static_assets() {
 
 sync_traildepot_static_assets
 
+bun /app/miniapp-settings.mjs
+
 if is_true "${BACKFILL_ON_STARTUP:-true}"; then
   cd /app/traildepot
 
@@ -121,6 +123,7 @@ set -- /app/trail \
   --depot /app/traildepot \
   run \
   --address 0.0.0.0:4000 \
+  --runtime-root-fs /app/traildepot/runtime \
   --runtime-threads "${RUNTIME_THREADS:-8}"
 
 cors_allowed_origins="${CORS_ALLOWED_ORIGINS:-https://www.645.live,https://645.live}"

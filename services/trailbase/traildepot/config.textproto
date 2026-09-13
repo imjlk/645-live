@@ -133,3 +133,24 @@ record_apis: [{
   table_name: "lotto_winning_stores"
   acl_world: [READ]
 }]
+
+record_apis {
+  name: "lotto_public_generations"
+  table_name: "lotto_public_generations"
+  acl_world: [READ]
+  enable_subscriptions: true
+}
+
+record_apis {
+  name: "lotto_draw_generation_counts"
+  table_name: "lotto_draw_generation_counts"
+  acl_world: [READ]
+  enable_subscriptions: true
+}
+
+record_apis {
+  name: "ait_lotto_presence"
+  table_name: "ait_lotto_presence"
+  acl_world: [READ]
+  enable_subscriptions: true
+}

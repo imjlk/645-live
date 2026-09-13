@@ -1,0 +1,3 @@
+[submodule "vendor/trailbase-apps-in-toss-kit"]
+	path = vendor/trailbase-apps-in-toss-kit
+	url = https://github.com/imjlk/trailbase-apps-in-toss-kit.git

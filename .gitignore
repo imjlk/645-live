@@ -46,3 +46,8 @@ _docs/
 # Playwright investigation artifacts
 .playwright-cli/
 output/playwright/
+
+# Miniapp native and Rust build artifacts
+**/target/
+**/.granite/
+*.ait
