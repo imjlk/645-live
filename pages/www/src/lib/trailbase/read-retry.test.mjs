@@ -146,11 +146,14 @@ test("caller cancellation stops the request without retrying", async () => {
 test("real TrailBase SDK retries public records without retrying writes, auth or SSE", async (t) => {
 	const calls = new Map();
 	const server = createServer((request, response) => {
-		const key = `${request.method} ${request.url}`;
+		// Node 22 removes an empty trailing `?`; newer fetch versions retain it.
+		const url = new URL(request.url, "http://localhost");
+		const key = `${request.method} ${url.pathname}${url.search}`;
 		const count = (calls.get(key) ?? 0) + 1;
 		calls.set(key, count);
 		if (
-			request.url?.startsWith("/api/records/v1/lotto_draw_results?") &&
+			request.method === "GET" &&
+			url.pathname === "/api/records/v1/lotto_draw_results" &&
 			count === 2
 		) {
 			response.writeHead(200, { "Content-Type": "application/json" });
@@ -188,7 +191,7 @@ test("real TrailBase SDK retries public records without retrying writes, auth or
 	for (const [key, count] of calls) {
 		assert.equal(
 			count,
-			key.startsWith("GET /api/records/v1/lotto_draw_results?") ? 2 : 1,
+			key === "GET /api/records/v1/lotto_draw_results" ? 2 : 1,
 			key,
 		);
 	}
