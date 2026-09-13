@@ -22,7 +22,7 @@ describe("news dispatch", () => {
 			"https://api.github.com/repos/imjlk/645-live/actions/workflows/news-content.yml/dispatches",
 		);
 		expect(init.method).toBe("POST");
-		expect(init.redirect).toBe("error");
+		expect(init.redirect).toBe("manual");
 		expect(init.signal).toBeInstanceOf(AbortSignal);
 		expect(new Headers(init.headers).get("Authorization")).toBe(
 			"Bearer test-github-token",
@@ -37,6 +37,20 @@ describe("news dispatch", () => {
 		expect(
 			await dispatchNews(env, async () => new Response(null, { status: 204 })),
 		).toEqual({ accepted: true, runId: null });
+	});
+
+	test("redirect responses fail without issuing another request", async () => {
+		for (const status of [301, 302, 303, 307, 308]) {
+			const send = mock(
+				async () =>
+					new Response(null, {
+						status,
+						headers: { Location: "https://redirect.example/dispatch" },
+					}),
+			);
+			await expect(dispatchNews(env, send)).rejects.toThrow(`HTTP ${status}`);
+			expect(send).toHaveBeenCalledTimes(1);
+		}
 	});
 
 	test("missing credentials and rejected requests fail without retrying", async () => {

@@ -38,7 +38,8 @@ export async function dispatchNews(
 	// The backup cron and FORCE=false in the workflow make later runs safe.
 	const response = await fetcher(WORKFLOW_URL, {
 		method: "POST",
-		redirect: "error",
+		// Workerd supports follow/manual. Reject redirects below without forwarding credentials.
+		redirect: "manual",
 		signal: AbortSignal.timeout(15_000),
 		headers: {
 			Authorization: `Bearer ${env.GITHUB_ACTIONS_TOKEN}`,
