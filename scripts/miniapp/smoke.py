@@ -3,7 +3,6 @@ from pathlib import Path
 import argparse
 import concurrent.futures
 import json
-import os
 import shutil
 import sqlite3
 import subprocess
@@ -52,7 +51,7 @@ def run_case(image, copy_existing):
         try:
             command('docker','run','-d','--name',name,'-p','127.0.0.1::4000','-v',f'{depot}:/app/traildepot',
                 '-e','BACKFILL_ON_STARTUP=false','-e','AIT_ENABLED=true','-e','AIT_ALLOW_DEV_IDENTITY=true',
-                '-e','AIT_BOTS_ENABLED=false','-e','AIT_TEST_ADS=true',image)
+                '-e','AIT_BOTS_ENABLED=false','-e','AIT_TEST_ADS=true','-e','RUNTIME_THREADS=4',image)
             def base_url(): return 'http://127.0.0.1:'+command('docker','port',name,'4000/tcp').rsplit(':',1)[1]
             base=base_url()
             for _ in range(100):
@@ -79,7 +78,9 @@ def run_case(image, copy_existing):
             status,context=request(base,'/api/app/v1/lotto/round-context');expect(status,200,'context')
             round=context['targetRound']
             scan_path=f'/api/records/v1/lotto_draw_scan_counts/{round}'
+            expect(request(base,'/scanned',{'games':[{'round':round,'numbers':[1,11,21,31,41,45]}]})[0],200,'seed an actual QR scan')
             scan_before=request(base,scan_path)
+            expect(scan_before[0],200,'QR counter exists')
             payload={'requestId':uuid.uuid4().hex,'round':round,'options':{'fixed':[],'excluded':[],'oddCount':None}}
             expect(request(base,'/api/app/v1/lotto/generations',payload)[0],401,'anonymous write')
             expect(request(base,'/api/records/v1/lotto_public_generations',{'round':round},auth)[0],403,'record write ACL')
@@ -90,7 +91,11 @@ def run_case(image, copy_existing):
             # Two independent subscribers both observe the committed generation.
             streams=[HTTP.open(base+'/api/records/v1/lotto_public_generations/subscribe/*',timeout=10) for _ in range(2)]
             try:
-                status,data=request(base,'/api/app/v1/lotto/generations',payload,auth);expect(status,200,'generate')
+                with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
+                    replies=list(pool.map(lambda _:request(base,'/api/app/v1/lotto/generations',payload,auth),range(4)))
+                assert all(status==200 for status,_ in replies), f'concurrent first request: {[status for status,_ in replies]}'
+                data=replies[0][1]
+                assert len({response['generation']['id'] for _,response in replies})==1
                 generation=data['generation'];numbers=generation['numbers']
                 assert len(set(numbers))==6 and numbers==sorted(numbers) and all(1<=n<=45 for n in numbers)
                 assert not any(key in generation for key in ['actorKind','source','userId','anonymousHash'])
@@ -134,6 +139,17 @@ def run_case(image, copy_existing):
             expect(request(base,'/api/app/v1/ads/complete',{'id':cancel_ad['id'],'events':events},other_auth)[0],409,'cancelled ad cannot be reused')
             expect(request(base,'/api/app/v1/ads/start',{'placement':'report'},other_auth)[0],429,'cancel preserves cooldown')
             checks.append('KST check-in and ad entitlement are idempotent and owned')
+            _,report_auth=bootstrap('dev-anon-'+uuid.uuid4().hex)
+            report_payload={'numbers':numbers}
+            expect(request(base,'/api/app/v1/lotto/report',report_payload,report_auth)[0],403,'report pass required')
+            status,ad=request(base,'/api/app/v1/ads/start',{'placement':'report'},report_auth);expect(status,200,'report ad')
+            expect(request(base,'/api/app/v1/ads/complete',{'id':ad['id'],'events':events},report_auth)[0],200,'report pass')
+            status,report=request(base,'/api/app/v1/lotto/report',report_payload,report_auth);expect(status,200,'historical report')
+            assert len(report['historical'])<=3
+            for draw in report['historical']:assert draw['matches']==len(set(numbers)&set(draw['numbers']))
+            assert all(row['number'] in numbers and row['drawCount']>=0 for row in report['frequencies'])
+            if copy_existing:assert len(report['historical'])==3 and len(report['frequencies'])==6
+            checks.append('historical report checks entitlement and actual overlap')
             gid=generation['id']
             assert request(base,'/api/app/v1/lotto/generations/delete',{'id':gid},other_auth)[1]['deleted'] is False
             with HTTP.open(base+f'/api/records/v1/lotto_draw_generation_counts/subscribe/{round}',timeout=10) as stream:
@@ -164,7 +180,38 @@ def run_case(image, copy_existing):
         finally:
             subprocess.run(['docker','rm','-f',name],capture_output=True)
 
+def run_bot_case(image):
+    name='645-miniapp-bots-'+uuid.uuid4().hex[:8]
+    with tempfile.TemporaryDirectory(prefix='645-miniapp-bots-') as folder:
+        try:
+            command('docker','run','-d','--name',name,'-p','127.0.0.1::4000','-v',f'{folder}:/app/traildepot',
+                '-e','BACKFILL_ON_STARTUP=false','-e','AIT_ENABLED=true','-e','AIT_ALLOW_DEV_IDENTITY=true',
+                '-e','AIT_BOTS_ENABLED=true',image)
+            base='http://127.0.0.1:'+command('docker','port',name,'4000/tcp').rsplit(':',1)[1]
+            for _ in range(100):
+                try:
+                    if request(base,'/api/healthcheck')[0]==200:break
+                except OSError:pass
+                time.sleep(.2)
+            expect(request(base,'/api/app/v1/session/bootstrap',{'anonymousHash':'dev-anon-'+uuid.uuid4().hex})[0],200,'bot fixture bootstrap')
+            round=request(base,'/api/app/v1/lotto/round-context')[1]['targetRound']
+            for _ in range(45):
+                status,feed=request(base,f'/api/app/v1/lotto/feed?round={round}')
+                if status==200 and feed['generations']:break
+                time.sleep(1)
+            else:raise AssertionError('Scheduled bot did not generate activity')
+            assert feed['totalGenerations']>=1
+            assert sum(feed['numberCounts'])==feed['totalGenerations']*6
+            assert all('source' not in g and 'actorKind' not in g for g in feed['generations'])
+            with sqlite3.connect(f'file:{folder}/data/main.db?mode=ro',uri=True) as db:
+                assert db.execute("SELECT count(*) FROM ait_lotto_generation_origins WHERE actor_kind='bot'").fetchone()[0]>=1
+            print(json.dumps({'case':'scheduled-bot','passed':['bot uses shared counters and public feed','origin stays private']},ensure_ascii=False),flush=True)
+        finally:subprocess.run(['docker','rm','-f',name],capture_output=True)
+
 if __name__=='__main__':
-    parser=argparse.ArgumentParser();parser.add_argument('--image',default='645-trailbase:miniapp');parser.add_argument('--fresh-only',action='store_true');args=parser.parse_args()
+    parser=argparse.ArgumentParser();parser.add_argument('--image',default='645-trailbase:miniapp');parser.add_argument('--fresh-only',action='store_true');parser.add_argument('--bots-only',action='store_true');args=parser.parse_args()
+    if args.bots_only:
+        run_bot_case(args.image)
+        raise SystemExit(0)
     run_case(args.image,False)
     if not args.fresh_only and (SOURCE/'data/main.db').exists(): run_case(args.image,True)

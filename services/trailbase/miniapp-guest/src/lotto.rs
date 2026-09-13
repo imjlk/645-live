@@ -208,7 +208,10 @@ pub(crate) async fn generate(req: &mut Request) -> ApiResult<Json> {
             &format!("SELECT {SELECT_GENERATION} FROM lotto_public_generations WHERE id = ?1"),
             &[Value::Integer(id)],
         )?;
-        let generation = generation_json(&rows[0])?;
+        let row = rows
+            .first()
+            .ok_or_else(|| conflict("GENERATION_DELETED", "이미 삭제한 생성 내역이에요."))?;
+        let generation = generation_json(row)?;
         db::tx_commit(&mut tx)?;
         return Ok(json!({"generation":generation,"replayed":true}));
     }
@@ -341,6 +344,45 @@ pub(crate) async fn delete_generation(req: &mut Request) -> ApiResult<Json> {
     )?;
     db::tx_commit(&mut tx)?;
     Ok(json!({"deleted":removed > 0}))
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ReportInput {
+    numbers: Vec<i64>,
+}
+pub(crate) async fn report(req: &mut Request) -> ApiResult<Json> {
+    let input: ReportInput = body(req).await?;
+    let mut options = Options {
+        fixed: input.numbers,
+        ..Options::default()
+    };
+    options.validate()?;
+    if options.fixed.len() != 6 {
+        return Err(bad_request("INVALID_NUMBERS", "6개 번호를 확인해 주세요."));
+    }
+    let mut tx = db::tx()?;
+    let user = auth::user(req, &mut tx)?;
+    let now = db::now_ms_tx(&mut tx)?;
+    ads::require_pass(&mut tx, &user.id, "report", now)?;
+    let params: Vec<Value> = options.fixed.iter().map(|n| Value::Integer(*n)).collect();
+    let matched = (1..=6)
+        .map(|n| format!("(draw_number_{n} IN (?1,?2,?3,?4,?5,?6))"))
+        .collect::<Vec<_>>()
+        .join("+");
+    let sql = format!(
+        "SELECT round,draw_number_1,draw_number_2,draw_number_3,draw_number_4,draw_number_5,draw_number_6,bonus_number,draw_date,({matched}) AS matched FROM lotto_draw_results ORDER BY matched DESC,round DESC LIMIT 3"
+    );
+    let rows = db::tx_query(&mut tx, &sql, &params)?;
+    let historical=rows.iter().map(|r|->ApiResult<Json>{Ok(json!({"round":db::integer(&r[0],"round")?,"numbers":r[1..7].iter().map(|v|db::integer(v,"number")).collect::<ApiResult<Vec<_>>>()?,"bonus":db::integer(&r[7],"bonus")?,"drawDate":db::text(&r[8],"date")?,"matches":db::integer(&r[9],"matched")?}))}).collect::<ApiResult<Vec<_>>>()?;
+    let rows = db::tx_query(
+        &mut tx,
+        "SELECT number,draw_count,last_draw_round FROM lotto_number_stats WHERE number IN (?1,?2,?3,?4,?5,?6) ORDER BY number",
+        &params,
+    )?;
+    let frequencies=rows.iter().map(|r|->ApiResult<Json>{Ok(json!({"number":db::integer(&r[0],"number")?,"drawCount":db::integer(&r[1],"count")?,"lastRound":db::nullable_integer(&r[2])?}))}).collect::<ApiResult<Vec<_>>>()?;
+    db::tx_commit(&mut tx)?;
+    Ok(json!({"historical":historical,"frequencies":frequencies}))
 }
 
 #[cfg(test)]

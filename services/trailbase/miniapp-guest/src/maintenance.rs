@@ -204,3 +204,30 @@ fn retention() -> ApiResult<Json> {
     db::tx_commit(&mut tx)?;
     Ok(json!({"ok":true,"removed":removed}))
 }
+
+pub async fn promotion_job() -> JobJson<Json> {
+    job_result(reconcile_promotions().await)
+}
+async fn reconcile_promotions() -> ApiResult<Json> {
+    crate::enabled()?;
+    if settings::string_or("AIT_PROMOTIONS_ENABLED", "false") != "true" {
+        return Ok(json!({"skipped":true}));
+    }
+    let mut tx = db::tx()?;
+    let rows = db::tx_query(
+        &mut tx,
+        "SELECT id,user_id FROM promotion_reward_ledger WHERE source_type='ait_lotto_attendance' AND status='pending' AND provider_transaction_key IS NOT NULL ORDER BY updated_at LIMIT 5",
+        &[],
+    )?;
+    db::tx_commit(&mut tx)?;
+    let mut checked = 0;
+    for r in rows {
+        if engagement::reconcile_claim(&db::blob(&r[1], "user")?, &db::text(&r[0], "id")?)
+            .await
+            .is_ok()
+        {
+            checked += 1;
+        }
+    }
+    Ok(json!({"ok":true,"checked":checked}))
+}

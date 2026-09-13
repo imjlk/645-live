@@ -61,6 +61,7 @@ endpoint!(session, auth::session);
 endpoint!(withdraw, auth::withdraw);
 endpoint!(round_context, lotto::round_context);
 endpoint!(feed, lotto::feed);
+endpoint!(combination_report, lotto::report);
 endpoint!(generate, lotto::generate);
 endpoint!(delete_generation, lotto::delete_generation);
 endpoint!(heartbeat, auth::heartbeat);
@@ -84,8 +85,10 @@ impl Guest for Miniapp {
             routing::post("/api/app/v1/session/withdraw", withdraw),
             routing::post("/api/app/v1/presence/heartbeat", heartbeat),
             routing::post("/api/app/v1/presence/disconnect", disconnect),
+            // Public website reads stay available while miniapp participation is disabled.
             routing::get("/api/app/v1/lotto/round-context", round_context),
             routing::get("/api/app/v1/lotto/feed", feed),
+            routing::post("/api/app/v1/lotto/report", combination_report),
             routing::post("/api/app/v1/lotto/generations", generate),
             routing::post("/api/app/v1/lotto/generations/delete", delete_generation),
             routing::get("/api/app/v1/ads/config", ad_config),
@@ -100,6 +103,13 @@ impl Guest for Miniapp {
     }
     fn job_handlers() -> Vec<Job> {
         vec![
+            Job::new(
+                "ait_lotto_promotion_status",
+                "41 * * * * *",
+                Some(30000),
+                maintenance::promotion_job,
+            )
+            .expect("valid cron"),
             Job::new(
                 "ait_lotto_presence_bot",
                 "*/15 * * * * *",

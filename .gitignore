@@ -51,3 +51,5 @@ output/playwright/
 **/target/
 **/.granite/
 *.ait
+# Python test runtime
+__pycache__/

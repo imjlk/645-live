@@ -118,9 +118,13 @@ pub(crate) async fn start(req: &mut Request) -> ApiResult<Json> {
             "지금은 광고 이용권을 준비 중이에요.",
         ));
     }
-    if require_pass(&mut tx, &user.id, &input.placement, now).is_ok() {
-        db::tx_commit(&mut tx)?;
-        return Ok(json!({"alreadyGranted":true}));
+    match require_pass(&mut tx, &user.id, &input.placement, now) {
+        Ok(()) => {
+            db::tx_commit(&mut tx)?;
+            return Ok(json!({"alreadyGranted":true}));
+        }
+        Err(err) if err.code == "PASS_REQUIRED" => {}
+        Err(err) => return Err(err),
     }
     // Expired reservations remain in the ledger for daily caps; they release the outstanding slot.
     db::tx_execute(
@@ -140,6 +144,7 @@ pub(crate) async fn start(req: &mut Request) -> ApiResult<Json> {
         ));
     }
     let day = crate::engagement::kst_day(now);
+    // The global usage cap intentionally spans placements to limit full-screen ad pressure.
     let usage = db::tx_query(
         &mut tx,
         "SELECT count(*), coalesce(max(created_at),0) FROM ait_lotto_ad_sessions WHERE user_id = ?1 AND created_at >= ?2",
@@ -189,6 +194,10 @@ struct Complete {
     id: String,
     events: Vec<String>,
 }
+// SDK event strings are client observations, not signed SSV evidence. This path
+// grants only bounded, non-cash app features; monetary promotion eligibility uses
+// verified identity + server attendance and a separate ledger. The current Toss
+// showFullScreenAd API exposes no SSV/custom-data field.
 pub(crate) fn completed(format: &str, events: &[String]) -> bool {
     let has = |event: &str| events.iter().any(|v| v == event);
     has("show")
