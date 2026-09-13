@@ -10,4 +10,4 @@ traildepot/uploads
 traildepot/runtime
 traildepot/metadata.textproto
 traildepot/wasm
-*.log
+**/*.log

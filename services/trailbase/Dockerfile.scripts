@@ -8,10 +8,13 @@ RUN apk add --no-cache \
 
 COPY traildepot/import-top-store.ts ./
 COPY traildepot/import-draw-results.ts ./
-COPY traildepot/data ./data/
+# Mount the existing database at /app/data when running this import image.
+# Runtime data must never be baked into a Docker layer.
+RUN mkdir -p /app/data
 
 RUN echo '#!/bin/sh' > entrypoint.sh && \
     echo 'set -e' >> entrypoint.sh && \
+    echo '[ -s /app/data/main.db ] || { echo "Mount an initialized TrailBase data directory at /app/data" >&2; exit 1; }' >> entrypoint.sh && \
     echo '' >> entrypoint.sh && \
     echo 'echo "🚀 Starting lottery data import scripts..."' >> entrypoint.sh && \
     echo '' >> entrypoint.sh && \
