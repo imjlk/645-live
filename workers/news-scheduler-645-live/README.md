@@ -4,6 +4,8 @@ Cloudflare Cron calls the existing `news-content.yml` workflow on `main` every S
 
 The Worker does not regenerate existing articles (`force=false`) or retry ambiguous dispatch requests. News and static-data jobs share a concurrency group with `queue: max` so a newly queued refresh cannot replace a pending news job.
 
+The repository Actions variable `NEWS_MAX_GENERATE_ROUNDS` is set to `10`, preserving the previous scheduled-run limit for Cloudflare and manual dispatches. Adjust that variable when a manual backfill needs a different limit.
+
 ## Credentials and deployment
 
 - `GITHUB_ACTIONS_TOKEN`: a fine-grained GitHub token scoped to `imjlk/645-live`, with repository **Actions: read and write**. The production token has no expiration. Do not copy a general GitHub CLI login token into this Worker.
