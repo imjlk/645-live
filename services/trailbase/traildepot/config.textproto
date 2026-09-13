@@ -6,7 +6,7 @@ email {
   }
   password_reset_template {
     subject: "Reset your Password for {{ APP_NAME }}"
-    body: "<html>\n  <body>\n    <h1>Password Reset</h1>\n\n    <p>\n      Click the link below to reset your password.\n    </p>\n\n    <a class=\"btn\" href=\"{{ VERIFICATION_URL }}\">\n      {{ VERIFICATION_URL }}\n    </a>\n  </body>\n</html>"
+    body: "<html>\n  <body>\n    <h1>Password Reset</h1>\n\n    <p>\n      Click the link below to reset your password.\n    </p>\n\n    <a class=\"btn\" href=\"{{ SITE_URL }}/_/auth/reset_password/update/{{ TOKEN }}\">\n      {{ SITE_URL }}/_/auth/reset_password/update/{{ TOKEN }}\n    </a>\n  </body>\n</html>"
   }
   change_email_template {
     subject: "Change your Email Address for {{ APP_NAME }}"
@@ -15,7 +15,7 @@ email {
 }
 server {
   application_name: "645-live-public-api"
-  site_url: "localhost:4000"
+  site_url: "https://trail.645.live"
   logs_retention_sec: 604800
 }
 auth {

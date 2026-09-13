@@ -11,7 +11,7 @@
 		"dev": "node --experimental-strip-types hot-reload.ts --watch-path src --depot ../traildepot --port 4000"
 	},
 	"dependencies": {
-		"trailbase-wasm": "0.5.1"
+		"trailbase-wasm": "0.6.0"
 	},
 	"devDependencies": {
 		"@bytecodealliance/jco": "^1.17.0",

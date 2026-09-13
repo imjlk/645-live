@@ -1,0 +1,13 @@
+**/node_modules
+**/.env
+**/.env.*
+!**/.env.example
+wasm-guest/dist
+traildepot/data
+traildepot/backups
+traildepot/secrets
+traildepot/uploads
+traildepot/runtime
+traildepot/metadata.textproto
+traildepot/wasm
+*.log

@@ -1,18 +1,20 @@
-ARG TRAILBASE_VERSION=0.25.1
+ARG TRAILBASE_VERSION=0.33.15
 
 FROM node:22-bookworm-slim AS wasm-builder
 
 WORKDIR /build/wasm-guest
 
-COPY wasm-guest/package.json ./
-RUN npm install
+COPY wasm-guest/package.json wasm-guest/package-lock.json ./
+RUN npm ci
 
 COPY wasm-guest/ ./
 RUN npm run build:bundle && npm run build:wasm
 
 FROM oven/bun:1-alpine AS backfill-runtime
 
-FROM trailbase/trailbase:${TRAILBASE_VERSION} AS runtime
+FROM trailbase/trailbase:${TRAILBASE_VERSION} AS trailbase-base
+
+FROM trailbase-base AS runtime
 
 WORKDIR /app
 
@@ -24,6 +26,7 @@ RUN rm -rf /app/traildepot-image/data /app/traildepot-image/backups /app/trailde
   && mkdir -p /app/traildepot/wasm
 COPY --from=backfill-runtime /usr/local/bin/bun /usr/local/bin/bun
 COPY --from=wasm-builder /build/wasm-guest/dist/component.wasm /app/traildepot-image/wasm/component.wasm
+COPY --from=trailbase-base /app/traildepot/wasm/trailbase_auth_ui_component.wasm /app/traildepot-image/wasm/auth_ui_component.wasm
 
 RUN chmod +x /app/entrypoint.sh \
   && apk add --no-cache libstdc++ libgcc \

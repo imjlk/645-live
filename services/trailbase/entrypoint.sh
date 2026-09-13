@@ -61,7 +61,6 @@ sync_traildepot_static_assets() {
 
   for path in \
     config.textproto \
-    metadata.textproto \
     PROMPT.md \
     import-draw-results.ts \
     import-top-store.ts \
@@ -119,7 +118,7 @@ else
 fi
 
 set -- /app/trail \
-  --data-dir /app/traildepot \
+  --depot /app/traildepot \
   run \
   --address 0.0.0.0:4000 \
   --runtime-threads "${RUNTIME_THREADS:-8}"
