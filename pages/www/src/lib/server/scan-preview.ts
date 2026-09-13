@@ -1,7 +1,9 @@
-import { initClient } from "trailbase";
+import { createPublicTrailbaseClient } from "$lib/trailbase/public-client";
 import { TRAILBASE_URL } from "$env/static/private";
 
-const client = initClient(TRAILBASE_URL || "http://localhost:4000");
+const client = createPublicTrailbaseClient(
+	TRAILBASE_URL || "http://localhost:4000",
+);
 
 type ScanCountRecord = {
 	round: number;

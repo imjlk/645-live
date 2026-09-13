@@ -3,13 +3,15 @@ export const entries = () =>
 	Array.from({ length: 45 }, (_, i) => ({ index: String(i + 1) }));
 
 import { error } from "@sveltejs/kit";
-import { initClient } from "trailbase";
+import { createPublicTrailbaseClient } from "$lib/trailbase/public-client";
 import { TRAILBASE_URL } from "$env/static/private";
 import { getScanPreviewState } from "$lib/server/scan-preview.js";
 import { calculateDisplayRound } from "$lib/utils/lotto-api";
 import type { PageServerLoad } from "./$types";
 
-const client = initClient(TRAILBASE_URL || "http://localhost:4000");
+const client = createPublicTrailbaseClient(
+	TRAILBASE_URL || "http://localhost:4000",
+);
 
 // Helper functions for mathematical properties
 function isPrime(n: number): boolean {

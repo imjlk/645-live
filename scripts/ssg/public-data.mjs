@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
+import { retryPublicRead } from "../../pages/www/src/lib/trailbase/read-retry.js";
 
 const tables = [
 	["lotto_draw_results", "round"],
@@ -42,10 +43,19 @@ export async function getPublicDataRevision(
 					limit: "1",
 					order: `-${order}`,
 				}).toString();
-				const response = await fetcher(url, {
-					signal: AbortSignal.timeout(15000),
-					headers: { Accept: "application/json" },
-				});
+				const response = await retryPublicRead(
+					(signal) =>
+						fetcher(url, {
+							signal,
+							headers: { Accept: "application/json" },
+						}),
+					{
+						onRetry: (attempt) =>
+							console.warn(
+								`[ssg] Retrying ${name} after transient failure (retry ${attempt})`,
+							),
+					},
+				);
 				if (!response.ok)
 					throw new Error(
 						`Public SSG source ${name} returned ${response.status}`,

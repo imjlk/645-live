@@ -3,7 +3,7 @@
  * SvelteKit 앱에서 사용 - DB 우선, API 폴백
  */
 
-import { initClient } from "trailbase";
+import { createPublicTrailbaseClient } from "$lib/trailbase/public-client";
 import { getTrailbaseBrowserBaseUrl } from "$lib/trailbase/browser-base";
 import {
 	type LatestLottoInfo,
@@ -38,7 +38,7 @@ export function calculateDisplayRound(): number {
 export async function getLatestLottoRound(): Promise<LatestLottoInfo | null> {
 	// 먼저 데이터베이스에서 시도
 	try {
-		const client = initClient(getTrailbaseBrowserBaseUrl());
+		const client = createPublicTrailbaseClient(getTrailbaseBrowserBaseUrl());
 		const api = client.records("lotto_draw_results");
 
 		const response = await api.list({
@@ -80,7 +80,7 @@ export async function getLottoNumbers(
 ): Promise<LottoDrawResult | null> {
 	// 먼저 데이터베이스에서 시도
 	try {
-		const client = initClient(getTrailbaseBrowserBaseUrl());
+		const client = createPublicTrailbaseClient(getTrailbaseBrowserBaseUrl());
 		const api = client.records("lotto_draw_results");
 
 		const response = await api.list({

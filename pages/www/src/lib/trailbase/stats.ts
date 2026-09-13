@@ -5,9 +5,11 @@
  */
 
 import { PUBLIC_TRAILBASE_URL } from "$env/static/public";
-import { initClient } from "trailbase";
+import { createPublicTrailbaseClient } from "$lib/trailbase/public-client";
 
-const client = initClient(PUBLIC_TRAILBASE_URL || "http://localhost:4000");
+const client = createPublicTrailbaseClient(
+	PUBLIC_TRAILBASE_URL || "http://localhost:4000",
+);
 
 // Common types for stats
 export interface LatestRoundInfo {

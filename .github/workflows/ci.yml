@@ -48,6 +48,9 @@ jobs:
           bun run test
           bun run deploy:dry-run
 
+      - name: Test public data build retries
+        run: node --test pages/www/src/lib/trailbase/read-retry.test.mjs scripts/ssg/public-data.test.mjs
+
       - name: Build web app
         run: bun run www build
 
