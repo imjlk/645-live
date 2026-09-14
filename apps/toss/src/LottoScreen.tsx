@@ -8,13 +8,29 @@ import {
 	type SavedCombination,
 } from "@645/lotto-core";
 import { getTossShareLink, share } from "@apps-in-toss/framework";
-import { Button, IconButton, Switch, Tab } from "@toss/tds-react-native";
-import { useEffect, useRef, useState } from "react";
+import { useBackEvent } from "@granite-js/react-native";
+import {
+	BottomSheet,
+	Button,
+	IconButton,
+	Switch,
+	Tab,
+} from "@toss/tds-react-native";
+import {
+	HideAccessibilityProvider,
+	HideAccessibilityView,
+} from "@toss/tds-react-native/private";
+import {
+	type ReactNode,
+	useCallback,
+	useEffect,
+	useRef,
+	useState,
+} from "react";
 import {
 	ActivityIndicator,
 	Alert,
 	Animated,
-	Modal,
 	Pressable,
 	RefreshControl,
 	ScrollView,
@@ -64,12 +80,41 @@ function dateLabel(at: number) {
 }
 
 export function LottoScreen() {
+	return (
+		<HideAccessibilityProvider>
+			<LottoContent />
+		</HideAccessibilityProvider>
+	);
+}
+
+function LottoContent() {
 	const model = useLotto();
 	const theme = useTheme();
 	const insets = useSafeAreaInsets();
 	const { width } = useWindowDimensions();
 	const [tab, setTab] = useState("make");
-	const [panel, setPanel] = useState<Panel>(null);
+	const [{ panel, open: sheetOpen }, setSheet] = useState<{
+		panel: Panel;
+		open: boolean;
+	}>({ panel: null, open: false });
+	const setPanel = useCallback((next: Panel) => {
+		setSheet((current) =>
+			next ? { panel: next, open: true } : { ...current, open: false },
+		);
+	}, []);
+	const backEvent = useBackEvent();
+	const sheetScroll = useRef<ScrollView>(null);
+	useEffect(() => {
+		if (!sheetOpen) return;
+		const close = () =>
+			setPanel(panel === "privacy" || panel === "support" ? "settings" : null);
+		backEvent.addEventListener(close);
+		return () => backEvent.removeEventListener(close);
+	}, [backEvent, panel, sheetOpen, setPanel]);
+	useEffect(() => {
+		if (panel && sheetOpen)
+			sheetScroll.current?.scrollTo({ y: 0, animated: false });
+	}, [panel, sheetOpen]);
 	const [options, setOptions] = useState<GenerationOptions>(EMPTY_OPTIONS);
 	const [draft, setDraft] = useState<GenerationOptions>(EMPTY_OPTIONS);
 	const [pickMode, setPickMode] = useState<"fixed" | "excluded">("fixed");
@@ -114,6 +159,7 @@ export function LottoScreen() {
 
 	useEffect(() => {
 		if (
+			sheetOpen &&
 			panel === "report" &&
 			report &&
 			reportOpen &&
@@ -121,13 +167,24 @@ export function LottoScreen() {
 			!model.reports[report.id]
 		)
 			void model.loadReport(report);
-	}, [panel, report, reportOpen, model.busy, model.reports, model.loadReport]);
+	}, [
+		sheetOpen,
+		panel,
+		report,
+		reportOpen,
+		model.busy,
+		model.reports,
+		model.loadReport,
+	]);
 
 	const text = { color: theme.text };
 	const muted = { color: theme.muted };
-	const headline = (title: string, subtitle?: string) => (
+	const headline = (title: string, subtitle?: string, action?: ReactNode) => (
 		<View style={s.heading}>
-			<Text style={[s.title, text]}>{title}</Text>
+			<View style={s.headingRow}>
+				<Text style={[s.title, s.headingTitle, text]}>{title}</Text>
+				{action}
+			</View>
 			{subtitle ? <Text style={[s.description, muted]}>{subtitle}</Text> : null}
 		</View>
 	);
@@ -241,26 +298,7 @@ export function LottoScreen() {
 				{ backgroundColor: theme.background, paddingBottom: insets.bottom },
 			]}
 		>
-			<View style={s.content}>
-				<View style={s.topbar}>
-					<Button
-						size="tiny"
-						type="dark"
-						style="weak"
-						onPress={() => setPanel("attendance")}
-					>
-						{model.attendance?.checkedIn ? "출석 완료" : "오늘 출석"}
-					</Button>
-					<IconButton
-						name="icon-setting-mono"
-						label="설정"
-						iconSize={24}
-						color={theme.muted}
-						variant="clear"
-						onPress={openSettings}
-						style={s.settings}
-					/>
-				</View>
+			<HideAccessibilityView style={s.content}>
 				{model.error ? (
 					<View
 						accessibilityRole="alert"
@@ -299,7 +337,7 @@ export function LottoScreen() {
 					>
 						{tab === "make" ? (
 							<>
-								<View style={s.section}>
+								<View style={[s.section, s.firstSection]}>
 									<View style={s.row}>
 										<Text style={[s.eyebrow, { color: theme.blue }]}>
 											{model.context
@@ -374,6 +412,33 @@ export function LottoScreen() {
 											</Button>
 										</View>
 									) : null}
+									<Pressable
+										accessibilityRole="button"
+										accessibilityLabel="오늘의 출석과 혜택 보기"
+										onPress={() => setPanel("attendance")}
+										style={({ pressed }) => [
+											s.attendanceEntry,
+											{ borderColor: theme.line, opacity: pressed ? 0.65 : 1 },
+										]}
+									>
+										<View style={s.attendanceCopy}>
+											<Text style={[s.body, text]}>
+												{model.attendance?.checkedIn
+													? `오늘 출석 완료 · ${model.attendance.streak}/7일`
+													: "오늘의 출석"}
+											</Text>
+											<Text style={[s.caption, muted]}>
+												{model.attendance?.generatedToday
+													? "출석을 이어가고 혜택을 확인해 보세요."
+													: "번호를 한 번 만들면 출석할 수 있어요."}
+											</Text>
+										</View>
+										<Text style={[s.body, { color: theme.blue }]}>
+											{model.attendance?.checkedIn
+												? "혜택 보기 ›"
+												: "출석하기 ›"}
+										</Text>
+									</Pressable>
 									<Text style={[s.finePrint, muted]}>
 										생성한 번호는 실시간 활동에 함께 표시돼요.
 									</Text>
@@ -492,17 +557,18 @@ export function LottoScreen() {
 							</View>
 						) : (
 							<View style={s.section}>
-								<View style={s.row}>
-									<Text style={[s.eyebrow, { color: theme.blue }]}>
-										이 기기의 번호 보관함
-									</Text>
-									<Text style={[s.caption, muted]}>
-										{model.saved.length} / 200
-									</Text>
-								</View>
 								{headline(
-									"내가 고른 여섯 개",
-									"추첨 후 다시 열면 결과를 바로 확인할 수 있어요.",
+									"보관함",
+									`${model.saved.length} / 200개 보관 · 추첨 후 결과를 확인하세요.`,
+									<IconButton
+										name="icon-setting-mono"
+										label="설정"
+										iconSize={24}
+										color={theme.muted}
+										variant="clear"
+										onPress={openSettings}
+										style={s.settings}
+									/>,
 								)}
 								{model.attendance?.notificationTemplateCode ? (
 									<View style={[s.row, { paddingVertical: 16 }]}>
@@ -650,7 +716,7 @@ export function LottoScreen() {
 						</Tab.Item>
 					</Tab>
 				</View>
-			</View>
+			</HideAccessibilityView>
 			{model.celebration && !model.reducedMotion ? (
 				<View
 					pointerEvents="none"
@@ -672,385 +738,342 @@ export function LottoScreen() {
 				</View>
 			) : null}
 
-			<Modal
-				visible={panel !== null}
-				transparent
-				animationType={model.reducedMotion ? "none" : "slide"}
-				onRequestClose={() => setPanel(null)}
+			<BottomSheet.Root
+				open={sheetOpen}
+				onClose={() => setPanel(null)}
+				onExited={() =>
+					setSheet((current) =>
+						current.open ? current : { panel: null, open: false },
+					)
+				}
+				header={
+					<BottomSheet.Header>
+						{panel ? PANEL_TITLES[panel] : ""}
+					</BottomSheet.Header>
+				}
+				wrapperProps={{
+					ref: sheetScroll,
+					contentContainerStyle: s.sheetContent,
+					keyboardShouldPersistTaps: "handled",
+				}}
+				cta={
+					panel === "privacy" || panel === "support" ? (
+						<BottomSheet.CTA type="dark" style="weak" onPress={openSettings}>
+							설정으로 돌아가기
+						</BottomSheet.CTA>
+					) : undefined
+				}
 			>
-				<View style={s.modalBackdrop}>
-					<Pressable
-						style={
-							{
-								position: "absolute",
-								top: 0,
-								right: 0,
-								bottom: 0,
-								left: 0,
-							} as const
-						}
-						accessibilityLabel="닫기"
-						onPress={() => setPanel(null)}
-					/>
-					<View
-						style={[
-							s.sheet,
-							{
-								backgroundColor: theme.background,
-								paddingBottom: Math.max(insets.bottom, 24),
-								maxHeight: "90%",
-							},
-						]}
+				{model.error ? (
+					<Text
+						accessibilityRole="alert"
+						style={{ color: "#F04452", marginBottom: 14, lineHeight: 22 }}
 					>
-						<View style={[s.row, { paddingBottom: 20 }]}>
-							<Text style={[s.sectionTitle, text]}>
-								{panel ? PANEL_TITLES[panel] : ""}
-							</Text>
-							<Button
-								size="tiny"
-								type="dark"
-								style="weak"
-								onPress={() => setPanel(null)}
-							>
-								닫기
-							</Button>
-						</View>
-						{model.error ? (
-							<Text
-								accessibilityRole="alert"
-								style={{ color: "#F04452", marginBottom: 14, lineHeight: 22 }}
-							>
-								{model.error}
-							</Text>
-						) : null}
-						<ScrollView
-							key={panel}
-							contentContainerStyle={{ paddingBottom: 12 }}
-						>
-							{panel === "custom" ? (
-								customOpen ? (
-									<View style={{ gap: 20 }}>
-										<Text style={[s.description, muted]}>
-											넣고 싶은 번호와 빼고 싶은 번호를 골라 주세요.
-										</Text>
-										<Tab
-											value={pickMode}
-											onChange={(v) => setPickMode(v as "fixed" | "excluded")}
-											size="small"
-										>
-											<Tab.Item value="fixed">
-												고정 {draft.fixed.length}/6
-											</Tab.Item>
-											<Tab.Item value="excluded">
-												제외 {draft.excluded.length}/39
-											</Tab.Item>
-										</Tab>
-										<View style={s.pickerGrid}>
-											{NUMBERS.map((n) => {
-												const fixed = draft.fixed.includes(n),
-													excluded = draft.excluded.includes(n);
-												return (
-													<Pressable
-														key={n}
-														accessibilityRole="button"
-														accessibilityLabel={`${n}번 ${fixed ? "고정" : excluded ? "제외" : "선택"}`}
-														accessibilityState={{ selected: fixed || excluded }}
-														onPress={() =>
-															setDraft((prev) => {
-																const list = prev[pickMode],
-																	other =
-																		pickMode === "fixed" ? "excluded" : "fixed";
-																if (
-																	!list.includes(n) &&
-																	list.length >= (pickMode === "fixed" ? 6 : 39)
-																)
-																	return prev;
-																return {
-																	...prev,
-																	[pickMode]: list.includes(n)
-																		? list.filter((v) => v !== n)
-																		: [...list, n].sort((a, b) => a - b),
-																	[other]: prev[other].filter((v) => v !== n),
-																};
-															})
-														}
-														style={[
-															s.picker,
-															{
-																backgroundColor: fixed
-																	? theme.blue
-																	: excluded
-																		? theme.surface
-																		: theme.background,
-																borderColor: excluded
-																	? theme.muted
-																	: fixed
-																		? theme.blue
-																		: theme.line,
-															},
-														]}
-													>
-														<Text
-															style={{
-																color: fixed
-																	? "white"
-																	: excluded
-																		? theme.muted
-																		: theme.text,
-																fontSize: 16,
-																fontWeight: "600",
-																textDecorationLine: excluded
-																	? "line-through"
-																	: "none",
-															}}
-														>
-															{n}
-														</Text>
-													</Pressable>
-												);
-											})}
-										</View>
-										<Text style={[s.body, text]}>홀수 개수</Text>
-										<ScrollView
-											horizontal
-											showsHorizontalScrollIndicator={false}
-										>
-											<View style={{ flexDirection: "row", gap: 8 }}>
-												{[null, 0, 1, 2, 3, 4, 5, 6].map((n) => (
-													<Button
-														key={String(n)}
-														size="tiny"
-														type={draft.oddCount === n ? "primary" : "dark"}
-														style="weak"
-														onPress={() =>
-															setDraft((prev) => ({ ...prev, oddCount: n }))
-														}
-													>
-														{n === null ? "상관없음" : `${n}개`}
-													</Button>
-												))}
-											</View>
-										</ScrollView>
-										<Text style={[s.caption, muted]}>
-											조건은 취향을 반영해요. 모든 조합의 당첨 확률은 같아요.
-										</Text>
-										<Button
-											display="full"
-											onPress={() => {
-												setOptions(draft);
-												setPanel(null);
-											}}
-										>
-											이 조건으로 만들기
-										</Button>
-									</View>
-								) : (
-									featurePass("custom")
-								)
-							) : null}
-							{panel === "report"
-								? reportOpen && report
-									? (() => {
-											const info = describeCombination(
-												report.numbers,
-												model.saved
-													.filter((i) => i.id !== report.id)
-													.map((i) => i.numbers),
-											);
-											return (
-												<View style={{ gap: 22 }}>
-													<Balls
-														numbers={report.numbers}
-														size={Math.min(42, ballSize)}
-													/>
-													<View style={s.row}>
-														<Text style={[s.body, muted]}>홀수 : 짝수</Text>
-														<Text style={[s.body, text]}>
-															{info.odd} : {6 - info.odd}
-														</Text>
-													</View>
-													<View style={s.row}>
-														<Text style={[s.body, muted]}>번호 합계</Text>
-														<Text style={[s.body, text]}>{info.sum}</Text>
-													</View>
-													<View style={s.row}>
-														<Text style={[s.body, muted]}>연속 번호 쌍</Text>
-														<Text style={[s.body, text]}>
-															{info.consecutive}쌍
-														</Text>
-													</View>
-													<View style={s.row}>
-														<Text style={[s.body, muted]}>
-															다른 보관 조합과 최대 겹침
-														</Text>
-														<Text style={[s.body, text]}>
-															{info.maxOverlap}개
-														</Text>
-													</View>
-													<View>
-														<Text style={[s.body, text, { marginBottom: 16 }]}>
-															번호 구간 분포
-														</Text>
-														{info.sections.map((count, i) => (
-															<View
-																key={BALL_COLORS[i]}
-																style={[s.row, { marginBottom: 12 }]}
-															>
-																<Text style={[s.caption, muted, { width: 64 }]}>
-																	{i * 10 + 1}~{Math.min(45, (i + 1) * 10)}
-																</Text>
-																<View
-																	style={{
-																		flex: 1,
-																		height: 8,
-																		borderRadius: 4,
-																		backgroundColor: theme.surface,
-																	}}
-																>
-																	<View
-																		style={{
-																			height: 8,
-																			width: `${(count / 6) * 100}%`,
-																			backgroundColor: BALL_COLORS[i],
-																			borderRadius: 4,
-																		}}
-																	/>
-																</View>
-																<Text
-																	style={[
-																		s.caption,
-																		muted,
-																		{ width: 32, textAlign: "right" },
-																	]}
-																>
-																	{count}
-																</Text>
-															</View>
-														))}
-													</View>
-													<ReportHistory
-														state={model.reports[report.id]}
-														retry={() => void model.loadReport(report)}
-														busy={!!model.busy}
-														ballSize={ballSize}
-													/>
-													<Text style={[s.caption, muted]}>
-														내 조합을 이해하는 정보예요. 다음 당첨 결과를
-														예측하지 않아요.
-													</Text>
-												</View>
-											);
-										})()
-									: featurePass("report")
-								: null}
-							{panel === "attendance" ? (
-								<AttendancePanel
-									model={model}
-									onGenerate={() => {
-										setPanel(null);
-										setTab("make");
-										scroll.current?.scrollTo({ y: 0, animated: true });
-									}}
-								/>
-							) : null}
-							{panel === "settings" ? (
-								<View style={{ gap: 20 }}>
-									<Text style={[s.body, text]}>
-										{model.user?.displayName ?? "연결을 확인하고 있어요"}
-									</Text>
-									<Text style={[s.description, muted]}>
-										별도 회원가입 없이 토스에서 이용할 수 있어요.
-									</Text>
-									<Button
-										display="full"
-										type="dark"
-										style="weak"
-										onPress={() => void shareApp()}
-									>
-										친구에게 공유하기
-									</Button>
-									<Button
-										display="full"
-										type="dark"
-										style="weak"
-										onPress={() => setPanel("privacy")}
-									>
-										개인정보 처리방침
-									</Button>
-									<Button
-										display="full"
-										type="dark"
-										style="weak"
-										onPress={() => setPanel("support")}
-									>
-										문의하기
-									</Button>
-									<Text style={[s.caption, muted]}>
-										공개 생성 내역은 90일 동안 보관돼요. 기기에 보관한 번호는
-										직접 삭제할 때까지 유지돼요.
-									</Text>
-									<Button
-										display="full"
-										type="danger"
-										style="weak"
-										disabled={!!model.busy || !model.user}
-										onPress={() =>
-											Alert.alert(
-												"미니앱 데이터를 삭제할까요?",
-												"공개 생성 내역, 출석 및 알림 설정, 이 기기의 보관 번호를 삭제해요.",
-												[
-													{ text: "취소", style: "cancel" },
+						{model.error}
+					</Text>
+				) : null}
+				<View key={panel}>
+					{panel === "custom" ? (
+						customOpen ? (
+							<View style={{ gap: 20 }}>
+								<Text style={[s.description, muted]}>
+									넣고 싶은 번호와 빼고 싶은 번호를 골라 주세요.
+								</Text>
+								<Tab
+									value={pickMode}
+									onChange={(v) => setPickMode(v as "fixed" | "excluded")}
+									size="small"
+								>
+									<Tab.Item value="fixed">고정 {draft.fixed.length}/6</Tab.Item>
+									<Tab.Item value="excluded">
+										제외 {draft.excluded.length}/39
+									</Tab.Item>
+								</Tab>
+								<View style={s.pickerGrid}>
+									{NUMBERS.map((n) => {
+										const fixed = draft.fixed.includes(n),
+											excluded = draft.excluded.includes(n);
+										return (
+											<Pressable
+												key={n}
+												accessibilityRole="button"
+												accessibilityLabel={`${n}번 ${fixed ? "고정" : excluded ? "제외" : "선택"}`}
+												accessibilityState={{ selected: fixed || excluded }}
+												onPress={() =>
+													setDraft((prev) => {
+														const list = prev[pickMode],
+															other =
+																pickMode === "fixed" ? "excluded" : "fixed";
+														if (
+															!list.includes(n) &&
+															list.length >= (pickMode === "fixed" ? 6 : 39)
+														)
+															return prev;
+														return {
+															...prev,
+															[pickMode]: list.includes(n)
+																? list.filter((v) => v !== n)
+																: [...list, n].sort((a, b) => a - b),
+															[other]: prev[other].filter((v) => v !== n),
+														};
+													})
+												}
+												style={[
+													s.picker,
 													{
-														text: "삭제",
-														style: "destructive",
-														onPress: () => {
-															void model.withdraw();
-															setPanel(null);
-														},
+														backgroundColor: fixed
+															? theme.blue
+															: excluded
+																? theme.surface
+																: theme.background,
+														borderColor: excluded
+															? theme.muted
+															: fixed
+																? theme.blue
+																: theme.line,
 													},
-												],
-											)
-										}
-									>
-										내 미니앱 데이터 삭제
-									</Button>
+												]}
+											>
+												<Text
+													style={{
+														color: fixed
+															? "white"
+															: excluded
+																? theme.muted
+																: theme.text,
+														fontSize: 16,
+														fontWeight: "600",
+														textDecorationLine: excluded
+															? "line-through"
+															: "none",
+													}}
+												>
+													{n}
+												</Text>
+											</Pressable>
+										);
+									})}
 								</View>
-							) : null}
-							{panel === "privacy" ? <PrivacyNotice /> : null}
-							{panel === "support" ? (
-								<View style={{ gap: 16 }}>
-									<Text style={[s.sectionTitle, text]}>
-										도움이 필요하신가요?
-									</Text>
-									<Text style={[s.description, muted]}>
-										오류가 발생한 화면과 상황을 알려주세요. 개인정보 열람·삭제
-										요청도 아래 연락처로 접수할 수 있어요.
-									</Text>
-									<Text selectable style={[s.body, text]}>
-										support@645.live
-									</Text>
-									<Text selectable style={[s.body, text]}>
-										02-877-1990
-									</Text>
-									<Text style={[s.caption, muted]}>
-										1990컴퍼니 · 개인정보 보호담당 김정래
-									</Text>
-								</View>
-							) : null}
-							{panel === "privacy" || panel === "support" ? (
+								<Text style={[s.body, text]}>홀수 개수</Text>
+								<ScrollView horizontal showsHorizontalScrollIndicator={false}>
+									<View style={{ flexDirection: "row", gap: 8 }}>
+										{[null, 0, 1, 2, 3, 4, 5, 6].map((n) => (
+											<Button
+												key={String(n)}
+												size="tiny"
+												type={draft.oddCount === n ? "primary" : "dark"}
+												style="weak"
+												onPress={() =>
+													setDraft((prev) => ({ ...prev, oddCount: n }))
+												}
+											>
+												{n === null ? "상관없음" : `${n}개`}
+											</Button>
+										))}
+									</View>
+								</ScrollView>
+								<Text style={[s.caption, muted]}>
+									조건은 취향을 반영해요. 모든 조합의 당첨 확률은 같아요.
+								</Text>
 								<Button
 									display="full"
-									type="dark"
-									style="weak"
-									onPress={openSettings}
+									onPress={() => {
+										setOptions(draft);
+										setPanel(null);
+									}}
 								>
-									설정으로 돌아가기
+									이 조건으로 만들기
 								</Button>
-							) : null}
-						</ScrollView>
-					</View>
+							</View>
+						) : (
+							featurePass("custom")
+						)
+					) : null}
+					{panel === "report"
+						? reportOpen && report
+							? (() => {
+									const info = describeCombination(
+										report.numbers,
+										model.saved
+											.filter((i) => i.id !== report.id)
+											.map((i) => i.numbers),
+									);
+									return (
+										<View style={{ gap: 22 }}>
+											<Balls
+												numbers={report.numbers}
+												size={Math.min(42, ballSize)}
+											/>
+											<View style={s.row}>
+												<Text style={[s.body, muted]}>홀수 : 짝수</Text>
+												<Text style={[s.body, text]}>
+													{info.odd} : {6 - info.odd}
+												</Text>
+											</View>
+											<View style={s.row}>
+												<Text style={[s.body, muted]}>번호 합계</Text>
+												<Text style={[s.body, text]}>{info.sum}</Text>
+											</View>
+											<View style={s.row}>
+												<Text style={[s.body, muted]}>연속 번호 쌍</Text>
+												<Text style={[s.body, text]}>{info.consecutive}쌍</Text>
+											</View>
+											<View style={s.row}>
+												<Text style={[s.body, muted]}>
+													다른 보관 조합과 최대 겹침
+												</Text>
+												<Text style={[s.body, text]}>{info.maxOverlap}개</Text>
+											</View>
+											<View>
+												<Text style={[s.body, text, { marginBottom: 16 }]}>
+													번호 구간 분포
+												</Text>
+												{info.sections.map((count, i) => (
+													<View
+														key={BALL_COLORS[i]}
+														style={[s.row, { marginBottom: 12 }]}
+													>
+														<Text style={[s.caption, muted, { width: 64 }]}>
+															{i * 10 + 1}~{Math.min(45, (i + 1) * 10)}
+														</Text>
+														<View
+															style={{
+																flex: 1,
+																height: 8,
+																borderRadius: 4,
+																backgroundColor: theme.surface,
+															}}
+														>
+															<View
+																style={{
+																	height: 8,
+																	width: `${(count / 6) * 100}%`,
+																	backgroundColor: BALL_COLORS[i],
+																	borderRadius: 4,
+																}}
+															/>
+														</View>
+														<Text
+															style={[
+																s.caption,
+																muted,
+																{ width: 32, textAlign: "right" },
+															]}
+														>
+															{count}
+														</Text>
+													</View>
+												))}
+											</View>
+											<ReportHistory
+												state={model.reports[report.id]}
+												retry={() => void model.loadReport(report)}
+												busy={!!model.busy}
+												ballSize={ballSize}
+											/>
+											<Text style={[s.caption, muted]}>
+												내 조합을 이해하는 정보예요. 다음 당첨 결과를 예측하지
+												않아요.
+											</Text>
+										</View>
+									);
+								})()
+							: featurePass("report")
+						: null}
+					{panel === "attendance" ? (
+						<AttendancePanel
+							model={model}
+							onGenerate={() => {
+								setPanel(null);
+								setTab("make");
+								scroll.current?.scrollTo({ y: 0, animated: true });
+							}}
+						/>
+					) : null}
+					{panel === "settings" ? (
+						<View style={{ gap: 20 }}>
+							<Text style={[s.body, text]}>
+								{model.user?.displayName ?? "연결을 확인하고 있어요"}
+							</Text>
+							<Text style={[s.description, muted]}>
+								별도 회원가입 없이 토스에서 이용할 수 있어요.
+							</Text>
+							<Button
+								display="full"
+								type="dark"
+								style="weak"
+								onPress={() => void shareApp()}
+							>
+								친구에게 공유하기
+							</Button>
+							<Button
+								display="full"
+								type="dark"
+								style="weak"
+								onPress={() => setPanel("privacy")}
+							>
+								개인정보 처리방침
+							</Button>
+							<Button
+								display="full"
+								type="dark"
+								style="weak"
+								onPress={() => setPanel("support")}
+							>
+								문의하기
+							</Button>
+							<Text style={[s.caption, muted]}>
+								공개 생성 내역은 90일 동안 보관돼요. 기기에 보관한 번호는 직접
+								삭제할 때까지 유지돼요.
+							</Text>
+							<Button
+								display="full"
+								type="danger"
+								style="weak"
+								disabled={!!model.busy || !model.user}
+								onPress={() =>
+									Alert.alert(
+										"미니앱 데이터를 삭제할까요?",
+										"공개 생성 내역, 출석 및 알림 설정, 이 기기의 보관 번호를 삭제해요.",
+										[
+											{ text: "취소", style: "cancel" },
+											{
+												text: "삭제",
+												style: "destructive",
+												onPress: () => {
+													void model.withdraw();
+													setPanel(null);
+												},
+											},
+										],
+									)
+								}
+							>
+								내 미니앱 데이터 삭제
+							</Button>
+						</View>
+					) : null}
+					{panel === "privacy" ? <PrivacyNotice /> : null}
+					{panel === "support" ? (
+						<View style={{ gap: 16 }}>
+							<Text style={[s.sectionTitle, text]}>도움이 필요하신가요?</Text>
+							<Text style={[s.description, muted]}>
+								오류가 발생한 화면과 상황을 알려주세요. 개인정보 열람·삭제
+								요청도 아래 연락처로 접수할 수 있어요.
+							</Text>
+							<Text selectable style={[s.body, text]}>
+								support@645.live
+							</Text>
+							<Text selectable style={[s.body, text]}>
+								02-877-1990
+							</Text>
+							<Text style={[s.caption, muted]}>
+								1990컴퍼니 · 개인정보 보호담당 김정래
+							</Text>
+						</View>
+					) : null}
 				</View>
-			</Modal>
+			</BottomSheet.Root>
 		</View>
 	);
 }
@@ -1058,15 +1081,27 @@ export function LottoScreen() {
 const s = StyleSheet.create({
 	screen: { flex: 1 },
 	content: { flex: 1, width: "100%", maxWidth: 640, alignSelf: "center" },
-	topbar: {
-		paddingHorizontal: 20,
-		paddingVertical: 4,
+	settings: {
+		width: 44,
+		height: 44,
+		padding: 10,
+		alignItems: "center",
+		justifyContent: "center",
+	},
+	headingRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+	headingTitle: { flex: 1 },
+	firstSection: { paddingTop: 16 },
+	attendanceEntry: {
+		marginTop: 20,
+		paddingVertical: 16,
+		borderTopWidth: 1,
 		flexDirection: "row",
 		alignItems: "center",
-		justifyContent: "flex-end",
-		gap: 8,
+		justifyContent: "space-between",
+		gap: 16,
+		minHeight: 64,
 	},
-	settings: { width: 44, height: 44 },
+	attendanceCopy: { flex: 1, gap: 4 },
 	section: { paddingHorizontal: 20, paddingTop: 28, paddingBottom: 26 },
 	heading: { marginTop: 16, gap: 10 },
 	title: {
@@ -1141,19 +1176,7 @@ const s = StyleSheet.create({
 		borderRadius: 14,
 		zIndex: 20,
 	},
-	modalBackdrop: {
-		flex: 1,
-		backgroundColor: "rgba(0,0,0,0.45)",
-		justifyContent: "flex-end",
-	},
-	sheet: {
-		padding: 24,
-		borderTopLeftRadius: 24,
-		borderTopRightRadius: 24,
-		width: "100%",
-		maxWidth: 640,
-		alignSelf: "center",
-	},
+	sheetContent: { paddingHorizontal: 24, paddingBottom: 24 },
 	pickerGrid: { flexDirection: "row", flexWrap: "wrap", gap: 7 },
 	picker: {
 		width: 38,
