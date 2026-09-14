@@ -20,7 +20,7 @@ export default defineConfig({
 	plugins: [
 		appsInToss({
 			brand: {
-				displayName: "645LIVE 로또 번호생성기",
+				displayName: "645 번호 생성기",
 				primaryColor: "#3182F6",
 				icon: "https://645.live/assets/icons/icon-512.png",
 			},
