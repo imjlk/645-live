@@ -8,7 +8,7 @@ const root=path.join(depot,"runtime");
 const secretsDir=path.join(depot,"secrets");
 mkdirSync(root,{recursive:true,mode:0o700});mkdirSync(secretsDir,{recursive:true,mode:0o700});
 const keysFile=path.join(secretsDir,"miniapp-keys.json");
-const enabled=process.env.AIT_ENABLED==="true";
+const enabled=process.env.AIT_ENABLED==="true" || process.env.WEB_LOTTO_ENABLED!=="false";
 const keys=existsSync(keysFile)?JSON.parse(readFileSync(keysFile,"utf8")):{};
 if(enabled){
   for(const key of ["AIT_IDENTITY_HMAC_SECRET","AIT_IDENTITY_ENCRYPTION_KEY","TRAILBASE_AUTH_PASSWORD_SECRET"]){
@@ -16,7 +16,7 @@ if(enabled){
   }
   atomicWrite(keysFile,keys);
 }
-const defaults={AIT_ENABLED:"false",AIT_LOCAL_PREVIEW:"false",AIT_ALLOW_DEV_IDENTITY:"false",AIT_TEST_ADS:"false",AIT_BOTS_ENABLED:"true",AIT_BOT_INTERVAL_MS:"30000",AIT_BOT_MAX_ACTIVE_USERS:"10",AIT_NOTIFICATIONS_ENABLED:"false",AIT_PROMOTIONS_ENABLED:"false",TRAILBASE_AUTH_BASE_URL:"http://127.0.0.1:4000"};
+const defaults={WEB_LOTTO_ENABLED:"true",AIT_ENABLED:"false",AIT_LOCAL_PREVIEW:"false",AIT_ALLOW_DEV_IDENTITY:"false",AIT_TEST_ADS:"false",AIT_BOTS_ENABLED:"true",AIT_BOT_INTERVAL_MS:"30000",AIT_BOT_MAX_ACTIVE_USERS:"10",AIT_NOTIFICATIONS_ENABLED:"false",AIT_PROMOTIONS_ENABLED:"false",TRAILBASE_AUTH_BASE_URL:"http://127.0.0.1:4000"};
 const names=[...Object.keys(defaults),"AIT_IDENTITY_HMAC_SECRET","AIT_IDENTITY_ENCRYPTION_KEY","TRAILBASE_AUTH_PASSWORD_SECRET","TRAILBASE_AUTH_PASSWORD_SECRET_PREVIOUS","MTLS_PROXY_URL","MTLS_PROXY_TOKEN","AIT_RESULT_TEMPLATE_CODE","AIT_PROMOTION_TEST_UNTIL","AIT_PROMOTION_TEST_USER_IDS","AIT_PROMOTION_TEST_DAILY_CODE","AIT_PROMOTION_TEST_WEEKLY_CODE","AIT_BANNER_GROUP_ID","AIT_BANNER_CARD_GROUP_ID","AIT_BANNER_INLINE_GROUP_ID","AIT_FEED_INLINE_GROUP_IDS"];
 const settings=Object.fromEntries(names.map(key=>[key,process.env[key]||keys[key]||defaults[key]||""]));
 const file=path.join(root,"settings.json");

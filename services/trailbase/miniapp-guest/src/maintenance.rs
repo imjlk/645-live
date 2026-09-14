@@ -16,14 +16,11 @@ pub async fn activity_job() -> JobJson<Json> {
     job_result(activity())
 }
 fn activity() -> ApiResult<Json> {
-    if crate::enabled().is_err() {
-        return Ok(json!({"skipped":true}));
-    }
     let mut tx = db::tx()?;
     let now = db::now_ms_tx(&mut tx)?;
     let active = db::tx_query(
         &mut tx,
-        "SELECT count(*) FROM ait_lotto_profiles WHERE disabled = 0 AND last_seen_at > ?1-90000",
+        "SELECT (SELECT count(*) FROM ait_lotto_profiles WHERE disabled = 0 AND last_seen_at > ?1-90000) + (SELECT count(*) FROM web_lotto_profiles WHERE disabled = 0 AND last_seen_at > ?1-90000)",
         &[Value::Integer(now)],
     )?;
     let active = db::integer(&active[0][0], "active")?;
@@ -36,7 +33,8 @@ fn activity() -> ApiResult<Json> {
         ],
     )?;
     let mut created = false;
-    if settings::string_or("AIT_BOTS_ENABLED", "true") == "true"
+    if crate::enabled().is_ok()
+        && settings::string_or("AIT_BOTS_ENABLED", "true") == "true"
         && active > 0
         && active <= settings::i64_or("AIT_BOT_MAX_ACTIVE_USERS", 10).clamp(1, 100)
         && now - db::integer(&recent[0][0], "last")?
@@ -51,7 +49,14 @@ fn activity() -> ApiResult<Json> {
             "초록공 두리",
             "회색공 토리",
         ][lotto::random_index(5)];
-        lotto::insert(&mut tx, lotto::target_round(now), name, true, &numbers, now)?;
+        lotto::insert(
+            &mut tx,
+            lotto::target_round(now),
+            name,
+            lotto::GenerationOrigin::Bot,
+            &numbers,
+            now,
+        )?;
         created = true;
     }
     auth::update_presence(&mut tx, now)?;
@@ -184,9 +189,7 @@ pub async fn retention_job() -> JobJson<Json> {
     job_result(retention())
 }
 fn retention() -> ApiResult<Json> {
-    if crate::enabled().is_err() {
-        return Ok(json!({"skipped":true}));
-    }
+    // Privacy retention and shared presence must keep running when participation is disabled.
     let mut tx = db::tx()?;
     let now = db::now_ms_tx(&mut tx)?;
     let removed = db::tx_execute(
@@ -196,6 +199,9 @@ fn retention() -> ApiResult<Json> {
     )?;
     for sql in [
         "DELETE FROM ait_lotto_generation_requests WHERE created_at < ?1-7776000000",
+        "DELETE FROM web_lotto_generation_batches WHERE created_at < ?1-7776000000",
+        "DELETE FROM _user WHERE id IN (SELECT user_id FROM web_lotto_profiles WHERE last_seen_at < ?1-7776000000)",
+        "DELETE FROM anonymous_bootstrap_attempts WHERE last_attempt_at < ?1-86400000 AND bucket_key LIKE 'web-lotto-%'",
         "DELETE FROM anonymous_bootstrap_attempts WHERE last_attempt_at < ?1-86400000 AND bucket_key LIKE 'ait-%'",
         "DELETE FROM ait_lotto_ad_sessions WHERE created_at < ?1-2592000000",
         "DELETE FROM ait_lotto_result_watches WHERE created_at < ?1-1209600000",

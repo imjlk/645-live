@@ -162,7 +162,7 @@ pub(crate) async fn session(req: &mut Request) -> ApiResult<Json> {
 pub(crate) fn update_presence(tx: &mut Transaction, now: i64) -> ApiResult<()> {
     db::tx_execute(
         tx,
-        "UPDATE ait_lotto_presence SET active_users = (SELECT count(*) FROM ait_lotto_profiles WHERE disabled = 0 AND last_seen_at > ?1 - 90000), updated_at = ?1 WHERE id = 1",
+        "UPDATE ait_lotto_presence SET active_users = (SELECT count(*) FROM ait_lotto_profiles WHERE disabled = 0 AND last_seen_at > ?1 - 90000) + (SELECT count(*) FROM web_lotto_profiles WHERE disabled = 0 AND last_seen_at > ?1 - 90000), updated_at = ?1 WHERE id = 1",
         &[Value::Integer(now)],
     )?;
     Ok(())

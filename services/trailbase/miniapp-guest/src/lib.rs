@@ -9,6 +9,7 @@ mod generation_ads;
 mod lotto;
 mod maintenance;
 mod promotion_test;
+mod web;
 
 use serde_json::Value as Json;
 use trailbase_guest_common::{db, responses::*, settings};
@@ -81,11 +82,21 @@ endpoint!(agreement, engagement::agreement);
 endpoint!(watch_result, engagement::watch_result);
 endpoint!(claim_promotion, engagement::claim_promotion);
 endpoint!(test_promotion, promotion_test::run);
+endpoint!(web_bootstrap, web::bootstrap);
+endpoint!(web_generate, web::generate);
+endpoint!(web_delete, web::delete_generation);
+endpoint!(web_withdraw, web::withdraw);
+endpoint!(web_heartbeat, web::heartbeat);
 
 struct Miniapp;
 impl Guest for Miniapp {
     fn http_handlers() -> Vec<trailbase_wasm::http::HttpRoute> {
         vec![
+            routing::post("/api/web/v1/lotto/session", web_bootstrap),
+            routing::post("/api/web/v1/lotto/generations", web_generate),
+            routing::post("/api/web/v1/lotto/generations/delete", web_delete),
+            routing::post("/api/web/v1/lotto/withdraw", web_withdraw),
+            routing::post("/api/web/v1/lotto/heartbeat", web_heartbeat),
             routing::post("/api/app/v1/session/bootstrap", bootstrap),
             routing::get("/api/app/v1/session/me", session),
             routing::post("/api/app/v1/session/me", session),

@@ -118,7 +118,13 @@ pub fn choose(options: &Options, mut random: impl FnMut(usize) -> usize) -> Vec<
     selected
 }
 
-const SELECT_GENERATION: &str = "id, round, display_name, number_1, number_2, number_3, number_4, number_5, number_6, created_at";
+pub(crate) const SELECT_GENERATION: &str = "id, round, display_name, number_1, number_2, number_3, number_4, number_5, number_6, created_at";
+#[derive(Clone, Copy)]
+pub(crate) enum GenerationOrigin {
+    Miniapp,
+    Bot,
+    Web,
+}
 pub(crate) fn generation_json(row: &[Value]) -> ApiResult<Json> {
     let numbers: Vec<i64> = row[3..9]
         .iter()
@@ -132,7 +138,7 @@ pub(crate) fn insert(
     tx: &mut Transaction,
     round: i64,
     name: &str,
-    bot: bool,
+    origin: GenerationOrigin,
     numbers: &[i64],
     now: i64,
 ) -> ApiResult<Json> {
@@ -152,8 +158,22 @@ pub(crate) fn insert(
         "INSERT INTO ait_lotto_generation_origins(generation_id,actor_kind,source) VALUES (?1,?2,?3)",
         &[
             Value::Integer(generation["id"].as_i64().unwrap()),
-            Value::Text(if bot { "bot" } else { "human" }.into()),
-            Value::Text(if bot { "bot" } else { "miniapp" }.into()),
+            Value::Text(
+                if matches!(origin, GenerationOrigin::Bot) {
+                    "bot"
+                } else {
+                    "human"
+                }
+                .into(),
+            ),
+            Value::Text(
+                match origin {
+                    GenerationOrigin::Miniapp => "miniapp",
+                    GenerationOrigin::Bot => "bot",
+                    GenerationOrigin::Web => "web",
+                }
+                .into(),
+            ),
         ],
     )?;
     Ok(generation)
@@ -249,7 +269,14 @@ pub(crate) async fn generate(req: &mut Request) -> ApiResult<Json> {
         ));
     }
     let numbers = choose(&input.options, random_index);
-    let generation = insert(&mut tx, input.round, &user.name, false, &numbers, now)?;
+    let generation = insert(
+        &mut tx,
+        input.round,
+        &user.name,
+        GenerationOrigin::Miniapp,
+        &numbers,
+        now,
+    )?;
     db::tx_execute(
         &mut tx,
         "INSERT INTO ait_lotto_generation_requests(user_id, request_id, generation_id, payload_json, created_at) VALUES (?1,?2,?3,?4,?5)",
@@ -366,7 +393,7 @@ pub(crate) async fn feed(req: &mut Request) -> ApiResult<Json> {
     };
     let active = db::tx_query(
         &mut tx,
-        "SELECT count(*) FROM ait_lotto_profiles WHERE disabled = 0 AND last_seen_at > ?1 - 90000",
+        "SELECT (SELECT count(*) FROM ait_lotto_profiles WHERE disabled = 0 AND last_seen_at > ?1 - 90000) + (SELECT count(*) FROM web_lotto_profiles WHERE disabled = 0 AND last_seen_at > ?1 - 90000)",
         &[Value::Integer(now)],
     )?;
     let active = db::integer(&active[0][0], "active")?;
