@@ -88,11 +88,10 @@ function dateLabel(at: number) {
 }
 
 export function LottoScreen() {
-	const { dark } = useTheme();
-	// registerApp inserts its own light TDS provider inside Container. Apply our
-	// theme at the screen so TDS controls match the rest of the app in dark mode.
+	// registerApp inserts its provider inside Container. Apply font scaling at
+	// the screen and keep TDS controls on the required light miniapp theme.
 	return (
-		<TDSProvider colorPreference={dark ? "dark" : "light"} fontScaleAvailable>
+		<TDSProvider colorPreference="light" fontScaleAvailable>
 			<HideAccessibilityProvider>
 				<LottoContent />
 			</HideAccessibilityProvider>
