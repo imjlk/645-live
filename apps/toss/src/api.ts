@@ -72,6 +72,7 @@ export type Attendance = {
 	serverTime: number;
 	promotions: Promotion[];
 	promotionHistory: Promotion[];
+	promotionTestEnabled?: boolean;
 };
 export type AdSession =
 	| { alreadyGranted: true }

@@ -27,6 +27,7 @@ pub(crate) async fn attendance_status(req: &mut Request) -> ApiResult<Json> {
     let user = auth::user(req, &mut tx)?;
     let now = db::now_ms_tx(&mut tx)?;
     let mut state = attendance::status(&mut tx, &user.id, now)?;
+    let test_enabled = crate::promotion_test::enabled_for(&user.id, now);
     let template = notification_template();
     let opted = if let Some(code) = &template {
         !db::tx_query(&mut tx,"SELECT 1 FROM notification_template_agreements WHERE user_id=?1 AND template_code=?2 AND status='OPTED_IN'",&[Value::Blob(user.id.clone()),Value::Text(code.clone())])?.is_empty()
@@ -53,7 +54,7 @@ pub(crate) async fn attendance_status(req: &mut Request) -> ApiResult<Json> {
         let value = if let Some(r) = existing {
             claim_view(&r, kind.as_str(), period, now)?
         } else {
-            json!({"kind":kind.as_str(),"periodDay":period,"campaignId":campaign.as_ref().map(|c|c.id.clone()),"claimId":null,"amount":campaign.as_ref().map(|c|c.amount).unwrap_or(if kind==Kind::Daily{1}else{30}),"eligible":eligible,"status":if already{Some("already_claimed")}else{None},"available":campaign.as_ref().is_some_and(|c|c.available)})
+            json!({"kind":kind.as_str(),"periodDay":period,"campaignId":campaign.as_ref().map(|c|c.id.clone()),"claimId":null,"amount":campaign.as_ref().map(|c|c.amount).unwrap_or(if kind==Kind::Daily{1}else{50}),"eligible":eligible,"status":if already{Some("already_claimed")}else{None},"available":campaign.as_ref().is_some_and(|c|c.available)})
         };
         promotions.push(value);
     }
@@ -94,6 +95,7 @@ pub(crate) async fn attendance_status(req: &mut Request) -> ApiResult<Json> {
     state["notificationsEnabled"] = json!(opted);
     state["promotions"] = json!(promotions);
     state["promotionHistory"] = json!(history);
+    state["promotionTestEnabled"] = json!(test_enabled);
     db::tx_commit(&mut tx)?;
     Ok(state)
 }
@@ -469,7 +471,12 @@ pub(crate) async fn claim_promotion(req: &mut Request) -> ApiResult<Json> {
     store_outcome(&ledger.record.id, &request_id, &response, now)?;
     claim_status(&user.id, &ledger.record.id)
 }
-fn store_outcome(id: &str, request_id: &str, response: &Json, now: i64) -> ApiResult<()> {
+pub(crate) fn store_outcome(
+    id: &str,
+    request_id: &str,
+    response: &Json,
+    now: i64,
+) -> ApiResult<()> {
     let mut outcome =
         rewards::promotion_reward_outcome_from_response(response, request_id, Some(now));
     outcome.raw_response_json = None;

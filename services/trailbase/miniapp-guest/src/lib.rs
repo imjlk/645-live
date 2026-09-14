@@ -7,6 +7,7 @@ mod dev;
 mod engagement;
 mod lotto;
 mod maintenance;
+mod promotion_test;
 
 use serde_json::Value as Json;
 use trailbase_guest_common::{db, responses::*, settings};
@@ -78,6 +79,7 @@ endpoint!(check_in, engagement::check_in);
 endpoint!(agreement, engagement::agreement);
 endpoint!(watch_result, engagement::watch_result);
 endpoint!(claim_promotion, engagement::claim_promotion);
+endpoint!(test_promotion, promotion_test::run);
 
 struct Miniapp;
 impl Guest for Miniapp {
@@ -103,6 +105,7 @@ impl Guest for Miniapp {
             routing::get("/api/app/v1/attendance/status", attendance_status),
             routing::post("/api/app/v1/attendance/check-in", check_in),
             routing::post("/api/app/v1/attendance/promotion/claim", claim_promotion),
+            routing::post("/api/app/v1/attendance/promotion/test", test_promotion),
             routing::post("/api/app/v1/notifications/agreement", agreement),
             routing::post("/api/app/v1/notifications/watch-result", watch_result),
         ]

@@ -593,6 +593,22 @@ export function useLotto() {
 						: "결과 알림을 껐어요.",
 				);
 			}),
+		testPromotion: (kind: "daily" | "weekly") =>
+			run("promotion-test", async () => {
+				const result = await api.request<{ testOnly: true; status: string }>(
+					"/api/app/v1/attendance/promotion/test",
+					{ kind },
+				);
+				if (result.status === "success" || result.status === "recorded") {
+					setNotice("테스트 호출이 완료됐어요. 토스 콘솔에서 확인해 주세요.");
+					return;
+				}
+				setNotice(
+					result.status === "pending"
+						? "테스트 처리 중이에요. 같은 버튼을 누르면 기존 요청의 상태를 확인해요."
+						: "테스트가 완료되지 않았어요. 서버 설정과 토스 콘솔을 확인해 주세요.",
+				);
+			}),
 		promotion: (promotion: Promotion) =>
 			run("promotion", async () => {
 				const result = await api.request<{ status: string; amount: number }>(

@@ -111,11 +111,13 @@ def run():
                 base = 'http://127.0.0.1:' + command('docker', 'port', name, '4000/tcp').rsplit(':', 1)[1]
                 for _ in range(100):
                     try:
-                        if request(base, '/api/healthcheck')[0] == 200:
+                        if request(base, '/api/app/v1/lotto/round-context')[0] == 200:
                             break
                     except OSError:
                         pass
                     time.sleep(.2)
+                else:
+                    raise AssertionError('Promotion fixture guest startup failed')
                 seed = 'dev-anon-' + uuid.uuid4().hex
                 status, session = request(base, '/api/app/v1/session/bootstrap', {'anonymousHash': seed})
                 expect(status, 200, 'promotion fixture bootstrap')
@@ -241,12 +243,59 @@ def run():
                 assert len(set(grants))==len(grants)
                 usage=command('docker','exec',name,'bun','-e',"import {Database} from 'bun:sqlite'; const db=new Database('/app/traildepot/data/main.db',{readonly:true}); console.log(db.query(\"SELECT reserved_amount FROM ait_lotto_promotion_usage WHERE campaign_id='daily-1'\").get().reserved_amount); db.close();")
                 assert usage=='1','withdrawal replenished budget'
+                # Console checks use TEST_ codes and isolated ledger entries. They
+                # never require attendance fixtures on a production user's history.
+                test_path='/api/app/v1/attendance/promotion/test'
+                expect(request(base,test_path,{'kind':'daily'},auth)[0],404,'console tests disabled by default')
+                def test_settings(values):
+                    nonlocal base
+                    # WASM caches runtime settings. Preserve this disposable
+                    # depot's secrets and restart to load the changed allowlist.
+                    script="import{readFileSync,writeFileSync,renameSync}from'node:fs';const p='/app/traildepot/secrets/miniapp-keys.json';const value={...JSON.parse(readFileSync(p,'utf8')),...await Bun.stdin.json()};writeFileSync(p+'.test',JSON.stringify(value),{mode:0o600});renameSync(p+'.test',p);"
+                    subprocess.run(['docker','exec','-i',name,'bun','-e',script],input=json.dumps(values),text=True,check=True,capture_output=True)
+                    command('docker','restart',name)
+                    base='http://127.0.0.1:'+command('docker','port',name,'4000/tcp').rsplit(':',1)[1]
+                    for _ in range(100):
+                        try:
+                            if request(base,'/api/app/v1/lotto/round-context')[0]==200:
+                                break
+                        except OSError:
+                            pass
+                        time.sleep(.2)
+                    else:
+                        raise AssertionError('Console test settings restart failed')
+                tester=base64.urlsafe_b64encode(bytes(user)).decode().rstrip('=')
+                test_settings({'AIT_PROMOTION_TEST_USER_IDS':tester,'AIT_PROMOTION_TEST_UNTIL':str(now+3600000),'AIT_PROMOTION_TEST_DAILY_CODE':'TEST_00000000000000000000000001','AIT_PROMOTION_TEST_WEEKLY_CODE':'TEST_00000000000000000000000002'})
+                assert state()['promotionTestEnabled']
+                previous_state=state()
+                _,other_auth=new_user()
+                expect(request(base,test_path,{'kind':'daily'},other_auth)[0],404,'unlisted tester denied')
+                before=len(grants)
+                with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
+                    replies=list(pool.map(lambda _:request(base,test_path,{'kind':'daily'},auth),range(4)))
+                assert all(s==200 and r['testOnly'] for s,r in replies),replies
+                assert len(grants)==before+1,'console test submitted multiple provider grants'
+                for _ in range(2):
+                    assert request(base,test_path,{'kind':'daily'},auth)[1]['status']=='success'
+                expect(request(base,test_path,{'kind':'weekly'},auth)[0],200,'weekly console test without waiting seven days')
+                assert request(base,test_path,{'kind':'weekly'},auth)[1]['status']=='success'
+                assert len(grants)==before+2
+                after_state=state()
+                for key in ['checkedIn','streak','promotions','promotionHistory']:
+                    assert after_state[key]==previous_state[key],f'console test changed {key}'
+                test_settings({'AIT_PROMOTION_TEST_DAILY_CODE':'00000000000000000000000001'})
+                assert not state()['promotionTestEnabled']
+                expect(request(base,test_path,{'kind':'daily'},auth)[0],404,'live code rejected by test endpoint')
+                test_settings({'AIT_PROMOTION_TEST_DAILY_CODE':'TEST_00000000000000000000000001','AIT_PROMOTION_TEST_UNTIL':str(now-1)})
+                expect(request(base,test_path,{'kind':'daily'},auth)[0],404,'expired console access denied')
                 print(json.dumps({'case':'attendance-promotions','passed':[
                     'generation-gated check-in; no three-day pass', 'daily and seven-day bonuses independently configurable',
                     'concurrent claims are idempotent; budget survives deletion and rejoin',
                     'seven-day reset retains completed bonus', 'rewarded and interstitial restore exactly once',
                     'no retroactive daily points; restore limits and midnight binding',
-                    'exhausted/deleted campaigns and older claims remain readable', 'unknown outcomes never issue another grant'
+                    'exhausted/deleted campaigns and older claims remain readable', 'unknown outcomes never issue another grant',
+                    'console verification requires an unexpired tester allowlist and TEST codes',
+                    'concurrent console checks grant once and preserve attendance and live reward history'
                 ]}),flush=True)
             finally:
                 cleanup_case(name, folder, '645-trailbase:miniapp')

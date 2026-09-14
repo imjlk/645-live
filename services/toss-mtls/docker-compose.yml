@@ -1,0 +1,35 @@
+# Deploy as a separate private Coolify Compose service on the TrailBase server.
+services:
+  toss-mtls:
+    image: ghcr.io/imjlk/trailbase-apps-in-toss-kit/toss-mtls-client-proxy:0.3.0@sha256:4e238a66bf22664366732b5a40dd11a536fa32163cf6d0fec6fcc22b70488692
+    init: true
+    restart: unless-stopped
+    stop_grace_period: 100s
+    expose:
+      - "8787"
+    environment:
+      MTLS_PROXY_MODE: forward
+      MTLS_PROXY_TOKEN: ${MTLS_PROXY_TOKEN:?Set the private proxy token}
+      MTLS_UPSTREAM_BASE_URL: https://apps-in-toss-api.toss.im
+      MTLS_CERT_DIR: /run/mtls
+    volumes:
+      - certificates:/run/mtls:ro
+    networks:
+      coolify:
+        aliases:
+          - 645-live-toss-mtls
+    healthcheck:
+      test: ["CMD", "bun", "-e", "import {PROXY_ENDPOINTS} from '@ait-kit/api-client'; fetch('http://127.0.0.1:8787'+PROXY_ENDPOINTS.health,{headers:{authorization:'Bearer '+process.env.MTLS_PROXY_TOKEN}}).then(async r=>{const b=await r.json();process.exit(r.ok&&b.ok&&b.mode==='forward'?0:1)}).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    labels:
+      traefik.enable: "false"
+
+volumes:
+  certificates:
+    name: 645_live_toss_mtls_certificates
+
+networks:
+  coolify:
+    external: true

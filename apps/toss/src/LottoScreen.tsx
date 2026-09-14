@@ -1086,6 +1086,29 @@ function LottoContent() {
 							<Text style={[s.body, text]}>
 								{model.user?.displayName ?? "연결을 확인하고 있어요"}
 							</Text>
+							{model.attendance?.promotionTestEnabled ? (
+								<View style={{ gap: 12 }}>
+									<Text style={[s.body, text]}>프로모션 연동 테스트</Text>
+									<Text style={[s.caption, muted]}>
+										등록된 테스트 계정에만 보여요. TEST 코드로 호출하며 실제
+										포인트와 출석 기록은 변경하지 않아요.
+									</Text>
+									{(["daily", "weekly"] as const).map((kind) => (
+										<Button
+											key={kind}
+											display="full"
+											style="weak"
+											type="dark"
+											disabled={!!model.busy}
+											onPress={() => void model.testPromotion(kind)}
+										>
+											{kind === "daily"
+												? "매일 1P 테스트·상태 확인"
+												: "7일 50P 테스트·상태 확인"}
+										</Button>
+									))}
+								</View>
+							) : null}
 							<Text style={[s.description, muted]}>
 								별도 회원가입 없이 토스에서 이용할 수 있어요.
 							</Text>
