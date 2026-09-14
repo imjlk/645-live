@@ -8,8 +8,7 @@ import {
 	type SavedCombination,
 } from "@645/lotto-core";
 import { getTossShareLink, share } from "@apps-in-toss/framework";
-import { openURL } from "@granite-js/react-native";
-import { Button, Switch, Tab } from "@toss/tds-react-native";
+import { Button, IconButton, Switch, Tab } from "@toss/tds-react-native";
 import { useEffect, useRef, useState } from "react";
 import {
 	ActivityIndicator,
@@ -28,11 +27,19 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Balls } from "./Balls";
 import { Banner } from "./Banner";
 import { Celebration } from "./Celebration";
+import { PrivacyNotice } from "./PrivacyNotice";
 import { ReportHistory } from "./ReportHistory";
 import { useTheme } from "./theme";
 import { useLotto } from "./use-lotto";
 
-type Panel = "custom" | "report" | "attendance" | "settings" | null;
+type Panel =
+	| "custom"
+	| "report"
+	| "attendance"
+	| "settings"
+	| "privacy"
+	| "support"
+	| null;
 const NUMBERS = Array.from({ length: 45 }, (_, i) => i + 1);
 function relativeTime(at: number, now: number) {
 	const seconds = Math.max(0, Math.floor((now - at) / 1000));
@@ -160,10 +167,6 @@ export function LottoScreen() {
 			Alert.alert("공유를 열지 못했어요", "잠시 후 다시 시도해 주세요.");
 		}
 	};
-	const external = (path: string) =>
-		void openURL(`https://645.live${path}`).catch(() =>
-			Alert.alert("페이지를 열지 못했어요", "다시 시도해 주세요."),
-		);
 	const feedRows = (limit: number) => (
 		<View>
 			{model.feed?.generations.length ? (
@@ -240,28 +243,24 @@ export function LottoScreen() {
 			]}
 		>
 			<View style={s.content}>
-				<View style={[s.topbar, { borderColor: theme.line }]}>
-					<Text style={[s.brand, text]}>
-						645<Text style={{ color: theme.blue }}>LIVE</Text>
-					</Text>
-					<View style={{ flexDirection: "row", gap: 12 }}>
-						<Button
-							size="tiny"
-							type="dark"
-							style="weak"
-							onPress={() => setPanel("attendance")}
-						>
-							{model.attendance?.checkedIn ? "출석 완료" : "오늘 출석"}
-						</Button>
-						<Pressable
-							accessibilityRole="button"
-							accessibilityLabel="설정"
-							onPress={openSettings}
-							style={s.settings}
-						>
-							<Text style={[s.settingsText, muted]}>•••</Text>
-						</Pressable>
-					</View>
+				<View style={s.topbar}>
+					<Button
+						size="tiny"
+						type="dark"
+						style="weak"
+						onPress={() => setPanel("attendance")}
+					>
+						{model.attendance?.checkedIn ? "출석 완료" : "오늘 출석"}
+					</Button>
+					<IconButton
+						name="icon-setting-mono"
+						label="설정"
+						iconSize={24}
+						color={theme.muted}
+						variant="clear"
+						onPress={openSettings}
+						style={s.settings}
+					/>
 				</View>
 				{model.error ? (
 					<View
@@ -712,7 +711,11 @@ export function LottoScreen() {
 										? "내 조합 살펴보기"
 										: panel === "attendance"
 											? "매일 한 번, 출석"
-											: "설정"}
+											: panel === "privacy"
+												? "개인정보 처리방침"
+												: panel === "support"
+													? "문의하기"
+													: "설정"}
 							</Text>
 							<Button
 								size="tiny"
@@ -1045,16 +1048,8 @@ export function LottoScreen() {
 										{model.user?.displayName ?? "연결을 확인하고 있어요"}
 									</Text>
 									<Text style={[s.description, muted]}>
-										645.live 계정 가입 없이 이용할 수 있어요.
+										별도 회원가입 없이 토스에서 이용할 수 있어요.
 									</Text>
-									<Button
-										display="full"
-										type="dark"
-										style="weak"
-										onPress={() => external("/qr-scan")}
-									>
-										실제 구매 번호는 645.live에서 QR 스캔
-									</Button>
 									<Button
 										display="full"
 										type="dark"
@@ -1067,7 +1062,7 @@ export function LottoScreen() {
 										display="full"
 										type="dark"
 										style="weak"
-										onPress={() => external("/privacy")}
+										onPress={() => setPanel("privacy")}
 									>
 										개인정보 처리방침
 									</Button>
@@ -1075,14 +1070,7 @@ export function LottoScreen() {
 										display="full"
 										type="dark"
 										style="weak"
-										onPress={() =>
-											void openURL("mailto:support@645.live").catch(() =>
-												Alert.alert(
-													"문의 이메일",
-													"support@645.live로 연락해 주세요.",
-												),
-											)
-										}
+										onPress={() => setPanel("support")}
 									>
 										문의하기
 									</Button>
@@ -1117,6 +1105,37 @@ export function LottoScreen() {
 									</Button>
 								</View>
 							) : null}
+							{panel === "privacy" ? <PrivacyNotice /> : null}
+							{panel === "support" ? (
+								<View style={{ gap: 16 }}>
+									<Text style={[s.sectionTitle, text]}>
+										도움이 필요하신가요?
+									</Text>
+									<Text style={[s.description, muted]}>
+										오류가 발생한 화면과 상황을 알려주세요. 개인정보 열람·삭제
+										요청도 아래 연락처로 접수할 수 있어요.
+									</Text>
+									<Text selectable style={[s.body, text]}>
+										support@645.live
+									</Text>
+									<Text selectable style={[s.body, text]}>
+										02-877-1990
+									</Text>
+									<Text style={[s.caption, muted]}>
+										1990컴퍼니 · 개인정보 보호담당 김정래
+									</Text>
+								</View>
+							) : null}
+							{panel === "privacy" || panel === "support" ? (
+								<Button
+									display="full"
+									type="dark"
+									style="weak"
+									onPress={openSettings}
+								>
+									설정으로 돌아가기
+								</Button>
+							) : null}
 						</ScrollView>
 					</View>
 				</View>
@@ -1130,15 +1149,13 @@ const s = StyleSheet.create({
 	content: { flex: 1, width: "100%", maxWidth: 640, alignSelf: "center" },
 	topbar: {
 		paddingHorizontal: 20,
-		paddingVertical: 12,
+		paddingVertical: 4,
 		flexDirection: "row",
 		alignItems: "center",
-		justifyContent: "space-between",
-		borderBottomWidth: 1,
+		justifyContent: "flex-end",
+		gap: 8,
 	},
-	brand: { fontWeight: "900", fontSize: 22, letterSpacing: -1 },
-	settings: { minWidth: 32, alignItems: "center", justifyContent: "center" },
-	settingsText: { fontSize: 20, letterSpacing: 1 },
+	settings: { width: 44, height: 44 },
 	section: { paddingHorizontal: 20, paddingTop: 28, paddingBottom: 26 },
 	heading: { marginTop: 16, gap: 10 },
 	title: {
