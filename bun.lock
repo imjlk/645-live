@@ -17,8 +17,8 @@
       "version": "0.1.0",
       "dependencies": {
         "@645/lotto-core": "workspace:*",
-        "@apps-in-toss/framework": "^2.6.1",
-        "@apps-in-toss/native-modules": "^2.6.1",
+        "@apps-in-toss/framework": "2.10.10",
+        "@apps-in-toss/native-modules": "2.10.10",
         "@granite-js/native": "1.0.28",
         "@granite-js/react-native": "1.0.28",
         "@toss/tds-react-native": "^2.0.3",
