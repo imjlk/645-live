@@ -28,7 +28,7 @@ export default defineConfig({
 			navigationBar: { withBackButton: true, withHomeButton: false },
 		}),
 		env({
-			LOTTO_APP_ENV: process.env.LOTTO_APP_ENV ?? "development",
+			LOTTO_APP_ENV: process.env.LOTTO_APP_ENV ?? "production",
 			LOTTO_API_BASE_URL:
 				process.env.LOTTO_API_BASE_URL ?? "https://trail.645.live",
 		}),

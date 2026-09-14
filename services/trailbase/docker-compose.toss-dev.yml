@@ -1,0 +1,27 @@
+# Dedicated, persistent local preview data; never mounts the website's depot.
+services:
+  trailbase:
+    image: 645-trailbase:toss-dev
+    build:
+      context: ../..
+      dockerfile: services/trailbase/Dockerfile
+    ports:
+      - "${LOTTO_DEV_HOST:-127.0.0.1}:${LOTTO_DEV_PORT:-4015}:4000"
+    volumes:
+      - ../../.cache/toss-trailbase:/app/traildepot
+    environment:
+      AIT_ENABLED: "true"
+      AIT_ALLOW_DEV_IDENTITY: "true"
+      AIT_LOCAL_PREVIEW: "true"
+      AIT_TEST_ADS: "true"
+      AIT_BOTS_ENABLED: "true"
+      AIT_PROMOTIONS_ENABLED: "false"
+      AIT_NOTIFICATIONS_ENABLED: "false"
+      BACKFILL_ON_STARTUP: "false"
+      RUNTIME_THREADS: "4"
+    healthcheck:
+      test: ["CMD", "bun", "-e", "fetch('http://127.0.0.1:4000/api/healthcheck').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 10s

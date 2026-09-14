@@ -3,6 +3,7 @@
 mod ads;
 mod attendance;
 mod auth;
+mod dev;
 mod engagement;
 mod lotto;
 mod maintenance;
@@ -70,6 +71,7 @@ endpoint!(disconnect, auth::disconnect);
 endpoint!(ad_config, ads::config);
 endpoint!(ad_start, ads::start);
 endpoint!(ad_complete, ads::complete);
+endpoint!(dev_entitlements, dev::entitlements);
 endpoint!(attendance_status, engagement::attendance_status);
 endpoint!(check_in, engagement::check_in);
 endpoint!(agreement, engagement::agreement);
@@ -95,6 +97,7 @@ impl Guest for Miniapp {
             routing::get("/api/app/v1/ads/config", ad_config),
             routing::post("/api/app/v1/ads/start", ad_start),
             routing::post("/api/app/v1/ads/complete", ad_complete),
+            routing::post("/api/app/v1/dev/entitlements", dev_entitlements),
             routing::get("/api/app/v1/attendance/status", attendance_status),
             routing::post("/api/app/v1/attendance/check-in", check_in),
             routing::post("/api/app/v1/attendance/promotion/claim", claim_promotion),

@@ -117,6 +117,7 @@ jobs:
           python3 scripts/miniapp/smoke.py --fresh-only
           python3 scripts/miniapp/smoke.py --bots-only
           python3 scripts/miniapp/promotion-smoke.py
+          python3 scripts/miniapp/local-smoke.py
       - uses: actions/upload-artifact@v4
         with:
           name: 645-live-miniapp

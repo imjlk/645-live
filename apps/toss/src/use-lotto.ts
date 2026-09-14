@@ -20,6 +20,7 @@ import {
 	type Attendance,
 	apiErrorCode,
 	createApi,
+	LOCAL_PREVIEW,
 	newRequestId,
 	type Promotion,
 	type User,
@@ -476,6 +477,21 @@ export function useLotto() {
 				} finally {
 					await refreshPrivate();
 				}
+			}),
+		testPass: (feature?: "custom" | "report") =>
+			run("test-pass", async () => {
+				if (!LOCAL_PREVIEW)
+					throw new Error("로컬 테스트에서만 사용할 수 있어요.");
+				await api.request(
+					"/api/app/v1/dev/entitlements",
+					feature ? { action: "unlock", feature } : { action: "reset" },
+				);
+				await refreshPrivate();
+				setNotice(
+					feature
+						? "테스트 이용권을 열었어요. 바로 기능을 확인해 보세요."
+						: "테스트 이용권을 초기화했어요. 광고 시청을 다시 확인할 수 있어요.",
+				);
 			}),
 		unlock: (feature: AdPlacement) =>
 			run(`unlock-${feature}`, async () => {

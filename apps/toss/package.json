@@ -3,12 +3,14 @@
 	"version": "0.1.0",
 	"private": true,
 	"scripts": {
-		"dev": "granite dev",
+		"dev": "bun ../../scripts/miniapp/dev.ts",
 		"build": "ait build",
 		"check": "tsc --noEmit",
 		"test": "bun test src",
 		"deploy": "ait deploy",
-		"build:production": "LOTTO_APP_ENV=production ait build"
+		"build:production": "LOTTO_APP_ENV=production ait build",
+		"dev:remote": "LOTTO_APP_ENV=production granite dev",
+		"dev:stop": "bun ../../scripts/miniapp/dev.ts --stop"
 	},
 	"dependencies": {
 		"@apps-in-toss/framework": "^2.6.1",

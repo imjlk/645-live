@@ -41,6 +41,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AttendancePanel } from "./AttendancePanel";
+import { LOCAL_PREVIEW } from "./api";
 import { Balls } from "./Balls";
 import { Banner } from "./Banner";
 import { Celebration } from "./Celebration";
@@ -275,13 +276,29 @@ function LottoContent() {
 				<Text style={[s.body, text]}>
 					광고 한 번으로 24시간 이용할 수 있어요.
 				</Text>
+				{LOCAL_PREVIEW ? (
+					<Button
+						display="full"
+						type="dark"
+						style="weak"
+						loading={model.busy === "test-pass"}
+						disabled={!!model.busy || !model.user}
+						onPress={() => void model.testPass(feature)}
+					>
+						테스트 · 광고 없이 이용권 열기
+					</Button>
+				) : null}
 				<Button
 					display="full"
 					loading={model.busy === `unlock-${feature}`}
 					disabled={!!model.busy || !enabled}
 					onPress={() => void model.unlock(feature)}
 				>
-					{enabled ? "광고 보고 이용권 열기" : "광고 이용권 준비 중"}
+					{enabled
+						? LOCAL_PREVIEW
+							? "테스트 광고 보고 이용권 열기"
+							: "광고 보고 이용권 열기"
+						: "광고 이용권 준비 중"}
 				</Button>
 
 				<Text style={[s.caption, muted]}>
@@ -992,6 +1009,18 @@ function LottoContent() {
 					) : null}
 					{panel === "settings" ? (
 						<View style={{ gap: 20 }}>
+							{LOCAL_PREVIEW ? (
+								<Button
+									display="full"
+									type="dark"
+									style="weak"
+									loading={model.busy === "test-pass"}
+									disabled={!!model.busy || !model.user}
+									onPress={() => void model.testPass()}
+								>
+									테스트 이용권 초기화
+								</Button>
+							) : null}
 							<Text style={[s.body, text]}>
 								{model.user?.displayName ?? "연결을 확인하고 있어요"}
 							</Text>

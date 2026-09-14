@@ -16,12 +16,15 @@ import {
 	toTrailBaseSdkTokens,
 } from "@trailbase-apps-in-toss-kit/trailbase-client";
 import { initClient } from "trailbase";
+import { resolveLottoRuntime } from "./runtime-config";
 import { createSavedStore } from "./saved-store";
 
-export const API_BASE = (
-	process.env.LOTTO_API_BASE_URL || "https://trail.645.live"
-).replace(/\/$/, "");
-const production = process.env.LOTTO_APP_ENV === "production";
+const runtime = resolveLottoRuntime(
+	import.meta.env.LOTTO_APP_ENV,
+	import.meta.env.LOTTO_API_BASE_URL,
+);
+export const API_BASE = runtime.apiBase;
+export const LOCAL_PREVIEW = runtime.local;
 export type User = { id: string; displayName: string };
 export type AdPlacement = "custom" | "report" | "attendance_restore";
 export type AdConfig = {
@@ -141,10 +144,11 @@ export function newRequestId() {
 
 export function createApi() {
 	const storage = createAppsInTossSessionStorage({
-		appKey: "645-live",
+		appKey: runtime.storageKey,
 		storage: Storage,
-		getAnonymousKey,
-		production,
+		// Explicit local preview uses the kit's persistent dev-anon identity.
+		getAnonymousKey: LOCAL_PREVIEW ? async () => undefined : getAnonymousKey,
+		production: !LOCAL_PREVIEW,
 		allowFallback: false,
 		productionRequired: true,
 	});
@@ -274,7 +278,10 @@ export function createApi() {
 		ensure,
 		request,
 		saved: (user: User) =>
-			createSavedStore(storage.storage, `645-live.saved.v1.${user.id}`),
+			createSavedStore(
+				storage.storage,
+				`${runtime.storageKey}.saved.v1.${user.id}`,
+			),
 		context: () => publicGet<RoundContext>("/api/app/v1/lotto/round-context"),
 		feed: (round: number, signal?: AbortSignal) =>
 			publicGet<Feed>(`/api/app/v1/lotto/feed?round=${round}`, signal),
