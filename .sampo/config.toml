@@ -1,0 +1,17 @@
+version = 1
+
+[git]
+default_branch = "main"
+tag_format = "645-live-v{version}"
+
+[github]
+repository = "imjlk/645-live"
+
+[changelog]
+show_commit_hash = true
+show_acknowledgments = false
+
+[packages]
+ignore_unpublished = false
+# This release lane versions the miniapp. Web and server deployments keep their own flow.
+ignore = ["pages/**", "workers/**", "packages/**", "services/**", "vendor/**"]

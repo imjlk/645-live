@@ -1,0 +1,68 @@
+name: AIT release
+
+on:
+  push:
+    tags: ['645-live-v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing 645-live-vX.Y.Z release tag to upload
+        required: true
+        type: string
+  workflow_call:
+    inputs:
+      tag:
+        required: true
+        type: string
+    secrets:
+      AIT_API_KEY:
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ait-submit-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  submit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref_name }}
+          fetch-depth: 0
+          submodules: recursive
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: 1.4.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: bun install --frozen-lockfile
+      - name: Verify release code
+        run: |
+          bun run miniapp:check
+          bun run miniapp:test
+          bunx biome check apps/toss packages/lotto-core scripts/miniapp
+      - name: Build and inspect production bundle
+        id: build
+        run: bun scripts/miniapp/release.mjs build
+      - name: Submit bundle to Apps in Toss
+        env:
+          AIT_API_KEY: ${{ secrets.AIT_API_KEY }}
+        run: bun scripts/miniapp/release.mjs upload
+      - name: Keep the submitted bundle and receipt
+        if: always() && steps.build.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ait-${{ inputs.tag || github.ref_name }}-${{ github.run_attempt }}
+          path: .cache/toss-release/
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
