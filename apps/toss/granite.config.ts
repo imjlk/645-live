@@ -9,6 +9,16 @@ export default defineConfig({
 	scheme: "intoss",
 	appName: "645-live",
 	entryFile: "./index.ts",
+	build: {
+		babel: {
+			// SWC miscompiles TrailBase's embedded raw-json private-field brand check.
+			// Keep this inline: the dual-runtime build copies this config into .granite.
+			conditions: [
+				(_code: string, file: string) =>
+					/(?:^|[/\\])trailbase[/\\]dist[/\\]index\.js$/.test(file),
+			],
+		},
+	},
 	metro: {
 		watchFolders: [
 			root,
