@@ -7,6 +7,7 @@ let bootstrapCount = 0;
 let adEnvironment = "toss";
 let adLoadFails = false;
 let adShowCount = 0;
+let sessionFailure: Error | null = null;
 const adEvents = [
 	"requested",
 	"show",
@@ -58,7 +59,10 @@ mock.module("@trailbase-apps-in-toss-kit/trailbase-client", () => ({
 	createAppsInTossSessionManager: (options: {
 		bootstrap: (key: string) => Promise<unknown>;
 	}) => ({
-		getOrCreateAppSession: () => options.bootstrap("ait:fixture-identity"),
+		getOrCreateAppSession: () => {
+			if (sessionFailure) throw sessionFailure;
+			return options.bootstrap("ait:fixture-identity");
+		},
 		clearSessions: async () => {},
 		cancelPendingOperations: () => {},
 	}),
@@ -74,6 +78,25 @@ afterEach(() => {
 	adEnvironment = "toss";
 	adLoadFails = false;
 	adShowCount = 0;
+	sessionFailure = null;
+});
+
+test("a synchronous session runtime failure can be diagnosed and retried", async () => {
+	globalThis.fetch = (async () =>
+		json({
+			user: { id: "fixture-user", displayName: "노랑공" },
+			authTokens: { authToken: "fixture", refreshToken: "refresh" },
+		})) as typeof fetch;
+	const api = createApi();
+	sessionFailure = new TypeError("undefined is not a function");
+	await expect(api.ensure()).rejects.toThrow("연결 코드 C30");
+	sessionFailure = null;
+	api.reconnect();
+	await expect(api.ensure()).resolves.toEqual({
+		id: "fixture-user",
+		displayName: "노랑공",
+	});
+	api.dispose();
 });
 
 test("a lost ad completion response is retried without showing another ad", async () => {

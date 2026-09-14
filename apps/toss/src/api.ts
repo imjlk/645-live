@@ -16,6 +16,7 @@ import {
 	toTrailBaseSdkTokens,
 } from "@trailbase-apps-in-toss-kit/trailbase-client";
 import { initClient } from "trailbase";
+import { connectionStep, connectionSync } from "./connection-error";
 import { resolveLottoRuntime } from "./runtime-config";
 import { createSavedStore } from "./saved-store";
 
@@ -159,9 +160,15 @@ export function newRequestId() {
 export function createApi() {
 	const storage = createAppsInTossSessionStorage({
 		appKey: runtime.storageKey,
-		storage: Storage,
+		storage: {
+			getItem: (key) => connectionStep("C10", () => Storage.getItem(key)),
+			setItem: (key, value) =>
+				connectionStep("C11", () => Storage.setItem(key, value)),
+		},
 		// Explicit local preview uses the kit's persistent dev-anon identity.
-		getAnonymousKey: LOCAL_PREVIEW ? async () => undefined : getAnonymousKey,
+		getAnonymousKey: LOCAL_PREVIEW
+			? async () => undefined
+			: () => connectionStep("C20", getAnonymousKey),
 		production: !LOCAL_PREVIEW,
 		allowFallback: false,
 		productionRequired: true,
@@ -174,20 +181,22 @@ export function createApi() {
 	const interrupted = () =>
 		new Error("연결 요청을 중단했어요. 다시 연결해 주세요.");
 	function initialize(tokens: unknown) {
-		const normalized = toTrailBaseSdkTokens(tokens);
-		client = initClient(
-			API_BASE,
-			normalized
-				? {
-						tokens: {
-							auth_token: normalized.auth_token,
-							refresh_token: normalized.refresh_token ?? null,
-							csrf_token: normalized.csrf_token ?? null,
-						},
-					}
-				: {},
-		);
-		return client;
+		return connectionSync("C40", () => {
+			const normalized = toTrailBaseSdkTokens(tokens);
+			client = initClient(
+				API_BASE,
+				normalized
+					? {
+							tokens: {
+								auth_token: normalized.auth_token,
+								refresh_token: normalized.refresh_token ?? null,
+								csrf_token: normalized.csrf_token ?? null,
+							},
+						}
+					: {},
+			);
+			return client;
+		});
 	}
 	async function requestWith<T>(
 		instance: ReturnType<typeof initClient>,
@@ -195,16 +204,18 @@ export function createApi() {
 		body?: unknown,
 	): Promise<T> {
 		return withTimeout(async (signal) => {
-			const response = await instance.fetch(path, {
-				signal,
-				method: body === undefined ? "GET" : "POST",
-				headers: {
-					"Content-Type": "application/json",
-					Accept: "application/json",
-				},
-				body: body === undefined ? undefined : JSON.stringify(body),
-				throwOnError: false,
-			});
+			const response = await connectionStep("C41", () =>
+				instance.fetch(path, {
+					signal,
+					method: body === undefined ? "GET" : "POST",
+					headers: {
+						"Content-Type": "application/json",
+						Accept: "application/json",
+					},
+					body: body === undefined ? undefined : JSON.stringify(body),
+					throwOnError: false,
+				}),
+			);
 			return readResponse<T>(response);
 		});
 	}
@@ -239,7 +250,11 @@ export function createApi() {
 				instance,
 				"/api/app/v1/session/me",
 			);
-			return { ...response, tokens: instance.tokens() ?? input.authTokens };
+			return {
+				...response,
+				tokens:
+					connectionSync("C42", () => instance.tokens()) ?? input.authTokens,
+			};
 		},
 		isInvalidSessionError: (error) =>
 			error instanceof TrailBaseHttpError && error.status === 401,
@@ -249,9 +264,11 @@ export function createApi() {
 		if (currentUser) return currentUser;
 		if (pending) return pending;
 		const attempt = epoch;
-		pending = manager
-			.getOrCreateAppSession()
-			.then((session) => {
+		pending = connectionStep("C30", async () => {
+			// Assign pending before invoking SDK code that can throw synchronously.
+			await Promise.resolve();
+			try {
+				const session = await manager.getOrCreateAppSession();
 				if (attempt !== epoch || paused) throw interrupted();
 				const tokens =
 					normalizeTrailBaseAuthTokens(session) ?? session.authTokens;
@@ -259,10 +276,10 @@ export function createApi() {
 				initialize(tokens);
 				currentUser = session.user;
 				return session.user;
-			})
-			.finally(() => {
+			} finally {
 				pending = null;
-			});
+			}
+		});
 		return pending;
 	}
 	async function request<T>(path: string, body?: unknown): Promise<T> {
