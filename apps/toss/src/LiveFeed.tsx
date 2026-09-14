@@ -1,9 +1,9 @@
-import { ballColor, type Feed, type Generation } from "@645/lotto-core";
+import type { Feed, Generation } from "@645/lotto-core";
 import {
 	IOFlatList,
 	type IOFlatListController,
 } from "@granite-js/react-native";
-import { Button } from "@toss/tds-react-native";
+import { Button, SegmentedControl } from "@toss/tds-react-native";
 import { memo, useEffect, useMemo, useRef } from "react";
 import {
 	ActivityIndicator,
@@ -17,6 +17,7 @@ import { Balls } from "./Balls";
 import { Banner } from "./Banner";
 import { shuffleAdGroups, withFeedAds } from "./feed-ad-slots";
 import type { createFeedHistory, FeedHistory } from "./feed-history";
+import { LiveNumberGrid } from "./LiveNumberGrid";
 import type { ConnectionState } from "./realtime";
 import { useTheme } from "./theme";
 
@@ -61,6 +62,9 @@ export function LiveFeed({
 	adConfig,
 	connection,
 	ballSize,
+	reducedMotion,
+	columns,
+	onColumnsChange,
 	refreshing,
 	onRefresh,
 }: {
@@ -70,11 +74,16 @@ export function LiveFeed({
 	adConfig: AdConfig | null;
 	connection: ConnectionState;
 	ballSize: number;
+	reducedMotion: boolean;
+	columns: 5 | 9;
+	onColumnsChange: (columns: 5 | 9) => void;
 	refreshing: boolean;
 	onRefresh: () => void;
 }) {
 	const theme = useTheme();
 	const list = useRef<IOFlatListController>(null);
+	const scrollOffset = useRef(0);
+	const gridChangeOffset = useRef<number | null>(null);
 	const text = { color: theme.text };
 	const muted = { color: theme.muted };
 	const now = feed?.serverTime ?? Date.now();
@@ -132,9 +141,20 @@ export function LiveFeed({
 				onEndReached={() => {
 					if (!history.error) void controller.loadMore();
 				}}
-				onScroll={({ nativeEvent }) =>
-					controller.follow(nativeEvent.contentOffset.y <= 40)
-				}
+				onScroll={({ nativeEvent }) => {
+					scrollOffset.current = Math.max(0, nativeEvent.contentOffset.y);
+					controller.follow(nativeEvent.contentOffset.y <= 40);
+				}}
+				onContentSizeChange={() => {
+					// Keep the selector in place when the header changes height.
+					// Native visible-row anchoring is still used for live inserts.
+					if (gridChangeOffset.current === null) return;
+					list.current?.scrollToOffset({
+						offset: gridChangeOffset.current,
+						animated: false,
+					});
+					gridChangeOffset.current = null;
+				}}
 				scrollEventThrottle={100}
 				maintainVisibleContentPosition={{
 					minIndexForVisible: 0,
@@ -181,39 +201,34 @@ export function LiveFeed({
 							{(feed?.totalGenerations ?? 0).toLocaleString()}
 							<Text style={[s.body, muted]}> 조합 생성</Text>
 						</Text>
-						<Text style={[s.sectionTitle, text, { marginTop: 28 }]}>
-							어떤 번호가 많이 나왔을까?
-						</Text>
-						<Text style={[s.caption, muted, { marginTop: 8 }]}>
-							번호 아래 숫자는 이번 회차 생성 횟수예요.
-						</Text>
-						<View style={s.numberGrid}>
-							{Array.from({ length: 45 }, (_, i) => i + 1).map((n) => (
-								<View
-									key={n}
-									style={s.numberCell}
-									accessible
-									accessibilityLabel={`${n}번 ${feed?.numberCounts[n - 1] ?? 0}회 생성`}
-								>
-									<View
-										style={[s.numberBall, { backgroundColor: ballColor(n) }]}
-									>
-										<Text
-											style={{
-												fontWeight: "700",
-												color: n <= 10 ? "#3D3000" : "white",
-												fontSize: 14,
-											}}
-										>
-											{n}
-										</Text>
-									</View>
-									<Text style={[s.numberCount, muted]}>
-										{feed?.numberCounts[n - 1] ?? 0}
-									</Text>
-								</View>
-							))}
+						<View style={[s.row, s.gridToolbar]}>
+							<Text style={[s.sectionTitle, text]}>번호별 생성 횟수</Text>
+							<SegmentedControl.Root
+								name="live-number-columns"
+								size="small"
+								alignment="fixed"
+								style={s.gridControl}
+								value={String(columns)}
+								onChange={(value) => {
+									if (value !== "5" && value !== "9") return;
+									const next = value === "5" ? 5 : 9;
+									if (next === columns) return;
+									gridChangeOffset.current = scrollOffset.current;
+									onColumnsChange(next);
+								}}
+							>
+								<SegmentedControl.Item value="5">5열</SegmentedControl.Item>
+								<SegmentedControl.Item value="9">9열</SegmentedControl.Item>
+							</SegmentedControl.Root>
 						</View>
+						<Text style={[s.caption, muted, { marginTop: 8 }]}>
+							새 조합이 만들어지면 해당 번호의 횟수가 올라가요.
+						</Text>
+						<LiveNumberGrid
+							feed={feed}
+							reducedMotion={reducedMotion}
+							columns={columns}
+						/>
 						<Text style={[s.caption, muted]}>
 							많이 생성된 번호와 당첨 확률은 관계가 없어요.
 						</Text>
@@ -310,26 +325,8 @@ const s = StyleSheet.create({
 		fontVariant: ["tabular-nums"],
 	},
 	generation: { paddingVertical: 18, borderTopWidth: 1 },
-	numberGrid: {
-		flexDirection: "row",
-		flexWrap: "wrap",
-		marginTop: 18,
-		marginHorizontal: -2,
-	},
-	numberCell: {
-		width: "11.111%",
-		alignItems: "center",
-		paddingVertical: 8,
-		gap: 6,
-	},
-	numberBall: {
-		width: 28,
-		height: 28,
-		borderRadius: 14,
-		alignItems: "center",
-		justifyContent: "center",
-	},
-	numberCount: { fontSize: 10, fontVariant: ["tabular-nums"] },
+	gridToolbar: { marginTop: 28, flexWrap: "wrap" },
+	gridControl: { width: 132, paddingHorizontal: 0 },
 	footer: { paddingVertical: 26, alignItems: "center", gap: 12 },
 	newActivity: { position: "absolute", top: 12, alignSelf: "center" },
 });

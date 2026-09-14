@@ -99,6 +99,7 @@ function LottoContent() {
 	const insets = useSafeAreaInsets();
 	const { width } = useWindowDimensions();
 	const [tab, setTab] = useState("make");
+	const [liveColumns, setLiveColumns] = useState<5 | 9>(5);
 	const [{ panel, open: sheetOpen }, setSheet] = useState<{
 		panel: Panel;
 		open: boolean;
@@ -354,6 +355,9 @@ function LottoContent() {
 						adConfig={model.adConfig}
 						connection={model.connection}
 						ballSize={ballSize}
+						reducedMotion={model.reducedMotion}
+						columns={liveColumns}
+						onColumnsChange={setLiveColumns}
 						refreshing={model.refreshing}
 						onRefresh={model.retry}
 					/>
