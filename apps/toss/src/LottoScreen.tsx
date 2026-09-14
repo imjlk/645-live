@@ -24,6 +24,7 @@ import {
 	View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { AttendancePanel } from "./AttendancePanel";
 import { Balls } from "./Balls";
 import { Banner } from "./Banner";
 import { Celebration } from "./Celebration";
@@ -40,6 +41,14 @@ type Panel =
 	| "privacy"
 	| "support"
 	| null;
+const PANEL_TITLES = {
+	custom: "내 취향대로 만들기",
+	report: "내 조합 살펴보기",
+	attendance: "매일 한 번, 출석",
+	settings: "설정",
+	privacy: "개인정보 처리방침",
+	support: "문의하기",
+} as const;
 const NUMBERS = Array.from({ length: 45 }, (_, i) => i + 1);
 function relativeTime(at: number, now: number) {
 	const seconds = Math.max(0, Math.floor((now - at) / 1000));
@@ -69,9 +78,6 @@ export function LottoScreen() {
 		52,
 		Math.floor((Math.min(width, 640) - 40 - 30) / 6),
 	);
-	const stamps = model.attendance?.streak
-		? ((model.attendance.streak - 1) % 3) + 1
-		: 0;
 	const now = model.feed?.serverTime ?? model.context?.serverTime ?? Date.now();
 	const customOpen = (model.adConfig?.passes.custom ?? 0) > now;
 	const reportOpen = (model.adConfig?.passes.report ?? 0) > now;
@@ -220,14 +226,7 @@ export function LottoScreen() {
 				>
 					{enabled ? "광고 보고 이용권 열기" : "광고 이용권 준비 중"}
 				</Button>
-				<Button
-					display="full"
-					type="dark"
-					style="weak"
-					onPress={() => setPanel("attendance")}
-				>
-					3일 출석으로도 열 수 있어요
-				</Button>
+
 				<Text style={[s.caption, muted]}>
 					기본 번호 생성·보관·결과 확인은 언제나 무료예요.
 				</Text>
@@ -705,17 +704,7 @@ export function LottoScreen() {
 					>
 						<View style={[s.row, { paddingBottom: 20 }]}>
 							<Text style={[s.sectionTitle, text]}>
-								{panel === "custom"
-									? "내 취향대로 만들기"
-									: panel === "report"
-										? "내 조합 살펴보기"
-										: panel === "attendance"
-											? "매일 한 번, 출석"
-											: panel === "privacy"
-												? "개인정보 처리방침"
-												: panel === "support"
-													? "문의하기"
-													: "설정"}
+								{panel ? PANEL_TITLES[panel] : ""}
 							</Text>
 							<Button
 								size="tiny"
@@ -734,7 +723,10 @@ export function LottoScreen() {
 								{model.error}
 							</Text>
 						) : null}
-						<ScrollView contentContainerStyle={{ paddingBottom: 12 }}>
+						<ScrollView
+							key={panel}
+							contentContainerStyle={{ paddingBottom: 12 }}
+						>
 							{panel === "custom" ? (
 								customOpen ? (
 									<View style={{ gap: 20 }}>
@@ -952,95 +944,14 @@ export function LottoScreen() {
 									: featurePass("report")
 								: null}
 							{panel === "attendance" ? (
-								<View style={{ gap: 24 }}>
-									<Text style={[s.title, text]}>
-										{model.attendance?.streak ?? 0}일째 함께해요
-									</Text>
-									<Text style={[s.description, muted]}>
-										3일 연속 출석하면 맞춤 생성과 분석을 하루 동안 자유롭게
-										이용할 수 있어요.
-									</Text>
-									<View style={s.row}>
-										{[1, 2, 3].map((day) => (
-											<View
-												key={day}
-												style={[
-													s.stamp,
-													{
-														backgroundColor:
-															stamps >= day ? theme.blue : theme.surface,
-													},
-												]}
-											>
-												<Text
-													style={{
-														fontSize: 22,
-														fontWeight: "700",
-														color: stamps >= day ? "white" : theme.muted,
-													}}
-												>
-													{day}
-												</Text>
-												<Text
-													style={[
-														s.caption,
-														{
-															color: stamps >= day ? "white" : theme.muted,
-														},
-													]}
-												>
-													{day === 3 ? "이용권" : "출석"}
-												</Text>
-											</View>
-										))}
-									</View>
-									<Button
-										display="full"
-										loading={model.busy === "checkIn"}
-										disabled={
-											!!model.busy || !model.user || model.attendance?.checkedIn
-										}
-										onPress={() => void model.checkIn()}
-									>
-										{model.attendance?.checkedIn
-											? "오늘 출석 완료"
-											: "오늘 출석하기"}
-									</Button>
-									{model.attendance?.promotion ? (
-										<View style={{ gap: 12 }}>
-											<Text style={[s.sectionTitle, text]}>
-												5일 출석 프로모션
-											</Text>
-											<Text style={[s.description, muted]}>
-												5일 연속 출석 후 {model.attendance.promotion.amount}원을
-												받을 수 있어요.
-											</Text>
-											<Button
-												style="weak"
-												display="full"
-												loading={model.busy === "promotion"}
-												disabled={
-													(!model.attendance.promotion.eligible &&
-														!model.attendance.promotion.status) ||
-													!!model.busy ||
-													["success", "already_claimed"].includes(
-														model.attendance.promotion.status ?? "",
-													)
-												}
-												onPress={() => void model.promotion()}
-											>
-												{model.attendance.promotion.status === "success"
-													? "지급 완료"
-													: model.attendance.promotion.status ===
-															"already_claimed"
-														? "이전에 신청한 프로모션"
-														: model.attendance.promotion.status
-															? "지급 상태 확인"
-															: "출석 혜택 받기"}
-											</Button>
-										</View>
-									) : null}
-								</View>
+								<AttendancePanel
+									model={model}
+									onGenerate={() => {
+										setPanel(null);
+										setTab("make");
+										scroll.current?.scrollTo({ y: 0, animated: true });
+									}}
+								/>
 							) : null}
 							{panel === "settings" ? (
 								<View style={{ gap: 20 }}>
@@ -1251,13 +1162,5 @@ const s = StyleSheet.create({
 		borderWidth: 1,
 		alignItems: "center",
 		justifyContent: "center",
-	},
-	stamp: {
-		width: "30%",
-		height: 92,
-		borderRadius: 18,
-		alignItems: "center",
-		justifyContent: "center",
-		gap: 6,
 	},
 });

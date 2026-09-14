@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 
 mod ads;
+mod attendance;
 mod auth;
 mod engagement;
 mod lotto;

@@ -222,7 +222,7 @@ async fn reconcile_promotions() -> ApiResult<Json> {
     let mut tx = db::tx()?;
     let rows = db::tx_query(
         &mut tx,
-        "SELECT l.id,l.user_id FROM promotion_reward_ledger l JOIN promotion_campaigns c ON c.id=l.campaign_id JOIN ait_lotto_profiles p ON p.user_id=l.user_id WHERE l.source_type='ait_lotto_attendance' AND l.status='pending' AND l.provider_transaction_key IS NOT NULL AND p.disabled=0 ORDER BY l.updated_at LIMIT 5",
+        "SELECT l.id,l.user_id FROM promotion_reward_ledger l JOIN promotion_campaigns c ON c.id=l.campaign_id JOIN ait_lotto_profiles p ON p.user_id=l.user_id WHERE l.source_type IN ('ait_lotto_attendance','ait_lotto_attendance_daily','ait_lotto_attendance_weekly') AND l.status='pending' AND l.provider_transaction_key IS NOT NULL AND p.disabled=0 ORDER BY l.updated_at LIMIT 5",
         &[],
     )?;
     db::tx_commit(&mut tx)?;

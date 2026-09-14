@@ -85,6 +85,7 @@ def run_case(image, copy_existing):
             assert request(base,'/api/app/v1/session/bootstrap',{'anonymousHash':'ait:'+uuid.uuid4().hex})[0] != 200, 'unverified production identity accepted'
             expect(request(base,'/api/app/v1/presence/heartbeat',{},auth)[0],200,'heartbeat')
             checks.append('anonymous bootstrap reuses official principal')
+            expect(request(base,'/api/app/v1/attendance/check-in',{},auth)[0],403,'generation required for attendance')
             status,context=request(base,'/api/app/v1/lotto/round-context');expect(status,200,'context')
             round=context['targetRound']
             scan_path=f'/api/records/v1/lotto_draw_scan_counts/{round}'
@@ -94,7 +95,7 @@ def run_case(image, copy_existing):
             payload={'requestId':uuid.uuid4().hex,'round':round,'options':{'fixed':[],'excluded':[],'oddCount':None}}
             expect(request(base,'/api/app/v1/lotto/generations',payload)[0],401,'anonymous write')
             expect(request(base,'/api/records/v1/lotto_public_generations',{'round':round},auth)[0],403,'record write ACL')
-            for table in ['ait_lotto_profiles','ait_lotto_generation_origins','ait_lotto_generation_requests','ait_lotto_ad_sessions','message_outbox','promotion_reward_ledger','ait_lotto_promotion_reservations','ait_lotto_promotion_usage']:
+            for table in ['ait_lotto_profiles','ait_lotto_generation_origins','ait_lotto_generation_requests','ait_lotto_ad_sessions','message_outbox','promotion_reward_ledger','ait_lotto_promotion_reservations','ait_lotto_promotion_usage','ait_lotto_attendance_cycles','ait_lotto_attendance_restores']:
                 status,private=request(base,f'/api/records/v1/{table}')
                 assert status in (400,401,403,404) or private is None or (isinstance(private,dict) and 'error' in private), f'{table} exposed (status={status}, keys={list(private) if isinstance(private,dict) else type(private).__name__})'
             checks.append('private identity and origin metadata inaccessible')

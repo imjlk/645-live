@@ -4,16 +4,52 @@ import concurrent.futures
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import platform
+import sqlite3
 import subprocess
 import tempfile
 import threading
 import time
 import uuid
 
-from smoke import cleanup_case, command, expect, request
+from smoke import SOURCE, cleanup_case, command, expect, request
+
+
+def check_forward_migration():
+    # Exercise an upgrade with existing ad sessions, not just a clean installation.
+    original=(SOURCE/'migrations/U1789314000__miniapp_lotto.sql').read_text()
+    ads=original[original.index('CREATE TABLE ait_lotto_attendance ('):original.index('-- Kit functional ledger template: anonymous_bootstrap_attempts.sql')]
+    with sqlite3.connect(':memory:') as db:
+        db.executescript("PRAGMA foreign_keys=ON; CREATE TABLE _user(id BLOB PRIMARY KEY); CREATE TABLE promotion_campaigns(id TEXT PRIMARY KEY); CREATE TABLE promotion_reward_ledger(user_id BLOB,source_type TEXT,source_id TEXT);")
+        db.executescript(ads)
+        db.executescript((SOURCE/'migrations/U1789322000__miniapp_promotion_accounting.sql').read_text())
+        db.execute("INSERT INTO _user VALUES (x'01')")
+        db.execute("INSERT INTO promotion_campaigns VALUES ('old')")
+        db.execute("INSERT INTO ait_lotto_entitlements VALUES (x'01','custom',100000)")
+        db.execute("INSERT INTO ait_lotto_ad_sessions(id,user_id,placement,format,group_id,created_at,completed_at,status,expires_at,pass_duration_ms,events_json) VALUES ('ad-1',x'01','custom','rewarded','real-group',1,2,'granted',999,100000,'[\"show\",\"userEarnedReward\"]')")
+        db.execute("INSERT INTO ait_lotto_promotion_reservations VALUES ('old','retained-hmac',30,1)")
+        before=db.execute('SELECT * FROM ait_lotto_ad_sessions').fetchall()
+        db.commit()
+        migration=(SOURCE/'migrations/U1789344000__miniapp_attendance_cycles.sql').read_text()
+        db.executescript('BEGIN;'+migration+'COMMIT;')
+        after=db.execute('SELECT * FROM ait_lotto_ad_sessions').fetchall()
+        assert [row[:-1] for row in after]==before and after[0][-1] is None
+        assert db.execute('PRAGMA foreign_key_check').fetchall()==[]
+        assert db.execute('SELECT expires_at FROM ait_lotto_entitlements').fetchone()==(100000,)
+        assert db.execute("SELECT enabled FROM ait_lotto_ad_placements WHERE placement='attendance_restore'").fetchone()==(0,)
+        db.execute("INSERT INTO ait_lotto_attendance_cycles VALUES (x'01',1,7,1)")
+        db.execute("INSERT INTO ait_lotto_attendance_restores VALUES (x'01',5,'ad-1',1)")
+        db.execute("DELETE FROM ait_lotto_ad_sessions WHERE id='ad-1'")
+        assert db.execute('SELECT ad_session_id FROM ait_lotto_attendance_restores').fetchone()==(None,)
+        db.execute('DELETE FROM _user')
+        assert db.execute('SELECT * FROM ait_lotto_attendance_cycles').fetchall()==[]
+        assert db.execute('SELECT * FROM ait_lotto_attendance_restores').fetchall()==[]
+        assert db.execute('SELECT reserved_amount FROM ait_lotto_promotion_usage').fetchone()==(30,)
+        assert db.execute('PRAGMA foreign_key_check').fetchall()==[]
+    print(json.dumps({'case':'attendance-forward-migration','passed':['existing sessions and passes preserved','restore placement starts disabled','retention and withdrawal preserve foreign-key integrity and budget']}),flush=True)
 
 
 def run():
+    check_forward_migration()
     grants = []
 
     class Provider(BaseHTTPRequestHandler):
@@ -69,7 +105,7 @@ def run():
                     '-p', '127.0.0.1::4000', '-v', f'{folder}:/app/traildepot',
                     '-e', 'BACKFILL_ON_STARTUP=false', '-e', 'AIT_ENABLED=true',
                     '-e', 'AIT_ALLOW_DEV_IDENTITY=true', '-e', 'AIT_BOTS_ENABLED=false',
-                    '-e', 'AIT_PROMOTIONS_ENABLED=true', '-e', 'RUNTIME_THREADS=4',
+                    '-e', 'AIT_PROMOTIONS_ENABLED=true', '-e', 'AIT_TEST_ADS=true', '-e', 'RUNTIME_THREADS=4',
                     '-e', f'MTLS_PROXY_URL=http://host.docker.internal:{server.server_port}',
                     '-e', 'MTLS_PROXY_TOKEN=fixture-token', '645-trailbase:miniapp')
                 base = 'http://127.0.0.1:' + command('docker', 'port', name, '4000/tcp').rsplit(':', 1)[1]
@@ -91,63 +127,127 @@ def run():
                     script = "import {Database} from 'bun:sqlite'; const db=new Database('/app/traildepot/data/main.db'); const rows=await Bun.stdin.json(); db.exec('PRAGMA foreign_keys=ON'); db.transaction(()=>{for(const [sql,params] of rows) db.query(sql).run(...params.map(v=>Array.isArray(v)?Buffer.from(v):v));})(); db.close();"
                     result = subprocess.run(['docker','exec','-i',name,'bun','-e',script], input=json.dumps(statements), text=True, capture_output=True, timeout=10)
                     assert result.returncode == 0, 'isolated promotion fixture failed'
-                now = request(base, '/api/app/v1/attendance/status', headers=auth)[1]['serverTime']
-                day = (now + 32400000) // 86400000
-                fixture([
-                    *[('INSERT INTO ait_lotto_attendance(user_id,day,created_at) VALUES (?,?,?)', [user, day - n, now]) for n in range(5)],
-                    ("INSERT INTO promotion_campaigns(id,feature_key,provider_promotion_code,reward_amount,status,starts_at,ends_at,budget_limit_amount,max_grant_count,created_at,updated_at) VALUES ('fixture-1','ait_lotto_attendance','pending-then-success',1,'ACTIVE',?,?,1,1,?,?)", [now - 1000, now + 86400000, now, now])
-                ])
-                attendance = request(base, '/api/app/v1/attendance/status', headers=auth)[1]
-                assert attendance['streak'] == 5 and attendance['promotion'] is not None, {k: attendance[k] for k in ['streak', 'serverTime', 'promotion']}
+                def state():
+                    status, result = request(base, '/api/app/v1/attendance/status', headers=auth)
+                    expect(status, 200, 'attendance state')
+                    return result
+                def reward(kind):
+                    return next(p for p in state()['promotions'] if p['kind'] == kind)
+                def claim(r):
+                    return request(base, '/api/app/v1/attendance/promotion/claim', {k:r[k] for k in ['kind','periodDay','campaignId','claimId']}, auth)
+                def campaign(key, kind, amount, budget, code='pending-then-success'):
+                    fixture([("INSERT INTO promotion_campaigns(id,feature_key,provider_promotion_code,reward_amount,status,starts_at,ends_at,budget_limit_amount,created_at,updated_at) VALUES (?,?,?,?,'ACTIVE',?,?,?,?,?)", [key,'ait_lotto_attendance_'+kind,code,amount,now-100,now+86400000,budget,now,now])])
+                def new_user(identity=None):
+                    status, result = request(base, '/api/app/v1/session/bootstrap', {'anonymousHash':identity or 'dev-anon-'+uuid.uuid4().hex})
+                    expect(status,200,'new test user')
+                    t = result['authTokens']
+                    return list(base64.urlsafe_b64decode(result['user']['id']+'==')), {'Authorization':'Bearer '+t['authToken'],'CSRF-Token':t['csrfToken'],'Refresh-Token':t['refreshToken']}
+                def attend_days(days):
+                    fixture([('INSERT OR IGNORE INTO ait_lotto_attendance(user_id,day,created_at) VALUES (?,?,?)',[user,d,now]) for d in days])
+                def generate():
+                    round = request(base,'/api/app/v1/lotto/round-context')[1]['targetRound']
+                    expect(request(base,'/api/app/v1/lotto/generations',{'requestId':uuid.uuid4().hex,'round':round,'options':{'fixed':[],'excluded':[],'oddCount':None}},auth)[0],200,'actual generation')
+                now = state()['serverTime']
+                day = (now+32400000)//86400000
                 path = '/api/app/v1/attendance/promotion/claim'
-                body = {'campaignId': 'fixture-1'}
+                check_path = '/api/app/v1/attendance/check-in'
+                expect(request(base,check_path,{},auth)[0],403,'generation required before check-in')
+                expect(request(base,'/api/app/v1/ads/start',{'placement':'attendance_restore'},auth)[0],409,'ineligible restore does not show an ad')
+                generate()
+                assert state()['generatedToday']
+                attend_days([day-2,day-1])
+                for _ in range(2): expect(request(base,check_path,{},auth)[0],200,'idempotent attendance')
+                assert state()['streak']==3 and 'nextPassIn' not in state()
+                assert request(base,'/api/app/v1/ads/config',headers=auth)[1]['passes']=={}, 'three-day attendance still grants feature passes'
+                campaign('daily-1','daily',1,1)
+                campaign('weekly-1','weekly',30,300)
+                daily=reward('daily')
+                assert daily['eligible'] and not reward('weekly')['eligible']
                 with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
-                    replies = list(pool.map(lambda _: request(base, path, body, auth), range(4)))
-                assert any(status == 200 for status, _ in replies), [(status, result.get('error', {}).get('code')) for status, result in replies]
-                assert all(status in (200, 409) for status, _ in replies), [status for status, _ in replies]
-                assert len(grants) == 1, 'concurrent requests issued more than one grant'
-                visible = request(base, '/api/app/v1/attendance/status', headers=auth)[1]['promotion']
-                assert visible['campaignId'] == 'fixture-1', 'exhausted campaign hid its existing claim'
-                status, result = request(base, path, body, auth)
-                expect(status, 200, 'status-only reconciliation')
-                assert result['status'] == 'success' and len(grants) == 1
-                assert request(base, path, body, auth)[1]['status'] == 'success' and len(grants) == 1
-                claim_id = visible['claimId']
-                fixture([("DELETE FROM promotion_campaigns WHERE id='fixture-1'", [])])
-                orphan = request(base, '/api/app/v1/attendance/status', headers=auth)[1]['promotion']
-                assert orphan['campaignId'] is None and orphan['claimId'] == claim_id
-                assert request(base, path, {'claimId': claim_id}, auth)[1]['status'] == 'success'
-                fixture([("INSERT INTO promotion_campaigns(id,feature_key,provider_promotion_code,reward_amount,status,starts_at,ends_at,budget_limit_amount,max_grant_count,created_at,updated_at) VALUES ('fixture-2','ait_lotto_attendance','unknown-outcome',1,'ACTIVE',?,?,1,1,?,?)", [now - 500, now + 86400000, now, now])])
-                status, _ = request(base, path, {'campaignId': 'fixture-2'}, auth)
-                expect(status, 500, 'ambiguous provider outcome')
-                fixture([("UPDATE promotion_reward_ledger SET created_at=? WHERE campaign_id='fixture-2'", [now - 601000])])
-                status, result = request(base, path, {'campaignId': 'fixture-2'}, auth)
-                expect(status, 200, 'unknown outcome review')
-                assert result['status'] == 'needs_review' and len(grants) == 2
-                assert len(set(grants)) == 2
-                fixture([("INSERT INTO promotion_campaigns(id,feature_key,provider_promotion_code,reward_amount,status,starts_at,ends_at,budget_limit_amount,max_grant_count,created_at,updated_at) VALUES ('fixture-3','ait_lotto_attendance','withdrawal-test',1,'ACTIVE',?,?,10,10,?,?)", [now - 250, now + 86400000, now, now])])
-                expect(request(base, path, {'campaignId': 'fixture-3'}, auth)[0], 200, 'third campaign')
-                assert len(grants) == 3
-                expect(request(base, '/api/app/v1/session/withdraw', {}, auth)[0], 200, 'withdraw after grant request')
-                status, restored = request(base, '/api/app/v1/session/bootstrap', {'anonymousHash': seed})
-                expect(status, 200, 'recreate anonymous profile')
-                assert restored['user']['id'] != session['user']['id']
-                tokens = restored['authTokens']
-                auth = {'Authorization': 'Bearer ' + tokens['authToken'], 'CSRF-Token': tokens['csrfToken'], 'Refresh-Token': tokens['refreshToken']}
-                user = list(base64.urlsafe_b64decode(restored['user']['id'] + '=='))
-                fixture([('INSERT INTO ait_lotto_attendance(user_id,day,created_at) VALUES (?,?,?)', [user, day - n, now]) for n in range(5)])
-                visible = request(base, '/api/app/v1/attendance/status', headers=auth)[1]['promotion']
-                assert visible['status'] == 'already_claimed' and not visible['eligible']
-                status, result = request(base, path, {'campaignId': 'fixture-3'}, auth)
-                expect(status, 409, 'withdrawal must not allow another reward')
-                assert result['error']['code'] == 'PROMOTION_ALREADY_CLAIMED' and len(grants) == 3
-                usage = command('docker','exec',name,'bun','-e',"import {Database} from 'bun:sqlite'; const db=new Database('/app/traildepot/data/main.db',{readonly:true}); console.log(db.query(\"SELECT reserved_amount FROM ait_lotto_promotion_usage WHERE campaign_id='fixture-3'\").get().reserved_amount); db.close();")
-                assert usage == '1', 'withdrawal replenished campaign budget'
-                print(json.dumps({'case': 'promotion-retries', 'passed': [
-                    'one grant under concurrent requests', 'status-only reconciliation',
-                    'exhausted or deleted campaign remains readable', 'unknown outcomes never issue a second grant',
-                    'withdrawal preserves budget and blocks repeat claims'
-                ]}), flush=True)
+                    replies=list(pool.map(lambda _:claim(daily),range(4)))
+                assert any(s==200 for s,_ in replies) and all(s in (200,409) for s,_ in replies), [(s,r.get('error',{}).get('code')) for s,r in replies]
+                assert len(grants)==1,'concurrent daily claims issued multiple grants'
+                assert reward('daily')['claimId'] and not reward('daily')['eligible'],'exhaustion hid claim'
+                assert claim(reward('daily'))[1]['status']=='success' and len(grants)==1
+                expect(request(base,path,{'kind':'daily','campaignId':'daily-1','periodDay':day+1},auth)[0],403,'future daily reward')
+                attend_days(range(day-6,day-2))
+                assert state()['streak']==7 and reward('weekly')['eligible']
+                assert claim(reward('weekly'))[1]['status']=='pending'
+                assert claim(reward('weekly'))[1]['status']=='success' and len(grants)==2
+                # The same anonymous identity cannot regain a reward by deleting its profile,
+                # even if the operator has since selected another campaign.
+                campaign('daily-2','daily',1,100)
+                expect(request(base,'/api/app/v1/session/withdraw',{},auth)[0],200,'withdraw')
+                user,auth=new_user(seed)
+                attend_days(range(day-6,day+1))
+                for kind in ['daily','weekly']:
+                    r=reward(kind)
+                    assert not r['eligible'] and r['status']=='already_claimed',r
+                    expect(claim(r)[0],409,'rejoin must not duplicate reward')
+                assert len(grants)==2
+                user,auth=new_user()
+                attend_days(range(day-7,day+1))
+                assert state()['streak']==1,'eighth day must start a new cycle'
+                assert reward('weekly')['periodDay']==day-1,'completed bonus was lost at reset'
+                # Both ad formats restore once, never grant yesterday's daily points.
+                for weight in [100,0]:
+                    user,auth=new_user()
+                    attend_days(range(day-7,day-1))
+                    generate()
+                    assert state()['canRestore']
+                    fixture([("UPDATE ait_lotto_ad_placements SET rewarded_weight=? WHERE placement='attendance_restore'",[weight])])
+                    status,ad=request(base,'/api/app/v1/ads/start',{'placement':'attendance_restore'},auth)
+                    expect(status,200,'restore ad')
+                    assert ad['format']==('rewarded' if weight==100 else 'interstitial')
+                    events=['show','impression','dismissed','userEarnedReward']
+                    for _ in range(2): expect(request(base,'/api/app/v1/ads/complete',{'id':ad['id'],'events':events},auth)[0],200,'restore completion replay')
+                    assert not state()['canRestore'] and reward('weekly')['eligible']
+                    assert not state()['checkedIn'] and not reward('daily')['eligible'],'restoration granted retroactive daily attendance'
+                    expect(request(base,path,{'kind':'daily','periodDay':day-1,'campaignId':'daily-2'},auth)[0],403,'no retroactive daily points')
+                    expect(request(base,check_path,{},auth)[0],200,'today starts next cycle')
+                    assert state()['streak']==1
+                    assert request(base,'/api/app/v1/ads/start',{'placement':'attendance_restore'},auth)[1]['alreadyGranted'], 'retry must not display another restore ad'
+                # Restoration remains bounded across a second gap in the same cycle.
+                user,auth=new_user()
+                attend_days([day-5,day-3,day-2])
+                fixture([('INSERT INTO ait_lotto_attendance_restores(user_id,day,created_at) VALUES (?,?,?)',[user,day-4,now])])
+                generate()
+                assert not state()['canRestore']
+                # A started ad cannot restore a different day after midnight.
+                user,auth=new_user()
+                attend_days([day-2]);generate()
+                _,ad=request(base,'/api/app/v1/ads/start',{'placement':'attendance_restore'},auth)
+                fixture([('UPDATE ait_lotto_ad_sessions SET attendance_day=? WHERE id=?',[day-1,ad['id']])])
+                status,result=request(base,'/api/app/v1/ads/complete',{'id':ad['id'],'events':['show','impression','dismissed','userEarnedReward']},auth)
+                expect(status,409,'midnight restore invalidation');assert result['error']['code']=='RESTORE_EXPIRED'
+                # Existing claims remain readable if their campaign is removed.
+                user,auth=new_user();attend_days([day])
+                r=reward('daily');expect(claim(r)[0],200,'orphan fixture claim')
+                r=reward('daily');assert claim(r)[1]['status']=='success'
+                before=len(grants)
+                fixture([("DELETE FROM promotion_campaigns WHERE id='daily-2'",[])])
+                orphan=reward('daily');assert orphan['campaignId'] is None and orphan['claimId']==r['claimId']
+                assert claim(orphan)[1]['status']=='success' and len(grants)==before
+                # Unknown outcomes are escalated without ever granting twice.
+                campaign('daily-3','daily',1,1,'unknown-outcome')
+                user,auth=new_user();attend_days([day])
+                expect(claim(reward('daily'))[0],500,'ambiguous provider outcome')
+                fixture([("UPDATE promotion_reward_ledger SET created_at=? WHERE campaign_id='daily-3'",[now-601000])])
+                before=len(grants)
+                assert claim(reward('daily'))[1]['status']=='needs_review' and len(grants)==before
+                # Last month's unsettled claim remains reachable alongside today's reward.
+                fixture([("UPDATE promotion_reward_ledger SET source_id=? WHERE campaign_id='daily-3'",[str(day-1)])])
+                history=state()['promotionHistory'];assert any(p['status']=='needs_review' for p in history)
+                assert len(set(grants))==len(grants)
+                usage=command('docker','exec',name,'bun','-e',"import {Database} from 'bun:sqlite'; const db=new Database('/app/traildepot/data/main.db',{readonly:true}); console.log(db.query(\"SELECT reserved_amount FROM ait_lotto_promotion_usage WHERE campaign_id='daily-1'\").get().reserved_amount); db.close();")
+                assert usage=='1','withdrawal replenished budget'
+                print(json.dumps({'case':'attendance-promotions','passed':[
+                    'generation-gated check-in; no three-day pass', 'daily and seven-day bonuses independently configurable',
+                    'concurrent claims are idempotent; budget survives deletion and rejoin',
+                    'seven-day reset retains completed bonus', 'rewarded and interstitial restore exactly once',
+                    'no retroactive daily points; restore limits and midnight binding',
+                    'exhausted/deleted campaigns and older claims remain readable', 'unknown outcomes never issue another grant'
+                ]}),flush=True)
             finally:
                 cleanup_case(name, folder, '645-trailbase:miniapp')
     finally:

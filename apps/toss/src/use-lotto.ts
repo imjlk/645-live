@@ -15,11 +15,13 @@ import { AccessibilityInfo, AppState } from "react-native";
 import { createAdController, setResultNotification } from "./ad-bridge";
 import {
 	type AdConfig,
+	type AdPlacement,
 	API_BASE,
 	type Attendance,
 	apiErrorCode,
 	createApi,
 	newRequestId,
+	type Promotion,
 	type User,
 } from "./api";
 import type { ReportState } from "./ReportHistory";
@@ -405,6 +407,10 @@ export function useLotto() {
 					pending.current = null;
 					setCurrent(response.generation);
 					await api
+						.attendance()
+						.then(setAttendance)
+						.catch(() => {});
+					await api
 						.feed(round.targetRound)
 						.then(setFeed)
 						.catch(() => {});
@@ -439,19 +445,59 @@ export function useLotto() {
 			}),
 		checkIn: () =>
 			run("checkIn", async () => {
-				const result = await api.checkIn();
-				await refreshPrivate();
-				setNotice(
-					result.passGranted
-						? "3일 연속 출석! 맞춤 생성과 분석 이용권이 열렸어요."
-						: "오늘 출석했어요. 내일도 만나요!",
+				await api.checkIn();
+				const state = await api.attendance();
+				setAttendance(state);
+				const daily = state.promotions.find(
+					(p) => p.kind === "daily" && p.eligible,
 				);
+				if (!daily) {
+					setNotice("오늘 출석했어요. 내일도 만나요!");
+					return;
+				}
+				try {
+					const result = await api.request<{ status: string; amount: number }>(
+						"/api/app/v1/attendance/promotion/claim",
+						{
+							kind: daily.kind,
+							periodDay: daily.periodDay,
+							campaignId: daily.campaignId,
+						},
+					);
+					setNotice(
+						result.status === "success"
+							? `출석 완료! ${result.amount}P를 받았어요.`
+							: "출석했어요. 포인트 지급 상태를 확인해 주세요.",
+					);
+				} catch {
+					setNotice(
+						"출석은 완료했어요. 아래에서 일일 혜택을 다시 확인해 주세요.",
+					);
+				} finally {
+					await refreshPrivate();
+				}
 			}),
-		unlock: (feature: "custom" | "report") =>
+		unlock: (feature: AdPlacement) =>
 			run(`unlock-${feature}`, async () => {
-				await adsController.unlock(feature);
-				await refreshPrivate();
-				setNotice("24시간 이용권이 열렸어요.");
+				let refreshed = true;
+				try {
+					await adsController.unlock(feature);
+				} finally {
+					await refreshPrivate().catch(() => {
+						refreshed = false;
+					});
+				}
+				if (!refreshed) {
+					setNotice(
+						"광고 처리는 완료했어요. 새로고침하면 출석·이용권 현황을 확인할 수 있어요.",
+					);
+					return;
+				}
+				setNotice(
+					feature === "attendance_restore"
+						? "놓친 출석을 복구했어요. 연속 출석을 이어가세요!"
+						: "24시간 이용권이 열렸어요.",
+				);
 			}),
 		notifications: (enabled: boolean) =>
 			run("notifications", async () => {
@@ -474,19 +520,21 @@ export function useLotto() {
 						: "결과 알림을 껐어요.",
 				);
 			}),
-		promotion: () =>
+		promotion: (promotion: Promotion) =>
 			run("promotion", async () => {
 				const result = await api.request<{ status: string; amount: number }>(
 					"/api/app/v1/attendance/promotion/claim",
 					{
-						campaignId: attendance?.promotion?.campaignId,
-						claimId: attendance?.promotion?.claimId,
+						campaignId: promotion.campaignId,
+						kind: promotion.kind === "legacy" ? undefined : promotion.kind,
+						periodDay: promotion.periodDay,
+						claimId: promotion.claimId,
 					},
 				);
 				await refreshPrivate();
 				setNotice(
 					result.status === "success"
-						? `${result.amount}원을 받았어요.`
+						? `${result.amount}P를 받았어요.`
 						: result.status === "needs_review" || result.status === "failed"
 							? "지급 확인에 도움이 필요해요. support@645.live로 문의해 주세요."
 							: "지급 결과를 확인 중이에요. 잠시 후 지급 상태를 다시 확인해 주세요.",
@@ -512,3 +560,5 @@ export function useLotto() {
 			}),
 	};
 }
+
+export type LottoModel = ReturnType<typeof useLotto>;

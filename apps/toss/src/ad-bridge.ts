@@ -5,7 +5,7 @@ import {
 } from "@apps-in-toss/framework";
 import { createAppsInTossFullScreenAdBridge } from "@trailbase-apps-in-toss-kit/ait-rn/ads";
 import { createAppsInTossNotificationAgreementBridge } from "@trailbase-apps-in-toss-kit/ait-rn/notifications";
-import { type AdConfig, type Api, apiErrorCode } from "./api";
+import { type AdConfig, type AdPlacement, type Api, apiErrorCode } from "./api";
 
 export function createAdController(api: Api) {
 	const bridge = createAppsInTossFullScreenAdBridge({
@@ -15,7 +15,10 @@ export function createAdController(api: Api) {
 	});
 	let busy = false;
 	let disposed = false;
-	let pendingCompletion: { id: string; events: string[] } | null = null;
+	let pendingCompletion: {
+		id: string;
+		events: string[];
+	} | null = null;
 	function supported() {
 		try {
 			return loadFullScreenAd.isSupported() && showFullScreenAd.isSupported();
@@ -36,11 +39,11 @@ export function createAdController(api: Api) {
 			for (const id of groups)
 				void bridge.preload({ adGroupId: id }).catch(() => {});
 		},
-		async unlock(placement: "custom" | "report") {
+		async unlock(placement: AdPlacement) {
 			if (busy) throw new Error("진행 중인 광고를 먼저 완료해 주세요.");
 			if (!supported())
 				throw new Error(
-					"이 토스 버전에서는 광고를 지원하지 않아요. 출석으로도 이용권을 받을 수 있어요.",
+					"광고를 이용하려면 토스 앱을 최신 버전으로 업데이트해 주세요.",
 				);
 			busy = true;
 			try {
@@ -52,9 +55,13 @@ export function createAdController(api: Api) {
 						);
 					} catch (error) {
 						if (
-							["AD_INCOMPLETE", "AD_EXPIRED", "AD_NOT_FOUND"].includes(
-								apiErrorCode(error) ?? "",
-							)
+							[
+								"AD_INCOMPLETE",
+								"AD_EXPIRED",
+								"AD_NOT_FOUND",
+								"RESTORE_EXPIRED",
+								"RESTORE_UNAVAILABLE",
+							].includes(apiErrorCode(error) ?? "")
 						)
 							pendingCompletion = null;
 						else throw error;
@@ -70,14 +77,21 @@ export function createAdController(api: Api) {
 						interstitialCompletionFallbackMs: 120_000,
 						preloadNext: false,
 					});
-					pendingCompletion = { id: session.id, events: result.events };
+					pendingCompletion = {
+						id: session.id,
+						events: result.events,
+					};
 					await api.completeAd(session.id, result.events);
 					pendingCompletion = null;
 				} catch (error) {
 					if (
-						["AD_INCOMPLETE", "AD_EXPIRED", "AD_NOT_FOUND"].includes(
-							apiErrorCode(error) ?? "",
-						)
+						[
+							"AD_INCOMPLETE",
+							"AD_EXPIRED",
+							"AD_NOT_FOUND",
+							"RESTORE_EXPIRED",
+							"RESTORE_UNAVAILABLE",
+						].includes(apiErrorCode(error) ?? "")
 					)
 						pendingCompletion = null;
 					if (!pendingCompletion)

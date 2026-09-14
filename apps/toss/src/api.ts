@@ -23,9 +23,10 @@ export const API_BASE = (
 ).replace(/\/$/, "");
 const production = process.env.LOTTO_APP_ENV === "production";
 export type User = { id: string; displayName: string };
+export type AdPlacement = "custom" | "report" | "attendance_restore";
 export type AdConfig = {
 	placements: {
-		placement: "custom" | "report";
+		placement: AdPlacement;
 		enabled: boolean;
 		rewardedGroupId: string | null;
 		interstitialGroupId: string | null;
@@ -37,21 +38,29 @@ export type AdConfig = {
 	bannerGroupId: string | null;
 	serverTime: number;
 };
+export type Promotion = {
+	kind: "daily" | "weekly" | "legacy";
+	periodDay: number | null;
+	campaignId: string | null;
+	claimId: string | null;
+	amount: number;
+	eligible: boolean;
+	available: boolean;
+	status: string | null;
+};
 export type Attendance = {
 	day: number;
 	checkedIn: boolean;
+	generatedToday: boolean;
 	streak: number;
-	nextPassIn: number;
+	cycleLength: number;
+	canRestore: boolean;
+	restoreLimit: number;
 	notificationTemplateCode: string | null;
 	notificationsEnabled: boolean;
 	serverTime: number;
-	promotion: null | {
-		campaignId: string | null;
-		claimId: string | null;
-		amount: number;
-		eligible: boolean;
-		status: string | null;
-	};
+	promotions: Promotion[];
+	promotionHistory: Promotion[];
 };
 export type AdSession =
 	| { alreadyGranted: true }
@@ -279,7 +288,7 @@ export function createApi() {
 				id,
 			}),
 		ads: () => request<AdConfig>("/api/app/v1/ads/config"),
-		startAd: (placement: "custom" | "report") =>
+		startAd: (placement: AdPlacement) =>
 			request<AdSession>("/api/app/v1/ads/start", { placement }),
 		completeAd: (id: string, events: string[]) =>
 			request<{ feature: string; expiresAt: number }>(
@@ -288,7 +297,7 @@ export function createApi() {
 			),
 		attendance: () => request<Attendance>("/api/app/v1/attendance/status"),
 		checkIn: () =>
-			request<{ streak: number; passGranted: boolean; replayed: boolean }>(
+			request<{ streak: number; replayed: boolean }>(
 				"/api/app/v1/attendance/check-in",
 				{},
 			),

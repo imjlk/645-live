@@ -1,4 +1,4 @@
-use crate::{auth, body, db, lotto, settings};
+use crate::{attendance, auth, body, db, lotto, settings};
 use serde::Deserialize;
 use serde_json::{Value as Json, json};
 use trailbase_guest_common::responses::*;
@@ -118,13 +118,29 @@ pub(crate) async fn start(req: &mut Request) -> ApiResult<Json> {
             "지금은 광고 이용권을 준비 중이에요.",
         ));
     }
-    match require_pass(&mut tx, &user.id, &input.placement, now) {
-        Ok(()) => {
+    if input.placement == "attendance_restore" {
+        let restored = db::tx_query(
+            &mut tx,
+            "SELECT 1 FROM ait_lotto_attendance_restores WHERE user_id=?1 AND day=?2",
+            &[
+                Value::Blob(user.id.clone()),
+                Value::Integer(crate::engagement::kst_day(now) - 1),
+            ],
+        )?;
+        if !restored.is_empty() {
             db::tx_commit(&mut tx)?;
             return Ok(json!({"alreadyGranted":true}));
         }
-        Err(err) if err.code == "PASS_REQUIRED" => {}
-        Err(err) => return Err(err),
+        attendance::require_restore(&mut tx, &user.id, now)?;
+    } else {
+        match require_pass(&mut tx, &user.id, &input.placement, now) {
+            Ok(()) => {
+                db::tx_commit(&mut tx)?;
+                return Ok(json!({"alreadyGranted":true}));
+            }
+            Err(err) if err.code == "PASS_REQUIRED" => {}
+            Err(err) => return Err(err),
+        }
     }
     // Expired reservations remain in the ledger for daily caps; they release the outstanding slot.
     db::tx_execute(
@@ -173,16 +189,21 @@ pub(crate) async fn start(req: &mut Request) -> ApiResult<Json> {
     let expires = now + 300_000;
     db::tx_execute(
         &mut tx,
-        "INSERT INTO ait_lotto_ad_sessions(id,user_id,placement,format,group_id,created_at,expires_at,pass_duration_ms) VALUES (?1,?2,?3,?4,?5,?6,?7,?8)",
+        "INSERT INTO ait_lotto_ad_sessions(id,user_id,placement,format,group_id,created_at,expires_at,pass_duration_ms,attendance_day) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9)",
         &[
             Value::Text(id.clone()),
             Value::Blob(user.id),
-            Value::Text(input.placement),
+            Value::Text(input.placement.clone()),
             Value::Text(format.into()),
             Value::Text(group.clone()),
             Value::Integer(now),
             Value::Integer(expires),
             Value::Integer(db::integer(&row[5], "duration")?),
+            if input.placement == "attendance_restore" {
+                Value::Integer(day)
+            } else {
+                Value::Null
+            },
         ],
     )?;
     db::tx_commit(&mut tx)?;
@@ -234,7 +255,7 @@ pub(crate) async fn complete(req: &mut Request) -> ApiResult<Json> {
     let now = db::now_ms_tx(&mut tx)?;
     let rows = db::tx_query(
         &mut tx,
-        "SELECT placement,format,created_at,completed_at,expires_at,pass_duration_ms,status FROM ait_lotto_ad_sessions WHERE id = ?1 AND user_id = ?2",
+        "SELECT placement,format,created_at,completed_at,expires_at,pass_duration_ms,status,attendance_day FROM ait_lotto_ad_sessions WHERE id = ?1 AND user_id = ?2",
         &[Value::Text(input.id.clone()), Value::Blob(user.id.clone())],
     )?;
     let r = rows
@@ -268,7 +289,17 @@ pub(crate) async fn complete(req: &mut Request) -> ApiResult<Json> {
         ));
     }
     let expires = now + db::integer(&r[5], "duration")?;
-    grant_pass(&mut tx, &user.id, &feature, expires)?;
+    if feature == "attendance_restore" {
+        attendance::restore(
+            &mut tx,
+            &user.id,
+            now,
+            &input.id,
+            db::nullable_integer(&r[7])?,
+        )?;
+    } else {
+        grant_pass(&mut tx, &user.id, &feature, expires)?;
+    }
     db::tx_execute(
         &mut tx,
         "UPDATE ait_lotto_ad_sessions SET status = 'granted', completed_at = ?1, events_json = ?2 WHERE id = ?3",
