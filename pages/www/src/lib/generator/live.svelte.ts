@@ -39,7 +39,8 @@ export function createLiveGenerations(
 	let feed = $state(initial.feed);
 	// Subscription events update this non-reactive snapshot. Only batch commits
 	// change the rendered feed, including its rows and all 45 absolute counters.
-	let currentFeed = initial.feed;
+	// Keep the prerendered feed visible while the first live baseline loads.
+	let currentFeed: Feed | null = null;
 	const initialRows = new Map<number, Generation>();
 	let initialCounts: { values: number[]; total: number; at: number } | null =
 		null;
@@ -77,10 +78,17 @@ export function createLiveGenerations(
 		feed = next;
 	});
 	function publish(next: Feed) {
+		if (!currentFeed || currentFeed.round !== next.round) {
+			batch.cancel();
+			clearTimeout(clearTimer);
+			previousCounts = next.numberCounts;
+			deltas = Array(45).fill(0);
+			currentFeed = next;
+			feed = next;
+			return;
+		}
 		currentFeed = next;
 		batch.push(next);
-		// The first snapshot of a round is a baseline, not 45 new increments.
-		if (!feed || feed.round !== next.round) batch.flush();
 	}
 	function counts(next: number[], total: number) {
 		if (!currentFeed) return;
@@ -312,7 +320,7 @@ export function createLiveGenerations(
 		return () => {
 			active = false;
 			batch.cancel();
-			currentFeed = feed;
+			currentFeed = null;
 			source?.close();
 			countsSource?.close();
 			clearInterval(timer);

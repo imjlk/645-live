@@ -221,6 +221,23 @@ test("events racing the initial fetch become a baseline instead of waiting for s
 	expect(env.live.feed?.totalGenerations).toBe(3);
 });
 
+test("hydration replaces a stale SSG snapshot without reporting historical counts as new activity", async () => {
+	const env = environment();
+	const values = [100, 100, 100, 100, 100, 100, ...Array(39).fill(0)];
+	env.load(async (url) =>
+		url.includes("round-context")
+			? context
+			: { ...baseline(), totalGenerations: 100, numberCounts: values },
+	);
+	await settle();
+	expect(env.live.feed?.totalGenerations).toBe(100);
+	expect(env.live.deltas).toEqual(Array(45).fill(0));
+	env.counts([101, 101, 101, 101, 101, 101, ...Array(39).fill(0)], 101, 1100);
+	await env.advance(1000);
+	expect(env.live.feed?.totalGenerations).toBe(101);
+	expect(env.live.deltas).toEqual([1, 1, 1, 1, 1, 1, ...Array(39).fill(0)]);
+});
+
 test("a busy first snapshot retains a cursor when incoming rows exceed the display window", async () => {
 	const env = environment(null);
 	let finish!: (feed: Feed) => void;
