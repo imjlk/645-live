@@ -17,7 +17,7 @@
 		"stats:indexnow": "node scripts/seo/submit-stats-indexnow.mjs",
 		"toss": "bun --cwd apps/toss --",
 		"miniapp:check": "bun run --cwd packages/lotto-core check && bun run toss check",
-		"miniapp:test": "bun test packages/lotto-core apps/toss/src --timeout 10000",
+		"miniapp:test": "bun test packages/lotto-core apps/toss/src scripts/miniapp --timeout 10000",
 		"miniapp:wasm": "cargo build --manifest-path services/trailbase/miniapp-guest/Cargo.toml --release --target wasm32-wasip2",
 		"miniapp:smoke": "python3 scripts/miniapp/smoke.py"
 	},

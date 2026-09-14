@@ -2,6 +2,7 @@ import { mkdir } from "node:fs/promises";
 import { networkInterfaces } from "node:os";
 import { resolve } from "node:path";
 import { resolveLottoRuntime } from "../../apps/toss/src/runtime-config";
+import { importDrawSnapshot } from "./draw-snapshot.mjs";
 
 const root = resolve(import.meta.dir, "../..");
 const networks = Object.entries(networkInterfaces()).sort(
@@ -81,7 +82,7 @@ try {
 		records: Record<string, unknown>[];
 	};
 	if (!Array.isArray(data.records)) throw new Error("Invalid draw snapshot.");
-	const script = `import {Database} from 'bun:sqlite';const db=new Database('/app/traildepot/data/main.db');const rows=await Bun.stdin.json();const allowed=new Set(db.query('PRAGMA table_info(lotto_draw_results)').all().map(r=>r.name));db.transaction(()=>{for(const row of rows){const keys=Object.keys(row).filter(k=>allowed.has(k));if(!keys.includes('round'))continue;db.query('INSERT OR REPLACE INTO lotto_draw_results ('+keys.map(k=>'"'+k+'"').join(',')+') VALUES ('+keys.map(()=>'?').join(',')+')').run(...keys.map(k=>row[k]));}})();db.close();console.log('[645 local] Public draw results ready.');`;
+	const script = `import {Database} from 'bun:sqlite';const db=new Database('/app/traildepot/data/main.db');const rows=await Bun.stdin.json();const result=(${importDrawSnapshot.toString()})(db,rows);db.close();console.log('[645 local] Public draw results ready ('+result.changed+' changed).');`;
 	await run(
 		[...compose, "exec", "-T", "trailbase", "bun", "-e", script],
 		JSON.stringify(data.records),

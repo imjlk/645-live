@@ -1,6 +1,7 @@
 import type { CombinationReport } from "@645/lotto-core";
 import { Button } from "@toss/tds-react-native";
 import { ActivityIndicator, Text, View } from "react-native";
+import { LOCAL_PREVIEW } from "./api";
 import { Balls } from "./Balls";
 import { useTheme } from "./theme";
 
@@ -35,6 +36,11 @@ export function ReportHistory({
 	if (!data) return null;
 	return (
 		<View style={{ gap: 18 }}>
+			{LOCAL_PREVIEW ? (
+				<Text style={{ color: theme.muted, fontSize: 12, lineHeight: 19 }}>
+					로컬 테스트는 가져온 최근 당첨 결과를 기준으로 비교해요.
+				</Text>
+			) : null}
 			<Text style={{ fontSize: 19, fontWeight: "700", color: theme.text }}>
 				과거 당첨 번호와 비교하면
 			</Text>
@@ -68,7 +74,7 @@ export function ReportHistory({
 				</Text>
 			)}
 			<Text style={{ fontSize: 15, fontWeight: "600", color: theme.text }}>
-				내 번호의 역대 출현 횟수
+				{LOCAL_PREVIEW ? "가져온 회차의 출현 횟수" : "내 번호의 역대 출현 횟수"}
 			</Text>
 			{data.frequencies.map((item) => (
 				<View
