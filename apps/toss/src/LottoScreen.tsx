@@ -8,7 +8,7 @@ import {
 	type SavedCombination,
 } from "@645/lotto-core";
 import { getTossShareLink, share } from "@apps-in-toss/framework";
-import { useBackEvent } from "@granite-js/react-native";
+import { IOScrollView, useBackEvent } from "@granite-js/react-native";
 import {
 	BottomSheet,
 	Button,
@@ -231,10 +231,10 @@ function LottoContent() {
 			Alert.alert("공유를 열지 못했어요", "잠시 후 다시 시도해 주세요.");
 		}
 	};
-	const feedRows = (limit: number) => (
+	const feedRows = (limit: number, start = 0) => (
 		<View>
 			{model.feed?.generations.length ? (
-				model.feed.generations.slice(0, limit).map((item, i) => (
+				model.feed.generations.slice(start, limit).map((item, i) => (
 					<View key={item.id} style={[s.feedRow, { borderColor: theme.line }]}>
 						<View style={[s.row, { marginBottom: 12 }]}>
 							<Text style={[s.body, text]}>{item.displayName}</Text>
@@ -327,7 +327,7 @@ function LottoContent() {
 						</Button>
 					</View>
 				) : null}
-				<ScrollView
+				<IOScrollView
 					ref={scroll}
 					style={{ flex: 1 }}
 					contentContainerStyle={{ paddingBottom: 24 }}
@@ -459,7 +459,10 @@ function LottoContent() {
 									<Text style={[s.finePrint, muted]}>
 										생성한 번호는 실시간 활동에 함께 표시돼요.
 									</Text>
-									<Banner groupId={model.adConfig?.bannerGroupId} />
+									<Banner
+										format="card"
+										groupId={model.adConfig?.bannerGroups?.card}
+									/>
 								</View>
 								<View style={[s.divider, { backgroundColor: theme.surface }]} />
 								<View style={s.section}>
@@ -565,12 +568,21 @@ function LottoContent() {
 								<Text style={[s.caption, muted]}>
 									많이 생성된 번호와 당첨 확률은 관계가 없어요.
 								</Text>
-								<Banner groupId={model.adConfig?.bannerGroupId} />
 								<View style={[s.row, { marginTop: 12 }]}>
 									<Text style={[s.sectionTitle, text]}>최근 생성 내역</Text>
 									<Text style={[s.caption, muted]}>최신 30개</Text>
 								</View>
-								{feedRows(30)}
+								{feedRows(5)}
+								<Banner
+									format="inline"
+									groupId={
+										model.adConfig?.bannerGroups?.inline ??
+										model.adConfig?.bannerGroupId
+									}
+								/>
+								{(model.feed?.generations.length ?? 0) > 5
+									? feedRows(30, 5)
+									: null}
 							</View>
 						) : (
 							<View style={s.section}>
@@ -603,7 +615,13 @@ function LottoContent() {
 										/>
 									</View>
 								) : null}
-								<Banner groupId={model.adConfig?.bannerGroupId} />
+								<Banner
+									format="inline"
+									groupId={
+										model.adConfig?.bannerGroups?.inline ??
+										model.adConfig?.bannerGroupId
+									}
+								/>
 								{!model.savedReady ? (
 									<View style={s.empty}>
 										<ActivityIndicator color={theme.blue} />
@@ -704,7 +722,7 @@ function LottoContent() {
 							</View>
 						)}
 					</Animated.View>
-				</ScrollView>
+				</IOScrollView>
 				{model.notice ? (
 					<View
 						accessibilityLiveRegion="polite"

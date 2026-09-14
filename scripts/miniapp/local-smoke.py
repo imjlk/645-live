@@ -44,6 +44,8 @@ def run_case(image, blocked_by=None):
             expect(status, 200, 'local identity bootstrap')
             tokens = data['authTokens']
             auth = {'Authorization': 'Bearer ' + tokens['authToken'], 'CSRF-Token': tokens['csrfToken']}
+            config = request(base, '/api/app/v1/ads/config', headers=auth)[1]
+            assert config['bannerGroups'] == {'card': 'ait-ad-test-native-image-id', 'inline': 'ait-ad-test-banner-id'}
             context = request(base, '/api/app/v1/lotto/round-context')[1]
             generation = {'requestId': uuid.uuid4().hex, 'round': context['targetRound'],
                 'options': {'fixed': [7, 8], 'excluded': [1], 'oddCount': 3}}

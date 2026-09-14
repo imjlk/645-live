@@ -74,8 +74,19 @@ pub(crate) async fn config(req: &mut Request) -> ApiResult<Json> {
         })
         .collect::<ApiResult<serde_json::Map<String, Json>>>()?;
     db::tx_commit(&mut tx)?;
+    let inline_banner = if test {
+        Some("ait-ad-test-banner-id".into())
+    } else {
+        settings::string("AIT_BANNER_INLINE_GROUP_ID")
+            .or_else(|| settings::string("AIT_BANNER_GROUP_ID"))
+    };
+    let card_banner = if test {
+        Some("ait-ad-test-native-image-id".into())
+    } else {
+        settings::string("AIT_BANNER_CARD_GROUP_ID")
+    };
     Ok(
-        json!({"placements":placements,"passes":passes,"testMode":test,"bannerGroupId":if test {Some("ait-ad-test-banner-id".into())} else {settings::string("AIT_BANNER_GROUP_ID")},"serverTime":now}),
+        json!({"placements":placements,"passes":passes,"testMode":test,"bannerGroupId":inline_banner,"bannerGroups":{"inline":inline_banner,"card":card_banner},"serverTime":now}),
     )
 }
 fn groups(row: &[Value], test: bool) -> ApiResult<(Option<String>, Option<String>)> {

@@ -39,6 +39,7 @@ export type AdConfig = {
 	passes: Partial<Record<"custom" | "report", number>>;
 	testMode: boolean;
 	bannerGroupId: string | null;
+	bannerGroups?: { card: string | null; inline: string | null };
 	serverTime: number;
 };
 export type Promotion = {
