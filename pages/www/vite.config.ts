@@ -1,8 +1,8 @@
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { sveltekit } from "@sveltejs/kit/vite";
 import tailwindcss from "@tailwindcss/vite";
 import UnpluginTypia from "@typia/unplugin/vite";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -24,8 +24,14 @@ export default defineConfig(async ({ command }) => {
 		],
 		resolve: {
 			alias: {
-				"@645/shared/indexnow": path.resolve(__dirname, "../../packages/shared/src/indexnow.ts"),
-				"@645/shared": path.resolve(__dirname, "../../packages/shared/src/index.ts"),
+				"@645/shared/indexnow": path.resolve(
+					__dirname,
+					"../../packages/shared/src/indexnow.ts",
+				),
+				"@645/shared": path.resolve(
+					__dirname,
+					"../../packages/shared/src/index.ts",
+				),
 				"@645/api": path.resolve(__dirname, "../../packages/api/src/index.ts"),
 			},
 		},
@@ -55,6 +61,8 @@ export default defineConfig(async ({ command }) => {
 								target: trailbaseTarget,
 								changeOrigin: true,
 							},
+							"/api/app/v1": { target: trailbaseTarget, changeOrigin: true },
+							"/api/web/v1": { target: trailbaseTarget, changeOrigin: true },
 							"/api/auth/v1": {
 								target: trailbaseTarget,
 								changeOrigin: true,

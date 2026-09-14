@@ -1,5 +1,9 @@
 <script lang="ts">
 import { tick } from "svelte";
+import { useGenerator } from "$lib/generator/model.svelte";
+
+const generator = useGenerator();
+
 import { JsonLd, MetaTags } from "svelte-meta-tags";
 import { initClient } from "trailbase";
 import { resolve } from "$app/paths";
@@ -21,7 +25,7 @@ interface NumberStat {
 let numberOfSets = $state(5);
 let includedNumbers = $state<Set<number>>(new Set());
 let excludedNumbers = $state<Set<number>>(new Set());
-let generatedLottoSets = $state<number[][]>([]);
+const generatedLottoSets = $derived(generator.current.map((g) => g.numbers));
 let isLoading = $state(false);
 let error = $state("");
 let copyMessage = $state("");
@@ -55,7 +59,9 @@ const currentConditions = $derived(
 	}),
 );
 const resultsNeedUpdate = $derived(
-	generatedLottoSets.length > 0 && generatedConditions !== currentConditions,
+	generatedLottoSets.length > 0 &&
+		generatedConditions !== "" &&
+		generatedConditions !== currentConditions,
 );
 const sortedNumberStats = $derived(
 	[...numberStats].sort((a, b) => b.draw_count - a.draw_count),
@@ -175,7 +181,11 @@ function isValid(numbers: number[]): boolean {
 }
 
 async function generateNumbers() {
-	if (isLoading) return;
+	if (isLoading || generator.busy) return;
+	if (generator.pending) {
+		await generator.retry();
+		return;
+	}
 	error = "";
 	copyMessage = "";
 	try {
@@ -205,7 +215,7 @@ async function generateNumbers() {
 				await new Promise<void>((done) => setTimeout(done, 0));
 			}
 		}
-		generatedLottoSets = sets;
+		if (!(await generator.publish(sets))) return;
 		generatedConditions = currentConditions;
 		trackEvent("generate_complete", {
 			count: sets.length,
@@ -267,9 +277,41 @@ async function copyResults() {
 	}
 }
 
+export const snapshot = {
+	capture: () => ({
+		numberOfSets,
+		included: [...includedNumbers],
+		excluded: [...excludedNumbers],
+		sumRange: $state.snapshot(sumRange),
+		oddEvenRatio: $state.snapshot(oddEvenRatio),
+		highLowRatio: $state.snapshot(highLowRatio),
+		consecutiveCount: $state.snapshot(consecutiveCount),
+		generatedConditions,
+	}),
+	restore: (value: {
+		numberOfSets: number;
+		included: number[];
+		excluded: number[];
+		sumRange: typeof sumRange;
+		oddEvenRatio: typeof oddEvenRatio;
+		highLowRatio: typeof highLowRatio;
+		consecutiveCount: typeof consecutiveCount;
+		generatedConditions: string;
+	}) => {
+		numberOfSets = value.numberOfSets;
+		includedNumbers = new Set(value.included);
+		excludedNumbers = new Set(value.excluded);
+		sumRange = value.sumRange;
+		oddEvenRatio = value.oddEvenRatio;
+		highLowRatio = value.highLowRatio;
+		consecutiveCount = value.consecutiveCount;
+		generatedConditions = value.generatedConditions;
+	},
+};
+
 const pageTitle = "조건에 맞는 로또 번호 생성기";
 const pageDescription =
-	"로또 6/45 번호 조합을 원하는 조건에 맞춰 만들어보세요. 포함할 번호와 제외할 번호, 홀짝 비율, 번호 합계, 고저 비율과 연속번호 조건을 설정할 수 있습니다. 생성 결과는 조건에 맞는 무작위 조합이며 복사해 보관할 수 있습니다.";
+	"로또 6/45 번호 조합을 원하는 조건에 맞춰 만들어보세요. 포함할 번호와 제외할 번호, 홀짝 비율, 번호 합계, 고저 비율과 연속번호 조건을 설정할 수 있습니다. 생성한 조합은 토스 번호 생성기와 함께 실시간 현황에 표시되며, 기기 보관함에 저장해 추첨 결과를 확인할 수 있습니다.";
 const ogImage = getGenericOgImage({
 	title: pageTitle,
 	description: "포함·제외 번호와 조건을 정해 만드는 무작위 조합",
@@ -284,25 +326,29 @@ const ogImage = getGenericOgImage({
 <JsonLd schema={{ "@context": "https://schema.org", "@type": "WebApplication", name: pageTitle, url: absoluteUrl("/generator"), description: pageDescription, applicationCategory: "UtilitiesApplication", operatingSystem: "Web Browser", isAccessibleForFree: true, publisher: { "@type": "Organization", name: SITE_NAME, url: SITE_ORIGIN } }} />
 
 <div class="content-page generator-page">
-	<header class="page-header"><div><h1>로또 번호 만들기</h1><p>바로 생성하거나, 원하는 번호와 조건을 먼저 선택하세요.</p></div></header>
+	<header class="page-header"><div><h1>로또 번호 만들기</h1><p>{generator.live.context ? `${generator.live.context.targetRound}회` : "이번 회차"} 번호를 만들고, 마음에 드는 조합을 보관하세요.</p></div></header>
 	<div class="generator-workspace">
 		<section class="generation-area" aria-labelledby="generation-heading">
 			<h2 id="generation-heading" class="sr-only">게임 수 선택과 번호 생성</h2>
 			<div class="generate-controls">
 				<label for="num-sets">게임 수<input type="number" id="num-sets" bind:value={numberOfSets} class="input" min="1" max="100" disabled={isLoading} /></label>
-				<button class="btn btn-primary generate-button" onclick={generateNumbers} disabled={isLoading}>{#if isLoading}<span class="loading loading-spinner loading-sm"></span>생성 중…{:else}{generatedLottoSets.length ? "다시 생성하기" : "번호 생성하기"}{/if}</button>
+				<button class="btn btn-primary generate-button" onclick={generateNumbers} disabled={isLoading || generator.busy || !generator.ready}>{#if isLoading || generator.busy}<span class="loading loading-spinner loading-sm"></span>생성 중…{:else}{generator.pending ? "생성 결과 다시 확인" : generatedLottoSets.length ? "다시 생성하기" : "번호 생성하기"}{/if}</button>
 			</div>
+			<p class="help-text">생성하면 번호·회차·임의 별칭이 실시간 현황에 공개됩니다. <a href={resolve("/privacy#web-generator")} class="underline">처리 안내</a></p>
 			<p class="conditions-summary">포함 {includedNumbers.size}개 · 제외 {excludedNumbers.size}개 · 조건 {filterCount}개</p>
-			{#if error}<div class="alert alert-error mt-4" role="alert">{error}</div>{/if}
+			{#if error || generator.error}<div class="alert alert-error mt-4" role="alert">{error || generator.error}</div>{/if}
+			{#if generator.pending}<p class="help-text" role="status">결과 확인을 기다리는 요청이 있어요. 다시 확인해도 중복 집계되지 않습니다.</p>{/if}
 			<section id="results-section" class="results-section" aria-labelledby="results-heading" aria-busy={isLoading}>
 				<div class="results-title"><h2 id="results-heading">{generatedLottoSets.length ? `생성한 번호 ${generatedLottoSets.length}게임` : "생성한 번호"}</h2>{#if generatedLottoSets.length}<button class="btn btn-ghost btn-sm" onclick={copyResults}>전체 복사</button>{/if}</div>
 				{#if generatedLottoSets.length}
 					{#if resultsNeedUpdate}<p class="help-text" role="status">조건이 바뀌었어요. 다시 생성하면 새 조건이 반영됩니다.</p>{/if}
-					<ol class="result-list">{#each generatedLottoSets as numbers, index (`${index}-${numbers.join("-")}`)}<li><span class="game-index">{String(index + 1).padStart(2, "0")}</span><div class="result-balls">{#each numbers as number (number)}<SimpleBall {number} size="sm" />{/each}</div></li>{/each}</ol>
+					<ol class="result-list">{#each generatedLottoSets as numbers, index (`${index}-${numbers.join("-")}`)}<li><span class="game-index">{String(index + 1).padStart(2, "0")}</span><div class="result-balls">{#each numbers as number (number)}<SimpleBall {number} size="sm" />{/each}</div><button class="result-save" aria-pressed={generator.saved.some(g => g.id === generator.current[index]?.id)} onclick={() => generator.toggleSave(generator.current[index])}>{generator.saved.some(g => g.id === generator.current[index]?.id) ? "보관됨" : "보관"}</button></li>{/each}</ol>
 				{:else}<div class="empty-results"><span class="empty-mark" aria-hidden="true">6 / 45</span><p>생성 버튼을 누르면 6개 번호가 한 게임으로 표시됩니다.</p></div>{/if}
 				<p class="sr-only" aria-live="polite">{generatedLottoSets.length ? `${generatedLottoSets.length}게임 생성 완료` : ""}</p>
 				{#if copyMessage}<p class="copy-message" role="status">{copyMessage}</p>{/if}
 			</section>
+			<p class="sr-only" role="status">{generator.notice}</p>
+			<a class="live-shortcut" href={resolve("/generator/live")}>지금 함께 만드는 번호 <strong>{generator.live.feed?.totalGenerations.toLocaleString() ?? "—"}게임 <span aria-hidden="true">→</span></strong></a>
 			<p class="probability-note">조건을 적용해도 각 조합의 당첨 확률은 같아요. 생성 결과는 예측이 아닌 무작위 조합입니다.</p>
 		</section>
 		<section class="conditions-area" aria-labelledby="conditions-heading">
@@ -331,6 +377,8 @@ const ogImage = getGenericOgImage({
 </div>
 
 <style>
+.result-save { margin-left:auto;min-width:44px;min-height:44px;font-size:.8rem;color:var(--color-primary);cursor:pointer; }.result-save[aria-pressed=true]{color:var(--text-muted);}.live-shortcut{display:flex;align-items:center;justify-content:space-between;gap:.75rem;padding:1.25rem 0;color:var(--color-primary);font-size:.85rem;border-bottom:1px solid var(--color-base-300);}.live-shortcut strong{white-space:nowrap;}
+@media(max-width:380px){.result-list li{gap:.45rem;}.result-balls{gap:.3rem;}}
 .page-header { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 1rem; }
 .btn, .input, .select { min-height: 2.75rem; }
 .generator-workspace { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--section-space); }

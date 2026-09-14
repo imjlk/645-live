@@ -128,6 +128,7 @@
       "name": "www",
       "dependencies": {
         "@645/api": "workspace:*",
+        "@645/lotto-core": "workspace:*",
         "@645/shared": "workspace:*",
         "@modelcontextprotocol/ext-apps": "^1.6.0",
         "@modelcontextprotocol/sdk": "^1.29.0",

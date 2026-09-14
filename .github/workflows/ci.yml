@@ -69,7 +69,9 @@ jobs:
           bun run og deploy --dry-run
 
       - name: Test static serving and request boundaries
-        run: bun test pages/www/adapter/worker.test.ts pages/www/src/lib/server/request-policy.test.ts pages/www/src/routes/qr-scan/scan-service.test.ts pages/www/src/lib/utils/qr-scan-identity.test.ts pages/www/src/lib/utils/lotto-round.test.ts
+        run: |
+          bun test pages/www/src/lib/generator/api.test.ts
+          bun test pages/www/adapter/worker.test.ts pages/www/src/lib/server/request-policy.test.ts pages/www/src/routes/qr-scan/scan-service.test.ts pages/www/src/lib/utils/qr-scan-identity.test.ts pages/www/src/lib/utils/lotto-round.test.ts
 
       - name: Check SDK
         run: bun run sdk check

@@ -137,6 +137,12 @@ export function buildSitemapEntries() {
 			source: "src/routes/generator/+page.svelte",
 		},
 		{
+			path: "/generator/live",
+			changefreq: "daily",
+			priority: "0.7",
+			source: "src/routes/generator/live/+page.svelte",
+		},
+		{
 			path: "/winning-stores",
 			changefreq: "weekly",
 			priority: "0.7",

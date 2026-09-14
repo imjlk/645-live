@@ -1,4 +1,5 @@
 import { building } from "$app/environment";
+import { getGenerationPreview } from "$lib/server/generation-preview";
 export const prerender = "auto";
 
 import {
@@ -16,9 +17,10 @@ import type { PageServerLoad } from "./$types";
 
 export const load: PageServerLoad = async ({ url }) => {
 	const displayRound = calculateDisplayRound();
-	const [latestInfo, scanPreview] = await Promise.all([
+	const [latestInfo, scanPreview, generationPreview] = await Promise.all([
 		getLatestLottoRound().catch(() => null),
 		getScanPreviewState(displayRound),
+		getGenerationPreview(),
 	]);
 	const latestDraw = latestInfo
 		? await getLottoNumbers(latestInfo.drwNo).catch(() => null)
@@ -26,6 +28,7 @@ export const load: PageServerLoad = async ({ url }) => {
 	if (building && !latestDraw)
 		throw new Error("Cannot prerender home without a published draw");
 	return {
+		generationPreview,
 		latestDraw,
 		latestRound: latestDraw?.drwNo ?? latestInfo?.drwNo ?? displayRound,
 		latestRoundDate: latestDraw?.drwNoDate ?? null,
