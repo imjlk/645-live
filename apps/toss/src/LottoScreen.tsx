@@ -7,7 +7,12 @@ import {
 	type SavedCombination,
 } from "@645/lotto-core";
 import { getTossShareLink, share } from "@apps-in-toss/framework";
-import { IOScrollView, useBackEvent } from "@granite-js/react-native";
+import {
+	IOScrollView,
+	useBackEvent,
+	useNavigation,
+	useVisibility,
+} from "@granite-js/react-native";
 import {
 	BottomSheet,
 	Button,
@@ -49,11 +54,12 @@ import { generationOptionsError } from "./generation-options";
 import { LiveFeed, relativeTime } from "./LiveFeed";
 import { LocalResultPreview } from "./LocalResultPreview";
 import { LocalTestPanel } from "./LocalTestPanel";
+import { useLottoContext } from "./LottoProvider";
+import { type LottoTab, navigateToTab } from "./navigation";
 import { PrivacyNotice } from "./PrivacyNotice";
 import { ReportHistory } from "./ReportHistory";
 import { SAVED_LIMIT } from "./saved-store";
 import { useTheme } from "./theme";
-import { useLotto } from "./use-lotto";
 
 type Panel =
 	| "custom"
@@ -87,27 +93,31 @@ function dateLabel(at: number) {
 	return `${d.getUTCMonth() + 1}월 ${d.getUTCDate()}일`;
 }
 
-export function LottoScreen() {
+export function LottoScreen({ tab = "make" }: { tab?: LottoTab }) {
 	// registerApp inserts its provider inside Container. Apply font scaling at
 	// the screen and keep TDS controls on the required light miniapp theme.
 	return (
 		<TDSProvider colorPreference="light" fontScaleAvailable>
 			<HideAccessibilityProvider>
-				<LottoContent />
+				<LottoContent tab={tab} />
 			</HideAccessibilityProvider>
 		</TDSProvider>
 	);
 }
 
-function LottoContent() {
-	const model = useLotto();
+function LottoContent({ tab }: { tab: LottoTab }) {
+	const { model, options, setOptions, liveColumns, setLiveColumns } =
+		useLottoContext();
+	const navigation = useNavigation();
+	const visible = useVisibility();
+	const navigateTab = (value: string) => {
+		navigateToTab(navigation, tab, value, visible);
+	};
 	const generationLabel = model.current ? "새 번호 만들기" : "번호 만들기";
 	const theme = useTheme();
 	const insets = useSafeAreaInsets();
 	const { width, fontScale } = useWindowDimensions();
-	const [tab, setTab] = useState("make");
 	const [tabBarHeight, setTabBarHeight] = useState(56);
-	const [liveColumns, setLiveColumns] = useState<5 | 9>(5);
 	const [savedPage, setSavedPage] = useState(0);
 	const savedPages = Math.max(1, Math.ceil(model.saved.length / 20));
 	const currentSavedPage = Math.min(savedPage, savedPages - 1);
@@ -123,16 +133,15 @@ function LottoContent() {
 	const backEvent = useBackEvent();
 	const sheetScroll = useRef<ScrollView>(null);
 	useEffect(() => {
-		if (!sheetOpen) return;
+		if (!sheetOpen || !visible) return;
 		const close = () => setPanel(panel ? (PANEL_PARENTS[panel] ?? null) : null);
 		backEvent.addEventListener(close);
 		return () => backEvent.removeEventListener(close);
-	}, [backEvent, panel, sheetOpen, setPanel]);
+	}, [backEvent, panel, sheetOpen, setPanel, visible]);
 	useEffect(() => {
 		if (panel && sheetOpen)
 			sheetScroll.current?.scrollTo({ y: 0, animated: false });
 	}, [panel, sheetOpen]);
-	const [options, setOptions] = useState<GenerationOptions>(EMPTY_OPTIONS);
 	const [draft, setDraft] = useState<GenerationOptions>(EMPTY_OPTIONS);
 	const [pickMode, setPickMode] = useState<"fixed" | "excluded">("fixed");
 	const draftError = generationOptionsError(draft);
@@ -171,13 +180,14 @@ function LottoContent() {
 		return () => a.stop();
 	}, [tab, enter, model.reducedMotion]);
 	useEffect(() => {
-		if (!model.notice) return;
+		if (!model.notice || !visible) return;
 		const timer = setTimeout(model.clearNotice, 5500);
 		return () => clearTimeout(timer);
-	}, [model.notice, model.clearNotice]);
+	}, [model.notice, model.clearNotice, visible]);
 
 	useEffect(() => {
 		if (
+			visible &&
 			sheetOpen &&
 			panel === "report" &&
 			report &&
@@ -187,6 +197,7 @@ function LottoContent() {
 		)
 			void model.loadReport(report);
 	}, [
+		visible,
 		sheetOpen,
 		panel,
 		report,
@@ -558,7 +569,7 @@ function LottoContent() {
 											display="full"
 											type="dark"
 											style="weak"
-											onPress={() => setTab("live")}
+											onPress={() => navigateTab("live")}
 										>
 											실시간 번호 흐름 보기
 										</Button>
@@ -658,7 +669,10 @@ function LottoContent() {
 											>
 												번호를 만든 뒤 ‘이 번호 보관하기’를 눌러 주세요.
 											</Text>
-											<Button display="full" onPress={() => setTab("make")}>
+											<Button
+												display="full"
+												onPress={() => navigateTab("make")}
+											>
 												첫 번호 만들러 가기
 											</Button>
 										</View>
@@ -802,7 +816,7 @@ function LottoContent() {
 					<View style={s.tabClip}>
 						<Tab
 							value={tab}
-							onChange={setTab}
+							onChange={navigateTab}
 							size="large"
 							fluid={fontScale > 1.25}
 						>
@@ -815,7 +829,7 @@ function LottoContent() {
 					</View>
 				</View>
 			</HideAccessibilityView>
-			{model.celebration && !model.reducedMotion ? (
+			{visible && model.celebration && !model.reducedMotion ? (
 				<View
 					pointerEvents="none"
 					style={[
@@ -837,7 +851,7 @@ function LottoContent() {
 			) : null}
 
 			<BottomSheet.Root
-				open={sheetOpen}
+				open={sheetOpen && visible}
 				onClose={() => setPanel(null)}
 				onExited={() =>
 					setSheet((current) =>
@@ -1108,7 +1122,7 @@ function LottoContent() {
 							model={model}
 							onGenerate={() => {
 								setPanel(null);
-								setTab("make");
+								navigateTab("make");
 								scroll.current?.scrollTo({ y: 0, animated: true });
 							}}
 						/>

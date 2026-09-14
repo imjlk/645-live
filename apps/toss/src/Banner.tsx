@@ -3,6 +3,7 @@ import {
 	InlineAd,
 	isMinVersionSupported,
 } from "@apps-in-toss/framework";
+import { useVisibility } from "@granite-js/react-native";
 import { isAppsInTossInlineAdSupported } from "@trailbase-apps-in-toss-kit/ait-rn/inline-ads";
 import { memo, useEffect, useState } from "react";
 import { Text, View } from "react-native";
@@ -15,7 +16,8 @@ type BannerProps = {
 };
 /** A new group resets SDK state; SSE updates never change the slot's assigned group. */
 export const Banner = memo(function Banner(props: BannerProps) {
-	return props.groupId ? (
+	const visible = useVisibility();
+	return visible && props.groupId ? (
 		<BannerSlot
 			key={`${props.format}:${props.groupId}`}
 			groupId={props.groupId}
