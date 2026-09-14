@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import path from "node:path";
 import { appsInToss } from "@apps-in-toss/framework/plugins";
 import { env } from "@granite-js/plugin-env";
@@ -13,7 +14,7 @@ export default defineConfig({
 			root,
 			path.join(root, "node_modules"),
 			path.join(root, "node_modules/.bun"),
-		],
+		].filter(existsSync),
 		resolver: { conditionNames: ["react-native", "import", "node", "default"] },
 	},
 	plugins: [
