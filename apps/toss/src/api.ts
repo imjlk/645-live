@@ -27,6 +27,12 @@ export const API_BASE = runtime.apiBase;
 export const LOCAL_PREVIEW = runtime.local;
 export type User = { id: string; displayName: string };
 export type AdPlacement = "custom" | "report" | "attendance_restore";
+export type LocalAttendanceAction =
+	| {
+			action: "prepare";
+			scenario: "fresh" | "day_seven" | "missed_yesterday" | "new_cycle";
+	  }
+	| { action: "restore" };
 export type AdConfig = {
 	placements: {
 		placement: AdPlacement;

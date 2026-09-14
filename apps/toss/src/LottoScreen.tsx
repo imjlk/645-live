@@ -44,7 +44,10 @@ import { LOCAL_PREVIEW } from "./api";
 import { Balls } from "./Balls";
 import { Banner } from "./Banner";
 import { Celebration } from "./Celebration";
+import { generationOptionsError } from "./generation-options";
 import { LiveFeed, relativeTime } from "./LiveFeed";
+import { LocalResultPreview } from "./LocalResultPreview";
+import { LocalTestPanel } from "./LocalTestPanel";
 import { PrivacyNotice } from "./PrivacyNotice";
 import { ReportHistory } from "./ReportHistory";
 import { useTheme } from "./theme";
@@ -57,6 +60,8 @@ type Panel =
 	| "settings"
 	| "privacy"
 	| "support"
+	| "localTest"
+	| "resultPreview"
 	| null;
 const PANEL_TITLES = {
 	custom: "내 취향대로 만들기",
@@ -65,7 +70,15 @@ const PANEL_TITLES = {
 	settings: "설정",
 	privacy: "개인정보 처리방침",
 	support: "문의하기",
+	localTest: "로컬 테스트 도구",
+	resultPreview: "당첨 결과 미리보기",
 } as const;
+const PANEL_PARENTS: Partial<Record<NonNullable<Panel>, NonNullable<Panel>>> = {
+	privacy: "settings",
+	support: "settings",
+	localTest: "settings",
+	resultPreview: "localTest",
+};
 const NUMBERS = Array.from({ length: 45 }, (_, i) => i + 1);
 function dateLabel(at: number) {
 	const d = new Date(at + 9 * 3600_000);
@@ -99,8 +112,7 @@ function LottoContent() {
 	const sheetScroll = useRef<ScrollView>(null);
 	useEffect(() => {
 		if (!sheetOpen) return;
-		const close = () =>
-			setPanel(panel === "privacy" || panel === "support" ? "settings" : null);
+		const close = () => setPanel(panel ? (PANEL_PARENTS[panel] ?? null) : null);
 		backEvent.addEventListener(close);
 		return () => backEvent.removeEventListener(close);
 	}, [backEvent, panel, sheetOpen, setPanel]);
@@ -111,6 +123,7 @@ function LottoContent() {
 	const [options, setOptions] = useState<GenerationOptions>(EMPTY_OPTIONS);
 	const [draft, setDraft] = useState<GenerationOptions>(EMPTY_OPTIONS);
 	const [pickMode, setPickMode] = useState<"fixed" | "excluded">("fixed");
+	const draftError = generationOptionsError(draft);
 	const [report, setReport] = useState<SavedCombination | null>(null);
 	const ballSize = Math.min(
 		52,
@@ -198,6 +211,15 @@ function LottoContent() {
 		</View>
 	);
 	const openSettings = () => setPanel("settings");
+	const generateDraft = async () => {
+		if (draftError) return;
+		const requested = draft;
+		if (!(await model.generate(requested))) return;
+		setOptions(requested);
+		setSheet((current) =>
+			current.panel === "custom" ? { ...current, open: false } : current,
+		);
+	};
 	const askRemove = (item: SavedCombination) =>
 		Alert.alert(
 			"번호를 삭제할까요?",
@@ -283,15 +305,20 @@ function LottoContent() {
 				<Button
 					display="full"
 					loading={model.busy === `unlock-${feature}`}
-					disabled={!!model.busy || !enabled}
+					disabled={!!model.busy || !enabled || !!model.adUnavailableReason}
 					onPress={() => void model.unlock(feature)}
 				>
-					{enabled
-						? LOCAL_PREVIEW
-							? "테스트 광고 보고 이용권 열기"
-							: "광고 보고 이용권 열기"
-						: "광고 이용권 준비 중"}
+					{model.adUnavailableReason
+						? "현재 환경에서 광고 이용 불가"
+						: enabled
+							? LOCAL_PREVIEW
+								? "테스트 광고 보고 이용권 열기"
+								: "광고 보고 이용권 열기"
+							: "광고 이용권 준비 중"}
 				</Button>
+				{model.adUnavailableReason ? (
+					<Text style={[s.caption, muted]}>{model.adUnavailableReason}</Text>
+				) : null}
 
 				<Text style={[s.caption, muted]}>
 					기본 번호 생성·보관·결과 확인은 언제나 무료예요.
@@ -387,6 +414,7 @@ function LottoContent() {
 											<Pressable
 												accessibilityRole="button"
 												onPress={() => {
+													model.clearError();
 													setDraft(options);
 													setPanel("custom");
 												}}
@@ -742,9 +770,38 @@ function LottoContent() {
 					keyboardShouldPersistTaps: "handled",
 				}}
 				cta={
-					panel === "privacy" || panel === "support" ? (
-						<BottomSheet.CTA type="dark" style="weak" onPress={openSettings}>
-							설정으로 돌아가기
+					panel === "custom" && customOpen ? (
+						<View>
+							{draftError ? (
+								<Text
+									accessibilityRole="alert"
+									style={[
+										s.caption,
+										{ color: "#F04452", paddingHorizontal: 24, paddingTop: 12 },
+									]}
+								>
+									{draftError}
+								</Text>
+							) : null}
+							<BottomSheet.CTA
+								loading={model.busy === "generate"}
+								disabled={
+									!!model.busy || !model.user || !model.context || !!draftError
+								}
+								onPress={() => void generateDraft()}
+							>
+								이 조건으로 만들기
+							</BottomSheet.CTA>
+						</View>
+					) : panel && PANEL_PARENTS[panel] ? (
+						<BottomSheet.CTA
+							type="dark"
+							style="weak"
+							onPress={() => setPanel(PANEL_PARENTS[panel] ?? null)}
+						>
+							{panel === "resultPreview"
+								? "테스트 도구로 돌아가기"
+								: "설정으로 돌아가기"}
 						</BottomSheet.CTA>
 					) : undefined
 				}
@@ -784,6 +841,7 @@ function LottoContent() {
 												accessibilityRole="button"
 												accessibilityLabel={`${n}번 ${fixed ? "고정" : excluded ? "제외" : "선택"}`}
 												accessibilityState={{ selected: fixed || excluded }}
+												disabled={!!model.busy}
 												onPress={() =>
 													setDraft((prev) => {
 														const list = prev[pickMode],
@@ -848,6 +906,7 @@ function LottoContent() {
 												size="tiny"
 												type={draft.oddCount === n ? "primary" : "dark"}
 												style="weak"
+												disabled={!!model.busy}
 												onPress={() =>
 													setDraft((prev) => ({ ...prev, oddCount: n }))
 												}
@@ -860,15 +919,6 @@ function LottoContent() {
 								<Text style={[s.caption, muted]}>
 									조건은 취향을 반영해요. 모든 조합의 당첨 확률은 같아요.
 								</Text>
-								<Button
-									display="full"
-									onPress={() => {
-										setOptions(draft);
-										setPanel(null);
-									}}
-								>
-									이 조건으로 만들기
-								</Button>
 							</View>
 						) : (
 							featurePass("custom")
@@ -982,11 +1032,9 @@ function LottoContent() {
 									display="full"
 									type="dark"
 									style="weak"
-									loading={model.busy === "test-pass"}
-									disabled={!!model.busy || !model.user}
-									onPress={() => void model.testPass()}
+									onPress={() => setPanel("localTest")}
 								>
-									테스트 이용권 초기화
+									로컬 테스트 도구
 								</Button>
 							) : null}
 							<Text style={[s.body, text]}>
@@ -1051,6 +1099,22 @@ function LottoContent() {
 						</View>
 					) : null}
 					{panel === "privacy" ? <PrivacyNotice /> : null}
+					{panel === "localTest" && LOCAL_PREVIEW ? (
+						<LocalTestPanel
+							model={model}
+							onAttendance={() => setPanel("attendance")}
+							onResults={() => setPanel("resultPreview")}
+						/>
+					) : null}
+					{panel === "resultPreview" &&
+					LOCAL_PREVIEW &&
+					model.context?.latestDraw ? (
+						<LocalResultPreview
+							draw={model.context.latestDraw}
+							ballSize={ballSize}
+							reducedMotion={model.reducedMotion}
+						/>
+					) : null}
 					{panel === "support" ? (
 						<View style={{ gap: 16 }}>
 							<Text style={[s.sectionTitle, text]}>도움이 필요하신가요?</Text>

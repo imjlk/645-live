@@ -1,11 +1,18 @@
 import {
+	getOperationalEnvironment,
 	loadFullScreenAd,
 	requestNotificationAgreement,
 	showFullScreenAd,
 } from "@apps-in-toss/framework";
 import { createAppsInTossFullScreenAdBridge } from "@trailbase-apps-in-toss-kit/ait-rn/ads";
 import { createAppsInTossNotificationAgreementBridge } from "@trailbase-apps-in-toss-kit/ait-rn/notifications";
-import { type AdConfig, type AdPlacement, type Api, apiErrorCode } from "./api";
+import {
+	type AdConfig,
+	type AdPlacement,
+	type Api,
+	apiErrorCode,
+	LOCAL_PREVIEW,
+} from "./api";
 
 export function createAdController(api: Api) {
 	const bridge = createAppsInTossFullScreenAdBridge({
@@ -19,15 +26,23 @@ export function createAdController(api: Api) {
 		id: string;
 		events: string[];
 	} | null = null;
-	function supported() {
+	function unavailableReason(): string | null {
 		try {
-			return loadFullScreenAd.isSupported() && showFullScreenAd.isSupported();
-		} catch {
-			return false;
-		}
+			if (getOperationalEnvironment() === "sandbox")
+				return LOCAL_PREVIEW
+					? "샌드박스는 실제 광고를 지원하지 않아요. 위의 테스트 버튼으로 기능을 확인해 주세요."
+					: "샌드박스는 실제 광고를 지원하지 않아요. 토스 앱의 테스트 버전에서 확인해 주세요.";
+			if (loadFullScreenAd.isSupported() && showFullScreenAd.isSupported())
+				return null;
+		} catch {}
+		return LOCAL_PREVIEW
+			? "이 로컬 환경에서는 실제 광고를 열 수 없어요. 위의 테스트 버튼으로 기능을 확인해 주세요."
+			: "현재 환경에서는 광고를 이용할 수 없어요. 최신 토스 앱에서 다시 확인해 주세요.";
 	}
+	const supported = () => unavailableReason() === null;
 	return {
 		supported,
+		unavailableReason,
 		preload(config: AdConfig) {
 			if (!supported() || disposed) return;
 			const groups = new Set(
@@ -41,10 +56,8 @@ export function createAdController(api: Api) {
 		},
 		async unlock(placement: AdPlacement) {
 			if (busy) throw new Error("진행 중인 광고를 먼저 완료해 주세요.");
-			if (!supported())
-				throw new Error(
-					"광고를 이용하려면 토스 앱을 최신 버전으로 업데이트해 주세요.",
-				);
+			const reason = unavailableReason();
+			if (reason) throw new Error(reason);
 			busy = true;
 			try {
 				if (pendingCompletion) {

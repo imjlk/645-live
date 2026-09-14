@@ -1,6 +1,6 @@
 import { Button } from "@toss/tds-react-native";
 import { StyleSheet, Text, View } from "react-native";
-import type { Promotion } from "./api";
+import { LOCAL_PREVIEW, type Promotion } from "./api";
 import { useTheme } from "./theme";
 import type { LottoModel } from "./use-lotto";
 
@@ -129,15 +129,32 @@ export function AttendancePanel({
 						광고를 완료하면 어제 출석을 복구해요. 주기당 한 번 사용할 수 있고,
 						어제의 일일 포인트는 지급하지 않아요.
 					</Text>
+					{LOCAL_PREVIEW ? (
+						<Button
+							display="full"
+							style="weak"
+							type="dark"
+							disabled={!!model.busy || !model.user}
+							loading={model.busy === "local-attendance"}
+							onPress={() => void model.localAttendance({ action: "restore" })}
+						>
+							테스트 · 광고 없이 출석 복구
+						</Button>
+					) : null}
 					<Button
 						display="full"
 						style="weak"
-						disabled={!!model.busy || !restoreAd}
+						disabled={!!model.busy || !restoreAd || !!model.adUnavailableReason}
 						loading={model.busy === "unlock-attendance_restore"}
 						onPress={() => void model.unlock("attendance_restore")}
 					>
 						{restoreAd ? "광고 보고 연속 출석 복구" : "복구 광고 준비 중"}
 					</Button>
+					{model.adUnavailableReason ? (
+						<Text style={[s.caption, { color: theme.muted }]}>
+							{model.adUnavailableReason}
+						</Text>
+					) : null}
 				</View>
 			) : null}
 			{state?.promotions.map((reward) => (

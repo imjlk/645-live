@@ -4,6 +4,7 @@
 	"private": true,
 	"scripts": {
 		"dev": "bun ../../scripts/miniapp/dev.ts",
+		"dev:simulator": "LOTTO_DEV_HOST=127.0.0.1 bun ../../scripts/miniapp/dev.ts",
 		"build": "ait build",
 		"check": "tsc --noEmit",
 		"test": "bun test src",

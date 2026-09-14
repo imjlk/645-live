@@ -28,6 +28,7 @@ import {
 	apiErrorCode,
 	createApi,
 	LOCAL_PREVIEW,
+	type LocalAttendanceAction,
 	newRequestId,
 	type Promotion,
 	type User,
@@ -100,6 +101,7 @@ export function useLotto() {
 	const seenWins = useRef(new Set<string>());
 	const store = useMemo(() => (user ? api.saved(user) : null), [api, user]);
 	const clearNotice = useCallback(() => setNotice(null), []);
+	const clearError = useCallback(() => setError(null), []);
 	const retry = useCallback(() => {
 		if (!actionLock.current) {
 			api.reconnect();
@@ -108,14 +110,16 @@ export function useLotto() {
 	}, [api]);
 
 	const run = useCallback(async (name: string, task: () => Promise<void>) => {
-		if (actionLock.current) return;
+		if (actionLock.current) return false;
 		actionLock.current = true;
 		setBusy(name);
 		setError(null);
 		try {
 			await task();
+			return true;
 		} catch (e) {
 			if (active.current) setError(message(e));
+			return false;
 		} finally {
 			actionLock.current = false;
 			if (active.current) setBusy(null);
@@ -411,6 +415,7 @@ export function useLotto() {
 		savedReady,
 		results,
 		adConfig,
+		adUnavailableReason: adsController.unavailableReason(),
 		attendance,
 		busy,
 		refreshing,
@@ -420,7 +425,7 @@ export function useLotto() {
 		reducedMotion,
 		celebration,
 		clearNotice,
-		clearError: () => setError(null),
+		clearError,
 		finishCelebration: () => setCelebration(null),
 		retry,
 		generate: (options: GenerationOptions = EMPTY_OPTIONS) =>
@@ -531,6 +536,18 @@ export function useLotto() {
 					feature
 						? "테스트 이용권을 열었어요. 바로 기능을 확인해 보세요."
 						: "테스트 이용권을 초기화했어요. 광고 시청을 다시 확인할 수 있어요.",
+				);
+			}),
+		localAttendance: (action: LocalAttendanceAction) =>
+			run("local-attendance", async () => {
+				if (!LOCAL_PREVIEW)
+					throw new Error("로컬 테스트에서만 사용할 수 있어요.");
+				await api.request("/api/app/v1/dev/attendance", action);
+				await refreshPrivate();
+				setNotice(
+					action.action === "restore"
+						? "테스트 출석을 복구했어요."
+						: "로컬 출석 시나리오를 준비했어요.",
 				);
 			}),
 		unlock: (feature: AdPlacement) =>
