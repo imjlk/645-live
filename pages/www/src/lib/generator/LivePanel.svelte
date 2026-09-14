@@ -68,7 +68,7 @@ function timeLabel(time: number) {
 	{#if !compact}
 		<div class="ball-grid" class:large={columns === 5} style:--columns={columns} aria-label="1번부터 45번까지 생성 횟수">
 			{#each Array.from({length:45}, (_, i) => i + 1) as number (number)}<div class="ball-cell" style:view-transition-name={`generated-count-${number}`}>
-				{#key live.pulses[number - 1]}<div class:count-pulse={live.deltas[number - 1] > 0}><LottoBall {number} initialValue={live.feed?.numberCounts[number - 1] ?? 0} size={columns === 5 ? "large" : "small"} interactive={false} /><ValueIncrementEffect show={live.deltas[number - 1] > 0} delta={live.deltas[number - 1]} color="text-primary" /></div>{/key}
+				{#key live.pulses[number - 1]}<div class:count-pulse={live.deltas[number - 1] > 0}><LottoBall {number} initialValue={live.feed?.numberCounts[number - 1] ?? 0} previousValue={live.deltas[number - 1] > 0 ? live.previousCounts[number - 1] : undefined} size={columns === 5 ? "large" : "small"} interactive={false} /><ValueIncrementEffect show={live.deltas[number - 1] > 0} delta={live.deltas[number - 1]} color="text-primary" /></div>{/key}
 			</div>{/each}
 		</div>
 	{/if}

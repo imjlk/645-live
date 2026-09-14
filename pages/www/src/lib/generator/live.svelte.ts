@@ -1,4 +1,5 @@
 import {
+	createLiveBatch,
 	type Feed,
 	type Generation,
 	mergeFeed,
@@ -36,6 +37,13 @@ export function createLiveGenerations(
 ) {
 	let context = $state(initial.context);
 	let feed = $state(initial.feed);
+	// Subscription events update this non-reactive snapshot. Only batch commits
+	// change the rendered feed, including its rows and all 45 absolute counters.
+	let currentFeed = initial.feed;
+	const initialRows = new Map<number, Generation>();
+	let initialCounts: { values: number[]; total: number; at: number } | null =
+		null;
+	let previousCounts = $state(initial.feed?.numberCounts ?? Array(45).fill(0));
 	let sourceOpen = $state(false);
 	let countsOpen = $state(false);
 	let limit = 300;
@@ -50,31 +58,36 @@ export function createLiveGenerations(
 	let refreshPending: Promise<void> | null = null;
 	let source: EventSource | null = null;
 	let countsSource: EventSource | null = null;
-	let refreshTimer: ReturnType<typeof setTimeout> | undefined;
 	let clearTimer: ReturnType<typeof setTimeout> | undefined;
-	function counts(next: number[], total: number) {
-		if (!feed) return;
-		const previous = feed.numberCounts;
+	const refreshBatch = createLiveBatch<void>(() => void refresh());
+	const batch = createLiveBatch<Feed>((next) => {
+		if (!active) return;
+		const sameRound = feed?.round === next.round;
+		const before = feed && sameRound ? feed.numberCounts : next.numberCounts;
 		// A focus/reconnect snapshot with identical counts must not erase an SSE pulse.
-		if (
-			total === feed.totalGenerations &&
-			next.every((v, i) => v === previous[i])
-		)
-			return;
-		const change = next.map((v, i) => v - previous[i]);
-		deltas = change.map((delta, i) => (delta < 0 ? 0 : deltas[i] + delta));
-		pulses = pulses.map((v, i) => (change[i] > 0 ? v + 1 : v));
-		feed = { ...feed, numberCounts: next, totalGenerations: total };
-		clearTimeout(clearTimer);
-		clearTimer = setTimeout(() => {
-			deltas = Array(45).fill(0);
-		}, 2400);
+		if (!sameRound || next.numberCounts.some((v, i) => v !== before[i])) {
+			previousCounts = before;
+			deltas = next.numberCounts.map((v, i) => Math.max(0, v - before[i]));
+			pulses = pulses.map((v, i) => (deltas[i] > 0 ? v + 1 : v));
+			clearTimeout(clearTimer);
+			clearTimer = setTimeout(() => {
+				deltas = Array(45).fill(0);
+			}, 1600);
+		}
+		feed = next;
+	});
+	function publish(next: Feed) {
+		currentFeed = next;
+		batch.push(next);
+		// The first snapshot of a round is a baseline, not 45 new increments.
+		if (!feed || feed.round !== next.round) batch.flush();
+	}
+	function counts(next: number[], total: number) {
+		if (!currentFeed) return;
+		publish({ ...currentFeed, numberCounts: next, totalGenerations: total });
 	}
 	function scheduleRefresh() {
-		clearTimeout(refreshTimer);
-		refreshTimer = setTimeout(() => {
-			void refresh();
-		}, 300);
+		if (active) refreshBatch.push();
 	}
 	function subscribe(round: number) {
 		source?.close();
@@ -103,33 +116,45 @@ export function createLiveGenerations(
 			countsOpen = false;
 		};
 		source.onmessage = (event) => {
+			if (!active || context?.targetRound !== round) return;
 			try {
 				const data = JSON.parse(event.data);
 				const r = data.Insert ?? data.Update ?? data.Delete;
 				if (!r || r.round !== round) return;
 				revision++;
-				if (!feed || feed.round !== round) {
+				if (!currentFeed || currentFeed.round !== round) {
+					if (data.Delete) {
+						deleted.add(r.id);
+						initialRows.delete(r.id);
+					} else {
+						const generation = recordGeneration(r);
+						if (generation) initialRows.set(generation.id, generation);
+						if (initialRows.size > limit)
+							initialRows.delete(Math.min(...initialRows.keys()));
+					}
 					scheduleRefresh();
 					return;
 				}
 				if (data.Delete) {
 					deleted.add(r.id);
-					feed = {
-						...feed,
-						generations: feed.generations.filter((g) => g.id !== r.id),
-					};
+					publish({
+						...currentFeed,
+						generations: currentFeed.generations.filter((g) => g.id !== r.id),
+					});
 				} else {
 					const g = recordGeneration(r);
 					if (g) {
-						const dropped = feed.generations.length >= limit;
-						const generations = mergeFeed(feed.generations, [g], limit);
-						feed = {
-							...feed,
+						const dropped = currentFeed.generations.length >= limit;
+						const generations = mergeFeed(currentFeed.generations, [g], limit);
+						const last = generations.at(-1);
+						publish({
+							...currentFeed,
 							generations,
-							nextCursor: dropped
-								? `${round}:${generations.at(-1)!.id}`
-								: feed.nextCursor,
-						};
+							nextCursor:
+								dropped && last
+									? `${round}:${last.id}`
+									: currentFeed.nextCursor,
+						});
 					}
 				}
 			} catch {
@@ -137,23 +162,24 @@ export function createLiveGenerations(
 			}
 		};
 		countsSource.onmessage = (event) => {
+			if (!active || context?.targetRound !== round) return;
 			try {
 				const data = JSON.parse(event.data);
 				const r = data.Insert ?? data.Update;
 				if (!r || r.round !== round || Number(r.updated_at) < countsAt) return;
 				countsAt = Number(r.updated_at);
 				revision++;
-				if (!feed || feed.round !== round) {
+				const values = Array.from(
+					{ length: 45 },
+					(_, i) => Number(r[`generation_count_${i + 1}`]) || 0,
+				);
+				const total = Number(r.total_generations) || 0;
+				if (!currentFeed || currentFeed.round !== round) {
+					initialCounts = { values, total, at: countsAt };
 					scheduleRefresh();
 					return;
 				}
-				counts(
-					Array.from(
-						{ length: 45 },
-						(_, i) => Number(r[`generation_count_${i + 1}`]) || 0,
-					),
-					Number(r.total_generations) || 0,
-				);
+				counts(values, total);
 			} catch {
 				scheduleRefresh();
 			}
@@ -171,11 +197,17 @@ export function createLiveGenerations(
 				const changed = context?.targetRound !== nextContext.targetRound;
 				context = nextContext;
 				if (changed || !source) {
+					batch.cancel();
+					currentFeed = null;
 					feed = null;
+					clearTimeout(clearTimer);
+					deltas = Array(45).fill(0);
 					revision++;
 					limit = 300;
 					countsAt = 0;
 					deleted.clear();
+					initialRows.clear();
+					initialCounts = null;
 					subscribe(nextContext.targetRound);
 				}
 				const before = revision;
@@ -183,32 +215,48 @@ export function createLiveGenerations(
 					`${base()}/api/app/v1/lotto/feed?round=${nextContext.targetRound}`,
 				);
 				if (!active || context.targetRound !== next.round) return;
-				if (before !== revision) {
+				if (before !== revision && currentFeed) {
 					scheduleRefresh();
 					return;
 				}
-				countsAt = next.serverTime;
+				// Events arriving during the very first fetch form its baseline too.
+				// Waiting for a quiet gap here could starve a busy round indefinitely.
+				if (!currentFeed) {
+					next.generations = mergeFeed(
+						next.generations,
+						[...initialRows.values()],
+						limit,
+					).filter((g) => !deleted.has(g.id));
+					const oldest = next.generations.at(-1);
+					if (next.generations.length >= limit && oldest)
+						next.nextCursor = `${next.round}:${oldest.id}`;
+					if (initialCounts && initialCounts.at > next.serverTime) {
+						next.numberCounts = initialCounts.values;
+						next.totalGenerations = initialCounts.total;
+					}
+					countsAt = Math.max(next.serverTime, initialCounts?.at ?? 0);
+					initialRows.clear();
+					initialCounts = null;
+				} else countsAt = next.serverTime;
 				// On reconnect the first page is authoritative; preserve already loaded older rows.
 				const cutoff =
 					next.nextCursor === null
 						? 0
 						: (next.generations.at(-1)?.id ?? Infinity);
 				const older =
-					feed?.round === next.round
-						? feed.generations.filter((g) => g.id < cutoff)
+					currentFeed?.round === next.round
+						? currentFeed.generations.filter((g) => g.id < cutoff)
 						: [];
-				if (feed?.round === next.round)
-					counts(next.numberCounts, next.totalGenerations);
-				feed = {
+				publish({
 					...next,
 					generations: mergeFeed(older, next.generations, limit),
 					nextCursor:
 						next.nextCursor === null
 							? null
 							: older.length
-								? feed?.nextCursor
+								? currentFeed?.nextCursor
 								: next.nextCursor,
-				};
+				});
 				error = "";
 			} catch {
 				if (active)
@@ -223,25 +271,25 @@ export function createLiveGenerations(
 		}
 	}
 	async function more() {
-		if (!feed?.nextCursor || loadingMore) return;
-		const cursor = feed.nextCursor;
-		const round = feed.round;
+		if (!currentFeed?.nextCursor || loadingMore) return;
+		const cursor = currentFeed.nextCursor;
+		const round = currentFeed.round;
 		loadingMore = true;
 		try {
 			const next = await readJson<Feed>(
 				`${base()}/api/app/v1/lotto/feed?round=${round}&cursor=${encodeURIComponent(cursor)}`,
 			);
-			if (!active || feed?.round !== round) return;
+			if (!active || currentFeed?.round !== round) return;
 			limit += next.generations.length;
-			feed = {
-				...feed,
+			publish({
+				...currentFeed,
 				generations: mergeFeed(
-					feed.generations,
+					currentFeed.generations,
 					next.generations.filter((g) => !deleted.has(g.id)),
 					limit,
 				),
 				nextCursor: next.nextCursor,
-			};
+			});
 			error = "";
 		} catch {
 			error = "이전 조합을 불러오지 못했어요. 다시 시도해 주세요.";
@@ -263,10 +311,12 @@ export function createLiveGenerations(
 		window.addEventListener("online", visible);
 		return () => {
 			active = false;
+			batch.cancel();
+			currentFeed = feed;
 			source?.close();
 			countsSource?.close();
 			clearInterval(timer);
-			clearTimeout(refreshTimer);
+			refreshBatch.cancel();
 			clearTimeout(clearTimer);
 			document.removeEventListener("visibilitychange", visible);
 			window.removeEventListener("online", visible);
@@ -293,6 +343,9 @@ export function createLiveGenerations(
 		},
 		get pulses() {
 			return pulses;
+		},
+		get previousCounts() {
+			return previousCounts;
 		},
 		start,
 		refresh,

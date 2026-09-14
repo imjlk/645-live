@@ -1,3 +1,4 @@
+import { LIVE_COUNT_MOTION_MS } from "@645/lotto-core";
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
 	Animated,
@@ -24,7 +25,7 @@ export function useLiveCount(count: number, reducedMotion: boolean) {
 		progress.setValue(0);
 		const animation = Animated.timing(progress, {
 			toValue: 1,
-			duration: 1200,
+			duration: LIVE_COUNT_MOTION_MS,
 			easing: Easing.linear,
 			useNativeDriver: true,
 			isInteraction: false,

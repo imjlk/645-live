@@ -224,7 +224,7 @@ export function LiveFeed({
 							</SegmentedControl.Root>
 						</View>
 						<Text style={[s.caption, muted, { marginTop: 8 }]}>
-							새 조합이 만들어지면 해당 번호의 횟수가 올라가요.
+							늘어난 번호가 반짝이고, 추가된 횟수가 함께 보여요.
 						</Text>
 						<LiveNumberGrid
 							feed={feed}

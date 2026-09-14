@@ -1,6 +1,7 @@
 import {
 	type CombinationReport,
 	compareDraw,
+	createLiveBatch,
 	type Draw,
 	EMPTY_OPTIONS,
 	type Feed,
@@ -214,7 +215,6 @@ export function useLotto() {
 		let closed = false;
 		let refreshing = false;
 		let dirty = false;
-		let debounce: ReturnType<typeof setTimeout> | undefined;
 		const refresh = async () => {
 			if (closed) return;
 			if (refreshing) {
@@ -235,12 +235,11 @@ export function useLotto() {
 				}
 			}
 		};
+		// Both streams share one fixed window. Sustained traffic cannot postpone
+		// the refresh indefinitely or restart 45 count animations on every event.
+		const batch = createLiveBatch<void>(() => void refresh());
 		const changed = () => {
-			if (debounce || closed) return;
-			debounce = setTimeout(() => {
-				debounce = undefined;
-				void refresh();
-			}, 180);
+			if (!closed) batch.push();
 		};
 		const cleanup = [
 			subscribeRealtime({
@@ -275,7 +274,7 @@ export function useLotto() {
 		return () => {
 			closed = true;
 			for (const close of cleanup) close();
-			if (debounce) clearTimeout(debounce);
+			batch.cancel();
 			clearInterval(poll);
 			clearInterval(roundPoll);
 		};

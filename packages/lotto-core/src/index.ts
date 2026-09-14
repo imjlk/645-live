@@ -1,3 +1,10 @@
+export {
+	type BatchTimer,
+	createLiveBatch,
+	LIVE_BATCH_MS,
+	LIVE_COUNT_MOTION_MS,
+} from "./live-batch";
+
 export const BALL_COLORS = [
 	"#D9A300",
 	"#3182F6",
