@@ -14,6 +14,7 @@ import {
 	IconButton,
 	Switch,
 	Tab,
+	TDSProvider,
 } from "@toss/tds-react-native";
 import {
 	HideAccessibilityProvider,
@@ -87,10 +88,15 @@ function dateLabel(at: number) {
 }
 
 export function LottoScreen() {
+	const { dark } = useTheme();
+	// registerApp inserts its own light TDS provider inside Container. Apply our
+	// theme at the screen so TDS controls match the rest of the app in dark mode.
 	return (
-		<HideAccessibilityProvider>
-			<LottoContent />
-		</HideAccessibilityProvider>
+		<TDSProvider colorPreference={dark ? "dark" : "light"} fontScaleAvailable>
+			<HideAccessibilityProvider>
+				<LottoContent />
+			</HideAccessibilityProvider>
+		</TDSProvider>
 	);
 }
 
@@ -99,8 +105,9 @@ function LottoContent() {
 	const generationLabel = model.current ? "새 번호 만들기" : "번호 만들기";
 	const theme = useTheme();
 	const insets = useSafeAreaInsets();
-	const { width } = useWindowDimensions();
+	const { width, fontScale } = useWindowDimensions();
 	const [tab, setTab] = useState("make");
+	const [tabBarHeight, setTabBarHeight] = useState(56);
 	const [liveColumns, setLiveColumns] = useState<5 | 9>(5);
 	const [savedPage, setSavedPage] = useState(0);
 	const savedPages = Math.max(1, Math.ceil(model.saved.length / 20));
@@ -765,7 +772,10 @@ function LottoContent() {
 						accessibilityLiveRegion="polite"
 						style={[
 							s.toast,
-							{ backgroundColor: theme.dark ? "#E5E8EB" : "#333D4B" },
+							{
+								backgroundColor: theme.dark ? "#E5E8EB" : "#333D4B",
+								bottom: tabBarHeight + 28,
+							},
 						]}
 					>
 						<Text
@@ -779,14 +789,31 @@ function LottoContent() {
 						</Text>
 					</View>
 				) : null}
-				<View style={{ borderTopWidth: 1, borderColor: theme.line }}>
-					<Tab value={tab} onChange={setTab} size="large">
-						<Tab.Item value="make">번호 만들기</Tab.Item>
-						<Tab.Item value="live">실시간</Tab.Item>
-						<Tab.Item value="saved" redBean={!!model.celebration}>
-							보관함
-						</Tab.Item>
-					</Tab>
+				<View
+					onLayout={(event) => setTabBarHeight(event.nativeEvent.layout.height)}
+					style={[
+						s.tabDock,
+						{
+							backgroundColor: theme.background,
+							borderColor: theme.line,
+							shadowOpacity: theme.dark ? 0.3 : 0.1,
+						},
+					]}
+				>
+					<View style={s.tabClip}>
+						<Tab
+							value={tab}
+							onChange={setTab}
+							size="large"
+							fluid={fontScale > 1.25}
+						>
+							<Tab.Item value="make">번호 만들기</Tab.Item>
+							<Tab.Item value="live">실시간</Tab.Item>
+							<Tab.Item value="saved" redBean={!!model.celebration}>
+								보관함
+							</Tab.Item>
+						</Tab>
+					</View>
 				</View>
 			</HideAccessibilityView>
 			{model.celebration && !model.reducedMotion ? (
@@ -1292,11 +1319,21 @@ const s = StyleSheet.create({
 	empty: { paddingVertical: 40, gap: 8 },
 	savedRow: { borderTopWidth: 1, paddingVertical: 22 },
 	message: { paddingHorizontal: 20, paddingVertical: 12, gap: 10 },
+	tabDock: {
+		marginHorizontal: 16,
+		marginVertical: 8,
+		borderRadius: 24,
+		borderWidth: StyleSheet.hairlineWidth,
+		shadowColor: "#000000",
+		shadowOffset: { width: 0, height: 4 },
+		shadowRadius: 12,
+		elevation: 6,
+	},
+	tabClip: { borderRadius: 24, overflow: "hidden" },
 	toast: {
 		position: "absolute",
 		left: 20,
 		right: 20,
-		bottom: 68,
 		paddingHorizontal: 18,
 		paddingVertical: 14,
 		borderRadius: 14,
