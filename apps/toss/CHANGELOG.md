@@ -1,5 +1,11 @@
 # @645/toss
 
+## 1.1.2 — 2026-09-14
+
+### Patch changes
+
+- [99c1cca](https://github.com/imjlk/645-live/commit/99c1cca702145146fa003d0c461bdf496b297f40) 저장된 인증 정보가 만료된 상태에서 앱을 다시 열 때 연결 오류로 번호를 만들지 못하던 문제를 수정했습니다.
+
 ## 1.1.1 — 2026-09-14
 
 ### Patch changes
