@@ -17,6 +17,7 @@ import { Balls } from "./Balls";
 import { Banner } from "./Banner";
 import { shuffleAdGroups, withFeedAds } from "./feed-ad-slots";
 import type { createFeedHistory, FeedHistory } from "./feed-history";
+import { LiveTotal } from "./LiveCount";
 import { LiveNumberGrid } from "./LiveNumberGrid";
 import type { ConnectionState } from "./realtime";
 import { useTheme } from "./theme";
@@ -197,10 +198,11 @@ export function LiveFeed({
 								내가 만든 조합도 모두의 흐름에 더해져요.
 							</Text>
 						</View>
-						<Text style={[s.total, text]}>
-							{(feed?.totalGenerations ?? 0).toLocaleString()}
-							<Text style={[s.body, muted]}> 조합 생성</Text>
-						</Text>
+						<LiveTotal
+							key={feed?.round ?? "loading"}
+							count={feed?.totalGenerations ?? 0}
+							reducedMotion={reducedMotion}
+						/>
 						<View style={[s.row, s.gridToolbar]}>
 							<Text style={[s.sectionTitle, text]}>번호별 생성 횟수</Text>
 							<SegmentedControl.Root
@@ -295,7 +297,7 @@ export function LiveFeed({
 
 const s = StyleSheet.create({
 	screen: { flex: 1 },
-	content: { paddingHorizontal: 20, paddingTop: 28, paddingBottom: 26 },
+	content: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 26 },
 	heading: { marginTop: 16, gap: 10 },
 	title: {
 		fontSize: 29,
@@ -320,13 +322,6 @@ const s = StyleSheet.create({
 	},
 	live: { flexDirection: "row", alignItems: "center", gap: 6 },
 	dot: { width: 6, height: 6, borderRadius: 3 },
-	total: {
-		fontSize: 34,
-		lineHeight: 44,
-		fontWeight: "700",
-		letterSpacing: -0.8,
-		fontVariant: ["tabular-nums"],
-	},
 	generation: { paddingVertical: 18, borderTopWidth: 1 },
 	gridToolbar: { marginTop: 28, flexWrap: "wrap" },
 	gridControl: { width: 132, paddingHorizontal: 0 },

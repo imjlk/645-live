@@ -1,13 +1,13 @@
 import { ballColor, type Feed } from "@645/lotto-core";
-import { memo, useLayoutEffect, useRef, useState } from "react";
+import { memo, useMemo, useState } from "react";
 import {
 	Animated,
-	Easing,
 	StyleSheet,
 	Text,
 	useWindowDimensions,
 	View,
 } from "react-native";
+import { LiveCount, useLiveCount } from "./LiveCount";
 import { useTheme } from "./theme";
 
 const NUMBERS = Array.from({ length: 45 }, (_, i) => i + 1);
@@ -26,31 +26,60 @@ const NumberCell = memo(function NumberCell({
 	size: number;
 }) {
 	const theme = useTheme();
-	const progress = useRef(new Animated.Value(1)).current;
-	const latest = useRef(count);
-	const [previousCount, setPreviousCount] = useState(count);
+	const change = useLiveCount(count, reducedMotion);
+	const { progress, delta } = change;
 	const color = ballColor(number);
 	const ballStyle = { width: size, height: size, borderRadius: size / 2 };
 
-	useLayoutEffect(() => {
-		const previous = latest.current;
-		latest.current = count;
-		progress.setValue(1);
-		// Initial snapshots, deletions and motion preference changes stay still.
-		if (reducedMotion || count <= previous) return;
-		setPreviousCount(previous);
-		progress.setValue(0);
-		const animation = Animated.timing(progress, {
-			toValue: 1,
-			duration: 560,
-			easing: Easing.linear,
-			useNativeDriver: true,
-			// Live events must not delay FlatList rendering or pagination.
-			isInteraction: false,
-		});
-		animation.start();
-		return () => animation.stop();
-	}, [count, reducedMotion, progress]);
+	const motion = useMemo(
+		() => ({
+			ring: {
+				opacity: progress.interpolate({
+					inputRange: [0, 0.12, 0.65, 1],
+					outputRange: [0, 0.65, 0.25, 0],
+				}),
+				transform: [
+					{
+						scale: progress.interpolate({
+							inputRange: [0, 1],
+							outputRange: [1, 1.45],
+						}),
+					},
+				],
+			},
+			ball: {
+				transform: [
+					{
+						scale: progress.interpolate({
+							inputRange: [0, 0.14, 0.4, 1],
+							outputRange: [1, 1.18, 1, 1],
+						}),
+					},
+					{
+						translateY: progress.interpolate({
+							inputRange: [0, 0.14, 0.4, 1],
+							outputRange: [0, -4, 0, 0],
+						}),
+					},
+				],
+			},
+			badge: {
+				opacity: progress.interpolate({
+					inputRange: [0, 0.1, 0.75, 1],
+					outputRange: [0, 1, 1, 0],
+				}),
+				transform: [
+					{
+						translateY: progress.interpolate({
+							inputRange: [0, 0.2, 0.75, 1],
+							outputRange: [6, 0, 0, -6],
+						}),
+					},
+				],
+			},
+		}),
+		[progress],
+	);
 
 	const countStyle = [
 		s.count,
@@ -76,48 +105,10 @@ const NumberCell = memo(function NumberCell({
 			<View style={ballStyle}>
 				<Animated.View
 					pointerEvents="none"
-					style={[
-						s.ring,
-						ballStyle,
-						{
-							borderColor: color,
-							opacity: progress.interpolate({
-								inputRange: [0, 0.15, 0.7, 1],
-								outputRange: [0, 0.5, 0.15, 0],
-							}),
-							transform: [
-								{
-									scale: progress.interpolate({
-										inputRange: [0, 1],
-										outputRange: [1, 1.4],
-									}),
-								},
-							],
-						},
-					]}
+					style={[s.ring, ballStyle, { borderColor: color }, motion.ring]}
 				/>
 				<Animated.View
-					style={[
-						s.ball,
-						ballStyle,
-						{
-							backgroundColor: color,
-							transform: [
-								{
-									scale: progress.interpolate({
-										inputRange: [0, 0.2, 0.55, 1],
-										outputRange: [1, 1.18, 1, 1],
-									}),
-								},
-								{
-									translateY: progress.interpolate({
-										inputRange: [0, 0.2, 0.55, 1],
-										outputRange: [0, -4, 0, 0],
-									}),
-								},
-							],
-						},
-					]}
+					style={[s.ball, ballStyle, { backgroundColor: color }, motion.ball]}
 				>
 					<Text
 						style={[
@@ -131,63 +122,27 @@ const NumberCell = memo(function NumberCell({
 						{number}
 					</Text>
 				</Animated.View>
-			</View>
-			<View
-				style={s.counter}
-				accessibilityElementsHidden
-				importantForAccessibility="no-hide-descendants"
-			>
-				{/* Reserve the real text height, including the device's font scale. */}
-				<Text numberOfLines={1} style={[countStyle, s.measure]}>
-					{count}
-				</Text>
-				<Animated.Text
-					numberOfLines={1}
+				<Animated.View
+					pointerEvents="none"
+					accessibilityElementsHidden
+					importantForAccessibility="no-hide-descendants"
 					style={[
-						countStyle,
-						s.digit,
-						{
-							opacity: progress.interpolate({
-								inputRange: [0, 0.5, 1],
-								outputRange: [1, 0, 0],
-							}),
-							transform: [
-								{
-									translateY: progress.interpolate({
-										inputRange: [0, 0.6, 1],
-										outputRange: [0, -12, -12],
-									}),
-								},
-							],
-						},
+						s.badge,
+						{ backgroundColor: theme.background, borderColor: color },
+						motion.badge,
 					]}
 				>
-					{previousCount}
-				</Animated.Text>
-				<Animated.Text
-					numberOfLines={1}
-					style={[
-						countStyle,
-						s.digit,
-						{
-							opacity: progress.interpolate({
-								inputRange: [0, 0.6, 1],
-								outputRange: [0, 1, 1],
-							}),
-							transform: [
-								{
-									translateY: progress.interpolate({
-										inputRange: [0, 0.6, 1],
-										outputRange: [12, 0, 0],
-									}),
-								},
-							],
-						},
-					]}
-				>
-					{count}
-				</Animated.Text>
+					<Text
+						style={[
+							s.badgeText,
+							{ color: theme.text, fontSize: columns === 5 ? 12 : 10 },
+						]}
+					>
+						+{delta}
+					</Text>
+				</Animated.View>
 			</View>
+			<LiveCount change={change} style={countStyle} />
 		</View>
 	);
 });
@@ -248,11 +203,18 @@ const s = StyleSheet.create({
 		borderWidth: 1.5,
 	},
 	number: { fontWeight: "700" },
-	counter: { width: "100%", overflow: "hidden" },
 	count: {
 		textAlign: "center",
 		fontVariant: ["tabular-nums"],
 	},
-	measure: { opacity: 0 },
-	digit: { position: "absolute", top: 0, left: 0, right: 0 },
+	badge: {
+		position: "absolute",
+		right: -9,
+		top: -9,
+		borderWidth: 1,
+		borderRadius: 12,
+		paddingHorizontal: 4,
+		paddingVertical: 1,
+	},
+	badgeText: { fontWeight: "700", fontVariant: ["tabular-nums"] },
 });
