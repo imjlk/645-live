@@ -19,6 +19,21 @@ test("a backend restart can return 502 and 503 before the complete JSON arrives"
 	assert.deepEqual(await response.json(), { records: [{ round: 1241 }] });
 });
 
+test("quick 503 responses during deployment do not exhaust retries before recovery", async () => {
+	let calls = 0;
+	const response = await retryPublicRead(
+		async () => {
+			calls++;
+			return calls <= 6
+				? new Response("origin warming up", { status: 503 })
+				: Response.json({ ready: true });
+		},
+		{ initialDelayMs: 1 },
+	);
+	assert.equal(calls, 7);
+	assert.deepEqual(await response.json(), { ready: true });
+});
+
 test("connection resets, including an interrupted response body, are retried", async () => {
 	let calls = 0;
 	const reset = Object.assign(new Error("socket reset"), {

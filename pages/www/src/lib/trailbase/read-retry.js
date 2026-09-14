@@ -46,7 +46,9 @@ export async function retryPublicRead(
 	read,
 	{
 		signal,
-		maxAttempts = 6,
+		// Fast gateway failures exhausted six attempts in ~25 seconds, before a
+		// simultaneous origin deployment recovered. Keep retrying within the budget.
+		maxAttempts = 10,
 		attemptTimeoutMs = 15_000,
 		budgetMs = 60_000,
 		initialDelayMs = 1_000,
