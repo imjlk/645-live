@@ -415,6 +415,7 @@ export function useLotto() {
 		savedReady,
 		results,
 		adConfig,
+		generationAdRequired: adConfig?.generationAdRequired === true,
 		adUnavailableReason: adsController.unavailableReason(),
 		attendance,
 		busy,
@@ -428,8 +429,22 @@ export function useLotto() {
 		clearError,
 		finishCelebration: () => setCelebration(null),
 		retry,
-		generate: (options: GenerationOptions = EMPTY_OPTIONS) =>
+		prepareGenerationAd: () =>
+			run("generationAd", async () => {
+				if (!LOCAL_PREVIEW) return;
+				await api.request("/api/app/v1/dev/entitlements", {
+					action: "generation_ad",
+				});
+				await refreshPrivate();
+			}),
+		generate: (options: GenerationOptions = EMPTY_OPTIONS, watchAd = false) =>
 			run("generate", async () => {
+				// Only the explicitly labelled ad CTA is allowed to open a full-screen ad.
+				if (watchAd) {
+					const result = await adsController.unlock("generation_continue");
+					if (result?.continuedWithoutAd)
+						setNotice("광고를 불러오지 못해 바로 이어서 만들어요.");
+				}
 				const round = await api.context();
 				setContext(round);
 				const serializedOptions = JSON.stringify(options);
@@ -452,6 +467,14 @@ export function useLotto() {
 					);
 					pending.current = null;
 					setCurrent(response.generation);
+					setAdConfig((previous) =>
+						previous
+							? {
+									...previous,
+									generationAdRequired: response.generationAdRequired === true,
+								}
+							: previous,
+					);
 					await api
 						.attendance()
 						.then(setAttendance)
@@ -461,6 +484,12 @@ export function useLotto() {
 						.then(receiveFeed)
 						.catch(() => {});
 				} catch (e) {
+					if (apiErrorCode(e) === "GENERATION_AD_REQUIRED") {
+						await api
+							.ads()
+							.then(setAdConfig)
+							.catch(() => {});
+					}
 					if (
 						[
 							"ROUND_CHANGED",

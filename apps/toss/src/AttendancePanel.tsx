@@ -192,7 +192,7 @@ export function AttendancePanel({
 			) : null}
 			<Text style={[s.caption, { color: theme.muted }]}>
 				출석은 한국 시간 자정에 갱신돼요. 프로모션은 운영 기간과 예산 내에서
-				제공되며, 기본 번호 생성은 광고 없이 이용할 수 있어요.
+				제공돼요. 번호를 만든 뒤 오늘의 출석을 완료해 주세요.
 			</Text>
 		</View>
 	);

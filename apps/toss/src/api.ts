@@ -26,7 +26,11 @@ const runtime = resolveLottoRuntime(
 export const API_BASE = runtime.apiBase;
 export const LOCAL_PREVIEW = runtime.local;
 export type User = { id: string; displayName: string };
-export type AdPlacement = "custom" | "report" | "attendance_restore";
+export type AdPlacement =
+	| "custom"
+	| "report"
+	| "attendance_restore"
+	| "generation_continue";
 export type LocalAttendanceAction =
 	| {
 			action: "prepare";
@@ -47,6 +51,7 @@ export type AdConfig = {
 	bannerGroupId: string | null;
 	bannerGroups?: { card: string | null; inline: string | null };
 	feedInlineGroupIds?: string[];
+	generationAdRequired?: boolean;
 	serverTime: number;
 };
 export type Promotion = {
@@ -298,10 +303,11 @@ export function createApi() {
 				signal,
 			),
 		generate: (requestId: string, round: number, options: GenerationOptions) =>
-			request<{ generation: Generation; replayed: boolean }>(
-				"/api/app/v1/lotto/generations",
-				{ requestId, round, options },
-			),
+			request<{
+				generation: Generation;
+				replayed: boolean;
+				generationAdRequired?: boolean;
+			}>("/api/app/v1/lotto/generations", { requestId, round, options }),
 		removePublic: (id: number) =>
 			request<{ deleted: boolean }>("/api/app/v1/lotto/generations/delete", {
 				id,
@@ -310,10 +316,11 @@ export function createApi() {
 		startAd: (placement: AdPlacement) =>
 			request<AdSession>("/api/app/v1/ads/start", { placement }),
 		completeAd: (id: string, events: string[]) =>
-			request<{ feature: string; expiresAt: number }>(
-				"/api/app/v1/ads/complete",
-				{ id, events },
-			),
+			request<{
+				feature: string;
+				expiresAt?: number;
+				continuedWithoutAd?: boolean;
+			}>("/api/app/v1/ads/complete", { id, events }),
 		attendance: () => request<Attendance>("/api/app/v1/attendance/status"),
 		checkIn: () =>
 			request<{ streak: number; replayed: boolean }>(

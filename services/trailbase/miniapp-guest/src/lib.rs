@@ -5,6 +5,7 @@ mod attendance;
 mod auth;
 mod dev;
 mod engagement;
+mod generation_ads;
 mod lotto;
 mod maintenance;
 mod promotion_test;

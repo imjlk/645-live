@@ -1,4 +1,4 @@
-use crate::{ads, auth, body, db};
+use crate::{ads, auth, body, db, generation_ads};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value as Json, json};
 use trailbase_guest_common::responses::*;
@@ -212,8 +212,11 @@ pub(crate) async fn generate(req: &mut Request) -> ApiResult<Json> {
             .first()
             .ok_or_else(|| conflict("GENERATION_DELETED", "이미 삭제한 생성 내역이에요."))?;
         let generation = generation_json(row)?;
+        let generation_ad_required = generation_ads::required(&mut tx, &user.id, now)?;
         db::tx_commit(&mut tx)?;
-        return Ok(json!({"generation":generation,"replayed":true}));
+        return Ok(
+            json!({"generation":generation,"replayed":true,"generationAdRequired":generation_ad_required}),
+        );
     }
     if input.round != target_round(now) {
         return Err(conflict(
@@ -223,6 +226,12 @@ pub(crate) async fn generate(req: &mut Request) -> ApiResult<Json> {
     }
     if input.options.custom() {
         ads::require_pass(&mut tx, &user.id, "custom", now)?;
+    }
+    if generation_ads::required(&mut tx, &user.id, now)? {
+        return Err(conflict(
+            "GENERATION_AD_REQUIRED",
+            "광고를 보고 번호를 계속 만들어 주세요.",
+        ));
     }
     let recent = db::tx_query(
         &mut tx,
@@ -243,15 +252,18 @@ pub(crate) async fn generate(req: &mut Request) -> ApiResult<Json> {
         &mut tx,
         "INSERT INTO ait_lotto_generation_requests(user_id, request_id, generation_id, payload_json, created_at) VALUES (?1,?2,?3,?4,?5)",
         &[
-            Value::Blob(user.id),
+            Value::Blob(user.id.clone()),
             Value::Text(input.request_id),
             Value::Integer(generation["id"].as_i64().unwrap()),
             Value::Text(payload),
             Value::Integer(now),
         ],
     )?;
+    let generation_ad_required = generation_ads::generated(&mut tx, &user.id, now)?;
     db::tx_commit(&mut tx)?;
-    Ok(json!({"generation":generation,"replayed":false}))
+    Ok(
+        json!({"generation":generation,"replayed":false,"generationAdRequired":generation_ad_required}),
+    )
 }
 
 pub(crate) async fn round_context(_req: &mut Request) -> ApiResult<Json> {

@@ -1,4 +1,4 @@
-use crate::{attendance, auth, body, db, lotto, settings};
+use crate::{attendance, auth, body, db, generation_ads, lotto, settings};
 use serde::Deserialize;
 use serde_json::{Value as Json, json};
 use trailbase_guest_common::responses::*;
@@ -48,6 +48,7 @@ pub(crate) async fn config(req: &mut Request) -> ApiResult<Json> {
     let mut tx = db::tx()?;
     let user = auth::user(req, &mut tx)?;
     let now = db::now_ms_tx(&mut tx)?;
+    let generation_ad_required = generation_ads::required(&mut tx, &user.id, now)?;
     let rows = db::tx_query(
         &mut tx,
         "SELECT placement, enabled, rewarded_group_id, interstitial_group_id, rewarded_weight, pass_duration_ms FROM ait_lotto_ad_placements",
@@ -102,7 +103,7 @@ pub(crate) async fn config(req: &mut Request) -> ApiResult<Json> {
         feed_inline_groups.extend(inline_banner.clone());
     }
     Ok(
-        json!({"placements":placements,"passes":passes,"testMode":test,"bannerGroupId":inline_banner,"bannerGroups":{"inline":inline_banner,"card":card_banner},"feedInlineGroupIds":feed_inline_groups,"serverTime":now}),
+        json!({"placements":placements,"passes":passes,"testMode":test,"bannerGroupId":inline_banner,"bannerGroups":{"inline":inline_banner,"card":card_banner},"feedInlineGroupIds":feed_inline_groups,"generationAdRequired":generation_ad_required,"serverTime":now}),
     )
 }
 fn groups(row: &[Value], test: bool) -> ApiResult<(Option<String>, Option<String>)> {
@@ -145,6 +146,16 @@ pub(crate) async fn start(req: &mut Request) -> ApiResult<Json> {
             "지금은 광고 이용권을 준비 중이에요.",
         ));
     }
+    let generation_cycle = if input.placement == generation_ads::PLACEMENT {
+        let cycle = generation_ads::due_cycle(&mut tx, &user.id)?;
+        if cycle.is_none() {
+            db::tx_commit(&mut tx)?;
+            return Ok(json!({"alreadyGranted":true}));
+        }
+        cycle
+    } else {
+        None
+    };
     if input.placement == "attendance_restore" {
         let restored = db::tx_query(
             &mut tx,
@@ -159,7 +170,7 @@ pub(crate) async fn start(req: &mut Request) -> ApiResult<Json> {
             return Ok(json!({"alreadyGranted":true}));
         }
         attendance::require_restore(&mut tx, &user.id, now)?;
-    } else {
+    } else if input.placement != generation_ads::PLACEMENT {
         match require_pass(&mut tx, &user.id, &input.placement, now) {
             Ok(()) => {
                 db::tx_commit(&mut tx)?;
@@ -216,7 +227,7 @@ pub(crate) async fn start(req: &mut Request) -> ApiResult<Json> {
     let expires = now + 300_000;
     db::tx_execute(
         &mut tx,
-        "INSERT INTO ait_lotto_ad_sessions(id,user_id,placement,format,group_id,created_at,expires_at,pass_duration_ms,attendance_day) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9)",
+        "INSERT INTO ait_lotto_ad_sessions(id,user_id,placement,format,group_id,created_at,expires_at,pass_duration_ms,attendance_day,generation_ad_cycle) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)",
         &[
             Value::Text(id.clone()),
             Value::Blob(user.id),
@@ -231,6 +242,7 @@ pub(crate) async fn start(req: &mut Request) -> ApiResult<Json> {
             } else {
                 Value::Null
             },
+            generation_cycle.map(Value::Integer).unwrap_or(Value::Null),
         ],
     )?;
     db::tx_commit(&mut tx)?;
@@ -282,7 +294,7 @@ pub(crate) async fn complete(req: &mut Request) -> ApiResult<Json> {
     let now = db::now_ms_tx(&mut tx)?;
     let rows = db::tx_query(
         &mut tx,
-        "SELECT placement,format,created_at,completed_at,expires_at,pass_duration_ms,status,attendance_day FROM ait_lotto_ad_sessions WHERE id = ?1 AND user_id = ?2",
+        "SELECT placement,format,created_at,completed_at,expires_at,pass_duration_ms,status,attendance_day,generation_ad_cycle FROM ait_lotto_ad_sessions WHERE id = ?1 AND user_id = ?2",
         &[Value::Text(input.id.clone()), Value::Blob(user.id.clone())],
     )?;
     let r = rows
@@ -290,17 +302,33 @@ pub(crate) async fn complete(req: &mut Request) -> ApiResult<Json> {
         .ok_or_else(|| not_found("AD_NOT_FOUND", "광고 요청이 만료됐어요."))?;
     let feature = db::text(&r[0], "placement")?;
     let status = db::text(&r[6], "status")?;
-    if status == "cancelled" || status == "expired" {
-        return Err(conflict("AD_INCOMPLETE", "이미 종료된 광고 요청이에요."));
-    }
     if let Some(at) = db::nullable_integer(&r[3])? {
         db::tx_commit(&mut tx)?;
         return Ok(
-            json!({"feature":feature,"expiresAt":at+db::integer(&r[5],"duration")?,"replayed":true}),
+            json!({"feature":feature,"expiresAt":at+db::integer(&r[5],"duration")?,"replayed":true,"continuedWithoutAd":feature == generation_ads::PLACEMENT && status == "cancelled"}),
         );
+    }
+    if status == "cancelled" || status == "expired" {
+        return Err(conflict("AD_INCOMPLETE", "이미 종료된 광고 요청이에요."));
     }
     if now >= db::integer(&r[4], "expires")? {
         return Err(conflict("AD_EXPIRED", "광고 요청이 만료됐어요."));
+    }
+    if feature == generation_ads::PLACEMENT && input.events == ["failedToShow"] {
+        // A no-fill/unsupported SDK allows basic generation and stays a cancelled
+        // ad, never a fabricated impression, reward, or feature pass.
+        generation_ads::continued(&mut tx, &user.id, db::nullable_integer(&r[8])?, now)?;
+        db::tx_execute(
+            &mut tx,
+            "UPDATE ait_lotto_ad_sessions SET status='cancelled',completed_at=?1,events_json=?2 WHERE id=?3",
+            &[
+                Value::Integer(now),
+                Value::Text(serde_json::to_string(&input.events).map_err(internal)?),
+                Value::Text(input.id),
+            ],
+        )?;
+        db::tx_commit(&mut tx)?;
+        return Ok(json!({"feature":feature,"continuedWithoutAd":true,"replayed":false}));
     }
     if !completed(&db::text(&r[1], "format")?, &input.events) {
         // Cancellation releases the outstanding slot without producing a pass.
@@ -316,7 +344,9 @@ pub(crate) async fn complete(req: &mut Request) -> ApiResult<Json> {
         ));
     }
     let expires = now + db::integer(&r[5], "duration")?;
-    if feature == "attendance_restore" {
+    if feature == generation_ads::PLACEMENT {
+        generation_ads::continued(&mut tx, &user.id, db::nullable_integer(&r[8])?, now)?;
+    } else if feature == "attendance_restore" {
         attendance::restore(
             &mut tx,
             &user.id,

@@ -30,14 +30,17 @@ function ready() {
 		card: ad(1),
 		inline: ad(2),
 		feed: [ad(3), ad(4), ad(5)],
-		placements: ["custom", "report", "attendance_restore"].map(
-			(placement, i) => ({
-				placement,
-				enabled: 1,
-				rewarded_group_id: ad(6 + i * 2),
-				interstitial_group_id: ad(7 + i * 2),
-			}),
-		),
+		placements: [
+			"custom",
+			"report",
+			"attendance_restore",
+			"generation_continue",
+		].map((placement, i) => ({
+			placement,
+			enabled: 1,
+			rewarded_group_id: ad(6 + i * 2),
+			interstitial_group_id: ad(7 + i * 2),
+		})),
 		test: {
 			configured: false,
 			until: 0,

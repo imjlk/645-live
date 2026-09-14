@@ -1,7 +1,12 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
-const FEATURES = ["custom", "report", "attendance_restore"];
+const FEATURES = [
+	"custom",
+	"report",
+	"attendance_restore",
+	"generation_continue",
+];
 const REWARDS = { daily: 1, weekly: 50 };
 const WEEK = 7 * 86_400_000;
 const split = (value = "") =>

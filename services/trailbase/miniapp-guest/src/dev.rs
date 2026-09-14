@@ -1,4 +1,4 @@
-use crate::{ads, attendance, auth, body, db, engagement, settings};
+use crate::{ads, attendance, auth, body, db, engagement, generation_ads, settings};
 use serde::Deserialize;
 use serde_json::{Value as Json, json};
 use trailbase_guest_common::responses::*;
@@ -17,6 +17,7 @@ enum Feature {
 #[serde(tag = "action", rename_all = "snake_case", deny_unknown_fields)]
 enum Action {
     Unlock { feature: Feature },
+    GenerationAd,
     Reset,
 }
 
@@ -64,6 +65,7 @@ pub(crate) async fn entitlements(req: &mut Request) -> ApiResult<Json> {
     let user = local_user(req, &mut tx)?;
     let now = db::now_ms_tx(&mut tx)?;
     match action {
+        Action::GenerationAd => generation_ads::prepare_local(&mut tx, &user.id, now)?,
         Action::Unlock { feature } => {
             let feature = match feature {
                 Feature::Custom => "custom",

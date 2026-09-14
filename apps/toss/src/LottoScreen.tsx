@@ -96,6 +96,7 @@ export function LottoScreen() {
 
 function LottoContent() {
 	const model = useLotto();
+	const generationLabel = model.current ? "새 번호 만들기" : "번호 만들기";
 	const theme = useTheme();
 	const insets = useSafeAreaInsets();
 	const { width } = useWindowDimensions();
@@ -445,6 +446,18 @@ function LottoContent() {
 												</Pressable>
 											) : null}
 										</View>
+										{LOCAL_PREVIEW ? (
+											<View style={{ marginBottom: 8 }}>
+												<Button
+													size="tiny"
+													style="weak"
+													disabled={!!model.busy || !model.user}
+													onPress={() => void model.prepareGenerationAd()}
+												>
+													테스트: 광고 시점 만들기
+												</Button>
+											</View>
+										) : null}
 										<Button
 											display="full"
 											loading={model.busy === "generate"}
@@ -452,10 +465,13 @@ function LottoContent() {
 											onPress={() =>
 												void model.generate(
 													hasOptions ? options : EMPTY_OPTIONS,
+													model.generationAdRequired,
 												)
 											}
 										>
-											{model.current ? "새 번호 만들기" : "번호 만들기"}
+											{model.generationAdRequired
+												? "광고 보고 계속 만들기"
+												: generationLabel}
 										</Button>
 										{model.current ? (
 											<View style={{ marginTop: 10 }}>

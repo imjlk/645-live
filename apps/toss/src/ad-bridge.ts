@@ -4,7 +4,10 @@ import {
 	requestNotificationAgreement,
 	showFullScreenAd,
 } from "@apps-in-toss/framework";
-import { createAppsInTossFullScreenAdBridge } from "@trailbase-apps-in-toss-kit/ait-rn/ads";
+import {
+	AppsInTossAdBridgeError,
+	createAppsInTossFullScreenAdBridge,
+} from "@trailbase-apps-in-toss-kit/ait-rn/ads";
 import { createAppsInTossNotificationAgreementBridge } from "@trailbase-apps-in-toss-kit/ait-rn/notifications";
 import {
 	type AdConfig,
@@ -14,7 +17,7 @@ import {
 	LOCAL_PREVIEW,
 } from "./api";
 
-export function createAdController(api: Api) {
+export function createAdController(api: Pick<Api, "startAd" | "completeAd">) {
 	const bridge = createAppsInTossFullScreenAdBridge({
 		loadFullScreenAd,
 		showFullScreenAd,
@@ -23,6 +26,7 @@ export function createAdController(api: Api) {
 	let busy = false;
 	let disposed = false;
 	let pendingCompletion: {
+		placement: AdPlacement;
 		id: string;
 		events: string[];
 	} | null = null;
@@ -57,15 +61,19 @@ export function createAdController(api: Api) {
 		async unlock(placement: AdPlacement) {
 			if (busy) throw new Error("진행 중인 광고를 먼저 완료해 주세요.");
 			const reason = unavailableReason();
-			if (reason) throw new Error(reason);
+			if (reason && placement !== "generation_continue")
+				throw new Error(reason);
 			busy = true;
 			try {
 				if (pendingCompletion) {
 					try {
-						await api.completeAd(
+						const previous = pendingCompletion;
+						const result = await api.completeAd(
 							pendingCompletion.id,
 							pendingCompletion.events,
 						);
+						pendingCompletion = null;
+						if (previous.placement === placement) return result;
 					} catch (error) {
 						if (
 							[
@@ -81,9 +89,31 @@ export function createAdController(api: Api) {
 					}
 					pendingCompletion = null;
 				}
-				const session = await api.startAd(placement);
-				if (session.alreadyGranted) return;
+				const session = await api.startAd(placement).catch((error) => {
+					if (
+						placement === "generation_continue" &&
+						["AD_COOLDOWN", "AD_UNAVAILABLE"].includes(
+							apiErrorCode(error) ?? "",
+						)
+					)
+						return null;
+					throw error;
+				});
+				if (!session || session.alreadyGranted) return;
 				try {
+					if (reason) {
+						pendingCompletion = {
+							placement,
+							id: session.id,
+							events: ["failedToShow"],
+						};
+						const result = await api.completeAd(
+							session.id,
+							pendingCompletion.events,
+						);
+						pendingCompletion = null;
+						return result;
+					}
 					const result = await bridge.preloadAndShow({
 						adGroupId: session.groupId,
 						adFormat: session.format,
@@ -91,12 +121,32 @@ export function createAdController(api: Api) {
 						preloadNext: false,
 					});
 					pendingCompletion = {
+						placement,
 						id: session.id,
 						events: result.events,
 					};
-					await api.completeAd(session.id, result.events);
+					const completed = await api.completeAd(session.id, result.events);
 					pendingCompletion = null;
+					return completed;
 				} catch (error) {
+					if (
+						placement === "generation_continue" &&
+						!pendingCompletion &&
+						error instanceof AppsInTossAdBridgeError &&
+						error.code !== "AD_SHOW_TIMEOUT"
+					) {
+						pendingCompletion = {
+							placement,
+							id: session.id,
+							events: ["failedToShow"],
+						};
+						const result = await api.completeAd(
+							session.id,
+							pendingCompletion.events,
+						);
+						pendingCompletion = null;
+						return result;
+					}
 					if (
 						[
 							"AD_INCOMPLETE",
