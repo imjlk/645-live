@@ -269,6 +269,19 @@ pub(crate) async fn round_context(_req: &mut Request) -> ApiResult<Json> {
         json!({"serverTime":now,"targetRound":round,"closesAt":close_time(round),"drawsAt":close_time(round)+2_100_000,"latestDraw":latest}),
     )
 }
+const FEED_PAGE_SIZE: usize = 30;
+
+fn feed_cursor(raw: &str, round: i64) -> ApiResult<i64> {
+    let invalid = || bad_request("INVALID_CURSOR", "목록을 새로고침한 뒤 다시 확인해 주세요.");
+    let (cursor_round, id) = raw.split_once(':').ok_or_else(invalid)?;
+    let cursor_round = cursor_round.parse::<i64>().map_err(|_| invalid())?;
+    let id = id.parse::<i64>().map_err(|_| invalid())?;
+    if cursor_round != round || id < 1 || id > 9_007_199_254_740_991 {
+        return Err(invalid());
+    }
+    Ok(id)
+}
+
 pub(crate) async fn feed(req: &mut Request) -> ApiResult<Json> {
     let mut tx = db::tx()?;
     let now = db::now_ms_tx(&mut tx)?;
@@ -283,15 +296,36 @@ pub(crate) async fn feed(req: &mut Request) -> ApiResult<Json> {
     if round < 1 || round > target_round(now) {
         return Err(bad_request("INVALID_ROUND", "회차를 확인해 주세요."));
     }
+    let before = req
+        .query_param("cursor")
+        .map(|v| feed_cursor(&v, round))
+        .transpose()?;
+    let mut params = vec![Value::Integer(round)];
+    let cursor_filter = if let Some(id) = before {
+        params.push(Value::Integer(id));
+        " AND id < ?2"
+    } else {
+        ""
+    };
     let rows = db::tx_query(
         &mut tx,
         &format!(
-            "SELECT {SELECT_GENERATION} FROM lotto_public_generations WHERE round = ?1 ORDER BY id DESC LIMIT 30"
+            "SELECT {SELECT_GENERATION} FROM lotto_public_generations WHERE round = ?1{cursor_filter} ORDER BY id DESC LIMIT {}",
+            FEED_PAGE_SIZE + 1
         ),
-        &[Value::Integer(round)],
+        &params,
     )?;
+    let next_cursor = if rows.len() > FEED_PAGE_SIZE {
+        Some(format!(
+            "{round}:{}",
+            db::integer(&rows[FEED_PAGE_SIZE - 1][0], "id")?
+        ))
+    } else {
+        None
+    };
     let generations = rows
         .iter()
+        .take(FEED_PAGE_SIZE)
         .map(|r| generation_json(r))
         .collect::<ApiResult<Vec<_>>>()?;
     let columns = (1..=45)
@@ -324,7 +358,7 @@ pub(crate) async fn feed(req: &mut Request) -> ApiResult<Json> {
     let active = db::integer(&active[0][0], "active")?;
     db::tx_commit(&mut tx)?;
     Ok(
-        json!({"round":round,"generations":generations,"totalGenerations":total,"numberCounts":numbers,"activeUsers":active,"serverTime":now}),
+        json!({"round":round,"generations":generations,"nextCursor":next_cursor,"totalGenerations":total,"numberCounts":numbers,"activeUsers":active,"serverTime":now}),
     )
 }
 
@@ -388,6 +422,20 @@ pub(crate) async fn report(req: &mut Request) -> ApiResult<Json> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn cursor_is_bound_to_its_round_and_safe_public_id() {
+        assert_eq!(feed_cursor("1242:123", 1242).unwrap(), 123);
+        for cursor in [
+            "1241:123",
+            "1242:0",
+            "1242:-1",
+            "1242:9007199254740992",
+            "123",
+            "1242:2:3",
+        ] {
+            assert!(feed_cursor(cursor, 1242).is_err());
+        }
+    }
     #[test]
     fn cutoff_does_not_depend_on_import() {
         assert_eq!(target_round(FIRST_CLOSE_MS - 1), 1);

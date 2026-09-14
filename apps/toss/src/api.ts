@@ -40,6 +40,7 @@ export type AdConfig = {
 	testMode: boolean;
 	bannerGroupId: string | null;
 	bannerGroups?: { card: string | null; inline: string | null };
+	feedInlineGroupIds?: string[];
 	serverTime: number;
 };
 export type Promotion = {
@@ -284,8 +285,11 @@ export function createApi() {
 				`${runtime.storageKey}.saved.v1.${user.id}`,
 			),
 		context: () => publicGet<RoundContext>("/api/app/v1/lotto/round-context"),
-		feed: (round: number, signal?: AbortSignal) =>
-			publicGet<Feed>(`/api/app/v1/lotto/feed?round=${round}`, signal),
+		feed: (round: number, signal?: AbortSignal, cursor?: string) =>
+			publicGet<Feed>(
+				`/api/app/v1/lotto/feed?round=${round}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`,
+				signal,
+			),
 		generate: (requestId: string, round: number, options: GenerationOptions) =>
 			request<{ generation: Generation; replayed: boolean }>(
 				"/api/app/v1/lotto/generations",

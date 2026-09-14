@@ -1,4 +1,7 @@
-import { createXhrSseStream } from "@trailbase-apps-in-toss-kit/trailbase-client";
+import {
+	createXhrSseStream,
+	type SseEvent,
+} from "@trailbase-apps-in-toss-kit/trailbase-client";
 
 export type ConnectionState = "connecting" | "live" | "reconnecting";
 /** Snapshots after every (re)connection reconcile missed inserts, updates and deletions. */
@@ -8,7 +11,7 @@ export function subscribeRealtime({
 	onState,
 }: {
 	url: string;
-	onChange: () => void;
+	onChange: (event?: SseEvent) => void;
 	onState: (state: ConnectionState) => void;
 }) {
 	let stopped = false;
@@ -44,7 +47,7 @@ export function subscribeRealtime({
 		try {
 			stream = createXhrSseStream({
 				url,
-				onEvent: () => onChange(),
+				onEvent: onChange,
 				onOpen: () => {
 					// The kit emits onOpen at headers. Only a successful HTTP response is live.
 					if (stream && stream.xhr.status >= 400) {

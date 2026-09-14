@@ -1,6 +1,5 @@
 import {
 	BALL_COLORS,
-	ballColor,
 	compareDraw,
 	describeCombination,
 	EMPTY_OPTIONS,
@@ -45,6 +44,7 @@ import { LOCAL_PREVIEW } from "./api";
 import { Balls } from "./Balls";
 import { Banner } from "./Banner";
 import { Celebration } from "./Celebration";
+import { LiveFeed, relativeTime } from "./LiveFeed";
 import { PrivacyNotice } from "./PrivacyNotice";
 import { ReportHistory } from "./ReportHistory";
 import { useTheme } from "./theme";
@@ -67,14 +67,6 @@ const PANEL_TITLES = {
 	support: "문의하기",
 } as const;
 const NUMBERS = Array.from({ length: 45 }, (_, i) => i + 1);
-function relativeTime(at: number, now: number) {
-	const seconds = Math.max(0, Math.floor((now - at) / 1000));
-	return seconds < 60
-		? "방금"
-		: seconds < 3600
-			? `${Math.floor(seconds / 60)}분 전`
-			: `${Math.floor(seconds / 3600)}시간 전`;
-}
 function dateLabel(at: number) {
 	const d = new Date(at + 9 * 3600_000);
 	return `${d.getUTCMonth() + 1}월 ${d.getUTCDate()}일`;
@@ -327,402 +319,360 @@ function LottoContent() {
 						</Button>
 					</View>
 				) : null}
-				<IOScrollView
-					ref={scroll}
-					style={{ flex: 1 }}
-					contentContainerStyle={{ paddingBottom: 24 }}
-					refreshControl={
-						<RefreshControl
-							refreshing={model.refreshing}
-							onRefresh={model.retry}
-							tintColor={theme.blue}
-						/>
-					}
-				>
-					<Animated.View
-						style={{
-							opacity: enter,
-							transform: [
-								{
-									translateY: enter.interpolate({
-										inputRange: [0, 1],
-										outputRange: [6, 0],
-									}),
-								},
-							],
-						}}
+				{tab === "live" ? (
+					<LiveFeed
+						feed={model.feed}
+						history={model.history}
+						controller={model.feedHistory}
+						adConfig={model.adConfig}
+						connection={model.connection}
+						ballSize={ballSize}
+						refreshing={model.refreshing}
+						onRefresh={model.retry}
+					/>
+				) : (
+					<IOScrollView
+						ref={scroll}
+						style={{ flex: 1 }}
+						contentContainerStyle={{ paddingBottom: 24 }}
+						refreshControl={
+							<RefreshControl
+								refreshing={model.refreshing}
+								onRefresh={model.retry}
+								tintColor={theme.blue}
+							/>
+						}
 					>
-						{tab === "make" ? (
-							<>
-								<View style={[s.section, s.firstSection]}>
-									<View style={s.row}>
-										<Text style={[s.eyebrow, { color: theme.blue }]}>
-											{model.context
-												? `${model.context.targetRound}회 번호 만들기`
-												: "이번 주 번호 만들기"}
-										</Text>
-										<Text style={[s.caption, muted]}>
-											{model.context
-												? `${dateLabel(model.context.drawsAt)} 추첨`
-												: "회차 확인 중"}
-										</Text>
-									</View>
-									{headline(
-										"이번 주, 내 번호는?",
-										"번호를 만들고 마음에 드는 조합을 보관하세요.",
-									)}
-									<View style={{ paddingVertical: 26 }}>
-										<Balls
-											numbers={model.current?.numbers ?? [0, 0, 0, 0, 0, 0]}
-											size={ballSize}
-											animate
-											reducedMotion={model.reducedMotion}
-										/>
-									</View>
-									<View style={[s.row, { minHeight: 44, marginBottom: 14 }]}>
-										<Pressable
-											accessibilityRole="button"
-											onPress={() => {
-												setDraft(options);
-												setPanel("custom");
-											}}
-											style={{ paddingVertical: 10 }}
-										>
-											<Text style={[s.body, { color: theme.blue }]}>
-												{hasOptions
-													? "맞춤 조건 적용 중"
-													: "내 취향대로 만들기"}{" "}
-												›
-											</Text>
-										</Pressable>
-										{hasOptions ? (
-											<Pressable
-												accessibilityRole="button"
-												onPress={() => setOptions(EMPTY_OPTIONS)}
-											>
-												<Text style={[s.caption, muted]}>초기화</Text>
-											</Pressable>
-										) : null}
-									</View>
-									<Button
-										display="full"
-										loading={model.busy === "generate"}
-										disabled={!!model.busy || !model.user || !model.context}
-										onPress={() =>
-											void model.generate(hasOptions ? options : EMPTY_OPTIONS)
-										}
-									>
-										{model.current ? "새 번호 만들기" : "번호 만들기"}
-									</Button>
-									{model.current ? (
-										<View style={{ marginTop: 10 }}>
-											<Button
-												display="full"
-												style="weak"
-												loading={model.busy === "save"}
-												disabled={!!model.busy || isSaved || !model.savedReady}
-												onPress={() => {
-													if (model.current) void model.save(model.current);
-												}}
-											>
-												{isSaved ? "보관함에 저장했어요" : "이 번호 보관하기"}
-											</Button>
-										</View>
-									) : null}
-									<Pressable
-										accessibilityRole="button"
-										accessibilityLabel="오늘의 출석과 혜택 보기"
-										onPress={() => setPanel("attendance")}
-										style={({ pressed }) => [
-											s.attendanceEntry,
-											{ borderColor: theme.line, opacity: pressed ? 0.65 : 1 },
-										]}
-									>
-										<View style={s.attendanceCopy}>
-											<Text style={[s.body, text]}>
-												{model.attendance?.checkedIn
-													? `오늘 출석 완료 · ${model.attendance.streak}/7일`
-													: "오늘의 출석"}
-											</Text>
-											<Text style={[s.caption, muted]}>
-												{model.attendance?.generatedToday
-													? "출석을 이어가고 혜택을 확인해 보세요."
-													: "번호를 한 번 만들면 출석할 수 있어요."}
-											</Text>
-										</View>
-										<Text style={[s.body, { color: theme.blue }]}>
-											{model.attendance?.checkedIn
-												? "혜택 보기 ›"
-												: "출석하기 ›"}
-										</Text>
-									</Pressable>
-									<Text style={[s.finePrint, muted]}>
-										생성한 번호는 실시간 활동에 함께 표시돼요.
-									</Text>
-									<Banner
-										format="card"
-										groupId={model.adConfig?.bannerGroups?.card}
-									/>
-								</View>
-								<View style={[s.divider, { backgroundColor: theme.surface }]} />
-								<View style={s.section}>
-									<View style={s.row}>
-										<Text style={[s.sectionTitle, text]}>
-											지금 함께 만드는 번호
-										</Text>
-										{live}
-									</View>
-									<View style={{ paddingVertical: 20 }}>
-										<Text style={[s.total, text]}>
-											{(model.feed?.totalGenerations ?? 0).toLocaleString()}
-											<Text style={[s.body, muted]}> 조합</Text>
-										</Text>
-										<Text style={[s.caption, muted]}>
-											이번 회차에 쌓인 번호예요.
-										</Text>
-									</View>
-									{feedRows(3)}
-									<Button
-										display="full"
-										type="dark"
-										style="weak"
-										onPress={() => setTab("live")}
-									>
-										실시간 번호 흐름 보기
-									</Button>
-								</View>
-								{model.context?.latestDraw ? (
-									<View
-										style={[
-											s.section,
-											{ borderTopWidth: 8, borderTopColor: theme.surface },
-										]}
-									>
+						<Animated.View
+							style={{
+								opacity: enter,
+								transform: [
+									{
+										translateY: enter.interpolate({
+											inputRange: [0, 1],
+											outputRange: [6, 0],
+										}),
+									},
+								],
+							}}
+						>
+							{tab === "make" ? (
+								<>
+									<View style={[s.section, s.firstSection]}>
 										<View style={s.row}>
-											<Text style={[s.sectionTitle, text]}>최근 당첨 번호</Text>
+											<Text style={[s.eyebrow, { color: theme.blue }]}>
+												{model.context
+													? `${model.context.targetRound}회 번호 만들기`
+													: "이번 주 번호 만들기"}
+											</Text>
 											<Text style={[s.caption, muted]}>
-												{model.context.latestDraw.round}회
+												{model.context
+													? `${dateLabel(model.context.drawsAt)} 추첨`
+													: "회차 확인 중"}
 											</Text>
 										</View>
-										<View style={{ paddingTop: 20 }}>
+										{headline(
+											"이번 주, 내 번호는?",
+											"번호를 만들고 마음에 드는 조합을 보관하세요.",
+										)}
+										<View style={{ paddingVertical: 26 }}>
 											<Balls
-												numbers={model.context.latestDraw.numbers}
-												size={Math.min(40, ballSize)}
+												numbers={model.current?.numbers ?? [0, 0, 0, 0, 0, 0]}
+												size={ballSize}
+												animate
+												reducedMotion={model.reducedMotion}
 											/>
 										</View>
-										<Text style={[s.caption, muted, { marginTop: 12 }]}>
-											보너스 {model.context.latestDraw.bonus}
-										</Text>
-									</View>
-								) : null}
-							</>
-						) : tab === "live" ? (
-							<View style={s.section}>
-								<View style={s.row}>
-									<Text style={[s.eyebrow, { color: theme.blue }]}>
-										{model.context?.targetRound}회 실시간 활동
-									</Text>
-									{live}
-								</View>
-								{headline(
-									"번호가 모이고 있어요",
-									"내가 만든 조합도 모두의 흐름에 더해져요.",
-								)}
-								<Text style={[s.total, text]}>
-									{(model.feed?.totalGenerations ?? 0).toLocaleString()}
-									<Text style={[s.body, muted]}> 조합 생성</Text>
-								</Text>
-								<View style={{ marginTop: 28 }}>
-									<Text style={[s.sectionTitle, text]}>
-										어떤 번호가 많이 나왔을까?
-									</Text>
-									<Text style={[s.caption, muted, { marginTop: 8 }]}>
-										번호 아래 숫자는 이번 회차 생성 횟수예요.
-									</Text>
-									<View style={s.numberGrid}>
-										{NUMBERS.map((n) => (
-											<View key={n} style={s.numberCell}>
-												<View
-													style={[
-														s.numberSmall,
-														{ backgroundColor: ballColor(n) },
-													]}
-												>
-													<Text
-														style={{
-															fontWeight: "700",
-															color: n <= 10 ? "#3D3000" : "white",
-															fontSize: 14,
-														}}
-													>
-														{n}
-													</Text>
-												</View>
-												<Text style={[s.numberCount, muted]}>
-													{model.feed?.numberCounts[n - 1] ?? 0}
+										<View style={[s.row, { minHeight: 44, marginBottom: 14 }]}>
+											<Pressable
+												accessibilityRole="button"
+												onPress={() => {
+													setDraft(options);
+													setPanel("custom");
+												}}
+												style={{ paddingVertical: 10 }}
+											>
+												<Text style={[s.body, { color: theme.blue }]}>
+													{hasOptions
+														? "맞춤 조건 적용 중"
+														: "내 취향대로 만들기"}{" "}
+													›
 												</Text>
-											</View>
-										))}
-									</View>
-								</View>
-								<Text style={[s.caption, muted]}>
-									많이 생성된 번호와 당첨 확률은 관계가 없어요.
-								</Text>
-								<View style={[s.row, { marginTop: 12 }]}>
-									<Text style={[s.sectionTitle, text]}>최근 생성 내역</Text>
-									<Text style={[s.caption, muted]}>최신 30개</Text>
-								</View>
-								{feedRows(5)}
-								<Banner
-									format="inline"
-									groupId={
-										model.adConfig?.bannerGroups?.inline ??
-										model.adConfig?.bannerGroupId
-									}
-								/>
-								{(model.feed?.generations.length ?? 0) > 5
-									? feedRows(30, 5)
-									: null}
-							</View>
-						) : (
-							<View style={s.section}>
-								{headline(
-									"보관함",
-									`${model.saved.length} / 200개 보관 · 추첨 후 결과를 확인하세요.`,
-									<IconButton
-										name="icon-setting-mono"
-										label="설정"
-										iconSize={24}
-										color={theme.muted}
-										variant="clear"
-										onPress={openSettings}
-										style={s.settings}
-									/>,
-								)}
-								{model.attendance?.notificationTemplateCode ? (
-									<View style={[s.row, { paddingVertical: 16 }]}>
-										<View style={{ flex: 1, paddingRight: 12 }}>
-											<Text style={[s.body, text]}>결과가 나오면 알려주기</Text>
-											<Text style={[s.caption, muted]}>
-												보관한 회차의 결과 알림
-											</Text>
+											</Pressable>
+											{hasOptions ? (
+												<Pressable
+													accessibilityRole="button"
+													onPress={() => setOptions(EMPTY_OPTIONS)}
+												>
+													<Text style={[s.caption, muted]}>초기화</Text>
+												</Pressable>
+											) : null}
 										</View>
-										<Switch
-											checked={model.attendance.notificationsEnabled}
-											onCheckedChange={(checked) =>
-												void model.notifications(checked)
+										<Button
+											display="full"
+											loading={model.busy === "generate"}
+											disabled={!!model.busy || !model.user || !model.context}
+											onPress={() =>
+												void model.generate(
+													hasOptions ? options : EMPTY_OPTIONS,
+												)
 											}
-										/>
-									</View>
-								) : null}
-								<Banner
-									format="inline"
-									groupId={
-										model.adConfig?.bannerGroups?.inline ??
-										model.adConfig?.bannerGroupId
-									}
-								/>
-								{!model.savedReady ? (
-									<View style={s.empty}>
-										<ActivityIndicator color={theme.blue} />
-										<Text style={[s.description, muted]}>
-											보관함 연결을 확인하고 있어요.
-										</Text>
-									</View>
-								) : !model.saved.length ? (
-									<View style={s.empty}>
-										<Balls
-											numbers={[0, 0, 0, 0, 0, 0]}
-											size={Math.min(38, ballSize)}
-										/>
-										<Text style={[s.sectionTitle, text, { marginTop: 24 }]}>
-											아직 보관한 번호가 없어요
-										</Text>
-										<Text
-											style={[
-												s.description,
-												muted,
-												{ marginTop: 8, marginBottom: 24 },
+										>
+											{model.current ? "새 번호 만들기" : "번호 만들기"}
+										</Button>
+										{model.current ? (
+											<View style={{ marginTop: 10 }}>
+												<Button
+													display="full"
+													style="weak"
+													loading={model.busy === "save"}
+													disabled={
+														!!model.busy || isSaved || !model.savedReady
+													}
+													onPress={() => {
+														if (model.current) void model.save(model.current);
+													}}
+												>
+													{isSaved ? "보관함에 저장했어요" : "이 번호 보관하기"}
+												</Button>
+											</View>
+										) : null}
+										<Pressable
+											accessibilityRole="button"
+											accessibilityLabel="오늘의 출석과 혜택 보기"
+											onPress={() => setPanel("attendance")}
+											style={({ pressed }) => [
+												s.attendanceEntry,
+												{
+													borderColor: theme.line,
+													opacity: pressed ? 0.65 : 1,
+												},
 											]}
 										>
-											번호를 만든 뒤 ‘이 번호 보관하기’를 눌러 주세요.
+											<View style={s.attendanceCopy}>
+												<Text style={[s.body, text]}>
+													{model.attendance?.checkedIn
+														? `오늘 출석 완료 · ${model.attendance.streak}/7일`
+														: "오늘의 출석"}
+												</Text>
+												<Text style={[s.caption, muted]}>
+													{model.attendance?.generatedToday
+														? "출석을 이어가고 혜택을 확인해 보세요."
+														: "번호를 한 번 만들면 출석할 수 있어요."}
+												</Text>
+											</View>
+											<Text style={[s.body, { color: theme.blue }]}>
+												{model.attendance?.checkedIn
+													? "혜택 보기 ›"
+													: "출석하기 ›"}
+											</Text>
+										</Pressable>
+										<Text style={[s.finePrint, muted]}>
+											생성한 번호는 실시간 활동에 함께 표시돼요.
 										</Text>
-										<Button display="full" onPress={() => setTab("make")}>
-											첫 번호 만들러 가기
+										<Banner
+											format="card"
+											groupId={model.adConfig?.bannerGroups?.card}
+										/>
+									</View>
+									<View
+										style={[s.divider, { backgroundColor: theme.surface }]}
+									/>
+									<View style={s.section}>
+										<View style={s.row}>
+											<Text style={[s.sectionTitle, text]}>
+												지금 함께 만드는 번호
+											</Text>
+											{live}
+										</View>
+										<View style={{ paddingVertical: 20 }}>
+											<Text style={[s.total, text]}>
+												{(model.feed?.totalGenerations ?? 0).toLocaleString()}
+												<Text style={[s.body, muted]}> 조합</Text>
+											</Text>
+											<Text style={[s.caption, muted]}>
+												이번 회차에 쌓인 번호예요.
+											</Text>
+										</View>
+										{feedRows(3)}
+										<Button
+											display="full"
+											type="dark"
+											style="weak"
+											onPress={() => setTab("live")}
+										>
+											실시간 번호 흐름 보기
 										</Button>
 									</View>
-								) : (
-									model.saved.map((item) => {
-										const draw = model.results[item.round];
-										const result = draw
-											? compareDraw(item.numbers, draw)
-											: null;
-										return (
-											<View
-												key={item.id}
-												style={[s.savedRow, { borderColor: theme.line }]}
-											>
-												<View style={[s.row, { marginBottom: 16 }]}>
-													<Text style={[s.body, text]}>{item.round}회</Text>
-													<Text
-														style={[
-															s.caption,
-															{
-																color: result?.rank
-																	? theme.positive
-																	: theme.muted,
-															},
-														]}
-													>
-														{result
-															? result.rank
-																? `${result.rank}등 번호 일치`
-																: `${result.matches.length}개 일치`
-															: item.round <=
-																	(model.context?.latestDraw?.round ?? 0)
-																? "결과 확인 필요"
-																: "추첨 결과 기다리는 중"}
-													</Text>
-												</View>
-												<Balls
-													numbers={item.numbers}
-													size={Math.min(42, ballSize)}
-													matches={result?.matches}
-												/>
-												<View style={[s.row, { marginTop: 14 }]}>
-													<Pressable
-														accessibilityRole="button"
-														onPress={() => {
-															setReport(item);
-															setPanel("report");
-														}}
-														style={{ paddingVertical: 10 }}
-													>
-														<Text style={[s.body, { color: theme.blue }]}>
-															조합 살펴보기 ›
-														</Text>
-													</Pressable>
-													<Pressable
-														accessibilityRole="button"
-														accessibilityLabel={`${item.round}회 보관 번호 삭제`}
-														onPress={() => askRemove(item)}
-														style={{ padding: 10 }}
-													>
-														<Text style={[s.caption, muted]}>삭제</Text>
-													</Pressable>
-												</View>
+									{model.context?.latestDraw ? (
+										<View
+											style={[
+												s.section,
+												{ borderTopWidth: 8, borderTopColor: theme.surface },
+											]}
+										>
+											<View style={s.row}>
+												<Text style={[s.sectionTitle, text]}>
+													최근 당첨 번호
+												</Text>
+												<Text style={[s.caption, muted]}>
+													{model.context.latestDraw.round}회
+												</Text>
 											</View>
-										);
-									})
-								)}
-								<Text style={[s.finePrint, muted]}>
-									보관 번호는 실제 구매 내역이 아니에요. 기기 보관함은 토스 앱을
-									삭제하면 함께 지워질 수 있어요.
-								</Text>
-							</View>
-						)}
-					</Animated.View>
-				</IOScrollView>
+											<View style={{ paddingTop: 20 }}>
+												<Balls
+													numbers={model.context.latestDraw.numbers}
+													size={Math.min(40, ballSize)}
+												/>
+											</View>
+											<Text style={[s.caption, muted, { marginTop: 12 }]}>
+												보너스 {model.context.latestDraw.bonus}
+											</Text>
+										</View>
+									) : null}
+								</>
+							) : (
+								<View style={s.section}>
+									{headline(
+										"보관함",
+										`${model.saved.length} / 200개 보관 · 추첨 후 결과를 확인하세요.`,
+										<IconButton
+											name="icon-setting-mono"
+											label="설정"
+											iconSize={24}
+											color={theme.muted}
+											variant="clear"
+											onPress={openSettings}
+											style={s.settings}
+										/>,
+									)}
+									{model.attendance?.notificationTemplateCode ? (
+										<View style={[s.row, { paddingVertical: 16 }]}>
+											<View style={{ flex: 1, paddingRight: 12 }}>
+												<Text style={[s.body, text]}>
+													결과가 나오면 알려주기
+												</Text>
+												<Text style={[s.caption, muted]}>
+													보관한 회차의 결과 알림
+												</Text>
+											</View>
+											<Switch
+												checked={model.attendance.notificationsEnabled}
+												onCheckedChange={(checked) =>
+													void model.notifications(checked)
+												}
+											/>
+										</View>
+									) : null}
+									<Banner
+										format="inline"
+										groupId={
+											model.adConfig?.bannerGroups?.inline ??
+											model.adConfig?.bannerGroupId
+										}
+									/>
+									{!model.savedReady ? (
+										<View style={s.empty}>
+											<ActivityIndicator color={theme.blue} />
+											<Text style={[s.description, muted]}>
+												보관함 연결을 확인하고 있어요.
+											</Text>
+										</View>
+									) : !model.saved.length ? (
+										<View style={s.empty}>
+											<Balls
+												numbers={[0, 0, 0, 0, 0, 0]}
+												size={Math.min(38, ballSize)}
+											/>
+											<Text style={[s.sectionTitle, text, { marginTop: 24 }]}>
+												아직 보관한 번호가 없어요
+											</Text>
+											<Text
+												style={[
+													s.description,
+													muted,
+													{ marginTop: 8, marginBottom: 24 },
+												]}
+											>
+												번호를 만든 뒤 ‘이 번호 보관하기’를 눌러 주세요.
+											</Text>
+											<Button display="full" onPress={() => setTab("make")}>
+												첫 번호 만들러 가기
+											</Button>
+										</View>
+									) : (
+										model.saved.map((item) => {
+											const draw = model.results[item.round];
+											const result = draw
+												? compareDraw(item.numbers, draw)
+												: null;
+											return (
+												<View
+													key={item.id}
+													style={[s.savedRow, { borderColor: theme.line }]}
+												>
+													<View style={[s.row, { marginBottom: 16 }]}>
+														<Text style={[s.body, text]}>{item.round}회</Text>
+														<Text
+															style={[
+																s.caption,
+																{
+																	color: result?.rank
+																		? theme.positive
+																		: theme.muted,
+																},
+															]}
+														>
+															{result
+																? result.rank
+																	? `${result.rank}등 번호 일치`
+																	: `${result.matches.length}개 일치`
+																: item.round <=
+																		(model.context?.latestDraw?.round ?? 0)
+																	? "결과 확인 필요"
+																	: "추첨 결과 기다리는 중"}
+														</Text>
+													</View>
+													<Balls
+														numbers={item.numbers}
+														size={Math.min(42, ballSize)}
+														matches={result?.matches}
+													/>
+													<View style={[s.row, { marginTop: 14 }]}>
+														<Pressable
+															accessibilityRole="button"
+															onPress={() => {
+																setReport(item);
+																setPanel("report");
+															}}
+															style={{ paddingVertical: 10 }}
+														>
+															<Text style={[s.body, { color: theme.blue }]}>
+																조합 살펴보기 ›
+															</Text>
+														</Pressable>
+														<Pressable
+															accessibilityRole="button"
+															accessibilityLabel={`${item.round}회 보관 번호 삭제`}
+															onPress={() => askRemove(item)}
+															style={{ padding: 10 }}
+														>
+															<Text style={[s.caption, muted]}>삭제</Text>
+														</Pressable>
+													</View>
+												</View>
+											);
+										})
+									)}
+									<Text style={[s.finePrint, muted]}>
+										보관 번호는 실제 구매 내역이 아니에요. 기기 보관함은 토스
+										앱을 삭제하면 함께 지워질 수 있어요.
+									</Text>
+								</View>
+							)}
+						</Animated.View>
+					</IOScrollView>
+				)}
 				{model.notice ? (
 					<View
 						accessibilityLiveRegion="polite"
@@ -1191,26 +1141,6 @@ const s = StyleSheet.create({
 	},
 	feedRow: { paddingVertical: 18, borderTopWidth: 1 },
 	empty: { paddingVertical: 40, gap: 8 },
-	numberGrid: {
-		flexDirection: "row",
-		flexWrap: "wrap",
-		marginTop: 18,
-		marginHorizontal: -2,
-	},
-	numberCell: {
-		width: "11.111%",
-		alignItems: "center",
-		paddingVertical: 8,
-		gap: 6,
-	},
-	numberSmall: {
-		width: 28,
-		height: 28,
-		borderRadius: 14,
-		alignItems: "center",
-		justifyContent: "center",
-	},
-	numberCount: { fontSize: 10, fontVariant: ["tabular-nums"] },
 	savedRow: { borderTopWidth: 1, paddingVertical: 22 },
 	message: { paddingHorizontal: 20, paddingVertical: 12, gap: 10 },
 	toast: {

@@ -10,7 +10,14 @@ import {
 	resultFingerprint,
 	type SavedCombination,
 } from "@645/lotto-core";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+	useCallback,
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+	useSyncExternalStore,
+} from "react";
 import { AccessibilityInfo, AppState } from "react-native";
 import { createAdController, setResultNotification } from "./ad-bridge";
 import {
@@ -25,6 +32,7 @@ import {
 	type Promotion,
 	type User,
 } from "./api";
+import { createFeedHistory, deletedGenerationId } from "./feed-history";
 import type { ReportState } from "./ReportHistory";
 import { type ConnectionState, subscribeRealtime } from "./realtime";
 
@@ -39,6 +47,31 @@ export function useLotto() {
 	const [user, setUser] = useState<User | null>(null);
 	const [context, setContext] = useState<RoundContext | null>(null);
 	const [feed, setFeed] = useState<Feed | null>(null);
+	const feedHistory = useMemo(
+		() =>
+			createFeedHistory((round, signal, cursor) =>
+				api.feed(round, signal, cursor),
+			),
+		[api],
+	);
+	const history = useSyncExternalStore(
+		feedHistory.subscribe,
+		feedHistory.getSnapshot,
+	);
+	const receiveFeed = useCallback(
+		(next: Feed) => {
+			setFeed((current) =>
+				current &&
+				(current.round > next.round ||
+					(current.round === next.round &&
+						current.serverTime > next.serverTime))
+					? current
+					: next,
+			);
+			feedHistory.receive(next);
+		},
+		[feedHistory],
+	);
 	const [current, setCurrent] = useState<Generation | null>(null);
 	const [saved, setSaved] = useState<SavedCombination[]>([]);
 	const [savedReady, setSavedReady] = useState(false);
@@ -135,8 +168,9 @@ export function useLotto() {
 			subscription.remove();
 			api.dispose();
 			adsController.dispose();
+			feedHistory.cancel();
 		};
-	}, [api, adsController]);
+	}, [api, adsController, feedHistory]);
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: Revision represents an explicit user retry.
 	useEffect(() => {
@@ -150,7 +184,7 @@ export function useLotto() {
 				setContext(context);
 				const initial = await api.feed(context.targetRound);
 				if (cancelled) return;
-				setFeed(initial);
+				receiveFeed(initial);
 				const account = await api.ensure();
 				if (cancelled) return;
 				setUser(account);
@@ -168,7 +202,7 @@ export function useLotto() {
 		return () => {
 			cancelled = true;
 		};
-	}, [api, revision, refreshPrivate]);
+	}, [api, revision, refreshPrivate, receiveFeed]);
 
 	useEffect(() => {
 		const round = context?.targetRound;
@@ -186,7 +220,7 @@ export function useLotto() {
 			refreshing = true;
 			try {
 				const next = await api.feed(round);
-				if (!closed) setFeed(next);
+				if (!closed) receiveFeed(next);
 			} catch {
 				if (!closed) setConnection("reconnecting");
 			} finally {
@@ -207,7 +241,11 @@ export function useLotto() {
 		const cleanup = [
 			subscribeRealtime({
 				url: `${API_BASE}/api/records/v1/lotto_public_generations/subscribe/*`,
-				onChange: changed,
+				onChange: (event) => {
+					const id = event ? deletedGenerationId(event.data) : null;
+					if (id !== null) feedHistory.remove(id);
+					changed();
+				},
 				onState: (state) => {
 					if (!closed) setConnection(state);
 				},
@@ -237,7 +275,7 @@ export function useLotto() {
 			clearInterval(poll);
 			clearInterval(roundPoll);
 		};
-	}, [api, context?.targetRound, foreground]);
+	}, [api, context?.targetRound, foreground, receiveFeed, feedHistory]);
 
 	useEffect(() => {
 		if (!user) return;
@@ -366,6 +404,8 @@ export function useLotto() {
 		loadReport,
 		context,
 		feed,
+		history,
+		feedHistory,
 		current,
 		saved,
 		savedReady,
@@ -413,7 +453,7 @@ export function useLotto() {
 						.catch(() => {});
 					await api
 						.feed(round.targetRound)
-						.then(setFeed)
+						.then(receiveFeed)
 						.catch(() => {});
 				} catch (e) {
 					if (

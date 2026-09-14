@@ -85,8 +85,24 @@ pub(crate) async fn config(req: &mut Request) -> ApiResult<Json> {
     } else {
         settings::string("AIT_BANNER_CARD_GROUP_ID")
     };
+    let mut feed_inline_groups = Vec::<String>::new();
+    if !test {
+        for id in settings::string_or("AIT_FEED_INLINE_GROUP_IDS", "")
+            .split(',')
+            .map(str::trim)
+            .filter(|id| !id.is_empty())
+            .take(20)
+        {
+            if !feed_inline_groups.iter().any(|value| value == id) {
+                feed_inline_groups.push(id.into());
+            }
+        }
+    }
+    if feed_inline_groups.is_empty() {
+        feed_inline_groups.extend(inline_banner.clone());
+    }
     Ok(
-        json!({"placements":placements,"passes":passes,"testMode":test,"bannerGroupId":inline_banner,"bannerGroups":{"inline":inline_banner,"card":card_banner},"serverTime":now}),
+        json!({"placements":placements,"passes":passes,"testMode":test,"bannerGroupId":inline_banner,"bannerGroups":{"inline":inline_banner,"card":card_banner},"feedInlineGroupIds":feed_inline_groups,"serverTime":now}),
     )
 }
 fn groups(row: &[Value], test: bool) -> ApiResult<(Option<String>, Option<String>)> {

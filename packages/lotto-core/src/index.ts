@@ -38,6 +38,8 @@ export type RoundContext = {
 export type Feed = {
 	round: number;
 	generations: Generation[];
+	/** Missing on older API deployments; null marks the last page. */
+	nextCursor?: string | null;
 	totalGenerations: number;
 	numberCounts: number[];
 	activeUsers: number;
