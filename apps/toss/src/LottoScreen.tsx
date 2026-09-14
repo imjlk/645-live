@@ -50,6 +50,7 @@ import { LocalResultPreview } from "./LocalResultPreview";
 import { LocalTestPanel } from "./LocalTestPanel";
 import { PrivacyNotice } from "./PrivacyNotice";
 import { ReportHistory } from "./ReportHistory";
+import { SAVED_LIMIT } from "./saved-store";
 import { useTheme } from "./theme";
 import { useLotto } from "./use-lotto";
 
@@ -100,6 +101,9 @@ function LottoContent() {
 	const { width } = useWindowDimensions();
 	const [tab, setTab] = useState("make");
 	const [liveColumns, setLiveColumns] = useState<5 | 9>(5);
+	const [savedPage, setSavedPage] = useState(0);
+	const savedPages = Math.max(1, Math.ceil(model.saved.length / 20));
+	const currentSavedPage = Math.min(savedPage, savedPages - 1);
 	const [{ panel, open: sheetOpen }, setSheet] = useState<{
 		panel: Panel;
 		open: boolean;
@@ -145,6 +149,7 @@ function LottoContent() {
 	// biome-ignore lint/correctness/useExhaustiveDependencies: Each selected tab resets scroll and enters once.
 	useEffect(() => {
 		scroll.current?.scrollTo({ y: 0, animated: false });
+		setSavedPage(0);
 		if (model.reducedMotion) {
 			enter.setValue(1);
 			return;
@@ -564,10 +569,13 @@ function LottoContent() {
 									) : null}
 								</>
 							) : (
-								<View style={s.section}>
+								<View style={[s.section, s.firstSection]}>
+									<Text style={[s.eyebrow, { color: theme.blue }]}>
+										기기에 저장한 번호
+									</Text>
 									{headline(
 										"보관함",
-										`${model.saved.length} / 200개 보관 · 추첨 후 결과를 확인하세요.`,
+										`${model.saved.length.toLocaleString()} / ${SAVED_LIMIT.toLocaleString()}개 보관 · 추첨 후 결과를 확인하세요.`,
 										<IconButton
 											name="icon-setting-mono"
 											label="설정"
@@ -633,69 +641,100 @@ function LottoContent() {
 											</Button>
 										</View>
 									) : (
-										model.saved.map((item) => {
-											const draw = model.results[item.round];
-											const result = draw
-												? compareDraw(item.numbers, draw)
-												: null;
-											return (
-												<View
-													key={item.id}
-													style={[s.savedRow, { borderColor: theme.line }]}
-												>
-													<View style={[s.row, { marginBottom: 16 }]}>
-														<Text style={[s.body, text]}>{item.round}회</Text>
-														<Text
-															style={[
-																s.caption,
-																{
-																	color: result?.rank
-																		? theme.positive
-																		: theme.muted,
-																},
-															]}
-														>
-															{result
-																? result.rank
-																	? `${result.rank}등 번호 일치`
-																	: `${result.matches.length}개 일치`
-																: item.round <=
-																		(model.context?.latestDraw?.round ?? 0)
-																	? "결과 확인 필요"
-																	: "추첨 결과 기다리는 중"}
-														</Text>
-													</View>
-													<Balls
-														numbers={item.numbers}
-														size={Math.min(42, ballSize)}
-														matches={result?.matches}
-													/>
-													<View style={[s.row, { marginTop: 14 }]}>
-														<Pressable
-															accessibilityRole="button"
-															onPress={() => {
-																setReport(item);
-																setPanel("report");
-															}}
-															style={{ paddingVertical: 10 }}
-														>
-															<Text style={[s.body, { color: theme.blue }]}>
-																조합 살펴보기 ›
+										model.saved
+											.slice(currentSavedPage * 20, (currentSavedPage + 1) * 20)
+											.map((item) => {
+												const draw = model.results[item.round];
+												const result = draw
+													? compareDraw(item.numbers, draw)
+													: null;
+												return (
+													<View
+														key={item.id}
+														style={[s.savedRow, { borderColor: theme.line }]}
+													>
+														<View style={[s.row, { marginBottom: 16 }]}>
+															<Text style={[s.body, text]}>{item.round}회</Text>
+															<Text
+																style={[
+																	s.caption,
+																	{
+																		color: result?.rank
+																			? theme.positive
+																			: theme.muted,
+																	},
+																]}
+															>
+																{result
+																	? result.rank
+																		? `${result.rank}등 번호 일치`
+																		: `${result.matches.length}개 일치`
+																	: item.round <=
+																			(model.context?.latestDraw?.round ?? 0)
+																		? "결과 확인 필요"
+																		: "추첨 결과 기다리는 중"}
 															</Text>
-														</Pressable>
-														<Pressable
-															accessibilityRole="button"
-															accessibilityLabel={`${item.round}회 보관 번호 삭제`}
-															onPress={() => askRemove(item)}
-															style={{ padding: 10 }}
-														>
-															<Text style={[s.caption, muted]}>삭제</Text>
-														</Pressable>
+														</View>
+														<Balls
+															numbers={item.numbers}
+															size={Math.min(42, ballSize)}
+															matches={result?.matches}
+														/>
+														<View style={[s.row, { marginTop: 14 }]}>
+															<Pressable
+																accessibilityRole="button"
+																onPress={() => {
+																	setReport(item);
+																	setPanel("report");
+																}}
+																style={{ paddingVertical: 10 }}
+															>
+																<Text style={[s.body, { color: theme.blue }]}>
+																	조합 살펴보기 ›
+																</Text>
+															</Pressable>
+															<Pressable
+																accessibilityRole="button"
+																accessibilityLabel={`${item.round}회 보관 번호 삭제`}
+																onPress={() => askRemove(item)}
+																style={{ padding: 10 }}
+															>
+																<Text style={[s.caption, muted]}>삭제</Text>
+															</Pressable>
+														</View>
 													</View>
-												</View>
-											);
-										})
+												);
+											})
 									)}
+									{savedPages > 1 ? (
+										<View style={[s.row, { paddingVertical: 20 }]}>
+											<Button
+												size="tiny"
+												style="weak"
+												disabled={currentSavedPage === 0}
+												onPress={() => {
+													setSavedPage(currentSavedPage - 1);
+													scroll.current?.scrollTo({ y: 0, animated: false });
+												}}
+											>
+												이전
+											</Button>
+											<Text style={[s.caption, muted]}>
+												{currentSavedPage + 1} / {savedPages} 페이지
+											</Text>
+											<Button
+												size="tiny"
+												style="weak"
+												disabled={currentSavedPage + 1 >= savedPages}
+												onPress={() => {
+													setSavedPage(currentSavedPage + 1);
+													scroll.current?.scrollTo({ y: 0, animated: false });
+												}}
+											>
+												다음
+											</Button>
+										</View>
+									) : null}
 									<Text style={[s.finePrint, muted]}>
 										보관 번호는 실제 구매 내역이 아니에요. 기기 보관함은 토스
 										앱을 삭제하면 함께 지워질 수 있어요.
@@ -1010,6 +1049,9 @@ function LottoContent() {
 												busy={!!model.busy}
 												ballSize={ballSize}
 											/>
+											<Text style={[s.caption, muted]}>
+												조합 통계 제공: 645.live
+											</Text>
 											<Text style={[s.caption, muted]}>
 												내 조합을 이해하는 정보예요. 다음 당첨 결과를 예측하지
 												않아요.

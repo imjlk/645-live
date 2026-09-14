@@ -1,5 +1,7 @@
 import { normalizeSaved, type SavedCombination } from "@645/lotto-core";
 
+export const SAVED_LIMIT = 1_000;
+
 export type Storage = {
 	getItem(key: string): Promise<string | null> | string | null;
 	setItem(key: string, value: string): Promise<void> | void;
@@ -22,9 +24,9 @@ export function createSavedStore(storage: Storage, key: string) {
 			.catch(() => {})
 			.then(async () => {
 				const next = change(replace ? [] : await read());
-				if (next.length > 200)
+				if (next.length > SAVED_LIMIT)
 					throw new Error(
-						"보관함은 200개까지 저장할 수 있어요. 이전 번호를 정리해 주세요.",
+						`보관함은 ${SAVED_LIMIT.toLocaleString()}개까지 저장할 수 있어요. 이전 번호를 정리해 주세요.`,
 					);
 				const serialized = JSON.stringify(next);
 				await storage.setItem(key, serialized);

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { SavedCombination } from "@645/lotto-core";
-import { createSavedStore } from "./saved-store";
+import { createSavedStore, SAVED_LIMIT } from "./saved-store";
 
 function item(id: number): SavedCombination {
 	return {
@@ -13,6 +13,33 @@ function item(id: number): SavedCombination {
 	};
 }
 describe("durable local collection", () => {
+	test("a full expanded collection survives overflow and can accept a replacement after removal", async () => {
+		let raw = JSON.stringify(
+			Array.from({ length: SAVED_LIMIT - 1 }, (_, index) => item(index + 1)),
+		);
+		const store = createSavedStore(
+			{
+				getItem: () => raw,
+				setItem: (_, value) => {
+					raw = value;
+				},
+			},
+			"saved",
+		);
+		await store.add(item(SAVED_LIMIT));
+		const full = raw;
+		await expect(store.add(item(SAVED_LIMIT + 1))).rejects.toThrow("1,000");
+		expect(raw).toBe(full);
+		await store.remove("1");
+		await store.add(item(SAVED_LIMIT + 1));
+		const restored = await createSavedStore(
+			{ getItem: () => raw, setItem: () => {} },
+			"saved",
+		).read();
+		expect(restored).toHaveLength(SAVED_LIMIT);
+		expect(restored[0].generationId).toBe(SAVED_LIMIT + 1);
+		expect(restored.some((value) => value.id === "1")).toBe(false);
+	});
 	test("concurrent saves serialize without losing a combination", async () => {
 		let raw: string | null = null;
 		const storage = {
