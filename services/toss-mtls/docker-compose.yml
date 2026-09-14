@@ -9,7 +9,7 @@ services:
       - "8787"
     environment:
       MTLS_PROXY_MODE: forward
-      MTLS_PROXY_TOKEN: ${MTLS_PROXY_TOKEN:?Set the private proxy token}
+      MTLS_PROXY_TOKEN: ${SERVICE_PASSWORD_64_LOTTO_MTLS}
       MTLS_UPSTREAM_BASE_URL: https://apps-in-toss-api.toss.im
       MTLS_CERT_DIR: /run/mtls
     volumes:
