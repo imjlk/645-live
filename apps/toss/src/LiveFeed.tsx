@@ -232,6 +232,9 @@ export function LiveFeed({
 						<Text style={[s.caption, muted]}>
 							많이 생성된 번호와 당첨 확률은 관계가 없어요.
 						</Text>
+						<Text style={[s.caption, muted, { marginTop: 6 }]}>
+							생성 통계 제공: 645.live
+						</Text>
 						<View style={[s.row, { marginTop: 20, marginBottom: 12 }]}>
 							<Text style={[s.sectionTitle, text]}>최근 생성 내역</Text>
 							<Text style={[s.caption, muted]}>
