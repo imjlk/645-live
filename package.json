@@ -19,7 +19,8 @@
 		"miniapp:check": "bun run --cwd packages/lotto-core check && bun run toss check",
 		"miniapp:test": "bun test packages/lotto-core apps/toss/src scripts/miniapp --timeout 10000",
 		"miniapp:wasm": "cargo build --manifest-path services/trailbase/miniapp-guest/Cargo.toml --release --target wasm32-wasip2",
-		"miniapp:smoke": "python3 scripts/miniapp/smoke.py"
+		"miniapp:smoke": "python3 scripts/miniapp/smoke.py",
+		"miniapp:readiness": "bun scripts/miniapp/production-readiness.mjs"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.4.7",
