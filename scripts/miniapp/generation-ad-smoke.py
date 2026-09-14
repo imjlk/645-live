@@ -178,12 +178,20 @@ def run():
                 expect(generate(u, a)[0], 200, 'random interval')
                 intervals.append(progress(u)['remaining'] + 1)
             assert all(10 <= value <= 50 for value in intervals) and len(set(intervals)) > 1
+            capped_user, capped_auth = account()
+            now = request(base, '/api/app/v1/lotto/round-context')[1]['serverTime']
+            sql('INSERT INTO ait_lotto_generation_ad_progress(user_id,remaining,updated_at) VALUES (?,0,?)', [capped_user, now])
+            sql("INSERT INTO ait_lotto_generation_requests(user_id,request_id,payload_json,created_at) SELECT ?, 'daily-cap-' || value, '{}', ? FROM json_each(?)", [capped_user, now, json.dumps(list(range(200)))])
+            assert not request(base, '/api/app/v1/ads/config', headers=capped_auth)[1]['generationAdRequired']
+            assert start(capped_auth)[1]['alreadyGranted'], 'an exhausted generation quota must not show an ad'
+            expect(request(base, '/api/app/v1/lotto/generations', {'requestId': uuid.uuid4().hex, 'round': round, 'options': {'fixed': [], 'excluded': [], 'oddCount': None}}, capped_auth)[0], 429, 'generation limit is checked before ads')
+            assert sql('SELECT * FROM ait_lotto_ad_sessions WHERE user_id=?', [capped_user]) == []
             sql("UPDATE ait_lotto_ad_placements SET enabled=0 WHERE placement='generation_continue'")
             sql('UPDATE ait_lotto_generation_ad_progress SET remaining=0 WHERE user_id=?', [user50])
             expect(generate(user50, auth50)[0], 200, 'configuration disable immediately releases generation')
             expect(request(base, '/api/app/v1/dev/entitlements', {'action': 'generation_ad'}, auth50)[0], 404, 'production flags reject the local shortcut')
             assert sql('PRAGMA foreign_key_check') == []
-            print(json.dumps({'random-generation-ads': 'passed', 'checks': ['10 and 50 boundaries', 'random per-user intervals', 'server restart persistence', 'generation retry idempotency', 'rewarded and interstitial completion', 'cancellation and no-fill distinction', 'no-fill replay idempotency', 'global cooldown fallback', 'disabled placement fallback', 'identity and local-only gates']}), flush=True)
+            print(json.dumps({'random-generation-ads': 'passed', 'checks': ['10 and 50 boundaries', 'random per-user intervals', 'server restart persistence', 'generation retry idempotency', 'rewarded and interstitial completion', 'cancellation and no-fill distinction', 'no-fill replay idempotency', 'global cooldown fallback', 'daily generation cap never prompts an ad', 'disabled placement fallback', 'identity and local-only gates']}), flush=True)
         finally:
             cleanup_case(name, folder, '645-trailbase:miniapp')
 

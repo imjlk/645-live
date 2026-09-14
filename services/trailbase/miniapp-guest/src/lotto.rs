@@ -8,6 +8,8 @@ use trailbase_wasm::{
     rand::get_random_bytes,
 };
 
+pub(crate) const DAILY_GENERATION_LIMIT: i64 = 200;
+
 pub const WEEK_MS: i64 = 604_800_000;
 // Round 1 sales close: 2002-12-07 20:00 KST. Never infer a target round from a delayed data import.
 pub const FIRST_CLOSE_MS: i64 = 1_039_258_800_000;
@@ -227,23 +229,23 @@ pub(crate) async fn generate(req: &mut Request) -> ApiResult<Json> {
     if input.options.custom() {
         ads::require_pass(&mut tx, &user.id, "custom", now)?;
     }
-    if generation_ads::required(&mut tx, &user.id, now)? {
-        return Err(conflict(
-            "GENERATION_AD_REQUIRED",
-            "광고를 보고 번호를 계속 만들어 주세요.",
-        ));
-    }
     let recent = db::tx_query(
         &mut tx,
         "SELECT count(*), coalesce(max(created_at), 0) FROM ait_lotto_generation_requests WHERE user_id = ?1 AND created_at > ?2 - 86400000",
         &[Value::Blob(user.id.clone()), Value::Integer(now)],
     )?;
-    if db::integer(&recent[0][0], "count")? >= 200
+    if db::integer(&recent[0][0], "count")? >= DAILY_GENERATION_LIMIT
         || now - db::integer(&recent[0][1], "last")? < 800
     {
         return Err(too_many_requests(
             "GENERATION_LIMIT",
             "조금 쉬었다가 다시 만들어 주세요.",
+        ));
+    }
+    if generation_ads::required(&mut tx, &user.id, now)? {
+        return Err(conflict(
+            "GENERATION_AD_REQUIRED",
+            "광고를 보고 번호를 계속 만들어 주세요.",
         ));
     }
     let numbers = choose(&input.options, random_index);

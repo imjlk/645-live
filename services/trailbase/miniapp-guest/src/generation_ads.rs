@@ -55,6 +55,15 @@ pub(crate) fn required(tx: &mut Transaction, user: &[u8], now: i64) -> ApiResult
     let Some((cooldown, cap)) = configured(tx)? else {
         return Ok(false);
     };
+    let generations = db::tx_query(
+        tx,
+        "SELECT count(*) FROM ait_lotto_generation_requests WHERE user_id=?1 AND created_at>?2",
+        &[Value::Blob(user.to_vec()), Value::Integer(now - 86_400_000)],
+    )?;
+    // Never ask someone to watch an ad when the next generation is rate-limited.
+    if db::integer(&generations[0][0], "count")? >= lotto::DAILY_GENERATION_LIMIT {
+        return Ok(false);
+    }
     let usage = db::tx_query(
         tx,
         "SELECT count(*),coalesce(max(created_at),0) FROM ait_lotto_ad_sessions WHERE user_id=?1 AND created_at>=?2",

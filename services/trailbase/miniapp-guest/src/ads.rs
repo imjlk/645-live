@@ -148,7 +148,7 @@ pub(crate) async fn start(req: &mut Request) -> ApiResult<Json> {
     }
     let generation_cycle = if input.placement == generation_ads::PLACEMENT {
         let cycle = generation_ads::due_cycle(&mut tx, &user.id)?;
-        if cycle.is_none() {
+        if !generation_ads::required(&mut tx, &user.id, now)? {
             db::tx_commit(&mut tx)?;
             return Ok(json!({"alreadyGranted":true}));
         }
