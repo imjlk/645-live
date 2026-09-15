@@ -2,12 +2,15 @@
 import base64
 import concurrent.futures
 import json
+import os
 import sqlite3
 import tempfile
 import time
 import uuid
 
 from smoke import SOURCE, cleanup_case, command, expect, request
+
+IMAGE = os.environ.get("MINIAPP_TEST_IMAGE", "645-trailbase:miniapp")
 
 
 def migration_check():
@@ -55,7 +58,7 @@ def run():
             command('docker', 'run', '-d', '--name', name, '-p', '127.0.0.1::4000', '-v', f'{folder}:/app/traildepot',
                     '-e', 'BACKFILL_ON_STARTUP=false', '-e', 'AIT_ENABLED=true', '-e', 'AIT_ALLOW_DEV_IDENTITY=true',
                     '-e', 'AIT_BOTS_ENABLED=false', '-e', 'AIT_TEST_ADS=false', '-e', 'AIT_PROMOTIONS_ENABLED=false',
-                    '-e', 'RUNTIME_THREADS=4', '645-trailbase:miniapp')
+                    '-e', 'RUNTIME_THREADS=4', IMAGE)
 
             def connect():
                 base = 'http://127.0.0.1:' + command('docker', 'port', name, '4000/tcp').rsplit(':', 1)[1]
@@ -85,13 +88,13 @@ def run():
             def progress(user):
                 return sql('SELECT remaining,cycle FROM ait_lotto_generation_ad_progress WHERE user_id=?', [user])[0]
 
-            def generate(user, auth, request_id=None):
+            def generate(user, auth, request_id=None, device=False):
                 sql('UPDATE ait_lotto_generation_requests SET created_at=1 WHERE user_id=?', [user])
                 return request(base, '/api/app/v1/lotto/generations', {'requestId': request_id or uuid.uuid4().hex, 'round': round,
-                    'options': {'fixed': [], 'excluded': [], 'oddCount': None}}, auth)
+                    'options': {'fixed': [], 'excluded': [], 'oddCount': None}, **({'clientManagedCounter': True} if device else {})}, auth)
 
-            def start(auth):
-                return request(base, '/api/app/v1/ads/start', {'placement': 'generation_continue'}, auth)
+            def start(auth, device=False):
+                return request(base, '/api/app/v1/ads/start', {'placement': 'generation_continue', **({'clientManagedCounter': True} if device else {})}, auth)
 
             def complete(auth, ad, events):
                 return request(base, '/api/app/v1/ads/complete', {'id': ad['id'], 'events': events}, auth)
@@ -186,14 +189,44 @@ def run():
             assert start(capped_auth)[1]['alreadyGranted'], 'an exhausted generation quota must not show an ad'
             expect(request(base, '/api/app/v1/lotto/generations', {'requestId': uuid.uuid4().hex, 'round': round, 'options': {'fixed': [], 'excluded': [], 'oddCount': None}}, capped_auth)[0], 429, 'generation limit is checked before ads')
             assert sql('SELECT * FROM ait_lotto_ad_sessions WHERE user_id=?', [capped_user]) == []
+            # New clients publish normally, without touching server ad progress per generation.
+            device_user, device_auth = account()
+            policy = request(base, '/api/app/v1/ads/config', headers=device_auth)[1]['generationAdPolicy']
+            assert policy == {'counter': 'device', 'minGenerations': 10, 'maxGenerations': 50}
+            for _ in range(55):
+                status, result = generate(device_user, device_auth, device=True)
+                expect(status, 200, 'device counter generation')
+                assert not result['generationAdRequired']
+            assert sql('SELECT * FROM ait_lotto_generation_ad_progress WHERE user_id=?', [device_user]) == []
+            assert request(base, '/api/app/v1/attendance/status', headers=device_auth)[1]['generatedToday']
+            request_id = uuid.uuid4().hex
+            first = generate(device_user, device_auth, request_id, device=True)[1]
+            replay = generate(device_user, device_auth, request_id, device=True)[1]
+            assert replay['replayed'] and replay['generation']['id'] == first['generation']['id']
+            # Ad selection and completion still use the real ledger and pressure limits.
+            status, device_ad = start(device_auth, device=True)
+            expect(status, 200, 'device interval starts real ad')
+            assert device_ad['format'] == 'interstitial'
+            before_device = progress(device_user)
+            expect(generate(device_user, device_auth, device=True)[0], 200, 'server gate does not block device counter')
+            assert progress(device_user) == before_device
+            expect(complete(device_auth, device_ad, ['show', 'impression', 'dismissed'])[0], 200, 'device ad completion')
+            assert progress(device_user)['cycle'] == 1
+            assert start(device_auth, device=True)[1]['alreadyGranted'], 'device path retains shared ad cooldown'
+            payload = {'requestId': uuid.uuid4().hex, 'round': round, 'options': {'fixed': [1], 'excluded': [], 'oddCount': None}, 'clientManagedCounter': True}
+            expect(request(base, '/api/app/v1/lotto/generations', payload, device_auth)[0], 403, 'device cadence does not bypass feature passes')
+            payload['options'] = {'fixed': [], 'excluded': [], 'oddCount': None}
+            payload['requestId'] = uuid.uuid4().hex
+            expect(request(base, '/api/app/v1/lotto/generations', payload, capped_auth)[0], 429, 'device cadence does not bypass generation rate limits')
+            assert start(capped_auth, device=True)[1]['alreadyGranted'], 'no ad for a device with exhausted generation quota'
             sql("UPDATE ait_lotto_ad_placements SET enabled=0 WHERE placement='generation_continue'")
             sql('UPDATE ait_lotto_generation_ad_progress SET remaining=0 WHERE user_id=?', [user50])
             expect(generate(user50, auth50)[0], 200, 'configuration disable immediately releases generation')
             expect(request(base, '/api/app/v1/dev/entitlements', {'action': 'generation_ad'}, auth50)[0], 404, 'production flags reject the local shortcut')
             assert sql('PRAGMA foreign_key_check') == []
-            print(json.dumps({'random-generation-ads': 'passed', 'checks': ['10 and 50 boundaries', 'random per-user intervals', 'server restart persistence', 'generation retry idempotency', 'rewarded and interstitial completion', 'cancellation and no-fill distinction', 'no-fill replay idempotency', 'global cooldown fallback', 'daily generation cap never prompts an ad', 'disabled placement fallback', 'identity and local-only gates']}), flush=True)
+            print(json.dumps({'random-generation-ads': 'passed', 'checks': ['10 and 50 boundaries', 'random per-user intervals', 'server restart persistence', 'generation retry idempotency', 'rewarded and interstitial completion', 'cancellation and no-fill distinction', 'no-fill replay idempotency', 'global cooldown fallback', 'daily generation cap never prompts an ad', 'disabled placement fallback', 'identity and local-only gates', 'device cadence avoids progress writes', 'device generation replay idempotency', 'device ads retain shared limits', 'device cadence preserves passes and attendance']}), flush=True)
         finally:
-            cleanup_case(name, folder, '645-trailbase:miniapp')
+            cleanup_case(name, folder, IMAGE)
 
 
 if __name__ == '__main__':

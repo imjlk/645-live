@@ -65,7 +65,7 @@ pub(crate) async fn entitlements(req: &mut Request) -> ApiResult<Json> {
     let user = local_user(req, &mut tx)?;
     let now = db::now_ms_tx(&mut tx)?;
     match action {
-        Action::GenerationAd => generation_ads::prepare_local(&mut tx, &user.id, now)?,
+        Action::GenerationAd => generation_ads::prepare(&mut tx, &user.id, now)?,
         Action::Unlock { feature } => {
             let feature = match feature {
                 Feature::Custom => "custom",

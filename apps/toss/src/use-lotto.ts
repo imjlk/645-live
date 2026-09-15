@@ -35,6 +35,7 @@ import {
 	type User,
 } from "./api";
 import { createFeedHistory, deletedGenerationId } from "./feed-history";
+import { createGenerationRequest } from "./generation-request";
 import type { ReportState } from "./ReportHistory";
 import { type ConnectionState, subscribeRealtime } from "./realtime";
 
@@ -46,6 +47,19 @@ const message = (value: unknown) =>
 export function useLotto() {
 	const api = useMemo(createApi, []);
 	const adsController = useMemo(() => createAdController(api), [api]);
+	const requestGeneration = useMemo(
+		() =>
+			createGenerationRequest({
+				...api,
+				errorCode: apiErrorCode,
+				newRequestId,
+			}),
+		[api],
+	);
+	const generationAds = useSyncExternalStore(
+		api.generationAds.subscribe,
+		api.generationAds.getSnapshot,
+	);
 	const [user, setUser] = useState<User | null>(null);
 	const [context, setContext] = useState<RoundContext | null>(null);
 	const [feed, setFeed] = useState<Feed | null>(null);
@@ -92,11 +106,9 @@ export function useLotto() {
 	const [celebration, setCelebration] = useState<string | null>(null);
 	const [revision, setRevision] = useState(0);
 	const [refreshing, setRefreshing] = useState(false);
-	const pending = useRef<{
-		id: string;
-		round: number;
-		options: GenerationOptions;
-	} | null>(null);
+	const refreshLive = useRef<(() => void) | null>(null);
+	const attendanceRefresh = useRef<Promise<void> | null>(null);
+	const lastGenerated = useRef<Generation | null>(null);
 	const active = useRef(true);
 	const actionLock = useRef(false);
 	const seenWins = useRef(new Set<string>());
@@ -148,14 +160,28 @@ export function useLotto() {
 		[api, run],
 	);
 
+	const receiveAttendance = useCallback((next: Attendance) => {
+		if (!active.current) return;
+		setAttendance((previous) => {
+			if (previous && previous.serverTime > next.serverTime) return previous;
+			const generated = lastGenerated.current;
+			return generated &&
+				Math.floor((generated.createdAt + 32_400_000) / 86_400_000) === next.day
+				? { ...next, generatedToday: true }
+				: next;
+		});
+	}, []);
+
 	const refreshPrivate = useCallback(async () => {
 		const [ads, check] = await Promise.all([api.ads(), api.attendance()]);
+		if (ads.generationAdPolicy?.counter === "device")
+			await api.generationAds.load(ads.generationAdPolicy);
 		if (active.current) {
 			setAdConfig(ads);
-			setAttendance(check);
+			receiveAttendance(check);
 			adsController.preload(ads);
 		}
-	}, [api, adsController]);
+	}, [api, adsController, receiveAttendance]);
 
 	useEffect(() => {
 		active.current = true;
@@ -241,6 +267,7 @@ export function useLotto() {
 		const changed = () => {
 			if (!closed) batch.push();
 		};
+		refreshLive.current = changed;
 		const cleanup = [
 			subscribeRealtime({
 				url: `${API_BASE}/api/records/v1/lotto_public_generations/subscribe/*`,
@@ -273,6 +300,7 @@ export function useLotto() {
 		);
 		return () => {
 			closed = true;
+			if (refreshLive.current === changed) refreshLive.current = null;
 			for (const close of cleanup) close();
 			batch.cancel();
 			clearInterval(poll);
@@ -414,7 +442,14 @@ export function useLotto() {
 		savedReady,
 		results,
 		adConfig,
-		generationAdRequired: adConfig?.generationAdRequired === true,
+		generationAdRequired:
+			adConfig?.generationAdPolicy?.counter === "device"
+				? generationAds.ready &&
+					generationAds.remaining === 0 &&
+					adConfig.placements.some(
+						(p) => p.placement === "generation_continue" && p.enabled,
+					)
+				: adConfig?.generationAdRequired === true,
 		adUnavailableReason: adsController.unavailableReason(),
 		attendance,
 		busy,
@@ -431,6 +466,11 @@ export function useLotto() {
 		prepareGenerationAd: () =>
 			run("generationAd", async () => {
 				if (!LOCAL_PREVIEW) return;
+				if (adConfig?.generationAdPolicy?.counter === "device") {
+					await api.generationAds.load(adConfig.generationAdPolicy);
+					api.generationAds.prepare();
+					return;
+				}
 				await api.request("/api/app/v1/dev/entitlements", {
 					action: "generation_ad",
 				});
@@ -438,34 +478,35 @@ export function useLotto() {
 			}),
 		generate: (options: GenerationOptions = EMPTY_OPTIONS, watchAd = false) =>
 			run("generate", async () => {
-				// Only the explicitly labelled ad CTA is allowed to open a full-screen ad.
+				const deviceCounter =
+					adConfig?.generationAdPolicy?.counter === "device";
+				if (deviceCounter)
+					await api.generationAds.load(adConfig.generationAdPolicy);
+				// Only the explicitly labelled ad CTA may open a full-screen ad.
 				if (watchAd) {
-					const result = await adsController.unlock("generation_continue");
+					const result = await adsController.unlock(
+						"generation_continue",
+						deviceCounter,
+					);
+					if (deviceCounter) api.generationAds.continued();
 					if (result?.continuedWithoutAd)
 						setNotice("광고를 불러오지 못해 바로 이어서 만들어요.");
 				}
-				const round = await api.context();
-				setContext(round);
-				const serializedOptions = JSON.stringify(options);
-				if (
-					!pending.current ||
-					pending.current.round !== round.targetRound ||
-					JSON.stringify(pending.current.options) !== serializedOptions
-				)
-					pending.current = {
-						id: newRequestId(),
-						round: round.targetRound,
-						options: JSON.parse(serializedOptions),
-					};
-				const request = pending.current;
 				try {
-					const response = await api.generate(
-						request.id,
-						request.round,
-						request.options,
+					const { response, context: round } = await requestGeneration(
+						options,
+						context,
+						deviceCounter,
 					);
-					pending.current = null;
+					if (!active.current) return;
+					setContext((previous) =>
+						previous && previous.serverTime > round.serverTime
+							? previous
+							: round,
+					);
 					setCurrent(response.generation);
+					if (deviceCounter)
+						api.generationAds.generated(response.generation.id);
 					setAdConfig((previous) =>
 						previous
 							? {
@@ -474,31 +515,36 @@ export function useLotto() {
 								}
 							: previous,
 					);
-					await api
-						.attendance()
-						.then(setAttendance)
-						.catch(() => {});
-					await api
-						.feed(round.targetRound)
-						.then(receiveFeed)
-						.catch(() => {});
+					lastGenerated.current = response.generation;
+					const generatedDay = Math.floor(
+						(response.generation.createdAt + 32_400_000) / 86_400_000,
+					);
+					if (attendance) receiveAttendance(attendance);
+					// First-generation eligibility may change restore availability. Recheck once
+					// in the background; later generations do not query attendance again.
+					if (
+						(!attendance?.generatedToday || attendance.day !== generatedDay) &&
+						!attendanceRefresh.current
+					) {
+						attendanceRefresh.current = api
+							.attendance()
+							.then(receiveAttendance)
+							.catch(() => {})
+							.finally(() => {
+								attendanceRefresh.current = null;
+							});
+					}
+					// Share the subscription's one-second batch, including when SSE reconnects.
+					refreshLive.current?.();
 				} catch (e) {
 					if (apiErrorCode(e) === "GENERATION_AD_REQUIRED") {
 						await api
 							.ads()
-							.then(setAdConfig)
+							.then((ads) => {
+								if (active.current) setAdConfig(ads);
+							})
 							.catch(() => {});
 					}
-					if (
-						[
-							"ROUND_CHANGED",
-							"GENERATION_DELETED",
-							"INVALID_OPTIONS",
-							"IMPOSSIBLE_OPTIONS",
-							"PASS_REQUIRED",
-						].includes(apiErrorCode(e) ?? "")
-					)
-						pending.current = null;
 					throw e;
 				}
 			}),
@@ -521,7 +567,7 @@ export function useLotto() {
 			run("checkIn", async () => {
 				await api.checkIn();
 				const state = await api.attendance();
-				setAttendance(state);
+				receiveAttendance(state);
 				const daily = state.promotions.find(
 					(p) => p.kind === "daily" && p.eligible,
 				);

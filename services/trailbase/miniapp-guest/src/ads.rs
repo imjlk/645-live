@@ -49,6 +49,7 @@ pub(crate) async fn config(req: &mut Request) -> ApiResult<Json> {
     let user = auth::user(req, &mut tx)?;
     let now = db::now_ms_tx(&mut tx)?;
     let generation_ad_required = generation_ads::required(&mut tx, &user.id, now)?;
+    let generation_ad_policy = generation_ads::device_policy(&mut tx)?;
     let rows = db::tx_query(
         &mut tx,
         "SELECT placement, enabled, rewarded_group_id, interstitial_group_id, rewarded_weight, pass_duration_ms FROM ait_lotto_ad_placements",
@@ -103,7 +104,7 @@ pub(crate) async fn config(req: &mut Request) -> ApiResult<Json> {
         feed_inline_groups.extend(inline_banner.clone());
     }
     Ok(
-        json!({"placements":placements,"passes":passes,"testMode":test,"bannerGroupId":inline_banner,"bannerGroups":{"inline":inline_banner,"card":card_banner},"feedInlineGroupIds":feed_inline_groups,"generationAdRequired":generation_ad_required,"serverTime":now}),
+        json!({"placements":placements,"passes":passes,"testMode":test,"bannerGroupId":inline_banner,"bannerGroups":{"inline":inline_banner,"card":card_banner},"feedInlineGroupIds":feed_inline_groups,"generationAdRequired":generation_ad_required,"generationAdPolicy":generation_ad_policy,"serverTime":now}),
     )
 }
 fn groups(row: &[Value], test: bool) -> ApiResult<(Option<String>, Option<String>)> {
@@ -119,9 +120,11 @@ fn groups(row: &[Value], test: bool) -> ApiResult<(Option<String>, Option<String
     ))
 }
 #[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct Start {
     placement: String,
+    #[serde(default)]
+    client_managed_counter: bool,
 }
 pub(crate) async fn start(req: &mut Request) -> ApiResult<Json> {
     let input: Start = body(req).await?;
@@ -147,6 +150,9 @@ pub(crate) async fn start(req: &mut Request) -> ApiResult<Json> {
         ));
     }
     let generation_cycle = if input.placement == generation_ads::PLACEMENT {
+        if input.client_managed_counter {
+            generation_ads::prepare(&mut tx, &user.id, now)?;
+        }
         let cycle = generation_ads::due_cycle(&mut tx, &user.id)?;
         if !generation_ads::required(&mut tx, &user.id, now)? {
             db::tx_commit(&mut tx)?;

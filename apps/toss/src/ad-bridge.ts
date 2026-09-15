@@ -58,7 +58,7 @@ export function createAdController(api: Pick<Api, "startAd" | "completeAd">) {
 			for (const id of groups)
 				void bridge.preload({ adGroupId: id }).catch(() => {});
 		},
-		async unlock(placement: AdPlacement) {
+		async unlock(placement: AdPlacement, clientManagedCounter = false) {
 			if (busy) throw new Error("진행 중인 광고를 먼저 완료해 주세요.");
 			const reason = unavailableReason();
 			if (reason && placement !== "generation_continue")
@@ -89,16 +89,18 @@ export function createAdController(api: Pick<Api, "startAd" | "completeAd">) {
 					}
 					pendingCompletion = null;
 				}
-				const session = await api.startAd(placement).catch((error) => {
-					if (
-						placement === "generation_continue" &&
-						["AD_COOLDOWN", "AD_UNAVAILABLE"].includes(
-							apiErrorCode(error) ?? "",
+				const session = await api
+					.startAd(placement, clientManagedCounter)
+					.catch((error) => {
+						if (
+							placement === "generation_continue" &&
+							["AD_COOLDOWN", "AD_UNAVAILABLE"].includes(
+								apiErrorCode(error) ?? "",
+							)
 						)
-					)
-						return null;
-					throw error;
-				});
+							return null;
+						throw error;
+					});
 				if (!session || session.alreadyGranted) return;
 				try {
 					if (reason) {

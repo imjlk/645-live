@@ -185,6 +185,8 @@ struct Generate {
     request_id: String,
     round: i64,
     #[serde(default)]
+    client_managed_counter: bool,
+    #[serde(default)]
     options: Options,
 }
 
@@ -234,7 +236,8 @@ pub(crate) async fn generate(req: &mut Request) -> ApiResult<Json> {
             .first()
             .ok_or_else(|| conflict("GENERATION_DELETED", "이미 삭제한 생성 내역이에요."))?;
         let generation = generation_json(row)?;
-        let generation_ad_required = generation_ads::required(&mut tx, &user.id, now)?;
+        let generation_ad_required =
+            !input.client_managed_counter && generation_ads::required(&mut tx, &user.id, now)?;
         db::tx_commit(&mut tx)?;
         return Ok(
             json!({"generation":generation,"replayed":true,"generationAdRequired":generation_ad_required}),
@@ -262,7 +265,7 @@ pub(crate) async fn generate(req: &mut Request) -> ApiResult<Json> {
             "조금 쉬었다가 다시 만들어 주세요.",
         ));
     }
-    if generation_ads::required(&mut tx, &user.id, now)? {
+    if !input.client_managed_counter && generation_ads::required(&mut tx, &user.id, now)? {
         return Err(conflict(
             "GENERATION_AD_REQUIRED",
             "광고를 보고 번호를 계속 만들어 주세요.",
@@ -288,7 +291,10 @@ pub(crate) async fn generate(req: &mut Request) -> ApiResult<Json> {
             Value::Integer(now),
         ],
     )?;
-    let generation_ad_required = generation_ads::generated(&mut tx, &user.id, now)?;
+    // New clients own the optional ad cadence. Auth, persistence, request replay,
+    // rate limits, custom passes and attendance eligibility remain server-owned.
+    let generation_ad_required =
+        !input.client_managed_counter && generation_ads::generated(&mut tx, &user.id, now)?;
     db::tx_commit(&mut tx)?;
     Ok(
         json!({"generation":generation,"replayed":false,"generationAdRequired":generation_ad_required}),
