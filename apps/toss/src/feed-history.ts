@@ -36,6 +36,7 @@ export function createFeedHistory(
 		epoch++;
 		pending?.abort();
 		pending = null;
+		if (state.loading) publish({ ...state, loading: false });
 	};
 	const showLatest = () => {
 		cancel();

@@ -1,24 +1,34 @@
-export const TAB_ROUTES = {
-	make: "/",
-	live: "/live",
-	saved: "/saved",
-} as const;
-export type LottoTab = keyof typeof TAB_ROUTES;
+import type {
+	NavigationProp,
+	NavigationState,
+	TabActionHelpers,
+} from "@granite-js/native/@react-navigation/native";
 
-export function tabRoute(value: string) {
-	return value === "make" || value === "live" || value === "saved"
-		? TAB_ROUTES[value]
-		: null;
-}
+export type LottoTab = "make" | "live" | "saved";
+export type LottoTabParams = Record<LottoTab, undefined>;
+export type LottoTabNavigation = NavigationProp<LottoTabParams> &
+	TabActionHelpers<LottoTabParams>;
+// Keep the visit sequence like a browser, while TabRouter retains only three
+// screen instances. History entries contain route keys, not native controllers.
+export const TAB_BACK_BEHAVIOR = "fullHistory" as const;
 
 export function navigateToTab(
-	navigation: { push(path: (typeof TAB_ROUTES)[LottoTab]): void },
+	navigation: {
+		getState(): Pick<NavigationState, "index" | "routes">;
+		jumpTo(tab: LottoTab): void;
+	},
 	current: LottoTab,
 	next: string,
 	visible: boolean,
 ) {
-	const path = tabRoute(next);
-	if (!visible || !path || current === next) return false;
-	navigation.push(path);
+	if (
+		!visible ||
+		(next !== "make" && next !== "live" && next !== "saved") ||
+		current === next
+	)
+		return false;
+	const state = navigation.getState();
+	if (state.routes[state.index]?.name !== current) return false;
+	navigation.jumpTo(next);
 	return true;
 }

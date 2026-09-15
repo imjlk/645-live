@@ -1,6 +1,6 @@
 import { createRoute } from "@granite-js/react-native";
-import { LottoScreen } from "../src/LottoScreen";
+import { LottoTabs } from "../src/LottoTabs";
 
 export const Route = createRoute("/live", {
-	component: () => <LottoScreen tab="live" />,
+	component: () => <LottoTabs initialTab="live" />,
 });

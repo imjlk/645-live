@@ -104,6 +104,34 @@ test("failed pages remain retryable without clearing already loaded entries", as
 	expect(history.getSnapshot().error).toBeNull();
 });
 
+test("leaving during pagination cancels loading and preserves a retryable reading position", async () => {
+	const old = deferred<Feed>();
+	let signal: AbortSignal | undefined;
+	let calls = 0;
+	const history = createFeedHistory(async (_round, nextSignal) => {
+		if (++calls === 1) {
+			signal = nextSignal;
+			return old.promise;
+		}
+		return page(30, 1, null);
+	});
+	history.receive(page(60, 31, "1242:31"));
+	history.follow(false);
+	const before = history.getSnapshot().items;
+	const loading = history.loadMore();
+	history.cancel();
+	expect(signal?.aborted).toBe(true);
+	expect(history.getSnapshot().loading).toBe(false);
+	expect(history.getSnapshot().items).toBe(before);
+	expect(history.getSnapshot().nextCursor).toBe("1242:31");
+	await history.loadMore();
+	old.resolve(page(30, 20, "1242:20"));
+	await loading;
+	expect(history.getSnapshot().items).toHaveLength(60);
+	expect(history.getSnapshot().nextCursor).toBeNull();
+	expect(history.getSnapshot().loading).toBe(false);
+});
+
 test("pages deleted during loading advance automatically even without a list size change", async () => {
 	const first = deferred<Feed>();
 	const cursors: string[] = [];
