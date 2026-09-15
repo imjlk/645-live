@@ -2,6 +2,7 @@ import { afterEach, expect, mock, test } from "bun:test";
 
 const originalFetch = globalThis.fetch;
 const kit = await import("@trailbase-apps-in-toss-kit/trailbase-client");
+const storageKit = await import("@trailbase-apps-in-toss-kit/ait-rn/storage");
 let fetchPath: (path: string) => Promise<Response>;
 let bootstrapCount = 0;
 let adEnvironment = "toss";
@@ -50,6 +51,7 @@ mock.module("@apps-in-toss/framework", () => ({
 	requestNotificationAgreement: () => {},
 }));
 mock.module("@trailbase-apps-in-toss-kit/ait-rn/storage", () => ({
+	...storageKit,
 	createAppsInTossSessionStorage: () => ({
 		storage: { getItem: () => null, setItem: () => {} },
 	}),
