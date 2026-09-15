@@ -189,6 +189,14 @@ def run():
             assert start(capped_auth)[1]['alreadyGranted'], 'an exhausted generation quota must not show an ad'
             expect(request(base, '/api/app/v1/lotto/generations', {'requestId': uuid.uuid4().hex, 'round': round, 'options': {'fixed': [], 'excluded': [], 'oddCount': None}}, capped_auth)[0], 429, 'generation limit is checked before ads')
             assert sql('SELECT * FROM ait_lotto_ad_sessions WHERE user_id=?', [capped_user]) == []
+            # A device counter cannot bypass the server's short generation interval.
+            rapid_user, rapid_auth = account()
+            rapid_payload = {'requestId': uuid.uuid4().hex, 'round': round, 'options': {'fixed': [], 'excluded': [], 'oddCount': None}, 'clientManagedCounter': True}
+            expect(request(base, '/api/app/v1/lotto/generations', rapid_payload, rapid_auth)[0], 200, 'first rapid generation')
+            replay_payload = dict(rapid_payload)
+            rapid_payload['requestId'] = uuid.uuid4().hex
+            expect(request(base, '/api/app/v1/lotto/generations', rapid_payload, rapid_auth)[0], 429, 'rapid second generation rejected')
+            assert request(base, '/api/app/v1/lotto/generations', replay_payload, rapid_auth)[1]['replayed'], 'retry of the committed request remains idempotent'
             # New clients publish normally, without touching server ad progress per generation.
             device_user, device_auth = account()
             policy = request(base, '/api/app/v1/ads/config', headers=device_auth)[1]['generationAdPolicy']

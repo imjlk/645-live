@@ -45,6 +45,7 @@ import { LOCAL_PREVIEW } from "./api";
 import { Balls } from "./Balls";
 import { Banner } from "./Banner";
 import { Celebration } from "./Celebration";
+import { GenerationResultsContent } from "./GenerationResultsContent";
 import { generationOptionsError } from "./generation-options";
 import { LiveFeed, relativeTime } from "./LiveFeed";
 import { LocalResultPreview } from "./LocalResultPreview";
@@ -70,6 +71,7 @@ type Panel =
 	| "support"
 	| "localTest"
 	| "resultPreview"
+	| "generationResults"
 	| null;
 const PANEL_TITLES = {
 	custom: "내 취향대로 만들기",
@@ -80,6 +82,7 @@ const PANEL_TITLES = {
 	support: "문의하기",
 	localTest: "로컬 테스트 도구",
 	resultPreview: "당첨 결과 미리보기",
+	generationResults: "이전 회차 결과",
 } as const;
 const PANEL_PARENTS: Partial<Record<NonNullable<Panel>, NonNullable<Panel>>> = {
 	privacy: "settings",
@@ -362,6 +365,7 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 						onColumnsChange={setLiveColumns}
 						refreshing={model.refreshing}
 						onRefresh={model.retry}
+						onResults={() => setPanel("generationResults")}
 					/>
 				) : (
 					<IOScrollView
@@ -445,7 +449,12 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 										<Button
 											display="full"
 											loading={model.busy === "generate"}
-											disabled={!!model.busy || !model.user || !model.context}
+											disabled={
+												!!model.busy ||
+												model.generationCooling ||
+												!model.user ||
+												!model.context
+											}
 											onPress={() =>
 												void model.generate(
 													hasOptions ? options : EMPTY_OPTIONS,
@@ -826,7 +835,11 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 							<BottomSheet.CTA
 								loading={model.busy === "generate"}
 								disabled={
-									!!model.busy || !model.user || !model.context || !!draftError
+									!!model.busy ||
+									model.generationCooling ||
+									!model.user ||
+									!model.context ||
+									!!draftError
 								}
 								onPress={() => void generateDraft()}
 							>
@@ -855,7 +868,9 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 					</Text>
 				) : null}
 				<View key={panel}>
-					{panel === "custom" ? (
+					{panel === "generationResults" ? (
+						<GenerationResultsContent active={sheetOpen && visible} />
+					) : panel === "custom" ? (
 						customOpen ? (
 							<View style={{ gap: 20 }}>
 								<Text style={[s.description, muted]}>
@@ -1190,9 +1205,6 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 							</Text>
 							<Text selectable style={[s.body, text]}>
 								support@645.live
-							</Text>
-							<Text selectable style={[s.body, text]}>
-								02-877-1990
 							</Text>
 							<Text style={[s.caption, muted]}>
 								1990컴퍼니 · 개인정보 보호담당 김정래

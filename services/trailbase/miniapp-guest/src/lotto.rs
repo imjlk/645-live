@@ -9,6 +9,7 @@ use trailbase_wasm::{
 };
 
 pub(crate) const DAILY_GENERATION_LIMIT: i64 = 200;
+const GENERATION_INTERVAL_MS: i64 = 1_000;
 
 pub const WEEK_MS: i64 = 604_800_000;
 // Round 1 sales close: 2002-12-07 20:00 KST. Never infer a target round from a delayed data import.
@@ -258,7 +259,7 @@ pub(crate) async fn generate(req: &mut Request) -> ApiResult<Json> {
         &[Value::Blob(user.id.clone()), Value::Integer(now)],
     )?;
     if db::integer(&recent[0][0], "count")? >= DAILY_GENERATION_LIMIT
-        || now - db::integer(&recent[0][1], "last")? < 800
+        || now - db::integer(&recent[0][1], "last")? < GENERATION_INTERVAL_MS
     {
         return Err(too_many_requests(
             "GENERATION_LIMIT",
@@ -347,6 +348,11 @@ pub(crate) async fn feed(req: &mut Request) -> ApiResult<Json> {
         .query_param("cursor")
         .map(|v| feed_cursor(&v, round))
         .transpose()?;
+    let archive = db::tx_query(
+        &mut tx,
+        "SELECT total_generations,number_counts_json FROM lotto_generation_weekly_archives WHERE round=?1",
+        &[Value::Integer(round)],
+    )?;
     let mut params = vec![Value::Integer(round)];
     let cursor_filter = if let Some(id) = before {
         params.push(Value::Integer(id));
@@ -354,14 +360,19 @@ pub(crate) async fn feed(req: &mut Request) -> ApiResult<Json> {
     } else {
         ""
     };
-    let rows = db::tx_query(
-        &mut tx,
-        &format!(
-            "SELECT {SELECT_GENERATION} FROM lotto_public_generations WHERE round = ?1{cursor_filter} ORDER BY id DESC LIMIT {}",
-            FEED_PAGE_SIZE + 1
-        ),
-        &params,
-    )?;
+    // A frozen round exposes its aggregate only, even while detail deletion is still draining.
+    let rows = if archive.is_empty() {
+        db::tx_query(
+            &mut tx,
+            &format!(
+                "SELECT {SELECT_GENERATION} FROM lotto_public_generations WHERE round = ?1{cursor_filter} ORDER BY id DESC LIMIT {}",
+                FEED_PAGE_SIZE + 1
+            ),
+            &params,
+        )?
+    } else {
+        Vec::new()
+    };
     let next_cursor = if rows.len() > FEED_PAGE_SIZE {
         Some(format!(
             "{round}:{}",
@@ -379,14 +390,24 @@ pub(crate) async fn feed(req: &mut Request) -> ApiResult<Json> {
         .map(|n| format!("generation_count_{n}"))
         .collect::<Vec<_>>()
         .join(",");
-    let counts = db::tx_query(
-        &mut tx,
-        &format!(
-            "SELECT total_generations, {columns} FROM lotto_draw_generation_counts WHERE round = ?1"
-        ),
-        &[Value::Integer(round)],
-    )?;
-    let (total, numbers) = if let Some(row) = counts.first() {
+    let counts = if archive.is_empty() {
+        db::tx_query(
+            &mut tx,
+            &format!(
+                "SELECT total_generations, {columns} FROM lotto_draw_generation_counts WHERE round = ?1"
+            ),
+            &[Value::Integer(round)],
+        )?
+    } else {
+        Vec::new()
+    };
+    let (total, numbers) = if let Some(row) = archive.first() {
+        (
+            db::integer(&row[0], "total")?,
+            serde_json::from_str::<Vec<i64>>(&db::text(&row[1], "number_counts_json")?)
+                .map_err(internal)?,
+        )
+    } else if let Some(row) = counts.first() {
         (
             db::integer(&row[0], "total")?,
             row[1..]
@@ -405,7 +426,7 @@ pub(crate) async fn feed(req: &mut Request) -> ApiResult<Json> {
     let active = db::integer(&active[0][0], "active")?;
     db::tx_commit(&mut tx)?;
     Ok(
-        json!({"round":round,"generations":generations,"nextCursor":next_cursor,"totalGenerations":total,"numberCounts":numbers,"activeUsers":active,"serverTime":now}),
+        json!({"round":round,"archived":!archive.is_empty(),"generations":generations,"nextCursor":next_cursor,"totalGenerations":total,"numberCounts":numbers,"activeUsers":active,"serverTime":now}),
     )
 }
 

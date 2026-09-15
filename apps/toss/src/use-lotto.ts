@@ -35,6 +35,7 @@ import {
 	type User,
 } from "./api";
 import { createFeedHistory, deletedGenerationId } from "./feed-history";
+import { createGenerationCooldown } from "./generation-cooldown";
 import { createGenerationRequest } from "./generation-request";
 import type { ReportState } from "./ReportHistory";
 import { type ConnectionState, subscribeRealtime } from "./realtime";
@@ -46,6 +47,11 @@ const message = (value: unknown) =>
 
 export function useLotto() {
 	const api = useMemo(createApi, []);
+	const generationCooldown = useMemo(() => createGenerationCooldown(), []);
+	const generationCooling = useSyncExternalStore(
+		generationCooldown.subscribe,
+		generationCooldown.getSnapshot,
+	);
 	const adsController = useMemo(() => createAdController(api), [api]);
 	const requestGeneration = useMemo(
 		() =>
@@ -200,8 +206,9 @@ export function useLotto() {
 			api.dispose();
 			adsController.dispose();
 			feedHistory.cancel();
+			generationCooldown.stop();
 		};
-	}, [api, adsController, feedHistory]);
+	}, [api, adsController, feedHistory, generationCooldown]);
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: Revision represents an explicit user retry.
 	useEffect(() => {
@@ -442,6 +449,7 @@ export function useLotto() {
 		savedReady,
 		results,
 		adConfig,
+		generationCooling,
 		generationAdRequired:
 			adConfig?.generationAdPolicy?.counter === "device"
 				? generationAds.ready &&
@@ -476,78 +484,90 @@ export function useLotto() {
 				});
 				await refreshPrivate();
 			}),
-		generate: (options: GenerationOptions = EMPTY_OPTIONS, watchAd = false) =>
-			run("generate", async () => {
-				const deviceCounter =
-					adConfig?.generationAdPolicy?.counter === "device";
-				if (deviceCounter)
-					await api.generationAds.load(adConfig.generationAdPolicy);
-				// Only the explicitly labelled ad CTA may open a full-screen ad.
-				if (watchAd) {
-					const result = await adsController.unlock(
-						"generation_continue",
-						deviceCounter,
-					);
-					if (deviceCounter) api.generationAds.continued();
-					if (result?.continuedWithoutAd)
-						setNotice("광고를 불러오지 못해 바로 이어서 만들어요.");
-				}
-				try {
-					const { response, context: round } = await requestGeneration(
-						options,
-						context,
-						deviceCounter,
-					);
-					if (!active.current) return;
-					setContext((previous) =>
-						previous && previous.serverTime > round.serverTime
-							? previous
-							: round,
-					);
-					setCurrent(response.generation);
+		generate: async (
+			options: GenerationOptions = EMPTY_OPTIONS,
+			watchAd = false,
+		) => {
+			if (actionLock.current || generationCooldown.blocked()) return false;
+			generationCooldown.start();
+			try {
+				return await run("generate", async () => {
+					const deviceCounter =
+						adConfig?.generationAdPolicy?.counter === "device";
 					if (deviceCounter)
-						api.generationAds.generated(response.generation.id);
-					setAdConfig((previous) =>
-						previous
-							? {
-									...previous,
-									generationAdRequired: response.generationAdRequired === true,
-								}
-							: previous,
-					);
-					lastGenerated.current = response.generation;
-					const generatedDay = Math.floor(
-						(response.generation.createdAt + 32_400_000) / 86_400_000,
-					);
-					if (attendance) receiveAttendance(attendance);
-					// First-generation eligibility may change restore availability. Recheck once
-					// in the background; later generations do not query attendance again.
-					if (
-						(!attendance?.generatedToday || attendance.day !== generatedDay) &&
-						!attendanceRefresh.current
-					) {
-						attendanceRefresh.current = api
-							.attendance()
-							.then(receiveAttendance)
-							.catch(() => {})
-							.finally(() => {
-								attendanceRefresh.current = null;
-							});
+						await api.generationAds.load(adConfig.generationAdPolicy);
+					// Only the explicitly labelled ad CTA may open a full-screen ad.
+					if (watchAd) {
+						const result = await adsController.unlock(
+							"generation_continue",
+							deviceCounter,
+						);
+						if (deviceCounter) api.generationAds.continued();
+						if (result?.continuedWithoutAd)
+							setNotice("광고를 불러오지 못해 바로 이어서 만들어요.");
 					}
-					// Share the subscription's one-second batch, including when SSE reconnects.
-					refreshLive.current?.();
-				} catch (e) {
-					if (apiErrorCode(e) === "GENERATION_AD_REQUIRED") {
-						await api
-							.ads()
-							.then((ads) => {
-								if (active.current) setAdConfig(ads);
-							})
-							.catch(() => {});
+					try {
+						const { response, context: round } = await requestGeneration(
+							options,
+							context,
+							deviceCounter,
+						);
+						if (!active.current) return;
+						setContext((previous) =>
+							previous && previous.serverTime > round.serverTime
+								? previous
+								: round,
+						);
+						setCurrent(response.generation);
+						if (deviceCounter)
+							api.generationAds.generated(response.generation.id);
+						setAdConfig((previous) =>
+							previous
+								? {
+										...previous,
+										generationAdRequired:
+											response.generationAdRequired === true,
+									}
+								: previous,
+						);
+						lastGenerated.current = response.generation;
+						const generatedDay = Math.floor(
+							(response.generation.createdAt + 32_400_000) / 86_400_000,
+						);
+						if (attendance) receiveAttendance(attendance);
+						// First-generation eligibility may change restore availability. Recheck once
+						// in the background; later generations do not query attendance again.
+						if (
+							(!attendance?.generatedToday ||
+								attendance.day !== generatedDay) &&
+							!attendanceRefresh.current
+						) {
+							attendanceRefresh.current = api
+								.attendance()
+								.then(receiveAttendance)
+								.catch(() => {})
+								.finally(() => {
+									attendanceRefresh.current = null;
+								});
+						}
+						// Share the subscription's one-second batch, including when SSE reconnects.
+						refreshLive.current?.();
+					} catch (e) {
+						if (apiErrorCode(e) === "GENERATION_AD_REQUIRED") {
+							await api
+								.ads()
+								.then((ads) => {
+									if (active.current) setAdConfig(ads);
+								})
+								.catch(() => {});
+						}
+						throw e;
 					}
-					throw e;
-				}
-			}),
+				});
+			} finally {
+				if (active.current) generationCooldown.start();
+			}
+		},
 		save: (generation: Generation) => run("save", () => save(generation)),
 		remove: (item: SavedCombination) =>
 			run("remove", async () => {
