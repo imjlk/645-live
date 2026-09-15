@@ -142,7 +142,9 @@ def run_case(image, copy_existing):
             events=['show','impression','dismissed','userEarnedReward']
             status,grant=request(base,'/api/app/v1/ads/complete',{'id':ad['id'],'events':events},auth);expect(status,200,'ad completion')
             again=request(base,'/api/app/v1/ads/complete',{'id':ad['id'],'events':events},auth)[1];assert again['expiresAt']==grant['expiresAt']
-            time.sleep(.85)
+            # Successful follow-up generation must clear the server's one-second interval.
+            # Immediate rejection and idempotent retries are covered by generation-ad-smoke.py.
+            time.sleep(1.1)
             status,data=request(base,'/api/app/v1/lotto/generations',custom,auth);expect(status,200,'custom generation')
             n=data['generation']['numbers'];assert 1 in n and 2 in n and 3 not in n and 4 not in n and sum(v%2 for v in n)==3
             status,cancel_ad=request(base,'/api/app/v1/ads/start',{'placement':'report'},other_auth);expect(status,200,'cancel reserve')
