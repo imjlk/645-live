@@ -1,7 +1,6 @@
 import type {
 	Draw,
 	Feed,
-	Generation,
 	GenerationOptions,
 	RoundContext,
 } from "@645/lotto-core";
@@ -17,6 +16,11 @@ import {
 } from "@trailbase-apps-in-toss-kit/trailbase-client";
 import { initClient } from "trailbase";
 import { connectionStep, connectionSync } from "./connection-error";
+import {
+	createGenerationAdCounter,
+	type GenerationAdPolicy,
+} from "./generation-ad-counter";
+import type { GenerationResponse } from "./generation-request";
 import { resolveLottoRuntime } from "./runtime-config";
 import { createSavedStore } from "./saved-store";
 
@@ -53,6 +57,7 @@ export type AdConfig = {
 	bannerGroups?: { card: string | null; inline: string | null };
 	feedInlineGroupIds?: string[];
 	generationAdRequired?: boolean;
+	generationAdPolicy?: GenerationAdPolicy;
 	serverTime: number;
 };
 export type Promotion = {
@@ -308,6 +313,10 @@ export function createApi() {
 	return {
 		ensure,
 		request,
+		generationAds: createGenerationAdCounter(
+			storage.storage,
+			`${runtime.storageKey}.generationAds.v1`,
+		),
 		saved: (user: User) =>
 			createSavedStore(
 				storage.storage,
@@ -319,19 +328,28 @@ export function createApi() {
 				`/api/app/v1/lotto/feed?round=${round}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`,
 				signal,
 			),
-		generate: (requestId: string, round: number, options: GenerationOptions) =>
-			request<{
-				generation: Generation;
-				replayed: boolean;
-				generationAdRequired?: boolean;
-			}>("/api/app/v1/lotto/generations", { requestId, round, options }),
+		generate: (
+			requestId: string,
+			round: number,
+			options: GenerationOptions,
+			clientManagedCounter = false,
+		) =>
+			request<GenerationResponse>("/api/app/v1/lotto/generations", {
+				requestId,
+				round,
+				options,
+				...(clientManagedCounter ? { clientManagedCounter: true } : {}),
+			}),
 		removePublic: (id: number) =>
 			request<{ deleted: boolean }>("/api/app/v1/lotto/generations/delete", {
 				id,
 			}),
 		ads: () => request<AdConfig>("/api/app/v1/ads/config"),
-		startAd: (placement: AdPlacement) =>
-			request<AdSession>("/api/app/v1/ads/start", { placement }),
+		startAd: (placement: AdPlacement, clientManagedCounter = false) =>
+			request<AdSession>("/api/app/v1/ads/start", {
+				placement,
+				...(clientManagedCounter ? { clientManagedCounter: true } : {}),
+			}),
 		completeAd: (id: string, events: string[]) =>
 			request<{
 				feature: string;

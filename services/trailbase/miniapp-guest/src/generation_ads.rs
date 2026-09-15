@@ -4,6 +4,22 @@ use trailbase_wasm::db::{Transaction, Value};
 
 pub(crate) const PLACEMENT: &str = "generation_continue";
 
+pub(crate) fn device_policy(tx: &mut Transaction) -> ApiResult<serde_json::Value> {
+    let rows = db::tx_query(
+        tx,
+        "SELECT min_generations,max_generations FROM ait_lotto_generation_ad_policy WHERE id=1",
+        &[],
+    )?;
+    let row = rows
+        .first()
+        .ok_or_else(|| internal("generation ad policy missing"))?;
+    Ok(serde_json::json!({
+        "counter": "device",
+        "minGenerations": db::integer(&row[0], "min")?,
+        "maxGenerations": db::integer(&row[1], "max")?,
+    }))
+}
+
 fn interval(tx: &mut Transaction) -> ApiResult<i64> {
     let rows = db::tx_query(
         tx,
@@ -129,7 +145,9 @@ pub(crate) fn continued(
     Ok(())
 }
 
-pub(crate) fn prepare_local(tx: &mut Transaction, user: &[u8], now: i64) -> ApiResult<()> {
+// A device asks for an ad only when its local interval is due. Reserve the legacy
+// cycle here so completion replay, no-fill and shared pressure limits still apply.
+pub(crate) fn prepare(tx: &mut Transaction, user: &[u8], now: i64) -> ApiResult<()> {
     db::tx_execute(
         tx,
         "INSERT INTO ait_lotto_generation_ad_progress(user_id,remaining,updated_at) VALUES (?1,0,?2) ON CONFLICT(user_id) DO UPDATE SET remaining=0,updated_at=excluded.updated_at",
