@@ -7,19 +7,14 @@ import {
 	type SavedCombination,
 } from "@645/lotto-core";
 import { getTossShareLink, share } from "@apps-in-toss/framework";
-import {
-	IOScrollView,
-	useBackEvent,
-	useNavigation,
-	useVisibility,
-} from "@granite-js/react-native";
+import { useNavigation } from "@granite-js/native/@react-navigation/native";
+import { IOScrollView, useVisibility } from "@granite-js/react-native";
 import {
 	BottomSheet,
 	Button,
 	IconButton,
 	Switch,
 	Tab,
-	TDSProvider,
 } from "@toss/tds-react-native";
 import {
 	HideAccessibilityProvider,
@@ -29,13 +24,13 @@ import {
 	type ReactNode,
 	useCallback,
 	useEffect,
+	useLayoutEffect,
 	useRef,
 	useState,
 } from "react";
 import {
 	ActivityIndicator,
 	Alert,
-	Animated,
 	Pressable,
 	RefreshControl,
 	ScrollView,
@@ -55,10 +50,15 @@ import { LiveFeed, relativeTime } from "./LiveFeed";
 import { LocalResultPreview } from "./LocalResultPreview";
 import { LocalTestPanel } from "./LocalTestPanel";
 import { useLottoContext } from "./LottoProvider";
-import { type LottoTab, navigateToTab } from "./navigation";
+import {
+	type LottoTab,
+	type LottoTabNavigation,
+	navigateToTab,
+} from "./navigation";
 import { PrivacyNotice } from "./PrivacyNotice";
 import { ReportHistory } from "./ReportHistory";
 import { SAVED_LIMIT } from "./saved-store";
+import { useTabShell } from "./TabShell";
 import { useTheme } from "./theme";
 
 type Panel =
@@ -94,21 +94,17 @@ function dateLabel(at: number) {
 }
 
 export function LottoScreen({ tab = "make" }: { tab?: LottoTab }) {
-	// registerApp inserts its provider inside Container. Apply font scaling at
-	// the screen and keep TDS controls on the required light miniapp theme.
 	return (
-		<TDSProvider colorPreference="light" fontScaleAvailable>
-			<HideAccessibilityProvider>
-				<LottoContent tab={tab} />
-			</HideAccessibilityProvider>
-		</TDSProvider>
+		<HideAccessibilityProvider>
+			<LottoContent tab={tab} />
+		</HideAccessibilityProvider>
 	);
 }
 
 function LottoContent({ tab }: { tab: LottoTab }) {
 	const { model, options, setOptions, liveColumns, setLiveColumns } =
 		useLottoContext();
-	const navigation = useNavigation();
+	const navigation = useNavigation<LottoTabNavigation>();
 	const visible = useVisibility();
 	const navigateTab = (value: string) => {
 		navigateToTab(navigation, tab, value, visible);
@@ -116,8 +112,8 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 	const generationLabel = model.current ? "새 번호 만들기" : "번호 만들기";
 	const theme = useTheme();
 	const insets = useSafeAreaInsets();
-	const { width, fontScale } = useWindowDimensions();
-	const [tabBarHeight, setTabBarHeight] = useState(56);
+	const { width } = useWindowDimensions();
+	const { tabBarHeight, presentOverlay } = useTabShell();
 	const [savedPage, setSavedPage] = useState(0);
 	const savedPages = Math.max(1, Math.ceil(model.saved.length / 20));
 	const currentSavedPage = Math.min(savedPage, savedPages - 1);
@@ -130,14 +126,13 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 			next ? { panel: next, open: true } : { ...current, open: false },
 		);
 	}, []);
-	const backEvent = useBackEvent();
 	const sheetScroll = useRef<ScrollView>(null);
-	useEffect(() => {
-		if (!sheetOpen || !visible) return;
-		const close = () => setPanel(panel ? (PANEL_PARENTS[panel] ?? null) : null);
-		backEvent.addEventListener(close);
-		return () => backEvent.removeEventListener(close);
-	}, [backEvent, panel, sheetOpen, setPanel, visible]);
+	useLayoutEffect(() => {
+		if (!visible || !panel) return;
+		return presentOverlay(() => {
+			if (sheetOpen) setPanel(PANEL_PARENTS[panel] ?? null);
+		});
+	}, [panel, presentOverlay, setPanel, sheetOpen, visible]);
 	useEffect(() => {
 		if (panel && sheetOpen)
 			sheetScroll.current?.scrollTo({ y: 0, animated: false });
@@ -161,24 +156,6 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 		!!model.current &&
 		model.saved.some((item) => item.generationId === model.current?.id);
 	const scroll = useRef<ScrollView>(null);
-	const enter = useRef(new Animated.Value(1)).current;
-	// biome-ignore lint/correctness/useExhaustiveDependencies: Each selected tab resets scroll and enters once.
-	useEffect(() => {
-		scroll.current?.scrollTo({ y: 0, animated: false });
-		setSavedPage(0);
-		if (model.reducedMotion) {
-			enter.setValue(1);
-			return;
-		}
-		enter.setValue(0);
-		const a = Animated.timing(enter, {
-			toValue: 1,
-			duration: 180,
-			useNativeDriver: true,
-		});
-		a.start();
-		return () => a.stop();
-	}, [tab, enter, model.reducedMotion]);
 	useEffect(() => {
 		if (!model.notice || !visible) return;
 		const timer = setTimeout(model.clearNotice, 5500);
@@ -358,7 +335,9 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 				{ backgroundColor: theme.background, paddingBottom: insets.bottom },
 			]}
 		>
-			<HideAccessibilityView style={s.content}>
+			<HideAccessibilityView
+				style={[s.content, { paddingBottom: tabBarHeight }]}
+			>
 				{model.error ? (
 					<View
 						accessibilityRole="alert"
@@ -397,19 +376,7 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 							/>
 						}
 					>
-						<Animated.View
-							style={{
-								opacity: enter,
-								transform: [
-									{
-										translateY: enter.interpolate({
-											inputRange: [0, 1],
-											outputRange: [6, 0],
-										}),
-									},
-								],
-							}}
-						>
+						<View>
 							{tab === "make" ? (
 								<>
 									<View style={[s.section, s.firstSection]}>
@@ -777,7 +744,7 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 									</Text>
 								</View>
 							)}
-						</Animated.View>
+						</View>
 					</IOScrollView>
 				)}
 				{model.notice ? (
@@ -787,7 +754,7 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 							s.toast,
 							{
 								backgroundColor: theme.dark ? "#E5E8EB" : "#333D4B",
-								bottom: tabBarHeight + 28,
+								bottom: tabBarHeight + 12,
 							},
 						]}
 					>
@@ -802,32 +769,6 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 						</Text>
 					</View>
 				) : null}
-				<View
-					onLayout={(event) => setTabBarHeight(event.nativeEvent.layout.height)}
-					style={[
-						s.tabDock,
-						{
-							backgroundColor: theme.background,
-							borderColor: theme.line,
-							shadowOpacity: theme.dark ? 0.3 : 0.1,
-						},
-					]}
-				>
-					<View style={s.tabClip}>
-						<Tab
-							value={tab}
-							onChange={navigateTab}
-							size="large"
-							fluid={fontScale > 1.25}
-						>
-							<Tab.Item value="make">번호 만들기</Tab.Item>
-							<Tab.Item value="live">실시간</Tab.Item>
-							<Tab.Item value="saved" redBean={!!model.celebration}>
-								보관함
-							</Tab.Item>
-						</Tab>
-					</View>
-				</View>
 			</HideAccessibilityView>
 			{visible && model.celebration && !model.reducedMotion ? (
 				<View
@@ -1332,17 +1273,6 @@ const s = StyleSheet.create({
 	empty: { paddingVertical: 40, gap: 8 },
 	savedRow: { borderTopWidth: 1, paddingVertical: 22 },
 	message: { paddingHorizontal: 20, paddingVertical: 12, gap: 10 },
-	tabDock: {
-		marginHorizontal: 16,
-		marginVertical: 8,
-		borderRadius: 24,
-		borderWidth: StyleSheet.hairlineWidth,
-		shadowColor: "#000000",
-		shadowOffset: { width: 0, height: 4 },
-		shadowRadius: 12,
-		elevation: 6,
-	},
-	tabClip: { borderRadius: 24, overflow: "hidden" },
 	toast: {
 		position: "absolute",
 		left: 20,

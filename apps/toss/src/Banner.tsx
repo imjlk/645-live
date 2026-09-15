@@ -6,7 +6,7 @@ import {
 import { useVisibility } from "@granite-js/react-native";
 import { isAppsInTossInlineAdSupported } from "@trailbase-apps-in-toss-kit/ait-rn/inline-ads";
 import { memo, useEffect, useState } from "react";
-import { Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { LOCAL_PREVIEW } from "./api";
 import { useTheme } from "./theme";
 
@@ -63,21 +63,23 @@ function BannerSlot({
 			style={{ width: "100%", marginVertical: rendered || preview ? 24 : 0 }}
 		>
 			{supported ? (
-				<InlineAd
-					adGroupId={groupId}
-					theme="auto"
-					tone="grey"
-					variant={format === "card" ? "card" : "expanded"}
-					onAdRendered={() => setRendered(true)}
-					onNoFill={() => setUnavailable(true)}
-					onAdFailedToRender={({ error }) => {
-						setUnavailable(true);
-						if (LOCAL_PREVIEW)
-							console.info(
-								`[645 local] ${format} banner unavailable (${error.code}).`,
-							);
-					}}
-				/>
+				<View style={format === "card" ? s.cardSlot : undefined}>
+					<InlineAd
+						adGroupId={groupId}
+						theme="auto"
+						tone="grey"
+						variant={format === "card" ? "card" : "expanded"}
+						onAdRendered={() => setRendered(true)}
+						onNoFill={() => setUnavailable(true)}
+						onAdFailedToRender={({ error }) => {
+							setUnavailable(true);
+							if (LOCAL_PREVIEW)
+								console.info(
+									`[645 local] ${format} banner unavailable (${error.code}).`,
+								);
+						}}
+					/>
+				</View>
 			) : null}
 			{preview ? (
 				<View
@@ -102,3 +104,9 @@ function BannerSlot({
 		</View>
 	);
 }
+
+const s = StyleSheet.create({
+	// InlineAd 2.10.10 adds 10px on both sides of a card. Keep the card's
+	// visible surface aligned with the surrounding 20px content gutter.
+	cardSlot: { marginHorizontal: -10 },
+});

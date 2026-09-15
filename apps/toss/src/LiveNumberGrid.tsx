@@ -157,14 +157,19 @@ export function LiveNumberGrid({
 	columns: 5 | 9;
 }) {
 	const { width } = useWindowDimensions();
-	const [gridWidth, setGridWidth] = useState(Math.min(width, 640) - 36);
+	const [gridWidth, setGridWidth] = useState(
+		Math.max(280, Math.min(width, 640) - 36),
+	);
 	const size =
-		columns === 5 ? Math.min(56, Math.floor(gridWidth / 5 - 16)) : 28;
+		columns === 5
+			? Math.max(28, Math.min(56, Math.floor(gridWidth / 5 - 16)))
+			: 28;
 	return (
 		<View
 			style={s.grid}
 			onLayout={({ nativeEvent }) => {
-				if (nativeEvent.layout.width > 0)
+				// Ignore transient zero/narrow native-stack measurements on first entry.
+				if (nativeEvent.layout.width >= 252)
 					setGridWidth(nativeEvent.layout.width);
 			}}
 		>

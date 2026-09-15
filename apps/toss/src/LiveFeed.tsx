@@ -2,6 +2,7 @@ import type { Feed, Generation } from "@645/lotto-core";
 import {
 	IOFlatList,
 	type IOFlatListController,
+	useVisibility,
 } from "@granite-js/react-native";
 import { Button, SegmentedControl } from "@toss/tds-react-native";
 import { memo, useEffect, useMemo, useRef } from "react";
@@ -83,8 +84,10 @@ export function LiveFeed({
 }) {
 	const theme = useTheme();
 	const list = useRef<IOFlatListController>(null);
+	const visible = useVisibility();
 	const scrollOffset = useRef(0);
 	const gridChangeOffset = useRef<number | null>(null);
+	const lastRound = useRef(history.round);
 	const text = { color: theme.text };
 	const muted = { color: theme.muted };
 	const now = feed?.serverTime ?? Date.now();
@@ -105,12 +108,15 @@ export function LiveFeed({
 		[history.items, groups],
 	);
 	useEffect(() => {
-		controller.showLatest();
+		if (!visible) controller.cancel();
 		return controller.cancel;
-	}, [controller]);
+	}, [controller, visible]);
 	useEffect(() => {
-		if (history.round !== null)
+		if (history.round !== null && lastRound.current !== history.round) {
+			scrollOffset.current = 0;
 			list.current?.scrollToOffset({ offset: 0, animated: false });
+		}
+		lastRound.current = history.round;
 	}, [history.round]);
 	const showLatest = () => {
 		controller.showLatest();
@@ -140,7 +146,7 @@ export function LiveFeed({
 				windowSize={7}
 				onEndReachedThreshold={0.6}
 				onEndReached={() => {
-					if (!history.error) void controller.loadMore();
+					if (visible && !history.error) void controller.loadMore();
 				}}
 				onScroll={({ nativeEvent }) => {
 					scrollOffset.current = Math.max(0, nativeEvent.contentOffset.y);
@@ -201,7 +207,7 @@ export function LiveFeed({
 						<LiveTotal
 							key={feed?.round ?? "loading"}
 							count={feed?.totalGenerations ?? 0}
-							reducedMotion={reducedMotion}
+							reducedMotion={reducedMotion || !visible}
 						/>
 						<View style={[s.row, s.gridToolbar]}>
 							<Text style={[s.sectionTitle, text]}>번호별 생성 횟수</Text>
@@ -228,7 +234,7 @@ export function LiveFeed({
 						</Text>
 						<LiveNumberGrid
 							feed={feed}
-							reducedMotion={reducedMotion}
+							reducedMotion={reducedMotion || !visible}
 							columns={columns}
 						/>
 						<Text style={[s.caption, muted]}>
