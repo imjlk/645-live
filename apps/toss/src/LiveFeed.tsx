@@ -18,6 +18,7 @@ import { Balls } from "./Balls";
 import { Banner } from "./Banner";
 import { shuffleAdGroups, withFeedAds } from "./feed-ad-slots";
 import type { createFeedHistory, FeedHistory } from "./feed-history";
+import { GenerationResultsLink } from "./GenerationResultsLink";
 import { LiveTotal } from "./LiveCount";
 import { LiveNumberGrid } from "./LiveNumberGrid";
 import type { ConnectionState } from "./realtime";
@@ -209,6 +210,7 @@ export function LiveFeed({
 							count={feed?.totalGenerations ?? 0}
 							reducedMotion={reducedMotion || !visible}
 						/>
+						<GenerationResultsLink />
 						<View style={[s.row, s.gridToolbar]}>
 							<Text style={[s.sectionTitle, text]}>번호별 생성 횟수</Text>
 							<SegmentedControl.Root

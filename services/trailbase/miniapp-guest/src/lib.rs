@@ -7,6 +7,7 @@ mod dev;
 mod engagement;
 mod generation_ads;
 mod generation_archive;
+mod generation_results;
 mod lotto;
 mod maintenance;
 mod promotion_test;
@@ -67,6 +68,7 @@ endpoint!(session, auth::session);
 endpoint!(withdraw, auth::withdraw);
 endpoint!(round_context, lotto::round_context);
 endpoint!(feed, lotto::feed);
+endpoint!(generation_results, generation_results::get);
 endpoint!(combination_report, lotto::report);
 endpoint!(generate, lotto::generate);
 endpoint!(delete_generation, lotto::delete_generation);
@@ -107,6 +109,7 @@ impl Guest for Miniapp {
             // Public website reads stay available while miniapp participation is disabled.
             routing::get("/api/app/v1/lotto/round-context", round_context),
             routing::get("/api/app/v1/lotto/feed", feed),
+            routing::get("/api/app/v1/lotto/generation-results", generation_results),
             routing::post("/api/app/v1/lotto/report", combination_report),
             routing::post("/api/app/v1/lotto/generations", generate),
             routing::post("/api/app/v1/lotto/generations/delete", delete_generation),
@@ -125,6 +128,13 @@ impl Guest for Miniapp {
     }
     fn job_handlers() -> Vec<Job> {
         vec![
+            Job::new(
+                "lotto_generation_result_statistics",
+                "20 * * * * *",
+                Some(30000),
+                generation_results::job,
+            )
+            .expect("valid cron"),
             Job::new(
                 "lotto_generation_weekly_archive",
                 "0 * * * * *",

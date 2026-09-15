@@ -1,9 +1,13 @@
+import { parseNumbers } from "./numbers";
+
+export * from "./generation-results";
 export {
 	type BatchTimer,
 	createLiveBatch,
 	LIVE_BATCH_MS,
 	LIVE_COUNT_MOTION_MS,
 } from "./live-batch";
+export { parseNumbers } from "./numbers";
 
 export const BALL_COLORS = [
 	"#D9A300",
@@ -62,17 +66,6 @@ export const EMPTY_OPTIONS: GenerationOptions = {
 	excluded: [],
 	oddCount: null,
 };
-
-export function parseNumbers(value: unknown): LottoNumbers | null {
-	if (
-		!Array.isArray(value) ||
-		value.length !== 6 ||
-		value.some((n) => !Number.isInteger(n) || n < 1 || n > 45) ||
-		new Set(value).size !== 6
-	)
-		return null;
-	return [...value].sort((a, b) => a - b) as LottoNumbers;
-}
 
 export function ballColor(number: number): string {
 	return BALL_COLORS[Math.min(4, Math.max(0, Math.floor((number - 1) / 10)))];

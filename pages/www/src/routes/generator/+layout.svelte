@@ -10,6 +10,7 @@ onMount(generator.start);
 const links = [
 	{ path: "/generator", text: "번호 만들기" },
 	{ path: "/generator/live", text: "실시간" },
+	{ path: "/generator/results", text: "생성 결과" },
 	{ path: "/generator/saved", text: "보관함" },
 ] as const;
 </script>
@@ -18,7 +19,7 @@ const links = [
 </nav>
 {@render children()}
 <style>
-.generator-nav { display:flex; gap:1.5rem; padding: 1rem var(--page-gutter) 0; border-bottom:1px solid var(--color-base-300); }
+.generator-nav { display:flex; gap:clamp(.75rem,3vw,1.5rem); overflow-x:auto; white-space:nowrap; padding: 1rem var(--page-gutter) 0; border-bottom:1px solid var(--color-base-300); }
 a { display:flex;align-items:center;gap:.4rem;min-height:3rem;padding:.5rem .15rem;border-bottom:2px solid transparent;color:var(--text-muted);font-size:.9rem;font-weight:650; }
 a[aria-current=page] { border-color:var(--color-primary);color:var(--color-primary); }
 span { font-size:.75rem;font-variant-numeric:tabular-nums; }

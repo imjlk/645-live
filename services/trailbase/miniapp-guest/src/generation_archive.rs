@@ -24,8 +24,8 @@ fn steps(now: i64) -> Vec<Step> {
         Step {
             name: "archivedRounds",
             sql: format!(
-                "INSERT INTO lotto_generation_weekly_archives(round,total_generations,number_counts_json,closed_at,archived_at)
-                 SELECT round,total_generations,json_array({columns}),{first_close}+(round-1)*{week},?2
+                "INSERT INTO lotto_generation_weekly_archives(round,total_generations,number_counts_json,closed_at,archived_at,comparison_source)
+                 SELECT round,total_generations,json_array({columns}),{first_close}+(round-1)*{week},?2,'collecting'
                  FROM lotto_draw_generation_counts c
                  WHERE round<?1 AND NOT EXISTS (SELECT 1 FROM lotto_generation_weekly_archives a WHERE a.round=c.round)
                  ORDER BY round LIMIT 8",
@@ -38,8 +38,8 @@ fn steps(now: i64) -> Vec<Step> {
             name: "emptyRounds",
             // Do not create a zero snapshot for a round still waiting behind older snapshots.
             sql: format!(
-                "INSERT OR IGNORE INTO lotto_generation_weekly_archives(round,total_generations,number_counts_json,closed_at,archived_at)
-                 SELECT ?1-1,0,'{zeros}',?2,?3 WHERE ?1>1
+                "INSERT OR IGNORE INTO lotto_generation_weekly_archives(round,total_generations,number_counts_json,closed_at,archived_at,comparison_source)
+                 SELECT ?1-1,0,'{zeros}',?2,?3,'complete' WHERE ?1>1
                  AND NOT EXISTS (SELECT 1 FROM lotto_draw_generation_counts WHERE round=?1-1)
                  AND NOT EXISTS (SELECT 1 FROM lotto_public_generations WHERE round=?1-1)"
             ),
@@ -65,7 +65,9 @@ fn steps(now: i64) -> Vec<Step> {
         },
         Step {
             name: "purgedRounds",
-            sql: "UPDATE lotto_generation_weekly_archives SET purged_at=?1
+            sql: "UPDATE lotto_generation_weekly_archives SET purged_at=?1,
+                  comparison_source=CASE WHEN comparison_source='collecting' AND captured_generations=total_generations
+                                        THEN 'complete' ELSE comparison_source END
                   WHERE purged_at IS NULL AND NOT EXISTS (
                     SELECT 1 FROM lotto_public_generations g WHERE g.round=lotto_generation_weekly_archives.round)".into(),
             params: vec![now],
@@ -79,6 +81,23 @@ fn steps(now: i64) -> Vec<Step> {
                     AND created_at<?1 AND json_extract(payload_json,'$.round') IN (SELECT +round FROM lotto_generation_weekly_archives)
                     ORDER BY json_extract(payload_json,'$.round'),created_at LIMIT ?2)".into(),
             params: vec![now - REQUEST_RETENTION_MS, BATCH_SIZE],
+        },
+        Step {
+            name: "expiredResultSources",
+            // Allow corrections for seven days, or at most fourteen days without a result.
+            sql: "UPDATE lotto_generation_weekly_archives
+                  SET comparison_source=CASE WHEN result_settled_at IS NOT NULL THEN 'expired' ELSE 'unavailable' END
+                  WHERE comparison_source IN ('collecting','complete')
+                  AND (result_settled_at<?1-604800000 OR (result_settled_at IS NULL AND closed_at<?1-1209600000))".into(),
+            params: vec![now],
+        },
+        Step {
+            name: "removedResultCombinations",
+            sql: "DELETE FROM lotto_generation_result_combinations WHERE (round,number_mask) IN (
+                    SELECT round,number_mask FROM lotto_generation_result_combinations
+                    WHERE round IN (SELECT round FROM lotto_generation_weekly_archives WHERE comparison_source IN ('expired','unavailable'))
+                    ORDER BY round,number_mask LIMIT ?1)".into(),
+            params: vec![BATCH_SIZE],
         },
         Step {
             name: "removedWebBatches",
@@ -118,4 +137,4 @@ pub async fn job() -> Response {
 }
 
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;

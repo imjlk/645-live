@@ -2,10 +2,12 @@ use super::*;
 use rusqlite::{Connection, params, params_from_iter};
 
 const ROUND: i64 = 1242;
-const MIGRATION: &str =
-    include_str!("../../../traildepot/migrations/U1789452000__weekly_generation_archive.sql");
+const MIGRATION: &str = concat!(
+    include_str!("../../../traildepot/migrations/U1789452000__weekly_generation_archive.sql"),
+    include_str!("../../../traildepot/migrations/U1789460000__generation_result_statistics.sql"),
+);
 
-fn fixture(migrate: bool) -> Connection {
+pub(crate) fn fixture(migrate: bool) -> Connection {
     let conn = Connection::open_in_memory().unwrap();
     conn.execute_batch("PRAGMA foreign_keys=ON; CREATE TABLE _user(id BLOB PRIMARY KEY);")
         .unwrap();
@@ -76,7 +78,7 @@ fn insert(conn: &Connection, round: i64, at: i64, source: &str, offset: i64) -> 
     id
 }
 
-fn run(conn: &mut Connection, now: i64) -> rusqlite::Result<()> {
+pub(crate) fn run(conn: &mut Connection, now: i64) -> rusqlite::Result<()> {
     let tx = conn.transaction()?;
     for step in steps(now) {
         tx.execute(&step.sql, params_from_iter(step.params))?;
