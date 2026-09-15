@@ -17,6 +17,9 @@ trailbase-wasm = "0.6.1"
 trailbase-guest-common = { path = "../../../vendor/trailbase-apps-in-toss-kit/crates/trailbase-guest-common" }
 trailbase-toss-identity = { path = "../../../vendor/trailbase-apps-in-toss-kit/crates/trailbase-toss-identity" }
 
+[dev-dependencies]
+rusqlite = { version = "0.40.2", features = ["bundled"] }
+
 [profile.release]
 lto = true
 opt-level = "s"

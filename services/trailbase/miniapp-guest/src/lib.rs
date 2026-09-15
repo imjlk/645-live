@@ -6,6 +6,7 @@ mod auth;
 mod dev;
 mod engagement;
 mod generation_ads;
+mod generation_archive;
 mod lotto;
 mod maintenance;
 mod promotion_test;
@@ -124,6 +125,13 @@ impl Guest for Miniapp {
     }
     fn job_handlers() -> Vec<Job> {
         vec![
+            Job::new(
+                "lotto_generation_weekly_archive",
+                "0 * * * * *",
+                Some(30000),
+                generation_archive::job,
+            )
+            .expect("valid cron"),
             Job::new(
                 "ait_lotto_promotion_status",
                 "41 * * * * *",

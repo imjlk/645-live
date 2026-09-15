@@ -46,7 +46,7 @@ def run(image):
             sql([[insert, [round, '추가 내역', now + i + 100]] for i in range(5)] +
                 [['DELETE FROM lotto_public_generations WHERE id=?', [cursor_id]],
                  ['DELETE FROM lotto_public_generations WHERE id=?', [cursor_id - 2]],
-                 [insert, [round - 1, '다른 회차', now + 200]]])
+                 [insert, [round + 1, '다른 회차', now + 200]]])
             cursor = first['nextCursor']
             pages = 1
             while cursor:

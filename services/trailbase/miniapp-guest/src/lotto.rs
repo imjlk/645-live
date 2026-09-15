@@ -341,6 +341,11 @@ pub(crate) async fn feed(req: &mut Request) -> ApiResult<Json> {
         .query_param("cursor")
         .map(|v| feed_cursor(&v, round))
         .transpose()?;
+    let archive = db::tx_query(
+        &mut tx,
+        "SELECT total_generations,number_counts_json FROM lotto_generation_weekly_archives WHERE round=?1",
+        &[Value::Integer(round)],
+    )?;
     let mut params = vec![Value::Integer(round)];
     let cursor_filter = if let Some(id) = before {
         params.push(Value::Integer(id));
@@ -348,14 +353,19 @@ pub(crate) async fn feed(req: &mut Request) -> ApiResult<Json> {
     } else {
         ""
     };
-    let rows = db::tx_query(
-        &mut tx,
-        &format!(
-            "SELECT {SELECT_GENERATION} FROM lotto_public_generations WHERE round = ?1{cursor_filter} ORDER BY id DESC LIMIT {}",
-            FEED_PAGE_SIZE + 1
-        ),
-        &params,
-    )?;
+    // A frozen round exposes its aggregate only, even while detail deletion is still draining.
+    let rows = if archive.is_empty() {
+        db::tx_query(
+            &mut tx,
+            &format!(
+                "SELECT {SELECT_GENERATION} FROM lotto_public_generations WHERE round = ?1{cursor_filter} ORDER BY id DESC LIMIT {}",
+                FEED_PAGE_SIZE + 1
+            ),
+            &params,
+        )?
+    } else {
+        Vec::new()
+    };
     let next_cursor = if rows.len() > FEED_PAGE_SIZE {
         Some(format!(
             "{round}:{}",
@@ -373,14 +383,24 @@ pub(crate) async fn feed(req: &mut Request) -> ApiResult<Json> {
         .map(|n| format!("generation_count_{n}"))
         .collect::<Vec<_>>()
         .join(",");
-    let counts = db::tx_query(
-        &mut tx,
-        &format!(
-            "SELECT total_generations, {columns} FROM lotto_draw_generation_counts WHERE round = ?1"
-        ),
-        &[Value::Integer(round)],
-    )?;
-    let (total, numbers) = if let Some(row) = counts.first() {
+    let counts = if archive.is_empty() {
+        db::tx_query(
+            &mut tx,
+            &format!(
+                "SELECT total_generations, {columns} FROM lotto_draw_generation_counts WHERE round = ?1"
+            ),
+            &[Value::Integer(round)],
+        )?
+    } else {
+        Vec::new()
+    };
+    let (total, numbers) = if let Some(row) = archive.first() {
+        (
+            db::integer(&row[0], "total")?,
+            serde_json::from_str::<Vec<i64>>(&db::text(&row[1], "number_counts_json")?)
+                .map_err(internal)?,
+        )
+    } else if let Some(row) = counts.first() {
         (
             db::integer(&row[0], "total")?,
             row[1..]
@@ -399,7 +419,7 @@ pub(crate) async fn feed(req: &mut Request) -> ApiResult<Json> {
     let active = db::integer(&active[0][0], "active")?;
     db::tx_commit(&mut tx)?;
     Ok(
-        json!({"round":round,"generations":generations,"nextCursor":next_cursor,"totalGenerations":total,"numberCounts":numbers,"activeUsers":active,"serverTime":now}),
+        json!({"round":round,"archived":!archive.is_empty(),"generations":generations,"nextCursor":next_cursor,"totalGenerations":total,"numberCounts":numbers,"activeUsers":active,"serverTime":now}),
     )
 }
 

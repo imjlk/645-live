@@ -190,16 +190,11 @@ pub async fn retention_job() -> JobJson<Json> {
 }
 fn retention() -> ApiResult<Json> {
     // Privacy retention and shared presence must keep running when participation is disabled.
+    // Generation archives have their own bounded job; an archive failure must not
+    // prevent retention of unrelated profiles, ads or notification records.
     let mut tx = db::tx()?;
     let now = db::now_ms_tx(&mut tx)?;
-    let removed = db::tx_execute(
-        &mut tx,
-        "DELETE FROM lotto_public_generations WHERE created_at < ?1-7776000000",
-        &[Value::Integer(now)],
-    )?;
     for sql in [
-        "DELETE FROM ait_lotto_generation_requests WHERE created_at < ?1-7776000000",
-        "DELETE FROM web_lotto_generation_batches WHERE created_at < ?1-7776000000",
         "DELETE FROM _user WHERE id IN (SELECT user_id FROM web_lotto_profiles WHERE last_seen_at < ?1-7776000000)",
         "DELETE FROM anonymous_bootstrap_attempts WHERE last_attempt_at < ?1-86400000 AND bucket_key LIKE 'web-lotto-%'",
         "DELETE FROM anonymous_bootstrap_attempts WHERE last_attempt_at < ?1-86400000 AND bucket_key LIKE 'ait-%'",
@@ -212,7 +207,7 @@ fn retention() -> ApiResult<Json> {
         db::tx_execute(&mut tx, sql, &[Value::Integer(now)])?;
     }
     db::tx_commit(&mut tx)?;
-    Ok(json!({"ok":true,"removed":removed}))
+    Ok(json!({"ok":true}))
 }
 
 pub async fn promotion_job() -> JobJson<Json> {
