@@ -73,5 +73,5 @@ npm --prefix services/trailbase/wasm-guest run build
 - 비교 완료 후 7일이 지나거나, 미완료 상태로 마감 후 14일이 지나면 주간 정리 잡이 임시 조합을 최대 1,000개씩 삭제합니다. 완료된 등수별 집계는 주간 행에 남습니다. 보관기간 내 추첨 번호 정정은 자동 재비교하고, 임시 조합 삭제 후 정정되어 다시 검증할 수 없는 경우 `unavailable`로 표시합니다.
 - 공개 조회: `GET /api/app/v1/lotto/generation-results` → `{ rounds, nextBeforeRound, currentRound, serverTime }`. 처음에는 진행 중인 회차와 최신 26개 보관 회차, `?before=회차`는 이전 26개, `?round=회차`는 특정 회차를 반환합니다. 두 쿼리는 함께 사용하지 않습니다.
 - 각 행은 `round`, `totalGenerations`, `status`, `rankCounts`, `comparedGenerations`, `closesAt`, `draw`, `updatedAt`을 반환합니다. `status`는 `open`, `waiting`, `processing`, `ready`, `unavailable`이며 **`ready` 이외에는 `rankCounts: null`**입니다. 원본 두 테이블은 Record API로 노출하지 않습니다.
-- 웹 `/generator/results`는 빌드 시 통계를 정적으로 포함하고 진입·포그라운드 복귀·60초마다 갱신합니다. 미니앱 실시간 화면에서 `/results` 상세 화면으로 이동하며, 보이는 동안 60초마다 갱신합니다. 조회 회차는 갱신·목록 추가 시 유지합니다.
+- 웹 `/generator/results`는 빌드 시 통계를 정적으로 포함하고 진입·포그라운드 복귀·60초마다 갱신합니다. 미니앱 실시간 화면의 ‘이전 회차 결과 보기’는 현재 회차를 제외한 결과를 TDS 바텀시트로 열며, 보이는 동안 60초마다 갱신합니다. 조회 회차는 갱신·목록 추가 시 유지합니다.
 - 배포 순서는 TrailBase 이미지(마이그레이션·두 잡·공개 API), 웹, Sampo 미니앱 릴리즈입니다. API가 아직 없는 경우 웹 빌드는 계속되며 화면에서 재시도할 수 있습니다. 기존 데이터베이스를 초기화하지 않습니다.

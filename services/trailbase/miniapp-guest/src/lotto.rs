@@ -9,6 +9,7 @@ use trailbase_wasm::{
 };
 
 pub(crate) const DAILY_GENERATION_LIMIT: i64 = 200;
+const GENERATION_INTERVAL_MS: i64 = 1_000;
 
 pub const WEEK_MS: i64 = 604_800_000;
 // Round 1 sales close: 2002-12-07 20:00 KST. Never infer a target round from a delayed data import.
@@ -258,7 +259,7 @@ pub(crate) async fn generate(req: &mut Request) -> ApiResult<Json> {
         &[Value::Blob(user.id.clone()), Value::Integer(now)],
     )?;
     if db::integer(&recent[0][0], "count")? >= DAILY_GENERATION_LIMIT
-        || now - db::integer(&recent[0][1], "last")? < 800
+        || now - db::integer(&recent[0][1], "last")? < GENERATION_INTERVAL_MS
     {
         return Err(too_many_requests(
             "GENERATION_LIMIT",

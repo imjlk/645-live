@@ -70,6 +70,7 @@ export function LiveFeed({
 	onColumnsChange,
 	refreshing,
 	onRefresh,
+	onResults,
 }: {
 	feed: Feed | null;
 	history: FeedHistory;
@@ -82,6 +83,7 @@ export function LiveFeed({
 	onColumnsChange: (columns: 5 | 9) => void;
 	refreshing: boolean;
 	onRefresh: () => void;
+	onResults: () => void;
 }) {
 	const theme = useTheme();
 	const list = useRef<IOFlatListController>(null);
@@ -210,7 +212,7 @@ export function LiveFeed({
 							count={feed?.totalGenerations ?? 0}
 							reducedMotion={reducedMotion || !visible}
 						/>
-						<GenerationResultsLink />
+						<GenerationResultsLink onPress={onResults} />
 						<View style={[s.row, s.gridToolbar]}>
 							<Text style={[s.sectionTitle, text]}>번호별 생성 횟수</Text>
 							<SegmentedControl.Root
