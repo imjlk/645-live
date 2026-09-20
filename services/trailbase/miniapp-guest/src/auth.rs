@@ -123,10 +123,9 @@ pub(crate) async fn bootstrap(req: &mut Request) -> ApiResult<Json> {
                 .map_err(internal)
             })
             .transpose()?;
-        let name = format!(
-            "{}공 {}",
-            ["노랑", "파랑", "빨강", "회색", "초록"][usize::from(principal.id[0]) % 5],
-            &crate::lotto::random_id()[..4].to_uppercase()
+        let name = crate::lotto::display_name(
+            usize::from(principal.id[0]) % 5,
+            &crate::lotto::random_id(),
         );
         let rows = db::tx_query(&mut tx,
             "INSERT INTO ait_lotto_profiles(user_id, anonymous_hash_hmac, anonymous_key_sealed, display_name, created_at, last_seen_at) VALUES (?1, ?2, ?3, ?4, ?5, ?5)

@@ -126,11 +126,7 @@ pub(crate) async fn bootstrap(req: &mut Request) -> ApiResult<Json> {
         let mut tx = db::tx()?;
         let now = db::now_ms_tx(&mut tx)?;
         let principal = trailbase_auth::ensure_verified_auth_user_tx(&mut tx, &credentials)?;
-        let name = format!(
-            "{}공 {}",
-            ["노랑", "파랑", "빨강", "회색", "초록"][usize::from(principal.id[0]) % 5],
-            &lotto::random_id()[..4].to_uppercase()
-        );
+        let name = lotto::display_name(usize::from(principal.id[0]) % 5, &lotto::random_id());
         let rows = db::tx_query(
             &mut tx,
             "INSERT INTO web_lotto_profiles(user_id,installation_hmac,display_name,created_at,last_seen_at) VALUES (?1,?2,?3,?4,?4) ON CONFLICT(user_id) DO UPDATE SET last_seen_at=excluded.last_seen_at RETURNING display_name,disabled",
