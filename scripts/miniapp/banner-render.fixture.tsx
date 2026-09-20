@@ -14,6 +14,8 @@ const io = createContext<{ manager: object | null }>({ manager: null });
 let visible = true;
 let mounts = 0;
 const metrics: string[] = [];
+const flows: string[] = [];
+let onImpression = () => {};
 let props = {
 	variant: "",
 	adGroupId: "",
@@ -24,6 +26,16 @@ let props = {
 mock.module("@granite-js/react-native", () => ({
 	IOContext: io,
 	useVisibility: () => visible,
+	ImpressionArea: ({
+		onImpressionStart,
+		children,
+	}: {
+		onImpressionStart: () => void;
+		children: React.ReactNode;
+	}) => {
+		onImpression = onImpressionStart;
+		return children;
+	},
 }));
 mock.module("@apps-in-toss/framework", () => ({
 	InlineAd: (value: typeof props) => {
@@ -45,8 +57,9 @@ mock.module("react-native", () => ({
 }));
 mock.module("../../apps/toss/src/telemetry", () => ({
 	adTelemetry: {
-		track: (event: string) => {
+		track: (event: string, context: { flowId: string }) => {
 			metrics.push(event);
+			flows.push(context.flowId);
 		},
 	},
 }));
@@ -119,4 +132,31 @@ await act(async () => {
 const before = metrics.length;
 props.onAdViewable();
 expect(metrics.length).toBe(before);
+const { AdCtaImpression } = await import("../../apps/toss/src/AdCtaImpression");
+let attempt:
+	| { track: (event: "requested" | "generation_completed") => void }
+	| undefined;
+await act(async () => {
+	root = create(
+		<AdCtaImpression enabled policy="device:5:5-30">
+			{(flow) => {
+				attempt = flow;
+				return null;
+			}}
+		</AdCtaImpression>,
+	);
+});
+onImpression();
+if (!attempt) throw new Error("CTA did not provide its flow");
+attempt.track("requested");
+attempt.track("generation_completed");
+expect(metrics.slice(-3)).toEqual([
+	"cta_viewed",
+	"requested",
+	"generation_completed",
+]);
+expect(new Set(flows.slice(-3)).size).toBe(1);
+await act(async () => {
+	tree().unmount();
+});
 console.log("banner placement lifecycle passed");

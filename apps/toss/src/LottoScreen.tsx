@@ -452,26 +452,29 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 											enabled={model.generationAdRequired}
 											policy={adPolicyLabel(model.adConfig?.generationAdPolicy)}
 										>
-											<Button
-												display="full"
-												loading={model.busy === "generate"}
-												disabled={
-													!!model.busy ||
-													model.generationCooling ||
-													!model.user ||
-													!model.context
-												}
-												onPress={() =>
-													void model.generate(
-														hasOptions ? options : EMPTY_OPTIONS,
-														model.generationAdRequired,
-													)
-												}
-											>
-												{model.generationAdRequired
-													? "광고 보고 계속 만들기"
-													: generationLabel}
-											</Button>
+											{(adFlow) => (
+												<Button
+													display="full"
+													loading={model.busy === "generate"}
+													disabled={
+														!!model.busy ||
+														model.generationCooling ||
+														!model.user ||
+														!model.context
+													}
+													onPress={() =>
+														void model.generate(
+															hasOptions ? options : EMPTY_OPTIONS,
+															model.generationAdRequired,
+															adFlow,
+														)
+													}
+												>
+													{model.generationAdRequired
+														? "광고 보고 계속 만들기"
+														: generationLabel}
+												</Button>
+											)}
 										</AdCtaImpression>
 										{model.current ? (
 											<View style={{ marginTop: 10 }}>

@@ -88,8 +88,9 @@ def run():
                     fail = faults['prepare'] > 0
                     if fail:
                         faults['prepare'] -= 1
-                    key = 'fixture-' + uuid.uuid4().hex
-                    prepared.add(key)
+                    else:
+                        key = 'fixture-' + uuid.uuid4().hex
+                        prepared.add(key)
                 if fail:
                     self.send_error(503)
                     return

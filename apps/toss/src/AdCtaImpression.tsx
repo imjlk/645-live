@@ -1,6 +1,6 @@
 import { ImpressionArea } from "@granite-js/react-native";
-import { type PropsWithChildren, useMemo } from "react";
-import { createAdFlow } from "./ad-telemetry";
+import { type ReactNode, useMemo } from "react";
+import { type AdFlow, createAdFlow } from "./ad-telemetry";
 import { adTelemetry } from "./telemetry";
 
 /** Must stay inside the generator IOScrollView, outside modal portals. */
@@ -8,7 +8,11 @@ export function AdCtaImpression({
 	enabled,
 	policy,
 	children,
-}: PropsWithChildren<{ enabled: boolean; policy: string }>) {
+}: {
+	enabled: boolean;
+	policy: string;
+	children: (flow: AdFlow | undefined) => ReactNode;
+}) {
 	const flow = useMemo(
 		() =>
 			enabled
@@ -26,7 +30,7 @@ export function AdCtaImpression({
 			timeThreshold={1000}
 			onImpressionStart={() => flow?.track("cta_viewed")}
 		>
-			{children}
+			{children(flow ?? undefined)}
 		</ImpressionArea>
 	);
 }

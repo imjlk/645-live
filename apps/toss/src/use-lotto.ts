@@ -21,7 +21,7 @@ import {
 } from "react";
 import { AccessibilityInfo, AppState } from "react-native";
 import { createAdController, setResultNotification } from "./ad-bridge";
-import { adPolicyLabel, createAdFlow } from "./ad-telemetry";
+import { type AdFlow, adPolicyLabel, createAdFlow } from "./ad-telemetry";
 import {
 	type AdConfig,
 	type AdPlacement,
@@ -489,14 +489,16 @@ export function useLotto() {
 		generate: async (
 			options: GenerationOptions = EMPTY_OPTIONS,
 			watchAd = false,
+			impressionFlow?: AdFlow,
 		) => {
 			if (actionLock.current || generationCooldown.blocked()) return false;
 			generationCooldown.start();
 			const adFlow = watchAd
-				? createAdFlow(adTelemetry, {
+				? (impressionFlow ??
+					createAdFlow(adTelemetry, {
 						placement: "generation_continue",
 						policy: adPolicyLabel(adConfig?.generationAdPolicy),
-					})
+					}))
 				: undefined;
 			try {
 				return await run("generate", async () => {
