@@ -3,25 +3,36 @@ import {
 	InlineAd,
 	isMinVersionSupported,
 } from "@apps-in-toss/framework";
-import { useVisibility } from "@granite-js/react-native";
+import { IOContext, useVisibility } from "@granite-js/react-native";
 import { isAppsInTossInlineAdSupported } from "@trailbase-apps-in-toss-kit/ait-rn/inline-ads";
-import { memo, useEffect, useState } from "react";
+import { memo, useContext, useEffect, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { LOCAL_PREVIEW } from "./api";
 import { useTheme } from "./theme";
 
+const SLOT_FORMAT = {
+	generator: "inline",
+	saved: "card",
+	live_feed: "inline",
+} as const;
+export type BannerPlacement = keyof typeof SLOT_FORMAT;
+
 type BannerProps = {
 	groupId: string | null | undefined;
-	format: "card" | "inline";
+	placement: BannerPlacement;
 };
 /** A new group resets SDK state; SSE updates never change the slot's assigned group. */
 export const Banner = memo(function Banner(props: BannerProps) {
 	const visible = useVisibility();
-	return visible && props.groupId ? (
+	const { manager } = useContext(IOContext);
+	// InlineAd mounts ImpressionArea only after an ad fills. Prevent that
+	// delayed crash in portals/plain ScrollViews without inventing an IO root.
+	const format = SLOT_FORMAT[props.placement];
+	return visible && manager && format && props.groupId ? (
 		<BannerSlot
-			key={`${props.format}:${props.groupId}`}
+			key={`${props.placement}:${props.groupId}`}
 			groupId={props.groupId}
-			format={props.format}
+			format={format}
 		/>
 	) : null;
 });
