@@ -175,9 +175,12 @@
     },
     "vendor/trailbase-apps-in-toss-kit/packages/ait-rn": {
       "name": "@trailbase-apps-in-toss-kit/ait-rn",
-      "version": "0.4.1",
+      "version": "0.6.0",
+      "dependencies": {
+        "@ait-kit/sdk": "0.3.0",
+      },
       "peerDependencies": {
-        "@apps-in-toss/framework": ">=2.5.0",
+        "@apps-in-toss/framework": ">=2.10.10",
         "@trailbase-apps-in-toss-kit/trailbase-client": "workspace:*",
       },
     },
@@ -270,6 +273,8 @@
     "@645live/sdk": ["@645live/sdk@workspace:packages/sdk"],
 
     "@645live/trailbase-adapter": ["@645live/trailbase-adapter@workspace:packages/trailbase-adapter"],
+
+    "@ait-kit/sdk": ["@ait-kit/sdk@0.3.0", "", { "peerDependencies": { "@apps-in-toss/framework": ">=2.10.10", "@apps-in-toss/web-framework": ">=3.4.0" }, "optionalPeers": ["@apps-in-toss/framework", "@apps-in-toss/web-framework"] }, "sha512-Odr8HSo9XlBl8iqcIX+v3dj7N5n046oo/Ba3OefYyM1E+rMVY8QXzJHkg3BPbUV2VCq52rugoD37GvBFJuX4TA=="],
 
     "@ampproject/remapping": ["@ampproject/remapping@2.3.0", "", { "dependencies": { "@jridgewell/gen-mapping": "^0.3.5", "@jridgewell/trace-mapping": "^0.3.24" } }, "sha512-30iZtAPgz+LTIYoeivqYo853f02jBYSd5uGnGpkFV0M3xOt9aN73erkgYAmZU43x4VfqcnLxW9Kpg3R5LC4YYw=="],
 

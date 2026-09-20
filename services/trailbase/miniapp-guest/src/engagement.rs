@@ -288,10 +288,10 @@ fn existing_claim(
 }
 fn claim_view(r: &[Value], kind: &str, period: Option<i64>, now: i64) -> ApiResult<Json> {
     let status = db::text(&r[0], "status")?;
+    // Three-step rows legitimately hold a key while pending; only a missing
+    // campaign or an unsettled age signals operator attention.
     let needs_review = status == "pending"
-        && (db::nullable_text(&r[2])?.is_none()
-            || db::nullable_text(&r[5])?.is_none()
-                && now - db::integer(&r[4], "created")? > 600_000);
+        && (db::nullable_text(&r[2])?.is_none() || now - db::integer(&r[4], "created")? > 600_000);
     Ok(
         json!({"kind":kind,"periodDay":period,"campaignId":db::nullable_text(&r[2])?,"claimId":db::text(&r[1],"claim")?,"amount":db::integer(&r[3],"amount")?,"eligible":false,"available":false,"status":if needs_review{"needs_review"}else{&status}}),
     )
@@ -466,21 +466,14 @@ pub(crate) async fn claim_promotion(req: &mut Request) -> ApiResult<Json> {
     if !ledger.inserted {
         return reconcile_claim(&user.id, &ledger.record.id).await;
     }
-    // Unknown grant outcomes never allocate another payment. Only status is retried.
-    let response=proxy_post(proxy::PROMOTION_REWARD_GRANT_PATH,json!({"anonKey":anon_key,"providerRequestId":request_id,"promotionCode":current.code,"amount":current.amount,"requestedAt":now})).await?;
-    store_outcome(&ledger.record.id, &request_id, &response, now)?;
+    execute_reward(&ledger.record, &anon_key, &current.code).await?;
     claim_status(&user.id, &ledger.record.id)
 }
-pub(crate) fn store_outcome(
-    id: &str,
-    request_id: &str,
-    response: &Json,
-    now: i64,
-) -> ApiResult<()> {
-    let mut outcome =
-        rewards::promotion_reward_outcome_from_response(response, request_id, Some(now));
+pub(crate) fn store_outcome(id: &str, request_id: &str, response: &Json) -> ApiResult<()> {
+    let mut outcome = rewards::promotion_reward_outcome_from_response(response, request_id);
     outcome.raw_response_json = None;
     let mut tx = db::tx()?;
+    let now = db::now_ms_tx(&mut tx)?;
     let terminal = db::tx_query(
         &mut tx,
         "SELECT 1 FROM promotion_reward_ledger WHERE id=?1 AND status IN ('success','recorded')",
@@ -501,6 +494,94 @@ pub(crate) fn store_outcome(
     db::tx_commit(&mut tx)?;
     Ok(())
 }
+/// Drive one ledger row through the kit's persisted three-step reward
+/// contract: prepare issues the provider transaction key, the key and the
+/// execution claim are each committed before the external call, and a row
+/// whose execution already started is only settled through the status
+/// lookup. Unknown outcomes never allocate another payment.
+pub(crate) async fn execute_reward(
+    ledger: &rewards::PromotionRewardLedgerRecord,
+    anon_key: &str,
+    promotion_code: &str,
+) -> ApiResult<()> {
+    let table = rewards::DEFAULT_PROMOTION_REWARD_LEDGER_TABLE;
+    let url = settings::required("MTLS_PROXY_URL")?;
+    let token = settings::required("MTLS_PROXY_TOKEN")?;
+    let proxy_error =
+        |step: &str| internal(format!("Toss proxy request failed at promotion {step}"));
+    let mut transaction_key = ledger.provider_transaction_key.clone();
+    if ledger.execution_started_at.is_none() {
+        if transaction_key.is_none() {
+            let prepared =
+                proxy::promotion_reward_prepare(&url, Some(&token), json!({"anonKey": anon_key}))
+                    .await
+                    .map_err(|_| proxy_error("prepare"))?;
+            let issued = prepared["providerTransactionKey"]
+                .as_str()
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .ok_or_else(|| internal("Promotion prepare did not issue a transaction key"))?
+                .to_string();
+            let mut tx = db::tx()?;
+            let now = db::now_ms_tx(&mut tx)?;
+            let record = rewards::store_promotion_transaction_key_tx(
+                &mut tx, table, &ledger.id, &issued, now,
+            )?;
+            transaction_key = record.provider_transaction_key;
+            db::tx_commit(&mut tx)?;
+        }
+        let mut tx = db::tx()?;
+        let now = db::now_ms_tx(&mut tx)?;
+        let claimed = rewards::begin_promotion_reward_execute_tx(&mut tx, table, &ledger.id, now)?;
+        db::tx_commit(&mut tx)?;
+        if let Some(record) = claimed {
+            let payload = rewards::promotion_reward_payload(rewards::PromotionRewardPayloadInput {
+                provider_request_id: &record.provider_request_id,
+                provider_transaction_key: record.provider_transaction_key.as_deref(),
+                promotion: &rewards::PromotionGrantContext {
+                    campaign_id: record.campaign_id.clone(),
+                    provider_promotion_code: Some(promotion_code.into()),
+                    reward_amount: record.reward_amount,
+                    source: record.source_type.clone(),
+                },
+                requested_at: record.requested_at,
+                toss_user_key: anon_key,
+                eligibility_id: None,
+                user_id: None,
+                source_type: Some(&record.source_type),
+                source_id: record.source_id.clone().map(Json::String),
+            });
+            let response = proxy::promotion_reward_execute(&url, Some(&token), payload)
+                .await
+                .map_err(|_| proxy_error("execute"))?;
+            store_outcome(&ledger.id, &record.provider_request_id, &response)?;
+            return Ok(());
+        }
+        // Another worker already claimed the execution; settle via status.
+    }
+    let key = transaction_key
+        .filter(|value| !value.trim().is_empty())
+        .ok_or_else(|| {
+            conflict(
+                "PROMOTION_UNSETTLED",
+                "지급 결과를 확인하고 있어요. 잠시 후 다시 확인해 주세요.",
+            )
+        })?;
+    let response = proxy::promotion_reward_status_with_payload(
+        &url,
+        Some(&token),
+        json!({
+            "anonKey": anon_key,
+            "providerRequestId": ledger.provider_request_id,
+            "providerTransactionKey": key,
+            "promotionCode": promotion_code,
+            "amount": ledger.reward_amount,
+        }),
+    )
+    .await
+    .map_err(|_| proxy_error("status"))?;
+    store_outcome(&ledger.id, &ledger.provider_request_id, &response)
+}
 fn claim_status(user: &[u8], id: &str) -> ApiResult<Json> {
     let mut tx = db::tx()?;
     let now = db::now_ms_tx(&mut tx)?;
@@ -514,9 +595,7 @@ fn claim_status(user: &[u8], id: &str) -> ApiResult<Json> {
         .ok_or_else(|| not_found("CLAIM_NOT_FOUND", "지급 요청을 확인하지 못했어요."))?;
     let status = db::text(&r[0], "status")?;
     let needs_review = status == "pending"
-        && (db::nullable_text(&r[4])?.is_none()
-            || db::nullable_text(&r[2])?.is_none()
-                && now - db::integer(&r[3], "created")? > 600_000);
+        && (db::nullable_text(&r[4])?.is_none() || now - db::integer(&r[3], "created")? > 600_000);
     let value = json!({"status":if needs_review {"needs_review"}else{&status},"amount":db::integer(&r[1],"amount")?});
     db::tx_commit(&mut tx)?;
     Ok(value)
@@ -526,7 +605,6 @@ pub(crate) async fn reconcile_claim(user: &[u8], id: &str) -> ApiResult<Json> {
         return claim_status(user, id);
     }
     let mut tx = db::tx()?;
-    let now = db::now_ms_tx(&mut tx)?;
     let rows = db::tx_query(
         &mut tx,
         "SELECT l.provider_transaction_key,l.provider_request_id,c.provider_promotion_code,l.reward_amount,p.anonymous_key_sealed FROM promotion_reward_ledger l JOIN promotion_campaigns c ON c.id=l.campaign_id JOIN ait_lotto_profiles p ON p.user_id=l.user_id WHERE l.id=?1 AND l.user_id=?2 AND l.source_type IN ('ait_lotto_attendance','ait_lotto_attendance_daily','ait_lotto_attendance_weekly') AND l.status IN ('pending','failed') AND p.disabled=0 AND l.provider_transaction_key IS NOT NULL",
@@ -538,7 +616,7 @@ pub(crate) async fn reconcile_claim(user: &[u8], id: &str) -> ApiResult<Json> {
         let request_id = db::text(&r[1], "request")?;
         let anon_key = unseal(&db::text(&r[4], "recipient")?)?;
         let response=proxy_post(proxy::PROMOTION_REWARD_STATUS_PATH,json!({"anonKey":anon_key,"providerTransactionKey":key,"providerRequestId":request_id,"promotionCode":db::text(&r[2],"code")?,"amount":db::integer(&r[3],"amount")?})).await?;
-        store_outcome(id, &request_id, &response, now)?;
+        store_outcome(id, &request_id, &response)?;
     }
     claim_status(user, id)
 }

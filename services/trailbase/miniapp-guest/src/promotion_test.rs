@@ -4,9 +4,7 @@ use crate::{auth, body, db, engagement, settings};
 use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
 use serde::Deserialize;
 use serde_json::{Value as Json, json};
-use trailbase_guest_common::{
-    apps_in_toss_proxy as proxy, promotion_rewards as rewards, responses::*, session::hmac_hex,
-};
+use trailbase_guest_common::{promotion_rewards as rewards, responses::*, session::hmac_hex};
 use trailbase_wasm::{db::Value, http::Request};
 
 const SOURCE: &str = "ait_lotto_promotion_test";
@@ -104,21 +102,15 @@ pub(crate) async fn run(req: &mut Request) -> ApiResult<Json> {
             now,
         },
     )?;
-    let id = ledger.record.id;
-    let row = db::tx_query(
-        &mut tx,
-        "SELECT status,provider_transaction_key FROM promotion_reward_ledger WHERE id=?1 AND user_id=?2 AND source_type=?3",
-        &[
-            Value::Text(id.clone()),
-            Value::Blob(user.id.clone()),
-            Value::Text(SOURCE.into()),
-        ],
-    )?;
-    let status = db::text(&row[0][0], "status")?;
-    let transaction = db::nullable_text(&row[0][1])?;
-    if status == "success" || status == "recorded" || (!ledger.inserted && transaction.is_none()) {
+    let record = ledger.record;
+    // A keyless pre-existing row predates the three-step contract; repeated
+    // requests settle only through the original ledger state.
+    if record.status == "success"
+        || record.status == "recorded"
+        || (!ledger.inserted && record.provider_transaction_key.is_none())
+    {
         db::tx_commit(&mut tx)?;
-        return Ok(json!({"testOnly":true,"status":status,"amount":input.kind.amount()}));
+        return Ok(json!({"testOnly":true,"status":record.status,"amount":input.kind.amount()}));
     }
     let recipient = db::tx_query(
         &mut tx,
@@ -127,22 +119,12 @@ pub(crate) async fn run(req: &mut Request) -> ApiResult<Json> {
     )?;
     let anon_key = engagement::unseal(&db::text(&recipient[0][0], "recipient")?)?;
     db::tx_commit(&mut tx)?;
-    let mut payload = json!({"anonKey":anon_key,"providerRequestId":request_id,"promotionCode":code,"amount":input.kind.amount(),"requestedAt":now});
-    let endpoint = if let Some(key) = transaction {
-        payload["providerTransactionKey"] = json!(key);
-        proxy::PROMOTION_REWARD_STATUS_PATH
-    } else {
-        proxy::PROMOTION_REWARD_GRANT_PATH
-    };
-    // A repeated request only checks the original transaction. An uncertain
-    // initial response never creates another provider grant.
-    let response = engagement::proxy_post(endpoint, payload).await?;
-    engagement::store_outcome(&id, &request_id, &response, now)?;
+    engagement::execute_reward(&record, &anon_key, &code).await?;
     let mut tx = db::tx()?;
     let rows = db::tx_query(
         &mut tx,
         "SELECT status FROM promotion_reward_ledger WHERE id=?1",
-        &[Value::Text(id)],
+        &[Value::Text(record.id)],
     )?;
     let status = rows
         .first()
