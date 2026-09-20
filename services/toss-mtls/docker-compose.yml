@@ -1,7 +1,7 @@
 # Deploy as a separate private Coolify Compose service on the TrailBase server.
 services:
   toss-mtls:
-    image: ghcr.io/imjlk/trailbase-apps-in-toss-kit/toss-mtls-client-proxy:0.3.0@sha256:4e238a66bf22664366732b5a40dd11a536fa32163cf6d0fec6fcc22b70488692
+    image: ghcr.io/imjlk/trailbase-apps-in-toss-kit/toss-mtls-client-proxy:0.6.1@sha256:d456799f47cebc5804c3e586c2a25e32af593d176bf698d75b8e28397afd268a
     init: true
     restart: unless-stopped
     stop_grace_period: 100s
