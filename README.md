@@ -2,7 +2,7 @@
 
 한국 로또 645 통계/분석 서비스의 모노레포입니다.
 
-- 웹: <https://www.645.live>
+- 웹: <https://645.live>
 - 토스 미니앱 645 번호 생성기: <https://minion.toss.im/z5rUtwq9>
 
 ## 문서 우선순위
