@@ -75,14 +75,19 @@ def run():
             data = json.loads(raw)
             if self.path.endswith('/anonymous-key/verify'):
                 result = {'valid': True, 'mode': 'forward'}
-            elif self.path.endswith('/promotion/reward/grant'):
+            elif self.path.endswith('/promotion/reward/prepare'):
+                result = {'ok': True, 'providerTransactionKey': 'fixture-transaction'}
+            elif self.path.endswith('/promotion/reward/execute'):
                 grants.append(data['providerRequestId'])
                 if data['promotionCode'] == 'unknown-outcome':
                     self.send_error(504)
                     return
                 result = {'providerStatus': 'PENDING', 'providerTransactionKey': 'fixture-transaction'}
             elif self.path.endswith('/promotion/reward/status'):
-                result = {'providerStatus': 'GRANTED', 'providerTransactionKey': 'fixture-transaction'}
+                if data['promotionCode'] == 'unknown-outcome':
+                    result = {'ok': False, 'providerStatus': 'UNKNOWN', 'providerTransactionKey': 'fixture-transaction'}
+                else:
+                    result = {'providerStatus': 'GRANTED', 'providerTransactionKey': 'fixture-transaction'}
             else:
                 self.send_error(404)
                 return
@@ -215,6 +220,15 @@ def run():
                 fixture([('INSERT INTO ait_lotto_attendance_restores(user_id,day,created_at) VALUES (?,?,?)',[user,day-4,now])])
                 generate()
                 assert not state()['canRestore']
+                # A same-day check-in commits to the next cycle: the missed day must
+                # not be stitched back into the streak afterwards.
+                user,auth=new_user()
+                attend_days([day-3,day-2])
+                generate()
+                expect(request(base,check_path,{},auth)[0],200,'check-in before restore')
+                assert state()['streak']==1 and not state()['canRestore']
+                expect(request(base,'/api/app/v1/ads/start',{'placement':'attendance_restore'},auth)[0],409,'post-check-in restore rejected')
+                assert state()['streak']==1,'restore merged two days into one streak'
                 # A started ad cannot restore a different day after midnight.
                 user,auth=new_user()
                 attend_days([day-2]);generate()
@@ -292,7 +306,7 @@ def run():
                     'generation-gated check-in; no three-day pass', 'daily and seven-day bonuses independently configurable',
                     'concurrent claims are idempotent; budget survives deletion and rejoin',
                     'seven-day reset retains completed bonus', 'rewarded and interstitial restore exactly once',
-                    'no retroactive daily points; restore limits and midnight binding',
+                    'no retroactive daily points; restore limits, check-in ordering and midnight binding',
                     'exhausted/deleted campaigns and older claims remain readable', 'unknown outcomes never issue another grant',
                     'console verification requires an unexpired tester allowlist and TEST codes',
                     'concurrent console checks grant once and preserve attendance and live reward history'

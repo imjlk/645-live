@@ -85,6 +85,11 @@ fn restorable(days: &[Day], today: i64) -> bool {
     if days.iter().any(|d| d.day == today - 1) {
         return false;
     }
+    // A same-day check-in already commits to the next cycle: the missed day ends
+    // the previous run and must not be stitched back into the streak afterwards.
+    if days.iter().any(|d| d.day == today) {
+        return false;
+    }
     let previous: Vec<_> = days.iter().copied().filter(|d| d.day < today).collect();
     let state = sequences(&previous);
     state.active.last().is_some_and(|d| d.day == today - 2)
@@ -180,8 +185,9 @@ mod tests {
     #[test]
     fn missed_day_resets_and_only_yesterday_can_be_restored() {
         let mut entries = days(1..=5);
-        entries.extend(days(7..=7));
         assert!(restorable(&entries, 7));
+        entries.extend(days(7..=7));
+        assert!(!restorable(&entries, 7));
         assert!(!restorable(&entries, 8));
         assert_eq!(sequences(&entries).active, days(7..=7));
     }
@@ -192,6 +198,13 @@ mod tests {
         entries.extend(days(6..=6));
         assert!(!restorable(&entries, 6));
         assert!(!restorable(&days(1..=7), 9));
+    }
+    #[test]
+    fn check_in_before_restore_starts_a_new_cycle_instead_of_merging() {
+        let mut entries = days(1..=2);
+        entries.extend(days(4..=4));
+        assert!(!restorable(&entries, 4));
+        assert!(restorable(&days(1..=2), 4));
     }
     #[test]
     fn restore_on_day_eight_completes_previous_cycle() {
