@@ -869,10 +869,7 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 				) : null}
 				<View key={panel}>
 					{panel === "generationResults" ? (
-						<GenerationResultsContent
-							active={sheetOpen && visible}
-							cardGroupId={model.adConfig?.bannerGroups?.card}
-						/>
+						<GenerationResultsContent active={sheetOpen && visible} />
 					) : panel === "custom" ? (
 						customOpen ? (
 							<View style={{ gap: 20 }}>
