@@ -13,11 +13,13 @@ mock.module(
 const io = createContext<{ manager: object | null }>({ manager: null });
 let visible = true;
 let mounts = 0;
+const metrics: string[] = [];
 let props = {
 	variant: "",
 	adGroupId: "",
 	onAdRendered: () => {},
 	onNoFill: () => {},
+	onAdViewable: () => {},
 };
 mock.module("@granite-js/react-native", () => ({
 	IOContext: io,
@@ -40,6 +42,13 @@ mock.module("react-native", () => ({
 	View: "view",
 	Text: "text",
 	StyleSheet: { create: (value: unknown) => value },
+}));
+mock.module("../../apps/toss/src/telemetry", () => ({
+	adTelemetry: {
+		track: (event: string) => {
+			metrics.push(event);
+		},
+	},
 }));
 mock.module("../../apps/toss/src/api", () => ({ LOCAL_PREVIEW: false }));
 mock.module("../../apps/toss/src/theme", () => ({ useTheme: () => ({}) }));
@@ -74,6 +83,12 @@ await act(async () => {
 	props.onAdRendered();
 });
 expect(tree().toJSON()).not.toBeNull();
+expect(metrics).toEqual(["banner_rendered"]);
+await act(async () => {
+	props.onAdViewable();
+	props.onAdViewable();
+});
+expect(metrics).toEqual(["banner_rendered", "banner_viewable"]);
 for (const placement of ["generator", "live_feed"] as const) {
 	await act(async () => {
 		tree().update(screen(placement));
@@ -101,4 +116,7 @@ expect(tree().toJSON()).toBeNull();
 await act(async () => {
 	tree().unmount();
 });
+const before = metrics.length;
+props.onAdViewable();
+expect(metrics.length).toBe(before);
 console.log("banner placement lifecycle passed");

@@ -5,9 +5,11 @@ import {
 } from "@apps-in-toss/framework";
 import { IOContext, useVisibility } from "@granite-js/react-native";
 import { isAppsInTossInlineAdSupported } from "@trailbase-apps-in-toss-kit/ait-rn/inline-ads";
-import { memo, useContext, useEffect, useState } from "react";
+import { memo, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
+import { type AdMetric, createAdFlow } from "./ad-telemetry";
 import { LOCAL_PREVIEW } from "./api";
+import { adTelemetry } from "./telemetry";
 import { useTheme } from "./theme";
 
 const SLOT_FORMAT = {
@@ -33,6 +35,7 @@ export const Banner = memo(function Banner(props: BannerProps) {
 			key={`${props.placement}:${props.groupId}`}
 			groupId={props.groupId}
 			format={format}
+			placement={props.placement}
 		/>
 	) : null;
 });
@@ -40,7 +43,9 @@ export const Banner = memo(function Banner(props: BannerProps) {
 function BannerSlot({
 	groupId,
 	format,
+	placement,
 }: {
+	placement: BannerPlacement;
 	groupId: string;
 	format: "card" | "inline";
 }) {
@@ -48,6 +53,20 @@ function BannerSlot({
 	const [rendered, setRendered] = useState(false);
 	const [unavailable, setUnavailable] = useState(false);
 	const theme = useTheme();
+	const active = useRef(true);
+	const flow = useMemo(
+		() => createAdFlow(adTelemetry, { placement, format }),
+		[placement, format],
+	);
+	const track = (event: AdMetric) => {
+		if (active.current) flow.track(event);
+	};
+	useEffect(() => {
+		active.current = true;
+		return () => {
+			active.current = false;
+		};
+	}, []);
 	useEffect(() => {
 		let active = true;
 		void isAppsInTossInlineAdSupported({
@@ -80,10 +99,19 @@ function BannerSlot({
 						theme="auto"
 						tone="grey"
 						variant={format === "card" ? "card" : "expanded"}
-						onAdRendered={() => setRendered(true)}
-						onNoFill={() => setUnavailable(true)}
+						onAdRendered={() => {
+							if (active.current) setRendered(true);
+							track("banner_rendered");
+						}}
+						onAdViewable={() => track("banner_viewable")}
+						onAdClicked={() => track("banner_clicked")}
+						onNoFill={() => {
+							if (active.current) setUnavailable(true);
+							track("banner_no_fill");
+						}}
 						onAdFailedToRender={({ error }) => {
-							setUnavailable(true);
+							if (active.current) setUnavailable(true);
+							track("banner_failed");
 							if (LOCAL_PREVIEW)
 								console.info(
 									`[645 local] ${format} banner unavailable (${error.code}).`,

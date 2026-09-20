@@ -1,4 +1,9 @@
 import { afterEach, expect, mock, test } from "bun:test";
+import {
+	type AdMetricSink,
+	createAdFlow,
+	createAdTelemetry,
+} from "./ad-telemetry";
 
 const originalFetch = globalThis.fetch;
 const kit = await import("@trailbase-apps-in-toss-kit/trailbase-client");
@@ -25,6 +30,7 @@ const json = (value: unknown, status = 200) =>
 
 mock.module("@apps-in-toss/framework", () => ({
 	Storage: {},
+	eventLog: async () => {},
 	getAnonymousKey: async () => "fixture",
 	getOperationalEnvironment: () => adEnvironment,
 	loadFullScreenAd: Object.assign(
@@ -102,6 +108,18 @@ test("a synchronous session runtime failure can be diagnosed and retried", async
 });
 
 test("a lost ad completion response is retried without showing another ad", async () => {
+	const metrics: Parameters<AdMetricSink>[0][] = [];
+	const telemetry = createAdTelemetry((e) => {
+		metrics.push(e);
+	});
+	const flow = createAdFlow(telemetry, {
+		placement: "generation_continue",
+		flowId: "first",
+	});
+	const retry = createAdFlow(telemetry, {
+		placement: "generation_continue",
+		flowId: "retry",
+	});
 	let starts = 0;
 	let completions = 0;
 	const api: AdApi = {
@@ -124,10 +142,27 @@ test("a lost ad completion response is retried without showing another ad", asyn
 	};
 	const controller = createAdController(api);
 	try {
-		await expect(controller.unlock("generation_continue")).rejects.toThrow(
-			"response lost",
-		);
-		await controller.unlock("generation_continue");
+		await expect(
+			controller.unlock("generation_continue", true, flow),
+		).rejects.toThrow("response lost");
+		await controller.unlock("generation_continue", true, retry);
+		await telemetry.flush();
+		const first = metrics
+			.filter((e) => e.params.flow_id === "first")
+			.map((e) => e.log_name);
+		expect(first).toEqual([
+			"lotto_ad_requested",
+			"lotto_ad_session_started",
+			"lotto_ad_shown",
+			"lotto_ad_viewable",
+			"lotto_ad_completed",
+			"lotto_ad_failed",
+		]);
+		expect(
+			metrics
+				.filter((e) => e.params.flow_id === "retry")
+				.map((e) => e.log_name),
+		).toEqual(["lotto_ad_requested", "lotto_ad_settled"]);
 		expect(starts).toBe(1);
 		expect(adShowCount).toBe(1);
 		expect(completions).toBe(2);
@@ -141,6 +176,11 @@ test("no-fill and unsupported environments continue generation without a fabrica
 		adEnvironment = environment;
 		adLoadFails = true;
 		const events: string[][] = [];
+		const metrics: Parameters<AdMetricSink>[0][] = [];
+		const telemetry = createAdTelemetry((e) => {
+			metrics.push(e);
+		});
+		const flow = createAdFlow(telemetry, { placement: "generation_continue" });
 		const api: AdApi = {
 			startAd: async () => ({
 				alreadyGranted: false,
@@ -157,10 +197,28 @@ test("no-fill and unsupported environments continue generation without a fabrica
 		const controller = createAdController(api);
 		try {
 			expect(
-				(await controller.unlock("generation_continue"))?.continuedWithoutAd,
+				(await controller.unlock("generation_continue", true, flow))
+					?.continuedWithoutAd,
 			).toBe(true);
 			expect(events).toEqual([["failedToShow"]]);
 			expect(adShowCount).toBe(0);
+			await telemetry.flush();
+			expect(
+				metrics.some(
+					(e) =>
+						e.log_name === "lotto_ad_shown" ||
+						e.log_name === "lotto_ad_completed",
+				),
+			).toBe(false);
+			expect(
+				metrics.some(
+					(e) =>
+						e.log_name ===
+						(environment === "sandbox"
+							? "lotto_ad_unavailable"
+							: "lotto_ad_failed"),
+				),
+			).toBe(true);
 		} finally {
 			controller.dispose();
 		}
