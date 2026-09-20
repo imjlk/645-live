@@ -155,8 +155,8 @@ export function GenerationResultsContent({ active }: { active: boolean }) {
 								size={ballSize}
 								reducedMotion
 							/>
-							</View>
-						) : null}
+						</View>
+					) : null}
 					{selected.totalGenerations === 0 ? (
 						<View style={[s.notice, { backgroundColor: theme.surface }]}>
 							<Text style={[s.label, { color: theme.text }]}>
