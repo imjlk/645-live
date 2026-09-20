@@ -42,17 +42,12 @@ fn activity() -> ApiResult<Json> {
         && db::integer(&recent[0][1], "recent")? < 2
     {
         let numbers = lotto::choose(&lotto::Options::default(), lotto::random_index);
-        let name = [
-            "노랑공 루미",
-            "파랑공 코코",
-            "빨강공 모모",
-            "초록공 두리",
-            "회색공 토리",
-        ][lotto::random_index(5)];
+        // Bots share the user display-name format so feed activity reads the same.
+        let name = lotto::display_name(lotto::random_index(5), &lotto::random_id());
         lotto::insert(
             &mut tx,
             lotto::target_round(now),
-            name,
+            &name,
             lotto::GenerationOrigin::Bot,
             &numbers,
             now,

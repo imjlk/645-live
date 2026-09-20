@@ -216,9 +216,12 @@ def run_bot_case(image):
             assert feed['totalGenerations']>=1
             assert sum(feed['numberCounts'])==feed['totalGenerations']*6
             assert all('source' not in g and 'actorKind' not in g for g in feed['generations'])
+            # Bot activity must read exactly like another user in the feed.
+            import re
+            assert all(re.fullmatch(r'(노랑|파랑|빨강|회색|초록)공 [0-9A-F]{4}', g['displayName']) for g in feed['generations']), feed['generations']
             with sqlite3.connect(f'file:{folder}/data/main.db?mode=ro',uri=True) as db:
                 assert db.execute("SELECT count(*) FROM ait_lotto_generation_origins WHERE actor_kind='bot'").fetchone()[0]>=1
-            print(json.dumps({'case':'scheduled-bot','passed':['bot uses shared counters and public feed','origin stays private']},ensure_ascii=False),flush=True)
+            print(json.dumps({'case':'scheduled-bot','passed':['bot uses shared counters and public feed','origin stays private and names match users']},ensure_ascii=False),flush=True)
         finally:cleanup_case(name, folder, image)
 
 if __name__=='__main__':

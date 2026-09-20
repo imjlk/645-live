@@ -38,6 +38,15 @@ pub(crate) fn random_id() -> String {
     get_random_bytes(&mut bytes);
     bytes.iter().map(|b| format!("{b:02x}")).collect()
 }
+/// Public feed display name shared by real users and bots, so generated
+/// activity reads the same regardless of its origin.
+pub(crate) fn display_name(color: usize, random: &str) -> String {
+    format!(
+        "{}공 {}",
+        ["노랑", "파랑", "빨강", "회색", "초록"][color % 5],
+        random[..4].to_uppercase()
+    )
+}
 
 #[derive(Clone, Default, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -490,6 +499,19 @@ pub(crate) async fn report(req: &mut Request) -> ApiResult<Json> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn display_names_share_one_shape_regardless_of_origin() {
+        for (color, expected) in [
+            (0, "노랑공 A1B2"),
+            (4, "초록공 A1B2"),
+            // Indices beyond the palette wrap like the user id byte mapping.
+            (5, "노랑공 A1B2"),
+            (9, "초록공 A1B2"),
+        ] {
+            assert_eq!(display_name(color, "a1b2c3"), expected);
+        }
+        assert_eq!(display_name(2, "00ff"), "빨강공 00FF");
+    }
     #[test]
     fn cursor_is_bound_to_its_round_and_safe_public_id() {
         assert_eq!(feed_cursor("1242:123", 1242).unwrap(), 123);
