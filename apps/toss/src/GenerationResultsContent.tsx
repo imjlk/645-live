@@ -19,10 +19,17 @@ import {
 } from "react-native";
 import { API_BASE } from "./api";
 import { Balls } from "./Balls";
+import { Banner } from "./Banner";
 import { previousGenerationResults } from "./generation-result-view";
 import { useTheme } from "./theme";
 
-export function GenerationResultsContent({ active }: { active: boolean }) {
+export function GenerationResultsContent({
+	active,
+	cardGroupId,
+}: {
+	active: boolean;
+	cardGroupId?: string | null;
+}) {
 	const theme = useTheme();
 	const { width } = useWindowDimensions();
 	const controller = useMemo(
@@ -157,6 +164,8 @@ export function GenerationResultsContent({ active }: { active: boolean }) {
 							/>
 						</View>
 					) : null}
+					{/* The sheet stays mounted while closing; never load its ad unseen. */}
+					{active ? <Banner format="card" groupId={cardGroupId} /> : null}
 					{selected.totalGenerations === 0 ? (
 						<View style={[s.notice, { backgroundColor: theme.surface }]}>
 							<Text style={[s.label, { color: theme.text }]}>
