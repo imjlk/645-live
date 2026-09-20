@@ -35,16 +35,22 @@ def migration_check():
         placements = db.execute('SELECT * FROM ait_lotto_ad_placements ORDER BY placement').fetchall()
         migration = (SOURCE / 'migrations/U1789374000__miniapp_generation_ads.sql').read_text()
         db.executescript('BEGIN;' + migration + 'COMMIT;')
+        assert db.execute('SELECT min_generations,max_generations FROM ait_lotto_generation_ad_policy').fetchone() == (10, 50)
+        # In-flight progress keeps counting down under its old interval.
+        db.execute("INSERT INTO ait_lotto_generation_ad_progress VALUES (x'01',40,0,1)")
+        first_gate = (SOURCE / 'migrations/U1789950000__generation_ad_first_gate.sql').read_text()
+        db.executescript('BEGIN;' + first_gate + 'COMMIT;')
+        assert db.execute('SELECT first_generations,min_generations,max_generations FROM ait_lotto_generation_ad_policy').fetchone() == (5, 5, 30)
+        assert db.execute('SELECT remaining FROM ait_lotto_generation_ad_progress WHERE user_id=x\'01\'').fetchone() == (40,)
         assert [row[:-1] for row in db.execute('SELECT * FROM ait_lotto_ad_sessions ORDER BY id')] == sessions
         assert db.execute('SELECT * FROM ait_lotto_attendance_restores').fetchall() == restores
         assert db.execute("SELECT * FROM ait_lotto_ad_placements WHERE placement!='generation_continue' ORDER BY placement").fetchall() == placements
         assert db.execute("SELECT enabled FROM ait_lotto_ad_placements WHERE placement='generation_continue'").fetchone() == (0,)
-        assert db.execute('SELECT min_generations,max_generations FROM ait_lotto_generation_ad_policy').fetchone() == (10, 50)
         assert db.execute('PRAGMA foreign_key_check').fetchall() == []
         db.execute("DELETE FROM ait_lotto_ad_sessions WHERE id='restored'")
         assert db.execute('SELECT ad_session_id FROM ait_lotto_attendance_restores').fetchone() == (None,)
-        db.execute("INSERT INTO ait_lotto_generation_ad_progress VALUES (x'01',10,0,1)")
-        db.execute("DELETE FROM _user WHERE id=x'01'")
+        db.execute("INSERT INTO ait_lotto_generation_ad_progress VALUES (x'02',10,0,1)")
+        db.execute("DELETE FROM _user WHERE id IN (x'01',x'02')")
         assert db.execute('SELECT * FROM ait_lotto_generation_ad_progress').fetchall() == []
         assert db.execute('SELECT * FROM ait_lotto_entitlements').fetchall() == []
     print(json.dumps({'generation-ad-migration': 'passed', 'preserved': ['placement configuration', 'granted and pending sessions', 'attendance references and cascading deletion']}), flush=True)
@@ -103,7 +109,13 @@ def run():
             assert not generate(user, auth)[1]['generationAdRequired']
             assert sql('SELECT * FROM ait_lotto_generation_ad_progress') == [], 'disabled ads must not initialize a gate'
             sql("UPDATE ait_lotto_ad_placements SET enabled=1,rewarded_group_id='fixture-rewarded',interstitial_group_id='fixture-interstitial' WHERE placement='generation_continue'")
-            sql('UPDATE ait_lotto_generation_ad_policy SET min_generations=10,max_generations=10')
+            # The seeded policy gates a fresh server-counted user after exactly five generations.
+            first_user, first_auth = account()
+            for index in range(5):
+                status, result = generate(first_user, first_auth)
+                expect(status, 200, 'default first gate')
+                assert result['generationAdRequired'] == (index == 4), 'first gate must arrive at the fifth generation'
+            sql('UPDATE ait_lotto_generation_ad_policy SET first_generations=10,min_generations=10,max_generations=10')
             assert start(auth)[1]['alreadyGranted'], 'a new user must not see an ad first'
             for index in range(10):
                 status, result = generate(user, auth)
@@ -150,7 +162,7 @@ def run():
             assert progress(user)['remaining'] == before['remaining'] - 1
 
             # Exercise the upper endpoint with the real generation route.
-            sql('UPDATE ait_lotto_generation_ad_policy SET min_generations=50,max_generations=50')
+            sql('UPDATE ait_lotto_generation_ad_policy SET first_generations=50,min_generations=50,max_generations=50')
             user50, auth50 = account()
             for index in range(50):
                 status, result = generate(user50, auth50)
@@ -174,13 +186,21 @@ def run():
             assert sql("SELECT status FROM ait_lotto_ad_sessions WHERE id=?", [no_fill['id']])[0]['status'] == 'cancelled'
             assert sql("SELECT * FROM ait_lotto_entitlements WHERE feature='generation_continue'") == []
 
-            sql('UPDATE ait_lotto_generation_ad_policy SET min_generations=10,max_generations=50')
+            sql('UPDATE ait_lotto_generation_ad_policy SET first_generations=10,min_generations=10,max_generations=50')
+            sql("UPDATE ait_lotto_ad_placements SET daily_cap=20 WHERE placement='generation_continue'")
+            sample_user, sample_auth = account()
             intervals = []
             for _ in range(12):
-                u, a = account()
-                expect(generate(u, a)[0], 200, 'random interval')
-                intervals.append(progress(u)['remaining'] + 1)
-            assert all(10 <= value <= 50 for value in intervals) and len(set(intervals)) > 1
+                # Gate the same user, then read the fresh random interval each completed ad draws.
+                sql("INSERT INTO ait_lotto_generation_ad_progress(user_id,remaining,updated_at) VALUES (?,0,1) ON CONFLICT(user_id) DO UPDATE SET remaining=0,updated_at=1", [sample_user])
+                sql("UPDATE ait_lotto_ad_sessions SET created_at=1 WHERE user_id=?", [sample_user])
+                status, ad = start(sample_auth)
+                expect(status, 200, 'random interval ad')
+                expect(complete(sample_auth, ad, ['show', 'impression', 'dismissed'])[0], 200, 'random interval unlock')
+                intervals.append(progress(sample_user)['remaining'])
+            assert all(10 <= value <= 50 for value in intervals) and len(set(intervals)) > 1, intervals
+            sql("UPDATE ait_lotto_ad_placements SET daily_cap=5 WHERE placement='generation_continue'")
+            sql('UPDATE ait_lotto_generation_ad_policy SET first_generations=5,min_generations=5,max_generations=30')
             capped_user, capped_auth = account()
             now = request(base, '/api/app/v1/lotto/round-context')[1]['serverTime']
             sql('INSERT INTO ait_lotto_generation_ad_progress(user_id,remaining,updated_at) VALUES (?,0,?)', [capped_user, now])
@@ -200,7 +220,7 @@ def run():
             # New clients publish normally, without touching server ad progress per generation.
             device_user, device_auth = account()
             policy = request(base, '/api/app/v1/ads/config', headers=device_auth)[1]['generationAdPolicy']
-            assert policy == {'counter': 'device', 'minGenerations': 10, 'maxGenerations': 50}
+            assert policy == {'counter': 'device', 'firstGenerations': 5, 'minGenerations': 5, 'maxGenerations': 30}
             for _ in range(55):
                 status, result = generate(device_user, device_auth, device=True)
                 expect(status, 200, 'device counter generation')
@@ -232,7 +252,7 @@ def run():
             expect(generate(user50, auth50)[0], 200, 'configuration disable immediately releases generation')
             expect(request(base, '/api/app/v1/dev/entitlements', {'action': 'generation_ad'}, auth50)[0], 404, 'production flags reject the local shortcut')
             assert sql('PRAGMA foreign_key_check') == []
-            print(json.dumps({'random-generation-ads': 'passed', 'checks': ['10 and 50 boundaries', 'random per-user intervals', 'server restart persistence', 'generation retry idempotency', 'rewarded and interstitial completion', 'cancellation and no-fill distinction', 'no-fill replay idempotency', 'global cooldown fallback', 'daily generation cap never prompts an ad', 'disabled placement fallback', 'identity and local-only gates', 'device cadence avoids progress writes', 'device generation replay idempotency', 'device ads retain shared limits', 'device cadence preserves passes and attendance']}), flush=True)
+            print(json.dumps({'random-generation-ads': 'passed', 'checks': ['five-generation default first gate', '10 and 50 endpoint overrides', 'random intervals after each ad', 'server restart persistence', 'generation retry idempotency', 'rewarded and interstitial completion', 'cancellation and no-fill distinction', 'no-fill replay idempotency', 'global cooldown fallback', 'daily generation cap never prompts an ad', 'disabled placement fallback', 'identity and local-only gates', 'device cadence avoids progress writes', 'device generation replay idempotency', 'device ads retain shared limits', 'device cadence preserves passes and attendance']}), flush=True)
         finally:
             cleanup_case(name, folder, IMAGE)
 
