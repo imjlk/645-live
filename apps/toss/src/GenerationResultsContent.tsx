@@ -164,6 +164,8 @@ export function GenerationResultsContent({
 							/>
 						</View>
 					) : null}
+					{/* The sheet stays mounted while closing; never load its ad unseen. */}
+					{active ? <Banner format="card" groupId={cardGroupId} /> : null}
 					{selected.totalGenerations === 0 ? (
 						<View style={[s.notice, { backgroundColor: theme.surface }]}>
 							<Text style={[s.label, { color: theme.text }]}>
@@ -273,8 +275,6 @@ export function GenerationResultsContent({
 							<Text style={[s.caption, { color: theme.muted }]}>
 								{GENERATION_RESULTS_COUNTING}
 							</Text>
-							{/* The sheet stays mounted while closing; never load its ad unseen. */}
-							{active ? <Banner format="card" groupId={cardGroupId} /> : null}
 						</>
 					)}
 					<Text style={[s.caption, { color: theme.muted }]}>
