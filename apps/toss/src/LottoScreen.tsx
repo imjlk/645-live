@@ -517,8 +517,11 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 											생성한 번호는 실시간 활동에 함께 표시돼요.
 										</Text>
 										<Banner
-											format="card"
-											groupId={model.adConfig?.bannerGroups?.card}
+											format="inline"
+											groupId={
+												model.adConfig?.bannerGroups?.inline ??
+												model.adConfig?.bannerGroupId
+											}
 										/>
 									</View>
 									<View
@@ -614,11 +617,8 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 										</View>
 									) : null}
 									<Banner
-										format="inline"
-										groupId={
-											model.adConfig?.bannerGroups?.inline ??
-											model.adConfig?.bannerGroupId
-										}
+										format="card"
+										groupId={model.adConfig?.bannerGroups?.card}
 									/>
 									{!model.savedReady ? (
 										<View style={s.empty}>
@@ -869,7 +869,10 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 				) : null}
 				<View key={panel}>
 					{panel === "generationResults" ? (
-						<GenerationResultsContent active={sheetOpen && visible} />
+						<GenerationResultsContent
+							active={sheetOpen && visible}
+							cardGroupId={model.adConfig?.bannerGroups?.card}
+						/>
 					) : panel === "custom" ? (
 						customOpen ? (
 							<View style={{ gap: 20 }}>
