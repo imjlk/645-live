@@ -466,7 +466,12 @@ pub(crate) async fn claim_promotion(req: &mut Request) -> ApiResult<Json> {
     if !ledger.inserted {
         return reconcile_claim(&user.id, &ledger.record.id).await;
     }
-    execute_reward(&ledger.record, &anon_key, &current.code).await?;
+    execute_reward(
+        &RewardAttempt::from(&ledger.record),
+        &anon_key,
+        &current.code,
+    )
+    .await?;
     claim_status(&user.id, &ledger.record.id)
 }
 pub(crate) fn store_outcome(id: &str, request_id: &str, response: &Json) -> ApiResult<()> {
@@ -494,13 +499,34 @@ pub(crate) fn store_outcome(id: &str, request_id: &str, response: &Json) -> ApiR
     db::tx_commit(&mut tx)?;
     Ok(())
 }
+/// Only execution facts are needed to resume an existing payment intent.
+pub(crate) struct RewardAttempt {
+    id: String,
+    reward_amount: i64,
+    provider_request_id: String,
+    provider_transaction_key: Option<String>,
+    protocol: Option<String>,
+    execution_started_at: Option<i64>,
+}
+impl From<&rewards::PromotionRewardLedgerRecord> for RewardAttempt {
+    fn from(r: &rewards::PromotionRewardLedgerRecord) -> Self {
+        Self {
+            id: r.id.clone(),
+            reward_amount: r.reward_amount,
+            provider_request_id: r.provider_request_id.clone(),
+            provider_transaction_key: r.provider_transaction_key.clone(),
+            protocol: r.protocol.clone(),
+            execution_started_at: r.execution_started_at,
+        }
+    }
+}
 /// Drive one ledger row through the kit's persisted three-step reward
 /// contract: prepare issues the provider transaction key, the key and the
 /// execution claim are each committed before the external call, and a row
 /// whose execution already started is only settled through the status
 /// lookup. Unknown outcomes never allocate another payment.
 pub(crate) async fn execute_reward(
-    ledger: &rewards::PromotionRewardLedgerRecord,
+    ledger: &RewardAttempt,
     anon_key: &str,
     promotion_code: &str,
 ) -> ApiResult<()> {
@@ -510,7 +536,7 @@ pub(crate) async fn execute_reward(
     let proxy_error =
         |step: &str| internal(format!("Toss proxy request failed at promotion {step}"));
     let mut transaction_key = ledger.provider_transaction_key.clone();
-    if ledger.execution_started_at.is_none() {
+    if ledger.protocol.as_deref() == Some("three-step") && ledger.execution_started_at.is_none() {
         if transaction_key.is_none() {
             let prepared =
                 proxy::promotion_reward_prepare(&url, Some(&token), json!({"anonKey": anon_key}))
@@ -524,10 +550,24 @@ pub(crate) async fn execute_reward(
                 .to_string();
             let mut tx = db::tx()?;
             let now = db::now_ms_tx(&mut tx)?;
-            let record = rewards::store_promotion_transaction_key_tx(
-                &mut tx, table, &ledger.id, &issued, now,
+            // Prepare may race with a retry/job. Reuse the committed winner's
+            // key, never replace it with a second prepare response.
+            let rows = db::tx_query(
+                &mut tx,
+                "SELECT provider_transaction_key FROM promotion_reward_ledger WHERE id=?1",
+                &[Value::Text(ledger.id.clone())],
             )?;
-            transaction_key = record.provider_transaction_key;
+            transaction_key = rows
+                .first()
+                .map(|r| db::nullable_text(&r[0]))
+                .transpose()?
+                .flatten();
+            if transaction_key.is_none() {
+                transaction_key = rewards::store_promotion_transaction_key_tx(
+                    &mut tx, table, &ledger.id, &issued, now,
+                )?
+                .provider_transaction_key;
+            }
             db::tx_commit(&mut tx)?;
         }
         let mut tx = db::tx()?;
@@ -605,18 +645,53 @@ pub(crate) async fn reconcile_claim(user: &[u8], id: &str) -> ApiResult<Json> {
         return claim_status(user, id);
     }
     let mut tx = db::tx()?;
+    let now = db::now_ms_tx(&mut tx)?;
     let rows = db::tx_query(
         &mut tx,
-        "SELECT l.provider_transaction_key,l.provider_request_id,c.provider_promotion_code,l.reward_amount,p.anonymous_key_sealed FROM promotion_reward_ledger l JOIN promotion_campaigns c ON c.id=l.campaign_id JOIN ait_lotto_profiles p ON p.user_id=l.user_id WHERE l.id=?1 AND l.user_id=?2 AND l.source_type IN ('ait_lotto_attendance','ait_lotto_attendance_daily','ait_lotto_attendance_weekly') AND l.status IN ('pending','failed') AND p.disabled=0 AND l.provider_transaction_key IS NOT NULL",
-        &[Value::Text(id.into()), Value::Blob(user.to_vec())],
+        "SELECT l.id,l.reward_amount,l.provider_request_id,l.provider_transaction_key,l.protocol,l.execution_started_at,c.provider_promotion_code,p.anonymous_key_sealed,(c.status='ACTIVE' AND c.starts_at<=?3 AND c.ends_at>?3) FROM promotion_reward_ledger l JOIN promotion_campaigns c ON c.id=l.campaign_id JOIN ait_lotto_profiles p ON p.user_id=l.user_id WHERE l.id=?1 AND l.user_id=?2 AND l.source_type IN ('ait_lotto_attendance','ait_lotto_attendance_daily','ait_lotto_attendance_weekly') AND l.status IN ('pending','failed') AND p.disabled=0",
+        &[
+            Value::Text(id.into()),
+            Value::Blob(user.to_vec()),
+            Value::Integer(now),
+        ],
     )?;
+    // A provider outage must not let the oldest five rows starve later
+    // recovery work. This timestamp is not an execution or success marker.
+    if !rows.is_empty() {
+        db::tx_execute(
+            &mut tx,
+            "UPDATE promotion_reward_ledger SET updated_at=?2 WHERE id=?1",
+            &[Value::Text(id.into()), Value::Integer(now)],
+        )?;
+    }
     db::tx_commit(&mut tx)?;
     if let Some(r) = rows.first() {
-        let key = db::text(&r[0], "transaction")?;
-        let request_id = db::text(&r[1], "request")?;
-        let anon_key = unseal(&db::text(&r[4], "recipient")?)?;
-        let response=proxy_post(proxy::PROMOTION_REWARD_STATUS_PATH,json!({"anonKey":anon_key,"providerTransactionKey":key,"providerRequestId":request_id,"promotionCode":db::text(&r[2],"code")?,"amount":db::integer(&r[3],"amount")?})).await?;
-        store_outcome(id, &request_id, &response)?;
+        let attempt = RewardAttempt {
+            id: db::text(&r[0], "id")?,
+            reward_amount: db::integer(&r[1], "amount")?,
+            provider_request_id: db::text(&r[2], "request")?,
+            provider_transaction_key: db::nullable_text(&r[3])?,
+            protocol: db::nullable_text(&r[4])?,
+            execution_started_at: match &r[5] {
+                Value::Null => None,
+                v => Some(db::integer(v, "execution")?),
+            },
+        };
+        let resumable = attempt.protocol.as_deref() == Some("three-step")
+            && attempt.execution_started_at.is_none();
+        // Paused/expired campaigns cannot start a payment, but an execution
+        // already dispatched must remain reconcilable. Legacy keyless rows
+        // have unknown execution history and must never issue another key.
+        if (resumable && db::integer(&r[8], "active")? == 1)
+            || (!resumable && attempt.provider_transaction_key.is_some())
+        {
+            execute_reward(
+                &attempt,
+                &unseal(&db::text(&r[7], "recipient")?)?,
+                &db::text(&r[6], "code")?,
+            )
+            .await?;
+        }
     }
     claim_status(user, id)
 }

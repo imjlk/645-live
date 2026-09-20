@@ -103,11 +103,12 @@ pub(crate) async fn run(req: &mut Request) -> ApiResult<Json> {
         },
     )?;
     let record = ledger.record;
-    // A keyless pre-existing row predates the three-step contract; repeated
-    // requests settle only through the original ledger state.
+    // Only legacy keyless rows have unknown execution history. A three-step
+    // prepare failure can safely resume the same persisted intent.
     if record.status == "success"
         || record.status == "recorded"
-        || (!ledger.inserted && record.provider_transaction_key.is_none())
+        || (record.protocol.as_deref() != Some("three-step")
+            && record.provider_transaction_key.is_none())
     {
         db::tx_commit(&mut tx)?;
         return Ok(json!({"testOnly":true,"status":record.status,"amount":input.kind.amount()}));
@@ -119,7 +120,7 @@ pub(crate) async fn run(req: &mut Request) -> ApiResult<Json> {
     )?;
     let anon_key = engagement::unseal(&db::text(&recipient[0][0], "recipient")?)?;
     db::tx_commit(&mut tx)?;
-    engagement::execute_reward(&record, &anon_key, &code).await?;
+    engagement::execute_reward(&engagement::RewardAttempt::from(&record), &anon_key, &code).await?;
     let mut tx = db::tx()?;
     let rows = db::tx_query(
         &mut tx,

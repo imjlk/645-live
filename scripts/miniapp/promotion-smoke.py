@@ -3,6 +3,7 @@ import base64
 import concurrent.futures
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
+import os
 import platform
 import sqlite3
 import subprocess
@@ -51,6 +52,12 @@ def check_forward_migration():
 def run():
     check_forward_migration()
     grants = []
+    prepared = set()
+    executions = {}
+    provider_lock = threading.Lock()
+    faults = {'prepare': 0}
+    prepare_calls = []
+    image = os.environ.get('MINIAPP_TEST_IMAGE', '645-trailbase:miniapp')
 
     class Provider(BaseHTTPRequestHandler):
         def log_message(self, *_args):
@@ -76,18 +83,35 @@ def run():
             if self.path.endswith('/anonymous-key/verify'):
                 result = {'valid': True, 'mode': 'forward'}
             elif self.path.endswith('/promotion/reward/prepare'):
-                result = {'ok': True, 'providerTransactionKey': 'fixture-transaction'}
+                with provider_lock:
+                    prepare_calls.append(data)
+                    fail = faults['prepare'] > 0
+                    if fail:
+                        faults['prepare'] -= 1
+                    key = 'fixture-' + uuid.uuid4().hex
+                    prepared.add(key)
+                if fail:
+                    self.send_error(503)
+                    return
+                # Distinct keys and overlapping responses exercise prepare races.
+                time.sleep(.05)
+                result = {'ok': True, 'providerTransactionKey': key}
             elif self.path.endswith('/promotion/reward/execute'):
-                grants.append(data['providerRequestId'])
-                if data['promotionCode'] == 'unknown-outcome':
+                key = data['providerTransactionKey']
+                with provider_lock:
+                    assert key in prepared, 'execute used an unprepared key'
+                    assert key not in executions, 'provider key executed twice'
+                    executions[key] = data['providerRequestId']
+                    grants.append(data['providerRequestId'])
+                if data['promotionCode'] in ('unknown-outcome', 'lost-response'):
                     self.send_error(504)
                     return
-                result = {'providerStatus': 'PENDING', 'providerTransactionKey': 'fixture-transaction'}
+                result = {'providerStatus': 'PENDING', 'providerTransactionKey': key}
             elif self.path.endswith('/promotion/reward/status'):
-                if data['promotionCode'] == 'unknown-outcome':
-                    result = {'ok': False, 'providerStatus': 'UNKNOWN', 'providerTransactionKey': 'fixture-transaction'}
-                else:
-                    result = {'providerStatus': 'GRANTED', 'providerTransactionKey': 'fixture-transaction'}
+                key = data['providerTransactionKey']
+                with provider_lock:
+                    executed = executions.get(key) == data['providerRequestId']
+                result = {'providerStatus': 'GRANTED' if executed and data['promotionCode'] != 'unknown-outcome' else 'UNKNOWN', 'providerTransactionKey': key}
             else:
                 self.send_error(404)
                 return
@@ -112,7 +136,7 @@ def run():
                     '-e', 'AIT_ALLOW_DEV_IDENTITY=true', '-e', 'AIT_BOTS_ENABLED=false',
                     '-e', 'AIT_PROMOTIONS_ENABLED=true', '-e', 'AIT_TEST_ADS=true', '-e', 'RUNTIME_THREADS=4',
                     '-e', f'MTLS_PROXY_URL=http://host.docker.internal:{server.server_port}',
-                    '-e', 'MTLS_PROXY_TOKEN=fixture-token', '645-trailbase:miniapp')
+                    '-e', 'MTLS_PROXY_TOKEN=fixture-token', image)
                 base = 'http://127.0.0.1:' + command('docker', 'port', name, '4000/tcp').rsplit(':', 1)[1]
                 for _ in range(100):
                     try:
@@ -255,6 +279,72 @@ def run():
                 fixture([("UPDATE promotion_reward_ledger SET source_id=? WHERE campaign_id='daily-3'",[str(day-1)])])
                 history=state()['promotionHistory'];assert any(p['status']=='needs_review' for p in history)
                 assert len(set(grants))==len(grants)
+                # A transient prepare error must resume the SAME intent/reservation.
+                campaign('recovery-1','daily',1,1)
+                user,auth=new_user();attend_days([day])
+                faults['prepare']=1
+                before=len(grants)
+                expect(claim(reward('daily'))[0],500,'prepare outage')
+                pending=reward('daily'); claim_id=pending['claimId']
+                assert claim_id and pending['status']=='pending'
+                with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
+                    replies=list(pool.map(lambda _:claim(pending),range(4)))
+                assert all(s==200 for s,_ in replies),replies
+                assert claim(reward('daily'))[1]['status']=='success'
+                assert len(grants)==before+1 and reward('daily')['claimId']==claim_id
+                assert not reward('daily')['eligible'],'retry reserved a second reward'
+
+                # Simulate a restart after the key commit, before execution claim.
+                campaign('recovery-2','daily',1,1)
+                user,auth=new_user();attend_days([day])
+                faults['prepare']=1
+                expect(claim(reward('daily'))[0],500,'key-persistence fixture')
+                pending=reward('daily'); key='persisted-before-restart'
+                prepared.add(key)
+                fixture([("UPDATE promotion_reward_ledger SET provider_transaction_key=? WHERE id=?",[key,pending['claimId']])])
+                command('docker','restart',name)
+                base='http://127.0.0.1:'+command('docker','port',name,'4000/tcp').rsplit(':',1)[1]
+                for _ in range(100):
+                    try:
+                        if request(base,'/api/app/v1/lotto/round-context')[0]==200: break
+                    except OSError: pass
+                    time.sleep(.2)
+                else: raise AssertionError('Recovery restart failed')
+                before_prepares=len(prepare_calls);before=len(grants)
+                expect(claim(pending)[0],200,'resume prepared intent')
+                assert claim(pending)[1]['status']=='success'
+                assert len(prepare_calls)==before_prepares and len(grants)==before+1
+
+                # Legacy keyless rows must NEVER be adopted as never-executed.
+                campaign('recovery-3','daily',1,1)
+                user,auth=new_user();attend_days([day]);faults['prepare']=1
+                expect(claim(reward('daily'))[0],500,'legacy fixture')
+                pending=reward('daily')
+                fixture([("UPDATE promotion_reward_ledger SET protocol=NULL WHERE id=?",[pending['claimId']])])
+                before_prepares=len(prepare_calls);before=len(grants)
+                assert claim(pending)[1]['status']=='pending'
+                assert len(prepare_calls)==before_prepares and len(grants)==before
+
+                # Pausing a campaign prevents new execution; resuming preserves intent.
+                campaign('recovery-4','daily',1,1)
+                user,auth=new_user();attend_days([day]);faults['prepare']=1
+                expect(claim(reward('daily'))[0],500,'paused fixture')
+                pending=reward('daily')
+                fixture([("UPDATE promotion_campaigns SET status='PAUSED' WHERE id='recovery-4'",[])])
+                before_prepares=len(prepare_calls)
+                assert claim(pending)[1]['status']=='pending'
+                assert len(prepare_calls)==before_prepares
+                fixture([("UPDATE promotion_campaigns SET status='ACTIVE' WHERE id='recovery-4'",[])])
+                expect(claim(pending)[0],200,'resume active campaign')
+                assert claim(pending)[1]['status']=='success'
+
+                # A lost execute response is reconciled, never executed again.
+                campaign('recovery-5','daily',1,1,'lost-response')
+                user,auth=new_user();attend_days([day])
+                expect(claim(reward('daily'))[0],500,'lost execute response')
+                pending=reward('daily');before=len(grants)
+                assert claim(pending)[1]['status']=='success' and len(grants)==before
+                assert len(set(grants))==len(grants)
                 usage=command('docker','exec',name,'bun','-e',"import {Database} from 'bun:sqlite'; const db=new Database('/app/traildepot/data/main.db',{readonly:true}); console.log(db.query(\"SELECT reserved_amount FROM ait_lotto_promotion_usage WHERE campaign_id='daily-1'\").get().reserved_amount); db.close();")
                 assert usage=='1','withdrawal replenished budget'
                 # Console checks use TEST_ codes and isolated ledger entries. They
@@ -285,6 +375,8 @@ def run():
                 _,other_auth=new_user()
                 expect(request(base,test_path,{'kind':'daily'},other_auth)[0],404,'unlisted tester denied')
                 before=len(grants)
+                faults['prepare']=1
+                expect(request(base,test_path,{'kind':'daily'},auth)[0],500,'console prepare outage')
                 with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
                     replies=list(pool.map(lambda _:request(base,test_path,{'kind':'daily'},auth),range(4)))
                 assert all(s==200 and r['testOnly'] for s,r in replies),replies
@@ -309,10 +401,13 @@ def run():
                     'no retroactive daily points; restore limits, check-in ordering and midnight binding',
                     'exhausted/deleted campaigns and older claims remain readable', 'unknown outcomes never issue another grant',
                     'console verification requires an unexpired tester allowlist and TEST codes',
-                    'concurrent console checks grant once and preserve attendance and live reward history'
+                    'concurrent console checks grant once and preserve attendance and live reward history',
+                    'prepare outage resumes same intent once, including console tests',
+                    'prepared key survives restart; legacy and paused claims never dispatch',
+                    'lost execute response reconciles without another payment'
                 ]}),flush=True)
             finally:
-                cleanup_case(name, folder, '645-trailbase:miniapp')
+                cleanup_case(name, folder, image)
     finally:
         server.shutdown()
         server.server_close()
