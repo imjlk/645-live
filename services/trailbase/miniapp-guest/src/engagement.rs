@@ -291,8 +291,7 @@ fn claim_view(r: &[Value], kind: &str, period: Option<i64>, now: i64) -> ApiResu
     // Three-step rows legitimately hold a key while pending; only a missing
     // campaign or an unsettled age signals operator attention.
     let needs_review = status == "pending"
-        && (db::nullable_text(&r[2])?.is_none()
-            || now - db::integer(&r[4], "created")? > 600_000);
+        && (db::nullable_text(&r[2])?.is_none() || now - db::integer(&r[4], "created")? > 600_000);
     Ok(
         json!({"kind":kind,"periodDay":period,"campaignId":db::nullable_text(&r[2])?,"claimId":db::text(&r[1],"claim")?,"amount":db::integer(&r[3],"amount")?,"eligible":false,"available":false,"status":if needs_review{"needs_review"}else{&status}}),
     )
@@ -470,11 +469,7 @@ pub(crate) async fn claim_promotion(req: &mut Request) -> ApiResult<Json> {
     execute_reward(&ledger.record, &anon_key, &current.code).await?;
     claim_status(&user.id, &ledger.record.id)
 }
-pub(crate) fn store_outcome(
-    id: &str,
-    request_id: &str,
-    response: &Json,
-) -> ApiResult<()> {
+pub(crate) fn store_outcome(id: &str, request_id: &str, response: &Json) -> ApiResult<()> {
     let mut outcome = rewards::promotion_reward_outcome_from_response(response, request_id);
     outcome.raw_response_json = None;
     let mut tx = db::tx()?;
@@ -517,13 +512,10 @@ pub(crate) async fn execute_reward(
     let mut transaction_key = ledger.provider_transaction_key.clone();
     if ledger.execution_started_at.is_none() {
         if transaction_key.is_none() {
-            let prepared = proxy::promotion_reward_prepare(
-                &url,
-                Some(&token),
-                json!({"anonKey": anon_key}),
-            )
-            .await
-            .map_err(|_| proxy_error("prepare"))?;
+            let prepared =
+                proxy::promotion_reward_prepare(&url, Some(&token), json!({"anonKey": anon_key}))
+                    .await
+                    .map_err(|_| proxy_error("prepare"))?;
             let issued = prepared["providerTransactionKey"]
                 .as_str()
                 .map(str::trim)
@@ -533,19 +525,14 @@ pub(crate) async fn execute_reward(
             let mut tx = db::tx()?;
             let now = db::now_ms_tx(&mut tx)?;
             let record = rewards::store_promotion_transaction_key_tx(
-                &mut tx,
-                table,
-                &ledger.id,
-                &issued,
-                now,
+                &mut tx, table, &ledger.id, &issued, now,
             )?;
             transaction_key = record.provider_transaction_key;
             db::tx_commit(&mut tx)?;
         }
         let mut tx = db::tx()?;
         let now = db::now_ms_tx(&mut tx)?;
-        let claimed =
-            rewards::begin_promotion_reward_execute_tx(&mut tx, table, &ledger.id, now)?;
+        let claimed = rewards::begin_promotion_reward_execute_tx(&mut tx, table, &ledger.id, now)?;
         db::tx_commit(&mut tx)?;
         if let Some(record) = claimed {
             let payload = rewards::promotion_reward_payload(rewards::PromotionRewardPayloadInput {
@@ -574,7 +561,12 @@ pub(crate) async fn execute_reward(
     }
     let key = transaction_key
         .filter(|value| !value.trim().is_empty())
-        .ok_or_else(|| conflict("PROMOTION_UNSETTLED", "지급 결과를 확인하고 있어요. 잠시 후 다시 확인해 주세요."))?;
+        .ok_or_else(|| {
+            conflict(
+                "PROMOTION_UNSETTLED",
+                "지급 결과를 확인하고 있어요. 잠시 후 다시 확인해 주세요.",
+            )
+        })?;
     let response = proxy::promotion_reward_status_with_payload(
         &url,
         Some(&token),
@@ -603,8 +595,7 @@ fn claim_status(user: &[u8], id: &str) -> ApiResult<Json> {
         .ok_or_else(|| not_found("CLAIM_NOT_FOUND", "지급 요청을 확인하지 못했어요."))?;
     let status = db::text(&r[0], "status")?;
     let needs_review = status == "pending"
-        && (db::nullable_text(&r[4])?.is_none()
-            || now - db::integer(&r[3], "created")? > 600_000);
+        && (db::nullable_text(&r[4])?.is_none() || now - db::integer(&r[3], "created")? > 600_000);
     let value = json!({"status":if needs_review {"needs_review"}else{&status},"amount":db::integer(&r[1],"amount")?});
     db::tx_commit(&mut tx)?;
     Ok(value)

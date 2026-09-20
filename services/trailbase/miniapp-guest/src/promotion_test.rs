@@ -4,9 +4,7 @@ use crate::{auth, body, db, engagement, settings};
 use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
 use serde::Deserialize;
 use serde_json::{Value as Json, json};
-use trailbase_guest_common::{
-    promotion_rewards as rewards, responses::*, session::hmac_hex,
-};
+use trailbase_guest_common::{promotion_rewards as rewards, responses::*, session::hmac_hex};
 use trailbase_wasm::{db::Value, http::Request};
 
 const SOURCE: &str = "ait_lotto_promotion_test";
