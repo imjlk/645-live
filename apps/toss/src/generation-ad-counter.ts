@@ -3,14 +3,17 @@ import type { Storage } from "./saved-store";
 
 export type GenerationAdPolicy = {
 	counter: "device";
+	firstGenerations: number;
 	minGenerations: number;
 	maxGenerations: number;
 };
 type Progress = { remaining: number; lastGenerationId: number | null };
+const MAX_INTERVAL = 200;
 const DEFAULT_POLICY: GenerationAdPolicy = {
 	counter: "device",
-	minGenerations: 10,
-	maxGenerations: 50,
+	firstGenerations: 5,
+	minGenerations: 5,
+	maxGenerations: 30,
 };
 
 /** This is an ad cadence preference, never a points or attendance entitlement. */
@@ -26,13 +29,17 @@ export function createGenerationAdCounter(
 	const atom = createPersistentJsonAtom<Progress>({
 		storage,
 		key,
-		fallback: () => ({ remaining: interval(), lastGenerationId: null }),
+		// A fresh device reaches its first ad after the fixed first gate.
+		fallback: () => ({
+			remaining: policy.firstGenerations,
+			lastGenerationId: null,
+		}),
 		normalize(value) {
 			if (!value || typeof value !== "object") return null;
 			const p = value as Progress;
 			return Number.isInteger(p.remaining) &&
 				p.remaining >= 0 &&
-				p.remaining <= 50 &&
+				p.remaining <= MAX_INTERVAL &&
 				(p.lastGenerationId === null ||
 					(Number.isSafeInteger(p.lastGenerationId) && p.lastGenerationId > 0))
 				? { remaining: p.remaining, lastGenerationId: p.lastGenerationId }
@@ -40,7 +47,7 @@ export function createGenerationAdCounter(
 		},
 	});
 	let snapshot: Progress & { ready: boolean } = {
-		remaining: 50,
+		remaining: MAX_INTERVAL,
 		lastGenerationId: null,
 		ready: false,
 	};
@@ -61,10 +68,12 @@ export function createGenerationAdCounter(
 		},
 		load(next = DEFAULT_POLICY) {
 			if (
+				Number.isInteger(next.firstGenerations) &&
 				Number.isInteger(next.minGenerations) &&
 				Number.isInteger(next.maxGenerations) &&
-				next.minGenerations >= 10 &&
-				next.maxGenerations <= 50 &&
+				next.firstGenerations >= 1 &&
+				next.minGenerations >= 1 &&
+				next.maxGenerations <= MAX_INTERVAL &&
 				next.minGenerations <= next.maxGenerations
 			)
 				policy = next;

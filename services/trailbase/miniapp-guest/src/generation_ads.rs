@@ -4,33 +4,35 @@ use trailbase_wasm::db::{Transaction, Value};
 
 pub(crate) const PLACEMENT: &str = "generation_continue";
 
-pub(crate) fn device_policy(tx: &mut Transaction) -> ApiResult<serde_json::Value> {
+/// (first gate, recurring min, recurring max) from the tunable policy row.
+fn bounds(tx: &mut Transaction) -> ApiResult<(i64, i64, i64)> {
     let rows = db::tx_query(
         tx,
-        "SELECT min_generations,max_generations FROM ait_lotto_generation_ad_policy WHERE id=1",
+        "SELECT first_generations,min_generations,max_generations FROM ait_lotto_generation_ad_policy WHERE id=1",
         &[],
     )?;
     let row = rows
         .first()
         .ok_or_else(|| internal("generation ad policy missing"))?;
+    Ok((
+        db::integer(&row[0], "first")?,
+        db::integer(&row[1], "min")?,
+        db::integer(&row[2], "max")?,
+    ))
+}
+
+pub(crate) fn device_policy(tx: &mut Transaction) -> ApiResult<serde_json::Value> {
+    let (first, min, max) = bounds(tx)?;
     Ok(serde_json::json!({
         "counter": "device",
-        "minGenerations": db::integer(&row[0], "min")?,
-        "maxGenerations": db::integer(&row[1], "max")?,
+        "firstGenerations": first,
+        "minGenerations": min,
+        "maxGenerations": max,
     }))
 }
 
 fn interval(tx: &mut Transaction) -> ApiResult<i64> {
-    let rows = db::tx_query(
-        tx,
-        "SELECT min_generations,max_generations FROM ait_lotto_generation_ad_policy WHERE id=1",
-        &[],
-    )?;
-    let row = rows
-        .first()
-        .ok_or_else(|| internal("generation ad policy missing"))?;
-    let min = db::integer(&row[0], "min")?;
-    let max = db::integer(&row[1], "max")?;
+    let (_, min, max) = bounds(tx)?;
     Ok(min + lotto::random_index((max - min + 1) as usize) as i64)
 }
 
@@ -101,13 +103,14 @@ pub(crate) fn generated(tx: &mut Transaction, user: &[u8], now: i64) -> ApiResul
             &[Value::Blob(user.to_vec())],
         )?;
         if rows.is_empty() {
-            let remaining = interval(tx)?;
+            // The first gate is fixed; every later interval is drawn from [min, max].
+            let (first, _, _) = bounds(tx)?;
             db::tx_execute(
                 tx,
                 "INSERT INTO ait_lotto_generation_ad_progress(user_id,remaining,updated_at) VALUES (?1,?2,?3)",
                 &[
                     Value::Blob(user.to_vec()),
-                    Value::Integer(remaining),
+                    Value::Integer(first),
                     Value::Integer(now),
                 ],
             )?;
