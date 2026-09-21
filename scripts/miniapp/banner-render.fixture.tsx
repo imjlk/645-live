@@ -133,29 +133,118 @@ const before = metrics.length;
 props.onAdViewable();
 expect(metrics.length).toBe(before);
 const { AdCtaImpression } = await import("../../apps/toss/src/AdCtaImpression");
-let attempt:
-	| { track: (event: "requested" | "generation_completed") => void }
-	| undefined;
-await act(async () => {
-	root = create(
-		<AdCtaImpression enabled policy="device:5:5-30">
-			{(flow) => {
-				attempt = flow;
+type Run = (
+	action: (
+		flow: import("../../apps/toss/src/ad-telemetry").AdFlow | undefined,
+	) => Promise<unknown>,
+) => Promise<unknown>;
+let run: Run = async () => {
+	throw new Error("CTA not initialized");
+};
+function cta(enabled = true, policy = "device:5:5-30") {
+	return (
+		<AdCtaImpression enabled={enabled} policy={policy}>
+			{(next) => {
+				run = next;
 				return null;
 			}}
-		</AdCtaImpression>,
+		</AdCtaImpression>
 	);
+}
+await act(async () => {
+	root = create(cta());
 });
+const firstImpression = onImpression;
+firstImpression();
+const firstId = flows.at(-1);
+expect(typeof firstId).toBe("string");
+expect(firstId?.length).toBeGreaterThan(0);
+let release: () => void = () => {};
+const gate = new Promise<void>((resolve) => {
+	release = resolve;
+});
+const firstRun = run;
+let firstPromise: Promise<unknown>;
+await act(async () => {
+	firstPromise = run(async (flow) => {
+		flow?.track("requested");
+		await gate;
+		flow?.track("failed", "AD_LOAD_FAILED");
+		return false;
+	});
+	await run(async () => {
+		throw new Error("overlapping tap ran twice");
+	});
+});
+await act(async () => {
+	release();
+	await firstPromise;
+});
+expect(metrics.slice(-3)).toEqual(["cta_viewed", "requested", "failed"]);
+expect(new Set(flows.slice(-3)).size).toBe(1);
+const beforeRetry = metrics.length;
+// Old native callbacks/press handlers cannot write into a settled attempt.
+firstImpression();
+await firstRun(async () => {
+	throw new Error("settled handler ran twice");
+});
+expect(metrics.length).toBe(beforeRetry);
+// Rotation itself must not fabricate a view; wait for the new observer callback.
 onImpression();
-if (!attempt) throw new Error("CTA did not provide its flow");
-attempt.track("requested");
-attempt.track("generation_completed");
+const retryId = flows.at(-1);
+expect(retryId).not.toBe(firstId);
+await act(async () => {
+	await run(async (flow) => {
+		flow?.track("requested");
+		flow?.track("generation_completed");
+	});
+});
 expect(metrics.slice(-3)).toEqual([
 	"cta_viewed",
 	"requested",
 	"generation_completed",
 ]);
-expect(new Set(flows.slice(-3)).size).toBe(1);
+expect(flows.slice(-3)).toEqual([retryId, retryId, retryId]);
+// Rejecting actions also rotate, with no success attributed to that attempt.
+onImpression();
+const rejectedId = flows.at(-1);
+await act(async () => {
+	await expect(
+		run(async (flow) => {
+			flow?.track("requested");
+			throw new Error("offline");
+		}),
+	).rejects.toThrow("offline");
+});
+onImpression();
+expect(flows.at(-1)).not.toBe(rejectedId);
+// A policy change or unmount during an action must not reset a newer observer.
+let finish: () => void = () => {};
+const waiting = new Promise<void>((resolve) => {
+	finish = resolve;
+});
+let late: Promise<unknown>;
+await act(async () => {
+	late = run(async () => waiting);
+	tree().update(cta(true, "device:5:10-50"));
+});
+onImpression();
+const newPolicyId = flows.at(-1);
+await act(async () => {
+	finish();
+	await late;
+});
+onImpression();
+expect(flows.at(-1)).toBe(newPolicyId);
+await act(async () => {
+	tree().update(cta(false));
+});
+let received = false;
+await run(async (flow) => {
+	expect(flow).toBeUndefined();
+	received = true;
+});
+expect(received).toBe(true);
 await act(async () => {
 	tree().unmount();
 });

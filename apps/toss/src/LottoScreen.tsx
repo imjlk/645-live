@@ -452,7 +452,7 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 											enabled={model.generationAdRequired}
 											policy={adPolicyLabel(model.adConfig?.generationAdPolicy)}
 										>
-											{(adFlow) => (
+											{(runAttempt) => (
 												<Button
 													display="full"
 													loading={model.busy === "generate"}
@@ -463,10 +463,12 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 														!model.context
 													}
 													onPress={() =>
-														void model.generate(
-															hasOptions ? options : EMPTY_OPTIONS,
-															model.generationAdRequired,
-															adFlow,
+														void runAttempt((adFlow) =>
+															model.generate(
+																hasOptions ? options : EMPTY_OPTIONS,
+																model.generationAdRequired,
+																adFlow,
+															),
 														)
 													}
 												>
