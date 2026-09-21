@@ -21,6 +21,7 @@ import {
 } from "react";
 import { AccessibilityInfo, AppState } from "react-native";
 import { createAdController, setResultNotification } from "./ad-bridge";
+import { type AdFlow, adPolicyLabel, createAdFlow } from "./ad-telemetry";
 import {
 	type AdConfig,
 	type AdPlacement,
@@ -39,6 +40,7 @@ import { createGenerationCooldown } from "./generation-cooldown";
 import { createGenerationRequest } from "./generation-request";
 import type { ReportState } from "./ReportHistory";
 import { type ConnectionState, subscribeRealtime } from "./realtime";
+import { adTelemetry } from "./telemetry";
 
 const message = (value: unknown) =>
 	value instanceof Error
@@ -487,9 +489,17 @@ export function useLotto() {
 		generate: async (
 			options: GenerationOptions = EMPTY_OPTIONS,
 			watchAd = false,
+			impressionFlow?: AdFlow,
 		) => {
 			if (actionLock.current || generationCooldown.blocked()) return false;
 			generationCooldown.start();
+			const adFlow = watchAd
+				? (impressionFlow ??
+					createAdFlow(adTelemetry, {
+						placement: "generation_continue",
+						policy: adPolicyLabel(adConfig?.generationAdPolicy),
+					}))
+				: undefined;
 			try {
 				return await run("generate", async () => {
 					const deviceCounter =
@@ -501,6 +511,7 @@ export function useLotto() {
 						const result = await adsController.unlock(
 							"generation_continue",
 							deviceCounter,
+							adFlow,
 						);
 						if (deviceCounter) api.generationAds.continued();
 						if (result?.continuedWithoutAd)
@@ -512,6 +523,7 @@ export function useLotto() {
 							context,
 							deviceCounter,
 						);
+						adFlow?.track("generation_completed");
 						if (!active.current) return;
 						setContext((previous) =>
 							previous && previous.serverTime > round.serverTime

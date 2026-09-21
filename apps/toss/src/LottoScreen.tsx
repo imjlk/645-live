@@ -40,7 +40,9 @@ import {
 	View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { AdCtaImpression } from "./AdCtaImpression";
 import { AttendancePanel } from "./AttendancePanel";
+import { adPolicyLabel } from "./ad-telemetry";
 import { LOCAL_PREVIEW } from "./api";
 import { Balls } from "./Balls";
 import { Banner } from "./Banner";
@@ -446,26 +448,36 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 												</Button>
 											</View>
 										) : null}
-										<Button
-											display="full"
-											loading={model.busy === "generate"}
-											disabled={
-												!!model.busy ||
-												model.generationCooling ||
-												!model.user ||
-												!model.context
-											}
-											onPress={() =>
-												void model.generate(
-													hasOptions ? options : EMPTY_OPTIONS,
-													model.generationAdRequired,
-												)
-											}
+										<AdCtaImpression
+											enabled={model.generationAdRequired}
+											policy={adPolicyLabel(model.adConfig?.generationAdPolicy)}
 										>
-											{model.generationAdRequired
-												? "광고 보고 계속 만들기"
-												: generationLabel}
-										</Button>
+											{(runAttempt) => (
+												<Button
+													display="full"
+													loading={model.busy === "generate"}
+													disabled={
+														!!model.busy ||
+														model.generationCooling ||
+														!model.user ||
+														!model.context
+													}
+													onPress={() =>
+														void runAttempt((adFlow) =>
+															model.generate(
+																hasOptions ? options : EMPTY_OPTIONS,
+																model.generationAdRequired,
+																adFlow,
+															),
+														)
+													}
+												>
+													{model.generationAdRequired
+														? "광고 보고 계속 만들기"
+														: generationLabel}
+												</Button>
+											)}
+										</AdCtaImpression>
 										{model.current ? (
 											<View style={{ marginTop: 10 }}>
 												<Button
@@ -517,7 +529,7 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 											생성한 번호는 실시간 활동에 함께 표시돼요.
 										</Text>
 										<Banner
-											format="inline"
+											placement="generator"
 											groupId={
 												model.adConfig?.bannerGroups?.inline ??
 												model.adConfig?.bannerGroupId
@@ -617,7 +629,7 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 										</View>
 									) : null}
 									<Banner
-										format="card"
+										placement="saved"
 										groupId={model.adConfig?.bannerGroups?.card}
 									/>
 									{!model.savedReady ? (

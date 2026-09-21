@@ -9,6 +9,7 @@ import {
 	createAppsInTossFullScreenAdBridge,
 } from "@trailbase-apps-in-toss-kit/ait-rn/ads";
 import { createAppsInTossNotificationAgreementBridge } from "@trailbase-apps-in-toss-kit/ait-rn/notifications";
+import { type AdFlow, createAdFlow } from "./ad-telemetry";
 import {
 	type AdConfig,
 	type AdPlacement,
@@ -16,11 +17,29 @@ import {
 	apiErrorCode,
 	LOCAL_PREVIEW,
 } from "./api";
+import { adTelemetry } from "./telemetry";
 
 export function createAdController(api: Pick<Api, "startAd" | "completeAd">) {
+	let activeFlow: AdFlow | null = null;
+	const observedShow = Object.assign(
+		(params: Parameters<typeof showFullScreenAd>[0]) => {
+			const flow = activeFlow;
+			return showFullScreenAd({
+				...params,
+				onEvent(event) {
+					if (!disposed) {
+						if (event.type === "show") flow?.track("shown");
+						if (event.type === "impression") flow?.track("viewable");
+					}
+					params.onEvent(event);
+				},
+			});
+		},
+		{ isSupported: () => showFullScreenAd.isSupported() },
+	);
 	const bridge = createAppsInTossFullScreenAdBridge({
 		loadFullScreenAd,
-		showFullScreenAd,
+		showFullScreenAd: observedShow,
 		showTimeoutMs: 120_000,
 	});
 	let busy = false;
@@ -58,12 +77,19 @@ export function createAdController(api: Pick<Api, "startAd" | "completeAd">) {
 			for (const id of groups)
 				void bridge.preload({ adGroupId: id }).catch(() => {});
 		},
-		async unlock(placement: AdPlacement, clientManagedCounter = false) {
+		async unlock(
+			placement: AdPlacement,
+			clientManagedCounter = false,
+			providedFlow?: AdFlow,
+		) {
 			if (busy) throw new Error("진행 중인 광고를 먼저 완료해 주세요.");
 			const reason = unavailableReason();
 			if (reason && placement !== "generation_continue")
 				throw new Error(reason);
 			busy = true;
+			const flow = providedFlow ?? createAdFlow(adTelemetry, { placement });
+			activeFlow = flow;
+			flow.track("requested");
 			try {
 				if (pendingCompletion) {
 					try {
@@ -73,7 +99,10 @@ export function createAdController(api: Pick<Api, "startAd" | "completeAd">) {
 							pendingCompletion.events,
 						);
 						pendingCompletion = null;
-						if (previous.placement === placement) return result;
+						if (previous.placement === placement) {
+							flow.track("settled", "completion_retry");
+							return result;
+						}
 					} catch (error) {
 						if (
 							[
@@ -101,9 +130,18 @@ export function createAdController(api: Pick<Api, "startAd" | "completeAd">) {
 							return null;
 						throw error;
 					});
-				if (!session || session.alreadyGranted) return;
+				if (!session || session.alreadyGranted) {
+					flow.track(
+						"unavailable",
+						session ? "already_granted" : "cooldown_or_disabled",
+					);
+					return;
+				}
+				// Set the format before native callbacks arrive.
+				flow.track("session_started", "", session.format);
 				try {
 					if (reason) {
+						flow.track("unavailable", "unsupported");
 						pendingCompletion = {
 							placement,
 							id: session.id,
@@ -122,6 +160,7 @@ export function createAdController(api: Pick<Api, "startAd" | "completeAd">) {
 						interstitialCompletionFallbackMs: 120_000,
 						preloadNext: false,
 					});
+					if (result.completed) flow.track("completed");
 					pendingCompletion = {
 						placement,
 						id: session.id,
@@ -129,8 +168,15 @@ export function createAdController(api: Pick<Api, "startAd" | "completeAd">) {
 					};
 					const completed = await api.completeAd(session.id, result.events);
 					pendingCompletion = null;
+					flow.track("settled", "accepted");
 					return completed;
 				} catch (error) {
+					flow.track(
+						"failed",
+						error instanceof AppsInTossAdBridgeError
+							? error.code
+							: "completion_error",
+					);
 					if (
 						placement === "generation_continue" &&
 						!pendingCompletion &&
@@ -163,7 +209,11 @@ export function createAdController(api: Pick<Api, "startAd" | "completeAd">) {
 						await api.completeAd(session.id, ["cancelled"]).catch(() => {});
 					throw error;
 				}
+			} catch (error) {
+				flow.track("failed", "request_error");
+				throw error;
 			} finally {
+				activeFlow = null;
 				busy = false;
 			}
 		},

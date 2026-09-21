@@ -135,7 +135,7 @@ export function LiveFeed({
 				keyExtractor={(row) => row.key}
 				renderItem={({ item }) =>
 					item.kind === "ad" ? (
-						<Banner groupId={item.groupId} format="inline" />
+						<Banner groupId={item.groupId} placement="live_feed" />
 					) : (
 						<GenerationRow
 							item={item.generation}

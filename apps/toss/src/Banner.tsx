@@ -3,25 +3,39 @@ import {
 	InlineAd,
 	isMinVersionSupported,
 } from "@apps-in-toss/framework";
-import { useVisibility } from "@granite-js/react-native";
+import { IOContext, useVisibility } from "@granite-js/react-native";
 import { isAppsInTossInlineAdSupported } from "@trailbase-apps-in-toss-kit/ait-rn/inline-ads";
-import { memo, useEffect, useState } from "react";
+import { memo, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
+import { type AdMetric, createAdFlow } from "./ad-telemetry";
 import { LOCAL_PREVIEW } from "./api";
+import { adTelemetry } from "./telemetry";
 import { useTheme } from "./theme";
+
+const SLOT_FORMAT = {
+	generator: "inline",
+	saved: "card",
+	live_feed: "inline",
+} as const;
+export type BannerPlacement = keyof typeof SLOT_FORMAT;
 
 type BannerProps = {
 	groupId: string | null | undefined;
-	format: "card" | "inline";
+	placement: BannerPlacement;
 };
 /** A new group resets SDK state; SSE updates never change the slot's assigned group. */
 export const Banner = memo(function Banner(props: BannerProps) {
 	const visible = useVisibility();
-	return visible && props.groupId ? (
+	const { manager } = useContext(IOContext);
+	// InlineAd mounts ImpressionArea only after an ad fills. Prevent that
+	// delayed crash in portals/plain ScrollViews without inventing an IO root.
+	const format = SLOT_FORMAT[props.placement];
+	return visible && manager && format && props.groupId ? (
 		<BannerSlot
-			key={`${props.format}:${props.groupId}`}
+			key={`${props.placement}:${props.groupId}`}
 			groupId={props.groupId}
-			format={props.format}
+			format={format}
+			placement={props.placement}
 		/>
 	) : null;
 });
@@ -29,7 +43,9 @@ export const Banner = memo(function Banner(props: BannerProps) {
 function BannerSlot({
 	groupId,
 	format,
+	placement,
 }: {
+	placement: BannerPlacement;
 	groupId: string;
 	format: "card" | "inline";
 }) {
@@ -37,6 +53,20 @@ function BannerSlot({
 	const [rendered, setRendered] = useState(false);
 	const [unavailable, setUnavailable] = useState(false);
 	const theme = useTheme();
+	const active = useRef(true);
+	const flow = useMemo(
+		() => createAdFlow(adTelemetry, { placement, format }),
+		[placement, format],
+	);
+	const track = (event: AdMetric) => {
+		if (active.current) flow.track(event);
+	};
+	useEffect(() => {
+		active.current = true;
+		return () => {
+			active.current = false;
+		};
+	}, []);
 	useEffect(() => {
 		let active = true;
 		void isAppsInTossInlineAdSupported({
@@ -69,10 +99,19 @@ function BannerSlot({
 						theme="auto"
 						tone="grey"
 						variant={format === "card" ? "card" : "expanded"}
-						onAdRendered={() => setRendered(true)}
-						onNoFill={() => setUnavailable(true)}
+						onAdRendered={() => {
+							if (active.current) setRendered(true);
+							track("banner_rendered");
+						}}
+						onAdViewable={() => track("banner_viewable")}
+						onAdClicked={() => track("banner_clicked")}
+						onNoFill={() => {
+							if (active.current) setUnavailable(true);
+							track("banner_no_fill");
+						}}
 						onAdFailedToRender={({ error }) => {
-							setUnavailable(true);
+							if (active.current) setUnavailable(true);
+							track("banner_failed");
 							if (LOCAL_PREVIEW)
 								console.info(
 									`[645 local] ${format} banner unavailable (${error.code}).`,
