@@ -17,6 +17,20 @@ mock.module("react-native", () => ({
 mock.module("@toss/tds-react-native", () => ({ Button: "button" }));
 mock.module("../../apps/toss/src/api", () => ({ LOCAL_PREVIEW: false }));
 mock.module("../../apps/toss/src/theme", () => ({ useTheme: () => ({}) }));
+const { createPromotionRefresh: createRefresh } = await import(
+	"../../apps/toss/src/promotion-refresh"
+);
+const timers: (() => void)[] = [];
+mock.module("../../apps/toss/src/promotion-refresh", () => ({
+	createPromotionRefresh: (refresh: (ids: string[]) => Promise<unknown>) =>
+		createRefresh(refresh, (fn) => {
+			timers.push(fn);
+			return () => {
+				const index = timers.indexOf(fn);
+				if (index >= 0) timers.splice(index, 1);
+			};
+		}),
+}));
 const { AttendancePanel } = await import("../../apps/toss/src/AttendancePanel");
 const refresh = mock(async () => {});
 function model(status: string) {
@@ -67,8 +81,29 @@ await act(async () => {
 });
 expect(labels()).toContain("지급 상태 확인");
 expect(labels()).toContain("지급 확인");
+expect(refresh).not.toHaveBeenCalled();
+for (let i = 0; i < 5; i++) {
+	await act(async () => {
+		root.update(
+			<AttendancePanel model={model("pending")} onGenerate={() => {}} />,
+		);
+	});
+	await act(async () => {
+		timers.shift()?.();
+	});
+	await act(async () => {
+		root.update(
+			<AttendancePanel
+				model={{ ...model("pending"), busy: "promotion" }}
+				onGenerate={() => {}}
+			/>,
+		);
+	});
+	expect(timers).toHaveLength(0);
+}
+expect(refresh).toHaveBeenCalledTimes(3);
 await act(async () => {
 	root.unmount();
 });
-expect(refresh).not.toHaveBeenCalled();
+expect(timers).toHaveLength(0);
 console.log("attendance reward actions passed");

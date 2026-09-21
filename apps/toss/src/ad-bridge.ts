@@ -74,6 +74,21 @@ export function createAdController(api: Pick<Api, "startAd" | "completeAd">) {
 		id: string;
 		events: string[];
 	} | null = null;
+	let pendingCancellation: string | null = null;
+	async function flushCancellation() {
+		if (!pendingCancellation) return;
+		try {
+			await api.completeAd(pendingCancellation, ["cancelled"]);
+		} catch (error) {
+			if (
+				!["AD_INCOMPLETE", "AD_EXPIRED", "AD_NOT_FOUND"].includes(
+					apiErrorCode(error) ?? "",
+				)
+			)
+				throw error;
+		}
+		pendingCancellation = null;
+	}
 	function unavailableReason(): string | null {
 		try {
 			if (getOperationalEnvironment() === "sandbox")
@@ -116,6 +131,7 @@ export function createAdController(api: Pick<Api, "startAd" | "completeAd">) {
 			activeFlow = flow;
 			flow.track("requested");
 			try {
+				await flushCancellation();
 				if (pendingCompletion) {
 					try {
 						const previous = pendingCompletion;
@@ -239,8 +255,10 @@ export function createAdController(api: Pick<Api, "startAd" | "completeAd">) {
 						].includes(apiErrorCode(error) ?? "")
 					)
 						pendingCompletion = null;
-					if (!pendingCompletion)
-						await api.completeAd(session.id, ["cancelled"]).catch(() => {});
+					if (!pendingCompletion) {
+						pendingCancellation = session.id;
+						await flushCancellation().catch(() => {});
+					}
 					throw error;
 				}
 			} catch (error) {

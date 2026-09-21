@@ -42,6 +42,7 @@ import {
 import { createFeedHistory, deletedGenerationId } from "./feed-history";
 import { createGenerationCooldown } from "./generation-cooldown";
 import { createGenerationRequest } from "./generation-request";
+import { promotionFeedback } from "./promotion-feedback";
 import type { ReportState } from "./ReportHistory";
 import { type ConnectionState, subscribeRealtime } from "./realtime";
 import { adTelemetry } from "./telemetry";
@@ -635,11 +636,7 @@ export function useLotto() {
 							campaignId: daily.campaignId,
 						},
 					);
-					setNotice(
-						result.status === "success" || result.status === "recorded"
-							? `출석 완료! ${result.amount}P를 받았어요.`
-							: "출석했어요. 포인트 적립 결과를 자동으로 확인하고 있어요.",
-					);
+					setNotice(promotionFeedback(result, true));
 				} catch {
 					setNotice(
 						"출석은 완료했어요. 아래에서 일일 혜택을 다시 확인해 주세요.",
@@ -762,13 +759,7 @@ export function useLotto() {
 					},
 				);
 				await refreshPrivate();
-				setNotice(
-					result.status === "success" || result.status === "recorded"
-						? `${result.amount}P를 받았어요.`
-						: result.status === "needs_review" || result.status === "failed"
-							? "지급 확인에 도움이 필요해요. support@645.live로 문의해 주세요."
-							: "포인트 적립 결과를 자동으로 확인하고 있어요.",
-				);
+				setNotice(promotionFeedback(result));
 			}),
 		withdraw: () =>
 			run("withdraw", async () => {

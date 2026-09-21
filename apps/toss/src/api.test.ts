@@ -377,3 +377,65 @@ test("a late heartbeat 401 cannot recreate a withdrawn identity", async () => {
 	expect(bootstrapCount).toBe(2);
 	api.dispose();
 });
+
+test("lost cancellation is retried before opening another restoration ad", async () => {
+	for (const code of ["AD_INCOMPLETE", "AD_EXPIRED", "AD_NOT_FOUND"]) {
+		let starts = 0;
+		let cancellations = 0;
+		const observed: string[] = [];
+		adEvents.splice(0, adEvents.length, "show", "impression", "dismissed");
+		const controller = createAdController({
+			startAd: async () => {
+				observed.push(`start-${++starts}`);
+				return {
+					alreadyGranted: false,
+					id: `restore-${starts}`,
+					format: "rewarded",
+					groupId: "restore",
+					expiresAt: Date.now() + 300000,
+				};
+			},
+			completeAd: async (id, events) => {
+				if (events.includes("cancelled")) {
+					observed.push(`cancel-${id}`);
+					if (++cancellations < 3) throw new Error("offline cancellation");
+					throw new kit.TrailBaseHttpError("closed", {
+						status: 409,
+						statusText: "Conflict",
+						payload: { error: { code } },
+					});
+				}
+				return { feature: "attendance_restore" };
+			},
+		});
+		try {
+			await expect(controller.unlock("attendance_restore")).rejects.toThrow(
+				"광고를 끝까지",
+			);
+			await expect(controller.unlock("attendance_restore")).rejects.toThrow(
+				"offline cancellation",
+			);
+			expect(starts).toBe(1);
+			adEvents.splice(
+				0,
+				adEvents.length,
+				"show",
+				"impression",
+				"userEarnedReward",
+				"dismissed",
+			);
+			expect((await controller.unlock("attendance_restore")).resolution).toBe(
+				"ad_completed",
+			);
+			expect(observed).toEqual([
+				"start-1",
+				"cancel-restore-1",
+				"cancel-restore-1",
+				"cancel-restore-1",
+				"start-2",
+			]);
+		} finally {
+			controller.dispose();
+		}
+	}
+});

@@ -1,8 +1,8 @@
 import { Button } from "@toss/tds-react-native";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { LOCAL_PREVIEW, type Promotion } from "./api";
-import { startPromotionRefresh } from "./promotion-refresh";
+import { createPromotionRefresh } from "./promotion-refresh";
 import { useTheme } from "./theme";
 import type { LottoModel } from "./use-lotto";
 
@@ -75,12 +75,17 @@ export function AttendancePanel({
 		].sort(),
 	);
 	const { refreshPromotionClaims, busy } = model;
+	const refresher = useRef<ReturnType<typeof createPromotionRefresh> | null>(
+		null,
+	);
 	useEffect(() => {
-		if (busy) return;
-		return startPromotionRefresh(
-			JSON.parse(pendingKey),
-			refreshPromotionClaims,
-		);
+		const controller = createPromotionRefresh(refreshPromotionClaims);
+		refresher.current = controller;
+		return () => controller.dispose();
+	}, [refreshPromotionClaims]);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: Reapply the pending state when the preceding effect replaces the controller.
+	useEffect(() => {
+		refresher.current?.update(JSON.parse(pendingKey), !!busy);
 	}, [pendingKey, refreshPromotionClaims, busy]);
 
 	const count = state?.streak ?? 0;
