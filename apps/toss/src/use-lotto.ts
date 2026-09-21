@@ -20,7 +20,11 @@ import {
 	useSyncExternalStore,
 } from "react";
 import { AccessibilityInfo, AppState } from "react-native";
-import { createAdController, setResultNotification } from "./ad-bridge";
+import {
+	type AdUnlockResult,
+	createAdController,
+	setResultNotification,
+} from "./ad-bridge";
 import { type AdFlow, adPolicyLabel, createAdFlow } from "./ad-telemetry";
 import {
 	type AdConfig,
@@ -190,6 +194,20 @@ export function useLotto() {
 			adsController.preload(ads);
 		}
 	}, [api, adsController, receiveAttendance]);
+
+	const refreshPromotionClaims = useCallback(
+		async (claimIds: string[]) => {
+			await Promise.allSettled(
+				claimIds
+					.slice(0, 5)
+					.map((claimId) =>
+						api.request("/api/app/v1/attendance/promotion/claim", { claimId }),
+					),
+			);
+			receiveAttendance(await api.attendance());
+		},
+		[api, receiveAttendance],
+	);
 
 	useEffect(() => {
 		active.current = true;
@@ -462,6 +480,7 @@ export function useLotto() {
 				: adConfig?.generationAdRequired === true,
 		adUnavailableReason: adsController.unavailableReason(),
 		attendance,
+		refreshPromotionClaims,
 		busy,
 		refreshing,
 		error,
@@ -617,9 +636,9 @@ export function useLotto() {
 						},
 					);
 					setNotice(
-						result.status === "success"
+						result.status === "success" || result.status === "recorded"
 							? `출석 완료! ${result.amount}P를 받았어요.`
-							: "출석했어요. 포인트 지급 상태를 확인해 주세요.",
+							: "출석했어요. 포인트 적립 결과를 자동으로 확인하고 있어요.",
 					);
 				} catch {
 					setNotice(
@@ -658,9 +677,10 @@ export function useLotto() {
 			}),
 		unlock: (feature: AdPlacement) =>
 			run(`unlock-${feature}`, async () => {
+				let outcome: AdUnlockResult;
 				let refreshed = true;
 				try {
-					await adsController.unlock(feature);
+					outcome = await adsController.unlock(feature);
 				} finally {
 					await refreshPrivate().catch(() => {
 						refreshed = false;
@@ -670,6 +690,21 @@ export function useLotto() {
 					setNotice(
 						"광고 처리는 완료했어요. 새로고침하면 출석·이용권 현황을 확인할 수 있어요.",
 					);
+					return;
+				}
+				if (outcome.resolution === "already_granted") {
+					setNotice(
+						feature === "attendance_restore"
+							? "이미 복구된 출석이에요. 최신 출석 현황을 확인해 주세요."
+							: "이미 이용 중인 혜택이에요.",
+					);
+					return;
+				}
+				if (
+					feature === "attendance_restore" &&
+					outcome.resolution === "completion_retry"
+				) {
+					setNotice("이전에 본 광고의 출석 복구 처리를 완료했어요.");
 					return;
 				}
 				setNotice(
@@ -728,11 +763,11 @@ export function useLotto() {
 				);
 				await refreshPrivate();
 				setNotice(
-					result.status === "success"
+					result.status === "success" || result.status === "recorded"
 						? `${result.amount}P를 받았어요.`
 						: result.status === "needs_review" || result.status === "failed"
 							? "지급 확인에 도움이 필요해요. support@645.live로 문의해 주세요."
-							: "지급 결과를 확인 중이에요. 잠시 후 지급 상태를 다시 확인해 주세요.",
+							: "포인트 적립 결과를 자동으로 확인하고 있어요.",
 				);
 			}),
 		withdraw: () =>

@@ -19,6 +19,31 @@ import {
 } from "./api";
 import { adTelemetry } from "./telemetry";
 
+export type AdUnlockResult = {
+	feature: string;
+	expiresAt?: number;
+	continuedWithoutAd?: boolean;
+	resolution:
+		| "already_granted"
+		| "completion_retry"
+		| "ad_completed"
+		| "unavailable";
+};
+
+function resolvedAd(
+	result: Awaited<ReturnType<Api["completeAd"]>>,
+	placement: AdPlacement,
+	resolution: AdUnlockResult["resolution"],
+): AdUnlockResult {
+	if (
+		result.feature !== placement ||
+		(placement !== "generation_continue" && result.continuedWithoutAd)
+	) {
+		throw new Error("광고 완료 결과를 확인하지 못했어요. 다시 시도해 주세요.");
+	}
+	return { ...result, resolution };
+}
+
 export function createAdController(api: Pick<Api, "startAd" | "completeAd">) {
 	let activeFlow: AdFlow | null = null;
 	const observedShow = Object.assign(
@@ -81,7 +106,7 @@ export function createAdController(api: Pick<Api, "startAd" | "completeAd">) {
 			placement: AdPlacement,
 			clientManagedCounter = false,
 			providedFlow?: AdFlow,
-		) {
+		): Promise<AdUnlockResult> {
 			if (busy) throw new Error("진행 중인 광고를 먼저 완료해 주세요.");
 			const reason = unavailableReason();
 			if (reason && placement !== "generation_continue")
@@ -101,7 +126,7 @@ export function createAdController(api: Pick<Api, "startAd" | "completeAd">) {
 						pendingCompletion = null;
 						if (previous.placement === placement) {
 							flow.track("settled", "completion_retry");
-							return result;
+							return resolvedAd(result, placement, "completion_retry");
 						}
 					} catch (error) {
 						if (
@@ -135,7 +160,11 @@ export function createAdController(api: Pick<Api, "startAd" | "completeAd">) {
 						"unavailable",
 						session ? "already_granted" : "cooldown_or_disabled",
 					);
-					return;
+					return {
+						feature: placement,
+						resolution: session ? "already_granted" : "unavailable",
+						continuedWithoutAd: !session,
+					};
 				}
 				// Set the format before native callbacks arrive.
 				flow.track("session_started", "", session.format);
@@ -152,7 +181,7 @@ export function createAdController(api: Pick<Api, "startAd" | "completeAd">) {
 							pendingCompletion.events,
 						);
 						pendingCompletion = null;
-						return result;
+						return resolvedAd(result, placement, "unavailable");
 					}
 					const result = await bridge.preloadAndShow({
 						adGroupId: session.groupId,
@@ -160,6 +189,11 @@ export function createAdController(api: Pick<Api, "startAd" | "completeAd">) {
 						interstitialCompletionFallbackMs: 120_000,
 						preloadNext: false,
 					});
+					if (placement !== "generation_continue" && !result.completed) {
+						throw new Error(
+							"광고를 끝까지 보면 출석 복구·기능 이용이 가능해요.",
+						);
+					}
 					if (result.completed) flow.track("completed");
 					pendingCompletion = {
 						placement,
@@ -169,7 +203,7 @@ export function createAdController(api: Pick<Api, "startAd" | "completeAd">) {
 					const completed = await api.completeAd(session.id, result.events);
 					pendingCompletion = null;
 					flow.track("settled", "accepted");
-					return completed;
+					return resolvedAd(completed, placement, "ad_completed");
 				} catch (error) {
 					flow.track(
 						"failed",
@@ -193,7 +227,7 @@ export function createAdController(api: Pick<Api, "startAd" | "completeAd">) {
 							pendingCompletion.events,
 						);
 						pendingCompletion = null;
-						return result;
+						return resolvedAd(result, placement, "unavailable");
 					}
 					if (
 						[
