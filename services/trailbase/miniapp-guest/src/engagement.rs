@@ -2,8 +2,11 @@ use crate::{attendance, auth, body, db, lotto, settings};
 use serde::Deserialize;
 use serde_json::{Value as Json, json};
 use trailbase_guest_common::{
-    apps_in_toss_messages as messages, apps_in_toss_proxy as proxy, promotion_rewards as rewards,
-    responses::*, session::hmac_hex,
+    apps_in_toss_messages as messages, apps_in_toss_proxy as proxy,
+    message_recipients::{ProxyRecipient, payload_with_recipient},
+    promotion_rewards as rewards,
+    responses::*,
+    session::hmac_hex,
 };
 use trailbase_wasm::{
     db::{Transaction, Value},
@@ -591,6 +594,9 @@ pub(crate) async fn execute_reward(
                 source_type: Some(&record.source_type),
                 source_id: record.source_id.clone().map(Json::String),
             });
+            // The ledger builder defaults to a Toss Login recipient. This app uses
+            // anonymous identity, matching the recipient bound during prepare.
+            let payload = payload_with_recipient(payload, ProxyRecipient::AnonymousKey(anon_key))?;
             let response = proxy::promotion_reward_execute(&url, Some(&token), payload)
                 .await
                 .map_err(|_| proxy_error("execute"))?;

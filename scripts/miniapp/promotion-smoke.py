@@ -53,6 +53,7 @@ def run():
     check_forward_migration()
     grants = []
     prepared = set()
+    recipients = {}
     executions = {}
     provider_lock = threading.Lock()
     faults = {'prepare': 0}
@@ -80,6 +81,14 @@ def run():
             else:
                 raw = self.rfile.read(int(self.headers['Content-Length']))
             data = json.loads(raw)
+            if '/promotion/reward/' in self.path:
+                if not isinstance(data.get('anonKey'), str) or not data['anonKey'].strip() or any(k in data for k in ('tossUserKey', 'userKey')):
+                    self.send_error(400, 'anonymous rewards must use anonKey only')
+                    return
+                key = data.get('providerTransactionKey')
+                if key in recipients and recipients[key] != data['anonKey']:
+                    self.send_error(400, 'recipient must match the prepared key')
+                    return
             if self.path.endswith('/anonymous-key/verify'):
                 result = {'valid': True, 'mode': 'forward'}
             elif self.path.endswith('/promotion/reward/prepare'):
@@ -91,6 +100,7 @@ def run():
                     else:
                         key = 'fixture-' + uuid.uuid4().hex
                         prepared.add(key)
+                        recipients[key] = data['anonKey']
                 if fail:
                     self.send_error(503)
                     return
@@ -302,6 +312,7 @@ def run():
                 expect(claim(reward('daily'))[0],500,'key-persistence fixture')
                 pending=reward('daily'); key='persisted-before-restart'
                 prepared.add(key)
+                recipients[key] = prepare_calls[-1]['anonKey']
                 fixture([("UPDATE promotion_reward_ledger SET provider_transaction_key=? WHERE id=?",[key,pending['claimId']])])
                 command('docker','restart',name)
                 base='http://127.0.0.1:'+command('docker','port',name,'4000/tcp').rsplit(':',1)[1]
@@ -405,7 +416,8 @@ def run():
                     'concurrent console checks grant once and preserve attendance and live reward history',
                     'prepare outage resumes same intent once, including console tests',
                     'prepared key survives restart; legacy and paused claims never dispatch',
-                    'lost execute response reconciles without another payment'
+                    'lost execute response reconciles without another payment',
+                    'prepare, execute and status all use the same anonymous recipient'
                 ]}),flush=True)
             finally:
                 cleanup_case(name, folder, image)
