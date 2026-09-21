@@ -87,6 +87,15 @@ afterEach(() => {
 	adLoadFails = false;
 	adShowCount = 0;
 	sessionFailure = null;
+	adEvents.splice(
+		0,
+		adEvents.length,
+		"requested",
+		"show",
+		"impression",
+		"userEarnedReward",
+		"dismissed",
+	);
 });
 
 test("a synchronous session runtime failure can be diagnosed and retried", async () => {
@@ -250,6 +259,80 @@ test("feature passes keep their normal no-fill failure behavior", async () => {
 	}
 });
 
+test("attendance restoration never bypasses unavailable, unsupported, or unfinished ads", async () => {
+	for (const scenario of ["no_fill", "sandbox", "unfinished"] as const) {
+		adEnvironment = scenario === "sandbox" ? "sandbox" : "toss";
+		adLoadFails = scenario === "no_fill";
+		adEvents.splice(0, adEvents.length, "show", "impression", "dismissed");
+		const completions: string[][] = [];
+		const controller = createAdController({
+			startAd: async () => ({
+				alreadyGranted: false,
+				id: "restore",
+				format: "rewarded",
+				groupId: "restore-group",
+				expiresAt: Date.now() + 300000,
+			}),
+			completeAd: async (_id, events) => {
+				completions.push(events);
+				return { feature: "attendance_restore" };
+			},
+		});
+		try {
+			await expect(controller.unlock("attendance_restore")).rejects.toThrow();
+			expect(completions).toEqual(
+				scenario === "sandbox" ? [] : [["cancelled"]],
+			);
+		} finally {
+			controller.dispose();
+		}
+	}
+});
+test("an already-restored day is distinct from a new restore and shows no second ad", async () => {
+	const controller = createAdController({
+		startAd: async () => ({ alreadyGranted: true }),
+		completeAd: async () => {
+			throw new Error("already restored must not grant again");
+		},
+	});
+	try {
+		expect(await controller.unlock("attendance_restore")).toEqual({
+			feature: "attendance_restore",
+			resolution: "already_granted",
+			continuedWithoutAd: false,
+		});
+		expect(adShowCount).toBe(0);
+	} finally {
+		controller.dispose();
+	}
+});
+test("a lost restore completion is retried without claiming that a new ad was watched", async () => {
+	let calls = 0;
+	const controller = createAdController({
+		startAd: async () => ({
+			alreadyGranted: false,
+			id: "restore",
+			format: "rewarded",
+			groupId: "restore-group",
+			expiresAt: Date.now() + 300000,
+		}),
+		completeAd: async () => {
+			if (++calls === 1) throw new Error("offline");
+			return { feature: "attendance_restore" };
+		},
+	});
+	try {
+		await expect(controller.unlock("attendance_restore")).rejects.toThrow(
+			"offline",
+		);
+		const result = await controller.unlock("attendance_restore");
+		expect(result.resolution).toBe("completion_retry");
+		expect(adShowCount).toBe(1);
+	} finally {
+		controller.dispose();
+	}
+});
+
 test("a late heartbeat 401 cannot recreate a withdrawn identity", async () => {
 	bootstrapCount = 0;
 	globalThis.fetch = (async () => {
@@ -293,4 +376,66 @@ test("a late heartbeat 401 cannot recreate a withdrawn identity", async () => {
 	await api.ensure();
 	expect(bootstrapCount).toBe(2);
 	api.dispose();
+});
+
+test("lost cancellation is retried before opening another restoration ad", async () => {
+	for (const code of ["AD_INCOMPLETE", "AD_EXPIRED", "AD_NOT_FOUND"]) {
+		let starts = 0;
+		let cancellations = 0;
+		const observed: string[] = [];
+		adEvents.splice(0, adEvents.length, "show", "impression", "dismissed");
+		const controller = createAdController({
+			startAd: async () => {
+				observed.push(`start-${++starts}`);
+				return {
+					alreadyGranted: false,
+					id: `restore-${starts}`,
+					format: "rewarded",
+					groupId: "restore",
+					expiresAt: Date.now() + 300000,
+				};
+			},
+			completeAd: async (id, events) => {
+				if (events.includes("cancelled")) {
+					observed.push(`cancel-${id}`);
+					if (++cancellations < 3) throw new Error("offline cancellation");
+					throw new kit.TrailBaseHttpError("closed", {
+						status: 409,
+						statusText: "Conflict",
+						payload: { error: { code } },
+					});
+				}
+				return { feature: "attendance_restore" };
+			},
+		});
+		try {
+			await expect(controller.unlock("attendance_restore")).rejects.toThrow(
+				"광고를 끝까지",
+			);
+			await expect(controller.unlock("attendance_restore")).rejects.toThrow(
+				"offline cancellation",
+			);
+			expect(starts).toBe(1);
+			adEvents.splice(
+				0,
+				adEvents.length,
+				"show",
+				"impression",
+				"userEarnedReward",
+				"dismissed",
+			);
+			expect((await controller.unlock("attendance_restore")).resolution).toBe(
+				"ad_completed",
+			);
+			expect(observed).toEqual([
+				"start-1",
+				"cancel-restore-1",
+				"cancel-restore-1",
+				"cancel-restore-1",
+				"start-2",
+			]);
+		} finally {
+			controller.dispose();
+		}
+	}
 });

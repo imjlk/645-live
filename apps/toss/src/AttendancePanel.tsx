@@ -1,6 +1,8 @@
 import { Button } from "@toss/tds-react-native";
+import { useEffect, useRef } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { LOCAL_PREVIEW, type Promotion } from "./api";
+import { createPromotionRefresh } from "./promotion-refresh";
 import { useTheme } from "./theme";
 import type { LottoModel } from "./use-lotto";
 
@@ -14,9 +16,7 @@ function Reward({ reward, model }: { reward: Promotion; model: LottoModel }) {
 		legacy: "이전 출석",
 	}[reward.kind];
 	let button = `${reward.amount}P 받기`;
-	if (paid) button = "지급 완료";
-	else if (claimed) button = "이미 받은 혜택";
-	else if (reward.claimId) button = "지급 상태 확인";
+	if (reward.claimId) button = "지급 상태 확인";
 	else if (!reward.available) button = "프로모션 준비 중";
 	else if (!reward.eligible) button = "출석 조건을 채워 주세요";
 	return (
@@ -30,20 +30,28 @@ function Reward({ reward, model }: { reward: Promotion; model: LottoModel }) {
 					? "오늘 번호를 만들고 출석하면 받을 수 있어요."
 					: "7일을 채우면 추가로 받아요. 완성한 혜택은 7일 안에 신청해 주세요."}
 			</Text>
-			<Button
-				display="full"
-				style="weak"
-				loading={model.busy === "promotion"}
-				disabled={
-					!!model.busy ||
-					paid ||
-					claimed ||
-					(!reward.eligible && !reward.claimId)
-				}
-				onPress={() => void model.promotion(reward)}
-			>
-				{button}
-			</Button>
+			{paid || claimed ? (
+				<Text style={[s.body, { color: theme.muted }]}>
+					{paid ? "포인트 적립 완료" : "이미 받은 혜택이에요"}
+				</Text>
+			) : reward.status === "pending" ? (
+				<Text
+					accessibilityLiveRegion="polite"
+					style={[s.body, { color: theme.muted }]}
+				>
+					포인트 적립 결과를 확인하고 있어요.
+				</Text>
+			) : (
+				<Button
+					display="full"
+					style="weak"
+					loading={model.busy === "promotion"}
+					disabled={!!model.busy || (!reward.eligible && !reward.claimId)}
+					onPress={() => void model.promotion(reward)}
+				>
+					{button}
+				</Button>
+			)}
 		</View>
 	);
 }
@@ -57,6 +65,29 @@ export function AttendancePanel({
 }) {
 	const theme = useTheme();
 	const state = model.attendance;
+	const pendingKey = JSON.stringify(
+		[
+			...new Set(
+				[...(state?.promotions ?? []), ...(state?.promotionHistory ?? [])]
+					.filter((reward) => reward.status === "pending" && reward.claimId)
+					.map((reward) => reward.claimId as string),
+			),
+		].sort(),
+	);
+	const { refreshPromotionClaims, busy } = model;
+	const refresher = useRef<ReturnType<typeof createPromotionRefresh> | null>(
+		null,
+	);
+	useEffect(() => {
+		const controller = createPromotionRefresh(refreshPromotionClaims);
+		refresher.current = controller;
+		return () => controller.dispose();
+	}, [refreshPromotionClaims]);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: Reapply the pending state when the preceding effect replaces the controller.
+	useEffect(() => {
+		refresher.current?.update(JSON.parse(pendingKey), !!busy);
+	}, [pendingKey, refreshPromotionClaims, busy]);
+
 	const count = state?.streak ?? 0;
 	const daily = state?.promotions.find((p) => p.kind === "daily");
 	const restoreAd = model.adConfig?.placements.find(
@@ -171,21 +202,27 @@ export function AttendancePanel({
 								{reward.kind === "daily" ? "일일" : "연속"} 출석 ·{" "}
 								{reward.amount}P
 							</Text>
-							<Button
-								size="tiny"
-								type="dark"
-								style="weak"
-								disabled={
-									!!model.busy ||
-									reward.status === "success" ||
-									reward.status === "recorded"
-								}
-								onPress={() => void model.promotion(reward)}
-							>
-								{reward.status === "success" || reward.status === "recorded"
-									? "지급 완료"
-									: "지급 확인"}
-							</Button>
+							{reward.status === "success" ||
+							reward.status === "recorded" ||
+							reward.status === "already_claimed" ? (
+								<Text style={[s.caption, { color: theme.muted }]}>
+									적립 완료
+								</Text>
+							) : reward.status === "pending" ? (
+								<Text style={[s.caption, { color: theme.muted }]}>
+									적립 확인 중
+								</Text>
+							) : (
+								<Button
+									size="tiny"
+									type="dark"
+									style="weak"
+									disabled={!!model.busy}
+									onPress={() => void model.promotion(reward)}
+								>
+									지급 확인
+								</Button>
+							)}
 						</View>
 					))}
 				</View>
