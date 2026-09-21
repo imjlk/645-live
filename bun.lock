@@ -15,7 +15,7 @@
     },
     "apps/toss": {
       "name": "@645/toss",
-      "version": "1.2.1",
+      "version": "1.2.2",
       "dependencies": {
         "@645/lotto-core": "workspace:*",
         "@apps-in-toss/framework": "2.10.10",
