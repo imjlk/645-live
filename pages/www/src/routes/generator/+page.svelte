@@ -1,5 +1,5 @@
 <script lang="ts">
-import { tick } from "svelte";
+import { onMount, tick } from "svelte";
 import { useGenerator } from "$lib/generator/model.svelte";
 
 const generator = useGenerator();
@@ -27,6 +27,9 @@ let includedNumbers = $state<Set<number>>(new Set());
 let excludedNumbers = $state<Set<number>>(new Set());
 const generatedLottoSets = $derived(generator.current.map((g) => g.numbers));
 let isLoading = $state(false);
+let coolingDown = $state(false);
+let cooldownTimer: ReturnType<typeof setTimeout>;
+onMount(() => () => clearTimeout(cooldownTimer));
 let error = $state("");
 let copyMessage = $state("");
 let generatedConditions = $state("");
@@ -181,7 +184,11 @@ function isValid(numbers: number[]): boolean {
 }
 
 async function generateNumbers() {
-	if (isLoading || generator.busy) return;
+	if (isLoading || generator.busy || coolingDown) return;
+	coolingDown = true;
+	cooldownTimer = setTimeout(() => {
+		coolingDown = false;
+	}, 1000);
 	if (generator.pending) {
 		await generator.retry();
 		return;
@@ -332,7 +339,7 @@ const ogImage = getGenericOgImage({
 			<h2 id="generation-heading" class="sr-only">게임 수 선택과 번호 생성</h2>
 			<div class="generate-controls">
 				<label for="num-sets">게임 수<input type="number" id="num-sets" bind:value={numberOfSets} class="input" min="1" max="100" disabled={isLoading} /></label>
-				<button class="btn btn-primary generate-button" onclick={generateNumbers} disabled={isLoading || generator.busy || !generator.ready}>{#if isLoading || generator.busy}<span class="loading loading-spinner loading-sm"></span>생성 중…{:else}{generator.pending ? "생성 결과 다시 확인" : generatedLottoSets.length ? "다시 생성하기" : "번호 생성하기"}{/if}</button>
+				<button class="btn btn-primary generate-button" onclick={generateNumbers} disabled={isLoading || generator.busy || coolingDown || !generator.ready}>{#if isLoading || generator.busy}<span class="loading loading-spinner loading-sm"></span>생성 중…{:else}{generator.pending ? "생성 결과 다시 확인" : generatedLottoSets.length ? "다시 생성하기" : "번호 생성하기"}{/if}</button>
 			</div>
 			<p class="help-text">생성하면 번호·회차·임의 별칭이 실시간 현황에 공개됩니다. <a href={resolve("/privacy#web-generator")} class="underline">처리 안내</a></p>
 			<p class="conditions-summary">포함 {includedNumbers.size}개 · 제외 {excludedNumbers.size}개 · 조건 {filterCount}개</p>
