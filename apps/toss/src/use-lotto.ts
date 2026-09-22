@@ -45,7 +45,8 @@ import { createGenerationRequest } from "./generation-request";
 import { promotionFeedback } from "./promotion-feedback";
 import type { ReportState } from "./ReportHistory";
 import { type ConnectionState, subscribeRealtime } from "./realtime";
-import { adTelemetry } from "./telemetry";
+import { adTelemetry, trackProduct } from "./telemetry";
+import { actionArea, rememberGeneration } from "./ux-state";
 
 const message = (value: unknown) =>
 	value instanceof Error
@@ -101,6 +102,17 @@ export function useLotto() {
 		},
 		[feedHistory],
 	);
+	const [recent, setRecent] = useState<Generation[]>([]);
+	const [notificationPrompt, setNotificationPrompt] = useState(false);
+	const promptChecked = useRef(false);
+	const [pendingPromptRound, setPendingPromptRound] = useState<number | null>(
+		null,
+	);
+	const [actionError, setActionError] = useState<{
+		area: string;
+		source?: "saved-results";
+		message: string;
+	} | null>(null);
 	const [current, setCurrent] = useState<Generation | null>(null);
 	const [saved, setSaved] = useState<SavedCombination[]>([]);
 	const [savedReady, setSavedReady] = useState(false);
@@ -127,7 +139,10 @@ export function useLotto() {
 	const seenWins = useRef(new Set<string>());
 	const store = useMemo(() => (user ? api.saved(user) : null), [api, user]);
 	const clearNotice = useCallback(() => setNotice(null), []);
-	const clearError = useCallback(() => setError(null), []);
+	const clearError = useCallback(() => {
+		setError(null);
+		setActionError(null);
+	}, []);
 	const retry = useCallback(() => {
 		if (!actionLock.current) {
 			api.reconnect();
@@ -139,12 +154,16 @@ export function useLotto() {
 		if (actionLock.current) return false;
 		actionLock.current = true;
 		setBusy(name);
-		setError(null);
+		setActionError((previous) =>
+			previous?.source === "saved-results" ? previous : null,
+		);
 		try {
 			await task();
 			return true;
 		} catch (e) {
-			if (active.current) setError(message(e));
+			if (name === "generate") trackProduct("generation_failed");
+			if (active.current)
+				setActionError({ area: actionArea(name), message: message(e) });
 			return false;
 		} finally {
 			actionLock.current = false;
@@ -394,8 +413,19 @@ export function useLotto() {
 			if (!closed) {
 				setResults((prev) => ({ ...prev, ...collected }));
 				if (failed)
-					setError(
-						"일부 당첨 결과를 불러오지 못했어요. 연결을 확인하고 다시 시도해 주세요.",
+					setActionError((previous) =>
+						previous && previous.source !== "saved-results"
+							? previous
+							: {
+									area: "saved",
+									source: "saved-results",
+									message:
+										"일부 결과를 불러오지 못했어요. 아래로 당겨 다시 확인해 주세요.",
+								},
+					);
+				else
+					setActionError((previous) =>
+						previous?.source === "saved-results" ? null : previous,
 					);
 			}
 		})();
@@ -430,8 +460,61 @@ export function useLotto() {
 				);
 				if (!reducedMotion) setCelebration(`${winning.id}:${fingerprint}`);
 			})
-			.catch((e) => setError(message(e)));
+			.catch((e) => setActionError({ area: "saved", message: message(e) }));
 	}, [foreground, store, savedReady, saved, results, reducedMotion]);
+
+	useEffect(() => {
+		if (
+			pendingPromptRound !== null &&
+			savedReady &&
+			!saved.some((item) => item.round === pendingPromptRound)
+		) {
+			setPendingPromptRound(null);
+			setNotificationPrompt(false);
+			promptChecked.current = false;
+			return;
+		}
+		if (
+			!foreground ||
+			!savedReady ||
+			pendingPromptRound === null ||
+			!context ||
+			pendingPromptRound < context.targetRound - 1 ||
+			pendingPromptRound <= (context.latestDraw?.round ?? 0) ||
+			!user ||
+			!attendance?.notificationTemplateCode ||
+			attendance.notificationsEnabled ||
+			promptChecked.current
+		)
+			return;
+		let closed = false;
+		let settled = false;
+		promptChecked.current = true;
+		void api
+			.notificationPrompt(user)
+			.read()
+			.then((alreadyShown) => {
+				if (closed) return;
+				settled = true;
+				if (!alreadyShown) setNotificationPrompt(true);
+			})
+			.catch(() => {
+				if (!closed) promptChecked.current = false;
+			});
+		return () => {
+			closed = true;
+			if (!settled) promptChecked.current = false;
+		};
+	}, [
+		api,
+		user,
+		attendance,
+		foreground,
+		savedReady,
+		pendingPromptRound,
+		saved,
+		context,
+	]);
 
 	async function save(generation: Generation) {
 		if (!store || !savedReady)
@@ -445,8 +528,18 @@ export function useLotto() {
 			savedAt: Date.now(),
 		});
 		setSaved(items);
+		setPendingPromptRound(generation.round);
+		trackProduct(
+			"combination_saved",
+			saved.length === 0 ? "first_save" : "save",
+		);
 		setNotice("이 기기의 보관함에 저장했어요.");
-		if (attendance?.notificationsEnabled)
+
+		if (
+			attendance?.notificationsEnabled &&
+			generation.round >= (context?.targetRound ?? 1) - 1 &&
+			!results[generation.round]
+		)
 			await api
 				.request("/api/app/v1/notifications/watch-result", {
 					round: generation.round,
@@ -459,6 +552,26 @@ export function useLotto() {
 	}
 	return {
 		user,
+		preferences: api.preferences,
+		recent,
+		actionError,
+		notificationPrompt,
+		dismissNotificationPrompt: () => {
+			setNotificationPrompt(false);
+			// Persist only after a response, never before the dialog can be seen.
+			if (user)
+				void api
+					.notificationPrompt(user)
+					.write(true)
+					.catch(() => {});
+		},
+		clearActionError: () => setActionError(null),
+		restoreRecent: (item: Generation) => {
+			if (!actionLock.current) {
+				setCurrent(item);
+				trackProduct("recent_restored");
+			}
+		},
 		reports,
 		loadReport,
 		context,
@@ -512,7 +625,9 @@ export function useLotto() {
 			impressionFlow?: AdFlow,
 		) => {
 			if (actionLock.current || generationCooldown.blocked()) return false;
+			// Enforce one second from the tap; actionLock covers slow requests and ads.
 			generationCooldown.start();
+			trackProduct("generation_started");
 			const adFlow = watchAd
 				? (impressionFlow ??
 					createAdFlow(adTelemetry, {
@@ -520,85 +635,81 @@ export function useLotto() {
 						policy: adPolicyLabel(adConfig?.generationAdPolicy),
 					}))
 				: undefined;
-			try {
-				return await run("generate", async () => {
-					const deviceCounter =
-						adConfig?.generationAdPolicy?.counter === "device";
+			return await run("generate", async () => {
+				const deviceCounter =
+					adConfig?.generationAdPolicy?.counter === "device";
+				if (deviceCounter)
+					await api.generationAds.load(adConfig.generationAdPolicy);
+				// Only the explicitly labelled ad CTA may open a full-screen ad.
+				if (watchAd) {
+					const result = await adsController.unlock(
+						"generation_continue",
+						deviceCounter,
+						adFlow,
+					);
+					if (deviceCounter) api.generationAds.continued();
+					if (result?.continuedWithoutAd)
+						setNotice("광고를 불러오지 못해 바로 이어서 만들어요.");
+				}
+				try {
+					const { response, context: round } = await requestGeneration(
+						options,
+						context,
+						deviceCounter,
+					);
+					adFlow?.track("generation_completed");
+					if (!active.current) return;
+					setContext((previous) =>
+						previous && previous.serverTime > round.serverTime
+							? previous
+							: round,
+					);
+					setCurrent(response.generation);
+					setRecent((items) => rememberGeneration(items, response.generation));
+					trackProduct("generation_succeeded");
 					if (deviceCounter)
-						await api.generationAds.load(adConfig.generationAdPolicy);
-					// Only the explicitly labelled ad CTA may open a full-screen ad.
-					if (watchAd) {
-						const result = await adsController.unlock(
-							"generation_continue",
-							deviceCounter,
-							adFlow,
-						);
-						if (deviceCounter) api.generationAds.continued();
-						if (result?.continuedWithoutAd)
-							setNotice("광고를 불러오지 못해 바로 이어서 만들어요.");
+						api.generationAds.generated(response.generation.id);
+					setAdConfig((previous) =>
+						previous
+							? {
+									...previous,
+									generationAdRequired: response.generationAdRequired === true,
+								}
+							: previous,
+					);
+					lastGenerated.current = response.generation;
+					const generatedDay = Math.floor(
+						(response.generation.createdAt + 32_400_000) / 86_400_000,
+					);
+					if (attendance) receiveAttendance(attendance);
+					// First-generation eligibility may change restore availability. Recheck once
+					// in the background; later generations do not query attendance again.
+					if (
+						(!attendance?.generatedToday || attendance.day !== generatedDay) &&
+						!attendanceRefresh.current
+					) {
+						attendanceRefresh.current = api
+							.attendance()
+							.then(receiveAttendance)
+							.catch(() => {})
+							.finally(() => {
+								attendanceRefresh.current = null;
+							});
 					}
-					try {
-						const { response, context: round } = await requestGeneration(
-							options,
-							context,
-							deviceCounter,
-						);
-						adFlow?.track("generation_completed");
-						if (!active.current) return;
-						setContext((previous) =>
-							previous && previous.serverTime > round.serverTime
-								? previous
-								: round,
-						);
-						setCurrent(response.generation);
-						if (deviceCounter)
-							api.generationAds.generated(response.generation.id);
-						setAdConfig((previous) =>
-							previous
-								? {
-										...previous,
-										generationAdRequired:
-											response.generationAdRequired === true,
-									}
-								: previous,
-						);
-						lastGenerated.current = response.generation;
-						const generatedDay = Math.floor(
-							(response.generation.createdAt + 32_400_000) / 86_400_000,
-						);
-						if (attendance) receiveAttendance(attendance);
-						// First-generation eligibility may change restore availability. Recheck once
-						// in the background; later generations do not query attendance again.
-						if (
-							(!attendance?.generatedToday ||
-								attendance.day !== generatedDay) &&
-							!attendanceRefresh.current
-						) {
-							attendanceRefresh.current = api
-								.attendance()
-								.then(receiveAttendance)
-								.catch(() => {})
-								.finally(() => {
-									attendanceRefresh.current = null;
-								});
-						}
-						// Share the subscription's one-second batch, including when SSE reconnects.
-						refreshLive.current?.();
-					} catch (e) {
-						if (apiErrorCode(e) === "GENERATION_AD_REQUIRED") {
-							await api
-								.ads()
-								.then((ads) => {
-									if (active.current) setAdConfig(ads);
-								})
-								.catch(() => {});
-						}
-						throw e;
+					// Share the subscription's one-second batch, including when SSE reconnects.
+					refreshLive.current?.();
+				} catch (e) {
+					if (apiErrorCode(e) === "GENERATION_AD_REQUIRED") {
+						await api
+							.ads()
+							.then((ads) => {
+								if (active.current) setAdConfig(ads);
+							})
+							.catch(() => {});
 					}
-				});
-			} finally {
-				if (active.current) generationCooldown.start();
-			}
+					throw e;
+				}
+			});
 		},
 		save: (generation: Generation) => run("save", () => save(generation)),
 		remove: (item: SavedCombination) =>
@@ -608,6 +719,10 @@ export function useLotto() {
 		removePublic: (item: SavedCombination) =>
 			run("removePublic", async () => {
 				const result = await api.removePublic(item.generationId);
+				if (result.deleted) {
+					setRecent((items) => items.filter((g) => g.id !== item.generationId));
+					setCurrent((g) => (g?.id === item.generationId ? null : g));
+				}
 				if (store) setSaved(await store.remove(item.id));
 				setNotice(
 					result.deleted
@@ -618,6 +733,7 @@ export function useLotto() {
 		checkIn: () =>
 			run("checkIn", async () => {
 				await api.checkIn();
+				trackProduct("attendance_completed");
 				const state = await api.attendance();
 				receiveAttendance(state);
 				const daily = state.promotions.find(
@@ -714,6 +830,16 @@ export function useLotto() {
 			run("notifications", async () => {
 				const template = attendance?.notificationTemplateCode;
 				if (!template) throw new Error("결과 알림을 준비 중이에요.");
+				// A deliberate choice also completes onboarding for existing users.
+				promptChecked.current = true;
+				setNotificationPrompt(false);
+				if (user) {
+					try {
+						await api.notificationPrompt(user).write(true);
+					} catch {
+						/* Optional onboarding storage must not block consent. */
+					}
+				}
 				const rounds = saved
 					.map((v) => v.round)
 					.filter((r) => r >= (context?.targetRound ?? 1) - 1);
@@ -725,6 +851,7 @@ export function useLotto() {
 					// consistent with the saved consent even on that partial failure.
 					await refreshPrivate();
 				}
+				trackProduct(opted ? "notification_enabled" : "notification_disabled");
 				setNotice(
 					opted
 						? "보관한 번호의 결과가 나오면 알려드릴게요."
@@ -767,9 +894,15 @@ export function useLotto() {
 				// Clear the explicitly selected device data before revoking its server identity;
 				// a storage failure remains retryable under the same identity.
 				setSaved(await store.clear());
+				if (user) await api.notificationPrompt(user).clear();
 				const result = await api.withdraw();
 				setUser(null);
 				setSaved([]);
+				setRecent([]);
+				setCurrent(null);
+				setNotificationPrompt(false);
+				setPendingPromptRound(null);
+				promptChecked.current = false;
 				setSavedReady(false);
 				setAdConfig(null);
 				setAttendance(null);

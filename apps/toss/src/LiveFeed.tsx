@@ -5,7 +5,7 @@ import {
 	useVisibility,
 } from "@granite-js/react-native";
 import { Button, SegmentedControl } from "@toss/tds-react-native";
-import { memo, useEffect, useMemo, useRef } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import {
 	ActivityIndicator,
 	RefreshControl,
@@ -35,16 +35,28 @@ const GenerationRow = memo(function GenerationRow({
 	item,
 	now,
 	ballSize,
+	mine,
 }: {
+	mine: boolean;
 	item: Generation;
 	now: number;
 	ballSize: number;
 }) {
 	const theme = useTheme();
 	return (
-		<View style={[s.generation, { borderColor: theme.line }]}>
+		<View
+			style={[
+				s.generation,
+				{
+					borderColor: theme.line,
+					backgroundColor: mine ? theme.surface : undefined,
+				},
+			]}
+		>
 			<View style={[s.row, { marginBottom: 12 }]}>
-				<Text style={[s.body, { color: theme.text }]}>{item.displayName}</Text>
+				<Text style={[s.body, { color: theme.text }]}>
+					{mine ? "내가 만든 번호" : item.displayName}
+				</Text>
 				<Text style={[s.caption, { color: theme.muted }]}>
 					{relativeTime(item.createdAt, now)}
 				</Text>
@@ -60,6 +72,7 @@ const GenerationRow = memo(function GenerationRow({
 
 export function LiveFeed({
 	feed,
+	myGeneration,
 	history,
 	controller,
 	adConfig,
@@ -73,6 +86,7 @@ export function LiveFeed({
 	onResults,
 }: {
 	feed: Feed | null;
+	myGeneration: Generation | null;
 	history: FeedHistory;
 	controller: ReturnType<typeof createFeedHistory>;
 	adConfig: AdConfig | null;
@@ -86,8 +100,25 @@ export function LiveFeed({
 	onResults: () => void;
 }) {
 	const theme = useTheme();
-	const list = useRef<IOFlatListController>(null);
 	const visible = useVisibility();
+	const lastHighlighted = useRef<number | null>(null);
+	const [highlightId, setHighlightId] = useState<number | null>(null);
+	const confirmedId =
+		myGeneration &&
+		feed?.generations.some((item) => item.id === myGeneration.id)
+			? myGeneration.id
+			: null;
+	useEffect(() => {
+		if (!visible || !confirmedId || lastHighlighted.current === confirmedId) {
+			setHighlightId(null);
+			return;
+		}
+		lastHighlighted.current = confirmedId;
+		setHighlightId(confirmedId);
+		const timer = setTimeout(() => setHighlightId(null), 6000);
+		return () => clearTimeout(timer);
+	}, [confirmedId, visible]);
+	const list = useRef<IOFlatListController>(null);
 	const scrollOffset = useRef(0);
 	const gridChangeOffset = useRef<number | null>(null);
 	const lastRound = useRef(history.round);
@@ -139,6 +170,7 @@ export function LiveFeed({
 					) : (
 						<GenerationRow
 							item={item.generation}
+							mine={item.generation.id === highlightId}
 							now={now}
 							ballSize={ballSize}
 						/>
