@@ -82,6 +82,7 @@ const api = {
 		},
 		remove: async () => {
 			if (failRemove) throw new Error("cannot delete");
+			items = [];
 			return items;
 		},
 	}),
@@ -137,6 +138,10 @@ function Probe() {
 let root: ReactTestRenderer;
 await act(async () => {
 	root = create(<Probe />);
+});
+expect(model.actionError?.source).toBe("saved-results");
+await act(async () => {
+	await model.save(generation);
 });
 expect(model.actionError?.source).toBe("saved-results");
 failDraw = false;
@@ -216,6 +221,28 @@ await act(async () => {
 });
 expect(model.notificationPrompt).toBe(false);
 expect(promptShown).toBe(false);
+await act(async () => {
+	root.unmount();
+});
+promptShown = false;
+failRemove = false;
+attendanceGate = new Promise<void>((resolve) => {
+	releaseAttendance = resolve;
+});
+await act(async () => {
+	root = create(<Probe />);
+});
+await act(async () => {
+	await model.save(generation);
+});
+await act(async () => {
+	await model.remove(item);
+});
+await act(async () => {
+	releaseAttendance();
+});
+expect(model.saved).toHaveLength(0);
+expect(model.notificationPrompt).toBe(false);
 await act(async () => {
 	root.unmount();
 });

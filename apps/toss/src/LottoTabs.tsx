@@ -14,7 +14,6 @@ import { Tab, TDSProvider } from "@toss/tds-react-native";
 import {
 	type PropsWithChildren,
 	startTransition,
-	useCallback,
 	useEffect,
 	useLayoutEffect,
 	useState,
@@ -25,7 +24,7 @@ import { useLottoContext } from "./LottoProvider";
 import { LottoScreen } from "./LottoScreen";
 import { type LottoTab, navigateToTab, TAB_BACK_BEHAVIOR } from "./navigation";
 import { ResultNotificationPrompt } from "./ResultNotificationPrompt";
-import { TabShellContext } from "./TabShell";
+import { TabShellContext, useOverlayStack } from "./TabShell";
 import { useTheme } from "./theme";
 
 type Options = Record<string, never>;
@@ -104,12 +103,7 @@ function TabNavigator(props: NavigatorProps) {
 	const { fontScale } = useWindowDimensions();
 	const visible = useVisibility();
 	const [tabBarHeight, setTabBarHeight] = useState(72);
-	const [overlay, setOverlay] = useState<{ onBack: () => void } | null>(null);
-	const presentOverlay = useCallback((onBack: () => void) => {
-		const owner = { onBack };
-		setOverlay(owner);
-		return () => setOverlay((current) => (current === owner ? null : current));
-	}, []);
+	const { overlay, presentOverlay } = useOverlayStack();
 	const backEvent = useBackEvent();
 	useLayoutEffect(() => {
 		if (!visible || (!overlay && state.history.length < 2)) return;

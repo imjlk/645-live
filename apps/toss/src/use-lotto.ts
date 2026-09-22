@@ -154,7 +154,9 @@ export function useLotto() {
 		if (actionLock.current) return false;
 		actionLock.current = true;
 		setBusy(name);
-		setActionError(null);
+		setActionError((previous) =>
+			previous?.source === "saved-results" ? previous : null,
+		);
 		try {
 			await task();
 			return true;
@@ -463,6 +465,16 @@ export function useLotto() {
 
 	useEffect(() => {
 		if (
+			pendingPromptRound !== null &&
+			savedReady &&
+			!saved.some((item) => item.round === pendingPromptRound)
+		) {
+			setPendingPromptRound(null);
+			setNotificationPrompt(false);
+			promptChecked.current = false;
+			return;
+		}
+		if (
 			!foreground ||
 			!savedReady ||
 			pendingPromptRound === null ||
@@ -500,6 +512,7 @@ export function useLotto() {
 		foreground,
 		savedReady,
 		pendingPromptRound,
+		saved,
 		context,
 	]);
 
