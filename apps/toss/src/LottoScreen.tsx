@@ -587,7 +587,9 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 												</Button>
 											</View>
 										) : null}
-										{model.recent.length > 1 ? (
+										{model.recent.some(
+											(item) => item.id !== model.current?.id,
+										) ? (
 											<Button
 												size="tiny"
 												style="weak"
