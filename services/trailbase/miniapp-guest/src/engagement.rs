@@ -2,11 +2,8 @@ use crate::{attendance, auth, body, db, lotto, settings};
 use serde::Deserialize;
 use serde_json::{Value as Json, json};
 use trailbase_guest_common::{
-    apps_in_toss_messages as messages, apps_in_toss_proxy as proxy,
-    message_recipients::{ProxyRecipient, payload_with_recipient},
-    promotion_rewards as rewards,
-    responses::*,
-    session::hmac_hex,
+    apps_in_toss_messages as messages, apps_in_toss_proxy as proxy, promotion_rewards as rewards,
+    responses::*, session::hmac_hex,
 };
 use trailbase_wasm::{
     db::{Transaction, Value},
@@ -541,10 +538,15 @@ pub(crate) async fn execute_reward(
     let mut transaction_key = ledger.provider_transaction_key.clone();
     if ledger.protocol.as_deref() == Some("three-step") && ledger.execution_started_at.is_none() {
         if transaction_key.is_none() {
-            let prepared =
-                proxy::promotion_reward_prepare(&url, Some(&token), json!({"anonKey": anon_key}))
-                    .await
-                    .map_err(|_| proxy_error("prepare"))?;
+            let prepared = proxy::promotion_reward_prepare(
+                &url,
+                Some(&token),
+                rewards::promotion_reward_prepare_payload(
+                    rewards::PromotionRecipient::AnonymousKey(anon_key),
+                )?,
+            )
+            .await
+            .map_err(|_| proxy_error("prepare"))?;
             let issued = prepared["providerTransactionKey"]
                 .as_str()
                 .map(str::trim)
@@ -578,25 +580,28 @@ pub(crate) async fn execute_reward(
         let claimed = rewards::begin_promotion_reward_execute_tx(&mut tx, table, &ledger.id, now)?;
         db::tx_commit(&mut tx)?;
         if let Some(record) = claimed {
-            let payload = rewards::promotion_reward_payload(rewards::PromotionRewardPayloadInput {
-                provider_request_id: &record.provider_request_id,
-                provider_transaction_key: record.provider_transaction_key.as_deref(),
-                promotion: &rewards::PromotionGrantContext {
-                    campaign_id: record.campaign_id.clone(),
-                    provider_promotion_code: Some(promotion_code.into()),
-                    reward_amount: record.reward_amount,
-                    source: record.source_type.clone(),
-                },
-                requested_at: record.requested_at,
-                toss_user_key: anon_key,
-                eligibility_id: None,
-                user_id: None,
-                source_type: Some(&record.source_type),
-                source_id: record.source_id.clone().map(Json::String),
-            });
-            // The ledger builder defaults to a Toss Login recipient. This app uses
-            // anonymous identity, matching the recipient bound during prepare.
-            let payload = payload_with_recipient(payload, ProxyRecipient::AnonymousKey(anon_key))?;
+            let payload =
+                rewards::promotion_reward_payload_for_recipient(rewards::PromotionRewardRequest {
+                    provider_request_id: &record.provider_request_id,
+                    provider_transaction_key: record
+                        .provider_transaction_key
+                        .as_deref()
+                        .ok_or_else(|| {
+                            internal("Promotion execution requires a persisted transaction key")
+                        })?,
+                    promotion: &rewards::PromotionGrantContext {
+                        campaign_id: record.campaign_id.clone(),
+                        provider_promotion_code: Some(promotion_code.into()),
+                        reward_amount: record.reward_amount,
+                        source: record.source_type.clone(),
+                    },
+                    requested_at: record.requested_at,
+                    recipient: rewards::PromotionRecipient::AnonymousKey(anon_key),
+                    eligibility_id: None,
+                    user_id: None,
+                    source_type: Some(&record.source_type),
+                    source_id: record.source_id.clone().map(Json::String),
+                })?;
             let response = proxy::promotion_reward_execute(&url, Some(&token), payload)
                 .await
                 .map_err(|_| proxy_error("execute"))?;
