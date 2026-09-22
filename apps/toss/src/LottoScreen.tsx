@@ -13,6 +13,7 @@ import {
 	BottomSheet,
 	Button,
 	IconButton,
+	SegmentedControl,
 	Switch,
 	Tab,
 } from "@toss/tds-react-native";
@@ -62,7 +63,9 @@ import { PrivacyNotice } from "./PrivacyNotice";
 import { ReportHistory } from "./ReportHistory";
 import { SAVED_LIMIT } from "./saved-store";
 import { useTabShell } from "./TabShell";
+import { trackProduct } from "./telemetry";
 import { useTheme } from "./theme";
+import { type SavedFilter, savedRounds, savedSummary } from "./ux-state";
 
 type Panel =
 	| "custom"
@@ -73,9 +76,11 @@ type Panel =
 	| "support"
 	| "localTest"
 	| "resultPreview"
+	| "recent"
 	| "generationResults"
 	| null;
 const PANEL_TITLES = {
+	recent: "최근 만든 번호",
 	custom: "내 취향대로 만들기",
 	report: "내 조합 살펴보기",
 	attendance: "매일 한 번, 출석",
@@ -120,7 +125,29 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 	const { width } = useWindowDimensions();
 	const { tabBarHeight, presentOverlay } = useTabShell();
 	const [savedPage, setSavedPage] = useState(0);
-	const savedPages = Math.max(1, Math.ceil(model.saved.length / 20));
+	const [savedFilter, setSavedFilter] = useState<SavedFilter>("all");
+	const [selectedRound, setSelectedRound] = useState<number | null>(null);
+	const rounds = savedRounds(model.saved, model.results, savedFilter);
+	const savedRound =
+		selectedRound !== null && rounds.includes(selectedRound)
+			? selectedRound
+			: rounds[0];
+	const roundItems = model.saved.filter((item) => item.round === savedRound);
+	const roundDraw = savedRound ? model.results[savedRound] : undefined;
+	const summary = roundDraw ? savedSummary(roundItems, roundDraw) : null;
+	const savedPages = Math.max(1, Math.ceil(roundItems.length / 20));
+	const viewedResults = useRef(new Set<number>());
+	useEffect(() => {
+		if (
+			visible &&
+			tab === "saved" &&
+			roundDraw &&
+			!viewedResults.current.has(roundDraw.round)
+		) {
+			viewedResults.current.add(roundDraw.round);
+			trackProduct("saved_results_viewed");
+		}
+	}, [visible, tab, roundDraw]);
 	const currentSavedPage = Math.min(savedPage, savedPages - 1);
 	const [{ panel, open: sheetOpen }, setSheet] = useState<{
 		panel: Panel;
@@ -191,6 +218,17 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 
 	const text = { color: theme.text };
 	const muted = { color: theme.muted };
+	const actionMessage = (area: string) =>
+		model.actionError?.area === area ? (
+			<View accessibilityRole="alert" style={{ paddingVertical: 12, gap: 8 }}>
+				<Text style={[s.caption, { color: "#F04452" }]}>
+					{model.actionError.message}
+				</Text>
+				<Button size="tiny" style="weak" onPress={model.clearActionError}>
+					확인
+				</Button>
+			</View>
+		) : null;
 	const headline = (title: string, subtitle?: string, action?: ReactNode) => (
 		<View style={s.heading}>
 			<View style={s.headingRow}>
@@ -363,6 +401,7 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 						connection={model.connection}
 						ballSize={ballSize}
 						reducedMotion={model.reducedMotion}
+						myGeneration={model.recent[0] ?? null}
 						columns={liveColumns}
 						onColumnsChange={setLiveColumns}
 						refreshing={model.refreshing}
@@ -386,6 +425,8 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 							{tab === "make" ? (
 								<>
 									<View style={[s.section, s.firstSection]}>
+										{actionMessage("make")}
+										{actionMessage("saved")}
 										<View style={s.row}>
 											<Text style={[s.eyebrow, { color: theme.blue }]}>
 												{model.context
@@ -436,6 +477,37 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 												</Pressable>
 											) : null}
 										</View>
+										{hasOptions ? (
+											<Text style={[s.caption, muted, { marginBottom: 12 }]}>
+												{[
+													options.fixed.length
+														? `고정 ${options.fixed.join("·")}`
+														: "",
+													options.excluded.length
+														? `제외 ${options.excluded.length}개`
+														: "",
+													options.oddCount !== null
+														? `홀수 ${options.oddCount}개`
+														: "",
+												]
+													.filter(Boolean)
+													.join(" / ")}
+											</Text>
+										) : null}
+										{model.current &&
+										model.recent[0]?.id === model.current.id &&
+										model.feed?.generations.some(
+											(item) => item.id === model.current?.id,
+										) ? (
+											<Text
+												style={[
+													s.caption,
+													{ color: theme.positive, marginBottom: 12 },
+												]}
+											>
+												내 번호도 실시간 현황에 더해졌어요
+											</Text>
+										) : null}
 										{LOCAL_PREVIEW ? (
 											<View style={{ marginBottom: 8 }}>
 												<Button
@@ -449,7 +521,10 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 											</View>
 										) : null}
 										<AdCtaImpression
-											enabled={model.generationAdRequired}
+											enabled={
+												model.generationAdRequired &&
+												!(hasOptions && !customOpen)
+											}
 											policy={adPolicyLabel(model.adConfig?.generationAdPolicy)}
 										>
 											{(runAttempt) => (
@@ -462,19 +537,26 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 														!model.user ||
 														!model.context
 													}
-													onPress={() =>
+													onPress={() => {
+														if (hasOptions && !customOpen) {
+															setDraft(options);
+															setPanel("custom");
+															return;
+														}
 														void runAttempt((adFlow) =>
 															model.generate(
 																hasOptions ? options : EMPTY_OPTIONS,
 																model.generationAdRequired,
 																adFlow,
 															),
-														)
-													}
+														);
+													}}
 												>
-													{model.generationAdRequired
-														? "광고 보고 계속 만들기"
-														: generationLabel}
+													{hasOptions && !customOpen
+														? "맞춤 조건 이용권 열기"
+														: model.generationAdRequired
+															? "광고 보고 계속 만들기"
+															: generationLabel}
 												</Button>
 											)}
 										</AdCtaImpression>
@@ -494,6 +576,15 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 													{isSaved ? "보관함에 저장했어요" : "이 번호 보관하기"}
 												</Button>
 											</View>
+										) : null}
+										{model.recent.length > 1 ? (
+											<Button
+												size="tiny"
+												style="weak"
+												onPress={() => setPanel("recent")}
+											>
+												최근 만든 번호 {model.recent.length}개 보기
+											</Button>
 										) : null}
 										<Pressable
 											accessibilityRole="button"
@@ -515,14 +606,23 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 												</Text>
 												<Text style={[s.caption, muted]}>
 													{model.attendance?.generatedToday
-														? "출석을 이어가고 혜택을 확인해 보세요."
+														? model.attendance.checkedIn
+															? model.attendance.streak === 7
+																? "7일을 채웠어요. 혜택을 확인해 보세요."
+																: `7일 완성까지 ${7 - model.attendance.streak}일 남았어요.`
+															: "오늘 번호를 만들었어요. 출석을 완료해 보세요."
 														: "번호를 한 번 만들면 출석할 수 있어요."}
 												</Text>
 											</View>
 											<Text style={[s.body, { color: theme.blue }]}>
 												{model.attendance?.checkedIn
 													? "혜택 보기 ›"
-													: "출석하기 ›"}
+													: model.attendance?.generatedToday &&
+															model.attendance.promotions.some(
+																(p) => p.kind === "daily" && p.available,
+															)
+														? `출석하고 ${model.attendance.promotions.find((p) => p.kind === "daily" && p.available)?.amount}P 받기 ›`
+														: "출석하기 ›"}
 											</Text>
 										</Pressable>
 										<Text style={[s.finePrint, muted]}>
@@ -621,6 +721,7 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 												</Text>
 											</View>
 											<Switch
+												disabled={!!model.busy}
 												checked={model.attendance.notificationsEnabled}
 												onCheckedChange={(checked) =>
 													void model.notifications(checked)
@@ -632,6 +733,84 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 										placement="saved"
 										groupId={model.adConfig?.bannerGroups?.card}
 									/>
+									{actionMessage("saved")}
+									{model.savedReady && model.saved.length > 0 ? (
+										<View style={{ gap: 12, marginVertical: 20 }}>
+											<SegmentedControl.Root
+												name="saved-filter"
+												size="small"
+												value={savedFilter}
+												onChange={(value) => {
+													if (
+														value !== "all" &&
+														value !== "waiting" &&
+														value !== "ready"
+													)
+														return;
+													setSavedFilter(value);
+													setSelectedRound(null);
+													setSavedPage(0);
+												}}
+											>
+												<SegmentedControl.Item value="all">
+													전체
+												</SegmentedControl.Item>
+												<SegmentedControl.Item value="waiting">
+													결과 대기
+												</SegmentedControl.Item>
+												<SegmentedControl.Item value="ready">
+													결과 확인
+												</SegmentedControl.Item>
+											</SegmentedControl.Root>
+											<ScrollView
+												horizontal
+												showsHorizontalScrollIndicator={false}
+												contentContainerStyle={{ gap: 8 }}
+											>
+												{rounds.map((round) => (
+													<Button
+														key={round}
+														size="tiny"
+														style={round === savedRound ? "fill" : "weak"}
+														onPress={() => {
+															setSelectedRound(round);
+															setSavedPage(0);
+														}}
+													>
+														{round}회
+													</Button>
+												))}
+											</ScrollView>
+											{summary ? (
+												<View style={{ gap: 6 }}>
+													<Text style={[s.body, text]}>
+														{savedRound}회 · 보관한 {summary.total}개 결과
+													</Text>
+													<Text style={[s.caption, muted]}>
+														{summary.rankCounts
+															.slice(1)
+															.map((count, i) =>
+																count ? `${i + 1}등 번호 일치 ${count}개` : "",
+															)
+															.filter(Boolean)
+															.join(" · ") ||
+															"3개 이상 일치하는 조합이 없어요."}
+													</Text>
+												</View>
+											) : savedRound ? (
+												<Text style={[s.caption, muted]}>
+													{savedRound}회 · {roundItems.length}개 보관 ·{" "}
+													{savedRound <= (model.context?.latestDraw?.round ?? 0)
+														? "결과를 다시 불러와 주세요."
+														: "추첨 결과를 기다리고 있어요."}
+												</Text>
+											) : (
+												<Text style={[s.body, muted]}>
+													이 조건에 해당하는 보관 번호가 없어요.
+												</Text>
+											)}
+										</View>
+									) : null}
 									{!model.savedReady ? (
 										<View style={s.empty}>
 											<ActivityIndicator color={theme.blue} />
@@ -665,7 +844,7 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 											</Button>
 										</View>
 									) : (
-										model.saved
+										roundItems
 											.slice(currentSavedPage * 20, (currentSavedPage + 1) * 20)
 											.map((item) => {
 												const draw = model.results[item.round];
@@ -871,16 +1050,49 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 					) : undefined
 				}
 			>
-				{model.error ? (
+				{model.actionError &&
+				(model.actionError.area === panel ||
+					(panel === "custom" && model.actionError.area === "make") ||
+					(panel === "recent" && model.actionError.area === "saved")) ? (
 					<Text
 						accessibilityRole="alert"
 						style={{ color: "#F04452", marginBottom: 14, lineHeight: 22 }}
 					>
-						{model.error}
+						{model.actionError.message}
 					</Text>
 				) : null}
 				<View key={panel}>
-					{panel === "generationResults" ? (
+					{panel === "recent" ? (
+						<View style={{ gap: 16 }}>
+							<Text style={[s.caption, muted]}>
+								앱을 이용하는 동안 최근 10개를 임시로 기억해요. 오래 보관하려면
+								번호를 선택한 뒤 보관해 주세요.
+							</Text>
+							{model.recent.map((item) => (
+								<View key={item.id} style={{ gap: 10, paddingVertical: 12 }}>
+									<Text style={[s.caption, muted]}>
+										{item.round}회 · {relativeTime(item.createdAt, Date.now())}
+									</Text>
+									<Balls
+										numbers={item.numbers}
+										size={Math.min(40, ballSize)}
+										reducedMotion
+									/>
+									<Button
+										size="tiny"
+										style="weak"
+										disabled={!!model.busy}
+										onPress={() => {
+											model.restoreRecent(item);
+											setPanel(null);
+										}}
+									>
+										이 번호 다시 보기
+									</Button>
+								</View>
+							))}
+						</View>
+					) : panel === "generationResults" ? (
 						<GenerationResultsContent active={sheetOpen && visible} />
 					) : panel === "custom" ? (
 						customOpen ? (
@@ -1179,8 +1391,9 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 												text: "삭제",
 												style: "destructive",
 												onPress: () => {
-													void model.withdraw();
-													setPanel(null);
+													void model.withdraw().then((ok) => {
+														if (ok) setPanel(null);
+													});
 												},
 											},
 										],

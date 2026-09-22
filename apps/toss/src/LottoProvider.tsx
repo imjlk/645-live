@@ -5,6 +5,8 @@ import {
 	type PropsWithChildren,
 	type SetStateAction,
 	useContext,
+	useEffect,
+	useRef,
 	useState,
 } from "react";
 import { type LottoModel, useLotto } from "./use-lotto";
@@ -22,9 +24,47 @@ export function LottoProvider({ children }: PropsWithChildren) {
 	const model = useLotto();
 	const [options, setOptions] = useState<GenerationOptions>(EMPTY_OPTIONS);
 	const [liveColumns, setLiveColumns] = useState<5 | 9>(5);
+	const [ready, setReady] = useState(false);
+	const dirty = useRef({ options: false, columns: false });
+	const writes = useRef(Promise.resolve());
+	useEffect(() => {
+		let closed = false;
+		void model.preferences
+			.read()
+			.then((p) => {
+				if (closed) return;
+				if (!dirty.current.options) setOptions(p.options);
+				if (!dirty.current.columns) setLiveColumns(p.liveColumns);
+			})
+			.catch(() => {})
+			.finally(() => {
+				if (!closed) setReady(true);
+			});
+		return () => {
+			closed = true;
+		};
+	}, [model.preferences]);
+	useEffect(() => {
+		if (!ready) return;
+		writes.current = writes.current
+			.then(() => model.preferences.write({ options, liveColumns }))
+			.catch(() => {});
+	}, [ready, options, liveColumns, model.preferences]);
 	return (
 		<LottoContext.Provider
-			value={{ model, options, setOptions, liveColumns, setLiveColumns }}
+			value={{
+				model,
+				options,
+				setOptions: (value) => {
+					dirty.current.options = true;
+					setOptions(value);
+				},
+				liveColumns,
+				setLiveColumns: (value) => {
+					dirty.current.columns = true;
+					setLiveColumns(value);
+				},
+			}}
 		>
 			{children}
 		</LottoContext.Provider>

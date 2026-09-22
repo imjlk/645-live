@@ -24,6 +24,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLottoContext } from "./LottoProvider";
 import { LottoScreen } from "./LottoScreen";
 import { type LottoTab, navigateToTab, TAB_BACK_BEHAVIOR } from "./navigation";
+import { ResultNotificationPrompt } from "./ResultNotificationPrompt";
 import { TabShellContext } from "./TabShell";
 import { useTheme } from "./theme";
 
@@ -186,6 +187,7 @@ function TabNavigator(props: NavigatorProps) {
 						</View>
 					</View>
 				</View>
+				<ResultNotificationPrompt />
 			</TabShellContext.Provider>
 		</NavigationContent>
 	);

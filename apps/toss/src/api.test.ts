@@ -14,6 +14,7 @@ let adEnvironment = "toss";
 let adLoadFails = false;
 let adShowCount = 0;
 let sessionFailure: Error | null = null;
+let notificationResult = "newAgreement";
 const adEvents = [
 	"requested",
 	"show",
@@ -54,7 +55,20 @@ mock.module("@apps-in-toss/framework", () => ({
 		},
 		{ isSupported: () => true },
 	),
-	requestNotificationAgreement: () => {},
+	requestNotificationAgreement: ({
+		onEvent,
+		onError,
+	}: {
+		onEvent: (event: { type: string }) => void;
+		onError: (error: Error) => void;
+	}) => {
+		queueMicrotask(() =>
+			notificationResult === "cancelled"
+				? onError(new Error("cancelled"))
+				: onEvent({ type: notificationResult }),
+		);
+		return () => {};
+	},
 }));
 mock.module("@trailbase-apps-in-toss-kit/ait-rn/storage", () => ({
 	...storageKit,
@@ -79,7 +93,9 @@ mock.module("trailbase", () => ({
 	initClient: () => ({ fetch: (path: string) => fetchPath(path) }),
 }));
 const { createApi } = await import("./api");
-const { createAdController } = await import("./ad-bridge");
+const { createAdController, setResultNotification } = await import(
+	"./ad-bridge"
+);
 type AdApi = Parameters<typeof createAdController>[0];
 afterEach(() => {
 	globalThis.fetch = originalFetch;
@@ -438,4 +454,43 @@ test("lost cancellation is retried before opening another restoration ad", async
 			controller.dispose();
 		}
 	}
+});
+
+test("result notifications require native consent, deduplicate rounds, and never persist cancellation as rejection", async () => {
+	const calls: { path: string; body: unknown }[] = [];
+	const api = {
+		request: async (path: string, body: unknown) => {
+			calls.push({ path, body });
+			return {};
+		},
+	} as unknown as ReturnType<typeof createApi>;
+	notificationResult = "newAgreement";
+	expect(
+		await setResultNotification(api, "result-template", true, [1243, 1243]),
+	).toBe(true);
+	expect(calls.map((c) => c.path)).toEqual([
+		"/api/app/v1/notifications/agreement",
+		"/api/app/v1/notifications/watch-result",
+	]);
+	calls.length = 0;
+	notificationResult = "agreementRejected";
+	expect(
+		await setResultNotification(api, "result-template", true, [1243]),
+	).toBe(false);
+	expect(calls).toEqual([
+		{
+			path: "/api/app/v1/notifications/agreement",
+			body: { templateCode: "result-template", result: "agreementRejected" },
+		},
+	]);
+	calls.length = 0;
+	notificationResult = "cancelled";
+	await expect(
+		setResultNotification(api, "result-template", true, [1243]),
+	).rejects.toThrow();
+	expect(calls).toHaveLength(0);
+	expect(
+		await setResultNotification(api, "result-template", false, [1243]),
+	).toBe(false);
+	expect(calls).toHaveLength(1);
 });

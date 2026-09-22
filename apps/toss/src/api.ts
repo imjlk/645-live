@@ -6,7 +6,10 @@ import type {
 } from "@645/lotto-core";
 import { parseNumbers } from "@645/lotto-core";
 import { getAnonymousKey, Storage } from "@apps-in-toss/framework";
-import { createAppsInTossSessionStorage } from "@trailbase-apps-in-toss-kit/ait-rn/storage";
+import {
+	createAppsInTossSessionStorage,
+	createPersistentJsonAtom,
+} from "@trailbase-apps-in-toss-kit/ait-rn/storage";
 import {
 	createAppsInTossSessionManager,
 	normalizeTrailBaseAuthTokens,
@@ -23,6 +26,7 @@ import {
 import type { GenerationResponse } from "./generation-request";
 import { resolveLottoRuntime } from "./runtime-config";
 import { createSavedStore } from "./saved-store";
+import { DEFAULT_PREFERENCES, normalizePreferences } from "./ux-state";
 
 const runtime = resolveLottoRuntime(
 	import.meta.env.LOTTO_APP_ENV,
@@ -313,6 +317,19 @@ export function createApi() {
 	return {
 		ensure,
 		request,
+		preferences: createPersistentJsonAtom({
+			storage: storage.storage,
+			key: `${runtime.storageKey}.preferences.v1`,
+			fallback: DEFAULT_PREFERENCES,
+			normalize: normalizePreferences,
+		}),
+		notificationPrompt: (user: User) =>
+			createPersistentJsonAtom<boolean>({
+				storage: storage.storage,
+				key: `${runtime.storageKey}.notificationPrompt.v1.${user.id}`,
+				fallback: false,
+				normalize: (value) => (typeof value === "boolean" ? value : null),
+			}),
 		generationAds: createGenerationAdCounter(
 			storage.storage,
 			`${runtime.storageKey}.generationAds.v1`,
