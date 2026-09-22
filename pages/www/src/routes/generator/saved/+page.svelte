@@ -11,15 +11,32 @@ import { resolve } from "$app/paths";
 import SimpleBall from "$lib/components/SimpleBall.svelte";
 import { GenerationApiError, readJson } from "$lib/generator/api";
 import { useGenerator } from "$lib/generator/model.svelte";
+import { summarizeSavedResults } from "$lib/generator/saved-results";
 import { absoluteUrl } from "$lib/seo";
 import MetaTags from "$lib/seo/PageMeta.svelte";
 import { getTrailbaseBrowserBaseUrl } from "$lib/trailbase/browser-base";
 
 const generator = useGenerator();
 let limit = $state(50);
-const visible = $derived(generator.saved.slice(0, limit));
+let selectedRound = $state("all");
+const rounds = $derived(
+	[...new Set(generator.saved.map((g) => g.round))].sort((a, b) => b - a),
+);
+const selected = $derived(
+	generator.saved.filter(
+		(g) => selectedRound === "all" || g.round === Number(selectedRound),
+	),
+);
+const visible = $derived(selected.slice(0, limit));
 let results = $state<Record<number, Draw | null>>({});
-let resultError = $state("");
+const summary = $derived(summarizeSavedResults(selected, results));
+let failedRounds = $state<Record<number, boolean>>({});
+const resultError = $derived(
+	selected.some((g) => failedRounds[g.round])
+		? "일부 추첨 결과를 불러오지 못했어요. 다시 확인해 주세요."
+		: "",
+);
+const requests = new AbortController();
 let celebration = $state("");
 let mounted = false;
 const pending = new Set<number>();
@@ -55,9 +72,10 @@ function celebrate(items: Generation[]) {
 }
 async function loadResults(items: Generation[], force = false) {
 	if (!mounted) return;
-	resultError = "";
+
 	const rounds = [...new Set(items.map((g) => g.round))];
 	for (let offset = 0; offset < rounds.length; offset += 4) {
+		if (!mounted) return;
 		await Promise.all(
 			rounds.slice(offset, offset + 4).map(async (round) => {
 				if (pending.has(round) || (!force && results[round] !== undefined))
@@ -66,6 +84,7 @@ async function loadResults(items: Generation[], force = false) {
 				try {
 					const r = await readJson<Record<string, unknown>>(
 						`${getTrailbaseBrowserBaseUrl()}/api/records/v1/lotto_draw_results/${round}`,
+						{ signal: requests.signal },
 					);
 					const numbers = parseNumbers(
 						Array.from({ length: 6 }, (_, i) =>
@@ -73,23 +92,25 @@ async function loadResults(items: Generation[], force = false) {
 						),
 					);
 					const bonus = Number(r.bonus_number);
-					if (mounted)
-						results[round] =
-							numbers &&
-							Number.isInteger(bonus) &&
-							bonus >= 1 &&
-							bonus <= 45 &&
-							!numbers.includes(bonus) &&
-							typeof r.draw_date === "string"
-								? { round, numbers, bonus, drawDate: r.draw_date }
-								: null;
+					if (
+						!numbers ||
+						!Number.isInteger(bonus) ||
+						bonus < 1 ||
+						bonus > 45 ||
+						numbers.includes(bonus) ||
+						typeof r.draw_date !== "string"
+					)
+						throw new Error("Invalid draw");
+					if (mounted) {
+						results[round] = { round, numbers, bonus, drawDate: r.draw_date };
+						failedRounds[round] = false;
+					}
 				} catch (e) {
 					if (!mounted) return;
-					if (e instanceof GenerationApiError && e.status === 404)
+					if (e instanceof GenerationApiError && e.status === 404) {
 						results[round] = null;
-					else
-						resultError =
-							"일부 추첨 결과를 불러오지 못했어요. 다시 확인해 주세요.";
+						failedRounds[round] = false;
+					} else failedRounds[round] = true;
 				} finally {
 					pending.delete(round);
 				}
@@ -101,19 +122,21 @@ async function loadResults(items: Generation[], force = false) {
 }
 onMount(() => {
 	mounted = true;
-	void loadResults(visible);
+	void loadResults(selected);
 	const refresh = () => {
-		if (document.visibilityState === "visible") void loadResults(visible, true);
+		if (document.visibilityState === "visible")
+			void loadResults(selected, true);
 	};
 	document.addEventListener("visibilitychange", refresh);
 	return () => {
 		mounted = false;
+		requests.abort();
 		clearTimeout(timer);
 		document.removeEventListener("visibilitychange", refresh);
 	};
 });
 $effect(() => {
-	const items = visible;
+	const items = selected;
 	untrack(() => {
 		void loadResults(items);
 	});
@@ -142,20 +165,26 @@ async function deleteShared() {
 <MetaTags title="로또 번호 보관함" titleTemplate="%s | 645.live" description="645.live 번호 생성기에서 마음에 드는 조합을 이 기기에 보관하고 추첨 결과를 확인하세요. 회차별 번호 일치 여부를 살펴보고 보관한 조합을 파일로 백업할 수 있습니다. 보관함은 회원가입 없이 이용하며 브라우저의 저장 공간에 보관됩니다." canonical={absoluteUrl("/generator/saved")} robots="noindex,follow" />
 <div class="content-page saved-page">
 	<header class="page-header"><h1>내 번호 보관함</h1><p>마음에 든 조합을 모아두고, 추첨 후 결과를 확인하세요.</p></header>
-	<div class="saved-toolbar"><strong>{generator.saved.length.toLocaleString()}게임</strong><div><button class="btn btn-ghost btn-sm" disabled={!generator.saved.length} onclick={() => loadResults(visible, true)}>결과 다시 확인</button><button class="btn btn-ghost btn-sm" disabled={!generator.saved.length} onclick={backup}>파일로 백업</button></div></div>
+	<div class="saved-toolbar"><strong>{generator.saved.length.toLocaleString()}게임</strong><div><button class="btn btn-ghost btn-sm" disabled={!generator.saved.length} onclick={() => loadResults(selected, true)}>결과 다시 확인</button><button class="btn btn-ghost btn-sm" disabled={!generator.saved.length} onclick={backup}>파일로 백업</button></div></div>
 	<p class="storage-note">이 브라우저에만 보관돼요. 사이트 데이터를 지우기 전에 백업해 주세요. 번호 보관은 실제 복권 구매가 아닙니다.</p>
+    {#if generator.saved.length}
+    <div class="round-picker"><label for="saved-round">회차 선택</label><select id="saved-round" class="select" bind:value={selectedRound} onchange={() => { limit = 50; }}><option value="all">전체 회차</option>{#if selectedRound !== "all" && !rounds.includes(Number(selectedRound))}<option value={selectedRound}>{selectedRound}회</option>{/if}{#each rounds as round (round)}<option value={String(round)}>{round}회</option>{/each}</select><span>{selected.length.toLocaleString()}게임</span></div>
+    <section class="rank-summary" aria-label="보관한 조합의 등수별 일치 개수"><p>결과 확인 {summary.checked.toLocaleString()} / {selected.length.toLocaleString()}게임 · 실제 구매 여부와 별개예요.</p><dl>{#each summary.ranks as count, index (index)}<div><dt>{index + 1}등 일치</dt><dd>{count.toLocaleString()}<small>게임</small></dd></div>{/each}</dl></section>
+    {/if}
 	{#if generator.error || resultError}<p role="alert" class="alert alert-error">{generator.error || resultError}</p>{/if}
 	{#if celebration}<div class="celebration" role="status"><strong>{celebration}</strong><p>실제 구매한 복권이 있다면 용지의 번호도 확인해 주세요.</p><div class="confetti" aria-hidden="true">{#each Array.from({length:24}, (_, i) => i) as i (i)}<i style:--x={`${(i * 41) % 100}%`} style:--delay={`${i % 5 * .1}s`} style:--angle={`${i * 39}deg`} style:background={`var(--lotto-${["yellow","blue","red","grey","green"][i % 5]})`}></i>{/each}</div></div>{/if}
 	{#if visible.length}<ol class="saved-list">
 		{#each visible as g (g.id)}{@const draw = results[g.round]}{@const result = draw ? compareDraw(g.numbers, draw) : null}
-			<li><div class="saved-top"><a href={resolve(`/history?round=${g.round}`)}>{g.round}회</a><button class="btn btn-ghost btn-sm" aria-label={`${g.numbers.join(", ")} 보관함에서 삭제`} onclick={() => generator.toggleSave(g)}>삭제</button></div><div class="saved-numbers">{#each g.numbers as number (number)}<SimpleBall {number} isWinning={result?.matches.includes(number)} isBonus={Boolean(draw && number === draw.bonus && result?.matches.length === 5)} />{/each}</div><p class:matched={Boolean(result?.rank)}>{result ? result.rank ? `${result.rank}등 번호 일치 · ${result.matches.length}개 일치${result.rank === 2 ? " + 보너스" : ""}` : `${result.matches.length}개 일치` : draw === null ? "추첨 결과 등록을 기다리고 있어요." : "결과 확인 중…"}</p></li>
+			<li><div class="saved-top"><a href={resolve(`/history?round=${g.round}`)}>{g.round}회</a><button class="btn btn-ghost btn-sm" aria-label={`${g.numbers.join(", ")} 보관함에서 삭제`} onclick={() => generator.toggleSave(g)}>삭제</button></div><div class="saved-numbers">{#each g.numbers as number (number)}<SimpleBall {number} isWinning={result?.matches.includes(number)} isBonus={Boolean(draw && number === draw.bonus && result?.matches.length === 5)} />{/each}</div><p class:matched={Boolean(result?.rank)}>{result ? result.rank ? `${result.rank}등 번호 일치 · ${result.matches.length}개 일치${result.rank === 2 ? " + 보너스" : ""}` : `${result.matches.length}개 일치` : failedRounds[g.round] ? "결과를 다시 확인해 주세요." : draw === null ? "추첨 결과 등록을 기다리고 있어요." : "결과 확인 중…"}</p></li>
 		{/each}</ol>
-		{#if generator.saved.length > limit}<div class="more"><button class="btn btn-ghost" onclick={() => { limit += 50; }}>보관한 번호 더 보기</button></div>{/if}
-	{:else}<div class="saved-empty"><p>{generator.ready ? "아직 보관한 번호가 없어요." : "기기의 보관함을 확인하고 있어요."}</p><a class="btn btn-primary" href={resolve("/generator")}>번호 만들러 가기</a></div>{/if}
+		{#if selected.length > limit}<div class="more"><button class="btn btn-ghost" onclick={() => { limit += 50; }}>보관한 번호 더 보기</button></div>{/if}
+	{:else}<div class="saved-empty"><p>{generator.ready ? generator.saved.length ? "이 회차에 보관한 번호가 없어요. 다른 회차를 선택해 주세요." : "아직 보관한 번호가 없어요." : "기기의 보관함을 확인하고 있어요."}</p><a class="btn btn-primary" href={resolve("/generator")}>번호 만들러 가기</a></div>{/if}
 	<p class="source-note">당첨 번호·조합 정보 출처: 645.live · 당첨금은 실제 구매한 유효한 복권에 한해 지급됩니다.</p>
 	<details class="manage"><summary>공유 기록과 기기 보관함 관리</summary><p>보관함에서 삭제해도 공개 생성 기록은 유지됩니다. 아래에서 이 브라우저가 서버에 공유한 모든 기록을 삭제할 수 있습니다.</p><button class="btn btn-outline btn-sm" disabled={!generator.ready || generator.busy} onclick={deleteShared}>{generator.busy ? "처리 중…" : "공유 기록 모두 삭제"}</button><a href={resolve("/privacy#web-generator")}>개인정보 처리 안내</a></details>
 	<p role="status" class="source-note">{generator.notice}</p>
 </div>
 <style>
+.round-picker{display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;margin-block:1.5rem}.round-picker .select{width:auto;min-width:9rem}.round-picker span{color:var(--text-muted);font-size:.85rem}.rank-summary{padding-block:1rem;border-block:1px solid var(--color-base-300)}.rank-summary p{font-size:.8rem;line-height:1.7;color:var(--text-muted)}.rank-summary dl{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:.5rem;margin-top:1rem}.rank-summary dt{font-size:.75rem;color:var(--text-muted)}.rank-summary dd{font-size:1.4rem;font-weight:700;font-variant-numeric:tabular-nums;margin:0}.rank-summary small{display:block;font-size:.7rem;font-weight:400;color:var(--text-muted)}
+
 .saved-toolbar,.saved-top{display:flex;align-items:center;justify-content:space-between;gap:.75rem;flex-wrap:wrap;}.saved-toolbar strong{font-size:1.2rem;font-variant-numeric:tabular-nums;}.saved-toolbar>div{display:flex;gap:.25rem;}.storage-note,.source-note{font-size:.8rem;line-height:1.7;color:var(--text-muted);margin-block:1rem;}.saved-list{display:grid;grid-template-columns:minmax(0,1fr);gap:0 3rem;list-style:none;padding:0;}.saved-list li{padding:1rem 0 1.5rem;border-bottom:1px solid var(--color-base-300);min-width:0;}.saved-top>a{font-size:.85rem;font-weight:650;color:var(--color-primary);padding:.75rem 0;}.saved-numbers{display:flex;gap:clamp(.35rem,1.5vw,.75rem);padding:.5rem 0;}.saved-list li>p{font-size:.85rem;margin-top:.75rem;color:var(--text-muted);}.saved-list li>p.matched{color:var(--color-primary);font-weight:650;}.saved-empty{text-align:center;padding:4rem 0;}.saved-empty p{margin-bottom:1.5rem;color:var(--text-muted);}.more{text-align:center;margin-block:1.5rem;}.manage{margin-top:2rem;padding-top:1rem;border-top:1px solid var(--color-base-300);}.manage summary{min-height:44px;cursor:pointer;font-size:.9rem;font-weight:600;}.manage p{max-width:var(--reading-width);font-size:.85rem;line-height:1.7;color:var(--text-muted);margin-block:1rem;}.manage>a{display:inline-block;color:var(--color-primary);font-size:.8rem;padding:1rem;}.celebration{position:relative;overflow:hidden;padding:1.5rem 0;margin-block:1rem;color:var(--color-primary);}.celebration p{font-size:.85rem;margin-top:.5rem;}.confetti{position:absolute;inset:0;pointer-events:none;}.confetti i{position:absolute;left:var(--x);top:-1rem;width:.4rem;height:.7rem;animation:confetti 2s var(--delay) ease-in both;}@keyframes confetti{to{transform:translateY(160px) rotate(var(--angle));opacity:0;}}@media(min-width:900px){.saved-list{grid-template-columns:repeat(2,minmax(0,1fr));}}@media(max-width:390px){.saved-numbers :global(.simple-ball){width:2.5rem;height:2.5rem;}}@media(prefers-reduced-motion:reduce){.confetti{display:none;}}
 </style>

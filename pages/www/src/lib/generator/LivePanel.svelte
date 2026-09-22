@@ -1,6 +1,6 @@
 <script lang="ts">
 import type { Generation } from "@645/lotto-core";
-import { tick } from "svelte";
+import { onMount, tick } from "svelte";
 import { resolve } from "$app/paths";
 import AdSlot from "$lib/components/ads/AdSlot.svelte";
 import SimpleBall from "$lib/components/SimpleBall.svelte";
@@ -20,6 +20,15 @@ let {
 	isSaved?: (g: Generation) => boolean;
 } = $props();
 let columns = $state<5 | 9>(5);
+const columnKey = "645:generator:columns:v1";
+onMount(() => {
+	try {
+		const saved = localStorage.getItem(columnKey);
+		if (saved === "5" || saved === "9") columns = Number(saved) as 5 | 9;
+	} catch {
+		/* Optional layout preference must not block the feed. */
+	}
+});
 const rows = $derived(
 	compact
 		? (live.feed?.generations.slice(0, 3) ?? [])
@@ -27,6 +36,11 @@ const rows = $derived(
 );
 async function changeColumns(next: 5 | 9) {
 	if (columns === next) return;
+	try {
+		localStorage.setItem(columnKey, String(next));
+	} catch {
+		/* Keep usable in memory. */
+	}
 	if (
 		document.startViewTransition &&
 		!matchMedia("(prefers-reduced-motion: reduce)").matches
