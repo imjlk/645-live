@@ -1,5 +1,11 @@
 # @645/toss
 
+## 1.3.0 — 2026-09-22
+
+### Minor changes
+
+- [786bb43](https://github.com/imjlk/645-live/commit/786bb4391c609767a1582dcf54d2fafa5b3a047d) Add round-based saved result browsing, recent generation recovery, persisted display preferences, and contextual action errors. Introduce a first-save TDS notification prompt connected to functional result notifications, improve attendance guidance and generation pacing, and measure the generation-to-save funnel while preserving the saved-screen banner placement.
+
 ## 1.2.3 — 2026-09-21
 
 ### Patch changes
