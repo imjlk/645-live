@@ -84,3 +84,34 @@ test("payment and notification failures stay in their relevant UI areas", () => 
 	expect(actionArea("notifications")).toBe("saved");
 	expect(actionArea("generate")).toBe("make");
 });
+
+test("preference writes preserve unread fields and retry without replacing stored data", async () => {
+	const { createPreferencesStore } = await import("./ux-state");
+	let raw = JSON.stringify({
+		options: { fixed: [7], excluded: [], oddCount: null },
+		liveColumns: 9,
+	});
+	let fail = true;
+	const store = createPreferencesStore(
+		{
+			getItem: async () => {
+				if (fail) throw new Error("offline");
+				return raw;
+			},
+			setItem: async (_key, value) => {
+				raw = value;
+			},
+		},
+		"preferences",
+	);
+	await expect(
+		store.write({ options: { fixed: [8], excluded: [], oddCount: null } }),
+	).rejects.toThrow("offline");
+	expect(JSON.parse(raw).options.fixed).toEqual([7]);
+	fail = false;
+	await store.write({ options: { fixed: [8], excluded: [], oddCount: null } });
+	expect(JSON.parse(raw)).toEqual({
+		options: { fixed: [8], excluded: [], oddCount: null },
+		liveColumns: 9,
+	});
+});

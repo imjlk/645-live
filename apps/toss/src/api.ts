@@ -26,7 +26,7 @@ import {
 import type { GenerationResponse } from "./generation-request";
 import { resolveLottoRuntime } from "./runtime-config";
 import { createSavedStore } from "./saved-store";
-import { DEFAULT_PREFERENCES, normalizePreferences } from "./ux-state";
+import { createPreferencesStore } from "./ux-state";
 
 const runtime = resolveLottoRuntime(
 	import.meta.env.LOTTO_APP_ENV,
@@ -317,12 +317,10 @@ export function createApi() {
 	return {
 		ensure,
 		request,
-		preferences: createPersistentJsonAtom({
-			storage: storage.storage,
-			key: `${runtime.storageKey}.preferences.v1`,
-			fallback: DEFAULT_PREFERENCES,
-			normalize: normalizePreferences,
-		}),
+		preferences: createPreferencesStore(
+			storage.storage,
+			`${runtime.storageKey}.preferences.v1`,
+		),
 		notificationPrompt: (user: User) =>
 			createPersistentJsonAtom<boolean>({
 				storage: storage.storage,

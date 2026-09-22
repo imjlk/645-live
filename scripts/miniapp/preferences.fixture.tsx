@@ -44,7 +44,6 @@ await act(async () => {
 	context.setLiveColumns(9);
 });
 expect(write).toHaveBeenLastCalledWith({
-	options: EMPTY_OPTIONS,
 	liveColumns: 9,
 });
 await act(async () => {
@@ -70,7 +69,6 @@ await act(async () => {
 expect(context.liveColumns).toBe(9);
 expect(context.options.fixed).toEqual([7]);
 expect(write).toHaveBeenLastCalledWith({
-	options: { fixed: [7], excluded: [], oddCount: null },
 	liveColumns: 9,
 });
 await act(async () => {

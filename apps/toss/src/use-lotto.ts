@@ -408,12 +408,16 @@ export function useLotto() {
 			if (!closed) {
 				setResults((prev) => ({ ...prev, ...collected }));
 				if (failed)
-					setActionError({
-						area: "saved",
-						source: "saved-results",
-						message:
-							"일부 결과를 불러오지 못했어요. 아래로 당겨 다시 확인해 주세요.",
-					});
+					setActionError((previous) =>
+						previous && previous.source !== "saved-results"
+							? previous
+							: {
+									area: "saved",
+									source: "saved-results",
+									message:
+										"일부 결과를 불러오지 못했어요. 아래로 당겨 다시 확인해 주세요.",
+								},
+					);
 				else
 					setActionError((previous) =>
 						previous?.source === "saved-results" ? null : previous,
@@ -666,11 +670,11 @@ export function useLotto() {
 		removePublic: (item: SavedCombination) =>
 			run("removePublic", async () => {
 				const result = await api.removePublic(item.generationId);
-				if (store) setSaved(await store.remove(item.id));
 				if (result.deleted) {
 					setRecent((items) => items.filter((g) => g.id !== item.generationId));
 					setCurrent((g) => (g?.id === item.generationId ? null : g));
 				}
+				if (store) setSaved(await store.remove(item.id));
 				setNotice(
 					result.deleted
 						? "내 공개 생성 내역과 기기 보관 번호를 삭제했어요."
@@ -777,6 +781,16 @@ export function useLotto() {
 			run("notifications", async () => {
 				const template = attendance?.notificationTemplateCode;
 				if (!template) throw new Error("결과 알림을 준비 중이에요.");
+				// A deliberate choice also completes onboarding for existing users.
+				promptChecked.current = true;
+				setNotificationPrompt(false);
+				if (user) {
+					try {
+						await api.notificationPrompt(user).write(true);
+					} catch {
+						/* Optional onboarding storage must not block consent. */
+					}
+				}
 				const rounds = saved
 					.map((v) => v.round)
 					.filter((r) => r >= (context?.targetRound ?? 1) - 1);

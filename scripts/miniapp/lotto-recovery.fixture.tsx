@@ -150,6 +150,20 @@ await act(async () => {
 	model.retry();
 });
 expect(model.actionError?.message).toBe("cannot delete");
+failDraw = true;
+await act(async () => {
+	model.retry();
+});
+expect(model.actionError?.message).toBe("cannot delete");
+promptShown = false;
+await act(async () => {
+	await model.notifications(false);
+});
+expect(promptShown).toBe(true);
+await act(async () => {
+	await model.save(generation);
+});
+expect(model.notificationPrompt).toBe(false);
 await act(async () => {
 	await model.withdraw();
 });

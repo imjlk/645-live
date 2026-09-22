@@ -66,3 +66,34 @@ export function actionArea(name: string) {
 	if (name === "withdraw") return "settings";
 	return "make";
 }
+
+/** Merge only edited preferences after a successful storage read. */
+export function createPreferencesStore(
+	storage: {
+		getItem(key: string): Promise<string | null> | string | null;
+		setItem(key: string, value: string): Promise<void> | void;
+	},
+	key: string,
+) {
+	let queue: Promise<unknown> = Promise.resolve();
+	async function read(): Promise<Preferences> {
+		const raw = await storage.getItem(key);
+		if (!raw) return DEFAULT_PREFERENCES;
+		const value = normalizePreferences(JSON.parse(raw));
+		if (!value) throw new Error("Cannot read saved preferences");
+		return value;
+	}
+	return {
+		read,
+		write(patch: Partial<Preferences>) {
+			const operation = queue
+				.catch(() => {})
+				.then(async () => {
+					const next = { ...(await read()), ...patch };
+					await storage.setItem(key, JSON.stringify(next));
+				});
+			queue = operation;
+			return operation;
+		},
+	};
+}
