@@ -79,9 +79,12 @@ export function createPreferencesStore(
 	async function read(): Promise<Preferences> {
 		const raw = await storage.getItem(key);
 		if (!raw) return DEFAULT_PREFERENCES;
-		const value = normalizePreferences(JSON.parse(raw));
-		if (!value) throw new Error("Cannot read saved preferences");
-		return value;
+		try {
+			return normalizePreferences(JSON.parse(raw)) ?? DEFAULT_PREFERENCES;
+		} catch {
+			// A successful read of malformed optional data can be repaired by an edit.
+			return DEFAULT_PREFERENCES;
+		}
 	}
 	return {
 		read,

@@ -115,3 +115,21 @@ test("preference writes preserve unread fields and retry without replacing store
 		liveColumns: 9,
 	});
 });
+
+test("explicit edits repair malformed preference payloads", async () => {
+	const { createPreferencesStore } = await import("./ux-state");
+	for (const initial of ["{", '{"options":null}']) {
+		let raw = initial;
+		const store = createPreferencesStore(
+			{
+				getItem: async () => raw,
+				setItem: async (_key, next) => {
+					raw = next;
+				},
+			},
+			"prefs",
+		);
+		await store.write({ liveColumns: 9 });
+		expect((await store.read()).liveColumns).toBe(9);
+	}
+});

@@ -52,6 +52,7 @@ let items = [item];
 let promptShown = true;
 let failDraw = true;
 let failRemove = false;
+let attendanceGate: Promise<void> | null = null;
 const order: string[] = [];
 const progress = { ready: true, remaining: 10 };
 const api = {
@@ -95,11 +96,14 @@ const api = {
 		},
 	}),
 	ads: async () => ({ placements: [] }),
-	attendance: async () => ({
-		serverTime: 1,
-		notificationTemplateCode: "result",
-		notificationsEnabled: false,
-	}),
+	attendance: async () => {
+		if (attendanceGate) await attendanceGate;
+		return {
+			serverTime: 1,
+			notificationTemplateCode: "result",
+			notificationsEnabled: false,
+		};
+	},
 	draw: async () => {
 		if (failDraw) throw new Error("offline");
 		return {
@@ -177,6 +181,31 @@ await act(async () => {
 	await model.save(generation);
 });
 expect(model.notificationPrompt).toBe(true);
+expect(promptShown).toBe(false);
+await act(async () => {
+	model.dismissNotificationPrompt();
+});
+expect(promptShown).toBe(true);
+await act(async () => {
+	root.unmount();
+});
+promptShown = false;
+let releaseAttendance: () => void = () => {};
+attendanceGate = new Promise<void>((resolve) => {
+	releaseAttendance = resolve;
+});
+await act(async () => {
+	root = create(<Probe />);
+});
+await act(async () => {
+	await model.save(generation);
+});
+expect(model.notificationPrompt).toBe(false);
+await act(async () => {
+	releaseAttendance();
+});
+expect(model.notificationPrompt).toBe(true);
+expect(promptShown).toBe(false);
 await act(async () => {
 	root.unmount();
 });

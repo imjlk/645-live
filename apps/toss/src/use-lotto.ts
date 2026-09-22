@@ -458,6 +458,37 @@ export function useLotto() {
 			.catch((e) => setActionError({ area: "saved", message: message(e) }));
 	}, [foreground, store, savedReady, saved, results, reducedMotion]);
 
+	useEffect(() => {
+		if (
+			!foreground ||
+			!savedReady ||
+			!saved.length ||
+			!user ||
+			!attendance?.notificationTemplateCode ||
+			attendance.notificationsEnabled ||
+			promptChecked.current
+		)
+			return;
+		let closed = false;
+		let settled = false;
+		promptChecked.current = true;
+		void api
+			.notificationPrompt(user)
+			.read()
+			.then((alreadyShown) => {
+				if (closed) return;
+				settled = true;
+				if (!alreadyShown) setNotificationPrompt(true);
+			})
+			.catch(() => {
+				if (!closed) promptChecked.current = false;
+			});
+		return () => {
+			closed = true;
+			if (!settled) promptChecked.current = false;
+		};
+	}, [api, user, attendance, foreground, savedReady, saved.length]);
+
 	async function save(generation: Generation) {
 		if (!store || !savedReady)
 			throw new Error("보관함 연결을 먼저 확인해 주세요.");
@@ -475,25 +506,7 @@ export function useLotto() {
 			saved.length === 0 ? "first_save" : "save",
 		);
 		setNotice("이 기기의 보관함에 저장했어요.");
-		if (
-			user &&
-			attendance?.notificationTemplateCode &&
-			!attendance.notificationsEnabled &&
-			!promptChecked.current
-		) {
-			promptChecked.current = true;
-			const prompt = api.notificationPrompt(user);
-			try {
-				const alreadyShown = await prompt.read();
-				if (!alreadyShown && active.current) {
-					await prompt.write(true);
-					if (active.current) setNotificationPrompt(true);
-				}
-			} catch {
-				// Optional onboarding must never turn a completed save into a failure.
-				promptChecked.current = false;
-			}
-		}
+
 		if (
 			attendance?.notificationsEnabled &&
 			generation.round >= (context?.targetRound ?? 1) - 1 &&
@@ -515,7 +528,15 @@ export function useLotto() {
 		recent,
 		actionError,
 		notificationPrompt,
-		dismissNotificationPrompt: () => setNotificationPrompt(false),
+		dismissNotificationPrompt: () => {
+			setNotificationPrompt(false);
+			// Persist only after a response, never before the dialog can be seen.
+			if (user)
+				void api
+					.notificationPrompt(user)
+					.write(true)
+					.catch(() => {});
+		},
 		clearActionError: () => setActionError(null),
 		restoreRecent: (item: Generation) => {
 			if (!actionLock.current) {
