@@ -120,6 +120,10 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 		navigateToTab(navigation, tab, value, visible);
 	};
 	const generationLabel = model.current ? "새 번호 만들기" : "번호 만들기";
+	const viewingPreviousRound =
+		!!model.current &&
+		!!model.context &&
+		model.current.round !== model.context.targetRound;
 	const theme = useTheme();
 	const insets = useSafeAreaInsets();
 	const { width } = useWindowDimensions();
@@ -430,17 +434,23 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 										<View style={s.row}>
 											<Text style={[s.eyebrow, { color: theme.blue }]}>
 												{model.context
-													? `${model.context.targetRound}회 번호 만들기`
+													? viewingPreviousRound
+														? `${model.current?.round}회 생성한 번호`
+														: `${model.context.targetRound}회 번호 만들기`
 													: "이번 주 번호 만들기"}
 											</Text>
 											<Text style={[s.caption, muted]}>
 												{model.context
-													? `${dateLabel(model.context.drawsAt)} 추첨`
+													? viewingPreviousRound
+														? "이전 회차 기록"
+														: `${dateLabel(model.context.drawsAt)} 추첨`
 													: "회차 확인 중"}
 											</Text>
 										</View>
 										{headline(
-											"이번 주, 내 번호는?",
+											viewingPreviousRound
+												? "다시 보는 내 번호"
+												: "이번 주, 내 번호는?",
 											"번호를 만들고 마음에 드는 조합을 보관하세요.",
 										)}
 										<View style={{ paddingVertical: 26 }}>

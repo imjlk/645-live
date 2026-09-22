@@ -45,7 +45,9 @@ export function LottoProvider({ children }: PropsWithChildren) {
 		};
 	}, [model.preferences]);
 	useEffect(() => {
-		if (!ready) return;
+		// Reading optional native storage may return defaults on transient failure.
+		// Never write those defaults back until the user explicitly edits a preference.
+		if (!ready || (!dirty.current.options && !dirty.current.columns)) return;
 		writes.current = writes.current
 			.then(() => model.preferences.write({ options, liveColumns }))
 			.catch(() => {});

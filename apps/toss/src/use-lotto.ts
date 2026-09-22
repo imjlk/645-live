@@ -473,10 +473,15 @@ export function useLotto() {
 		) {
 			promptChecked.current = true;
 			const prompt = api.notificationPrompt(user);
-			const alreadyShown = await prompt.read();
-			if (!alreadyShown && active.current) {
-				await prompt.write(true);
-				if (active.current) setNotificationPrompt(true);
+			try {
+				const alreadyShown = await prompt.read();
+				if (!alreadyShown && active.current) {
+					await prompt.write(true);
+					if (active.current) setNotificationPrompt(true);
+				}
+			} catch {
+				// Optional onboarding must never turn a completed save into a failure.
+				promptChecked.current = false;
 			}
 		}
 		if (
