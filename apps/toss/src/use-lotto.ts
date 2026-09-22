@@ -107,6 +107,7 @@ export function useLotto() {
 	const promptChecked = useRef(false);
 	const [actionError, setActionError] = useState<{
 		area: string;
+		source?: "saved-results";
 		message: string;
 	} | null>(null);
 	const [current, setCurrent] = useState<Generation | null>(null);
@@ -409,9 +410,14 @@ export function useLotto() {
 				if (failed)
 					setActionError({
 						area: "saved",
+						source: "saved-results",
 						message:
 							"일부 결과를 불러오지 못했어요. 아래로 당겨 다시 확인해 주세요.",
 					});
+				else
+					setActionError((previous) =>
+						previous?.source === "saved-results" ? null : previous,
+					);
 			}
 		})();
 		return () => {
@@ -825,6 +831,7 @@ export function useLotto() {
 				// Clear the explicitly selected device data before revoking its server identity;
 				// a storage failure remains retryable under the same identity.
 				setSaved(await store.clear());
+				if (user) await api.notificationPrompt(user).clear();
 				const result = await api.withdraw();
 				setUser(null);
 				setSaved([]);
