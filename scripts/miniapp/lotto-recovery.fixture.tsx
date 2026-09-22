@@ -197,6 +197,7 @@ attendanceGate = new Promise<void>((resolve) => {
 await act(async () => {
 	root = create(<Probe />);
 });
+expect(model.notificationPrompt).toBe(false);
 await act(async () => {
 	await model.save(generation);
 });
@@ -205,6 +206,15 @@ await act(async () => {
 	releaseAttendance();
 });
 expect(model.notificationPrompt).toBe(true);
+expect(promptShown).toBe(false);
+await act(async () => {
+	root.unmount();
+});
+attendanceGate = null;
+await act(async () => {
+	root = create(<Probe />);
+});
+expect(model.notificationPrompt).toBe(false);
 expect(promptShown).toBe(false);
 await act(async () => {
 	root.unmount();

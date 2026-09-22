@@ -105,6 +105,9 @@ export function useLotto() {
 	const [recent, setRecent] = useState<Generation[]>([]);
 	const [notificationPrompt, setNotificationPrompt] = useState(false);
 	const promptChecked = useRef(false);
+	const [pendingPromptRound, setPendingPromptRound] = useState<number | null>(
+		null,
+	);
 	const [actionError, setActionError] = useState<{
 		area: string;
 		source?: "saved-results";
@@ -462,7 +465,10 @@ export function useLotto() {
 		if (
 			!foreground ||
 			!savedReady ||
-			!saved.length ||
+			pendingPromptRound === null ||
+			!context ||
+			pendingPromptRound < context.targetRound - 1 ||
+			pendingPromptRound <= (context.latestDraw?.round ?? 0) ||
 			!user ||
 			!attendance?.notificationTemplateCode ||
 			attendance.notificationsEnabled ||
@@ -487,7 +493,15 @@ export function useLotto() {
 			closed = true;
 			if (!settled) promptChecked.current = false;
 		};
-	}, [api, user, attendance, foreground, savedReady, saved.length]);
+	}, [
+		api,
+		user,
+		attendance,
+		foreground,
+		savedReady,
+		pendingPromptRound,
+		context,
+	]);
 
 	async function save(generation: Generation) {
 		if (!store || !savedReady)
@@ -501,6 +515,7 @@ export function useLotto() {
 			savedAt: Date.now(),
 		});
 		setSaved(items);
+		setPendingPromptRound(generation.round);
 		trackProduct(
 			"combination_saved",
 			saved.length === 0 ? "first_save" : "save",
@@ -873,6 +888,7 @@ export function useLotto() {
 				setRecent([]);
 				setCurrent(null);
 				setNotificationPrompt(false);
+				setPendingPromptRound(null);
 				promptChecked.current = false;
 				setSavedReady(false);
 				setAdConfig(null);
