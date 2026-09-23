@@ -131,7 +131,12 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 	const [savedPage, setSavedPage] = useState(0);
 	const [savedFilter, setSavedFilter] = useState<SavedFilter>("all");
 	const [selectedRound, setSelectedRound] = useState<number | null>(null);
-	const rounds = savedRounds(model.saved, model.results, savedFilter);
+	const rounds = savedRounds(
+		model.saved,
+		model.results,
+		savedFilter,
+		model.context?.latestDraw?.round ?? null,
+	);
 	const savedRound =
 		selectedRound !== null && rounds.includes(selectedRound)
 			? selectedRound
@@ -473,7 +478,7 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 											>
 												<Text style={[s.body, { color: theme.blue }]}>
 													{hasOptions
-														? "맞춤 조건 적용 중"
+														? "다음 번호 맞춤 조건"
 														: "내 취향대로 만들기"}{" "}
 													›
 												</Text>
@@ -489,6 +494,7 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 										</View>
 										{hasOptions ? (
 											<Text style={[s.caption, muted, { marginBottom: 12 }]}>
+												다음 생성 ·{" "}
 												{[
 													options.fixed.length
 														? `고정 ${options.fixed.join("·")}`
@@ -812,9 +818,16 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 											) : savedRound ? (
 												<Text style={[s.caption, muted]}>
 													{savedRound}회 · {roundItems.length}개 보관 ·{" "}
-													{savedRound <= (model.context?.latestDraw?.round ?? 0)
-														? "결과를 다시 불러와 주세요."
-														: "추첨 결과를 기다리고 있어요."}
+													{!model.context
+														? "회차 정보를 확인하고 있어요."
+														: savedRound <=
+																(model.context.latestDraw?.round ?? 0)
+															? model.resultsLoading
+																? "결과를 불러오고 있어요."
+																: model.actionError?.source === "saved-results"
+																	? "결과를 불러오지 못했어요. 아래로 당겨 다시 확인해 주세요."
+																	: "아직 결과를 확인할 수 없어요. 아래로 당겨 다시 확인해 주세요."
+															: "추첨 결과를 기다리고 있어요."}
 												</Text>
 											) : (
 												<Text style={[s.body, muted]}>
@@ -884,10 +897,14 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 																	? result.rank
 																		? `${result.rank}등 번호 일치`
 																		: `${result.matches.length}개 일치`
-																	: item.round <=
-																			(model.context?.latestDraw?.round ?? 0)
-																		? "결과 확인 필요"
-																		: "추첨 결과 기다리는 중"}
+																	: !model.context
+																		? "회차 정보 확인 중"
+																		: item.round <=
+																				(model.context.latestDraw?.round ?? 0)
+																			? model.resultsLoading
+																				? "결과 불러오는 중"
+																				: "결과 확인 필요"
+																			: "추첨 결과 기다리는 중"}
 															</Text>
 														</View>
 														<Balls

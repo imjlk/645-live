@@ -2,4 +2,4 @@
 npm/@645/toss: patch
 ---
 
-Update the shared client adapters and server helpers to their latest releases, including SDK compatibility checks and promotion response validation. Pin the private proxy deployment image to the verified patch release.
+Update shared client adapters and server helpers, including promotion response validation and the private proxy image. Keep published saved rounds in the results view while data loads or fails, and clarify that custom options apply to the next generation.

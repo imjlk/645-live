@@ -31,16 +31,21 @@ const saved = (
 	numbers,
 	savedAt: id,
 });
-test("round filters retain unresolved results and summary separates bonus second from third prize", () => {
+test("published rounds stay in result view while their draw loads or fails", () => {
 	const items = [
 		saved(1, 101, [1, 2, 3, 4, 5, 6]),
 		saved(2, 100, [1, 2, 3, 4, 5, 7]),
 		saved(3, 100, [1, 2, 3, 4, 5, 8]),
 		saved(4, 100, [1, 2, 3, 8, 9, 10]),
+		saved(5, 99, [1, 2, 3, 4, 5, 6]),
 	];
-	expect(savedRounds(items, { 100: draw }, "all")).toEqual([101, 100]);
-	expect(savedRounds(items, { 100: draw }, "ready")).toEqual([100]);
-	expect(savedRounds(items, { 100: draw }, "waiting")).toEqual([101]);
+	expect(savedRounds(items, { 100: draw }, "all", 100)).toEqual([101, 100, 99]);
+	expect(savedRounds(items, { 100: draw }, "ready", 100)).toEqual([100, 99]);
+	expect(savedRounds(items, { 100: draw }, "waiting", 100)).toEqual([101]);
+	expect(savedRounds(items, { 100: draw }, "waiting", null)).toEqual([]);
+	expect(savedRounds(items, { 100: draw }, "ready", null)).toEqual([100]);
+	expect(savedRounds(items, {}, "ready", 100)).toEqual([100, 99]);
+	expect(savedRounds(items, {}, "waiting", 100)).toEqual([101]);
 	expect(savedSummary(items, draw)).toEqual({
 		total: 3,
 		rankCounts: [0, 0, 1, 1, 0, 1],
