@@ -25,11 +25,15 @@ export function normalizePreferences(value: unknown): Preferences | null {
 		return null;
 	return { options: p.options, liveColumns: p.liveColumns === 9 ? 9 : 5 };
 }
+export const RECENT_LIMIT = 10;
 export function rememberGeneration(
 	items: Generation[],
 	next: Generation,
 ): Generation[] {
-	return [next, ...items.filter((item) => item.id !== next.id)].slice(0, 10);
+	return [next, ...items.filter((item) => item.id !== next.id)].slice(
+		0,
+		RECENT_LIMIT,
+	);
 }
 export type SavedFilter = "all" | "waiting" | "ready";
 export function savedRounds(

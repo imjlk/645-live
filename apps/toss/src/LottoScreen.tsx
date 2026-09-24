@@ -66,7 +66,12 @@ import { SAVED_LIMIT } from "./saved-store";
 import { useTabShell } from "./TabShell";
 import { trackProduct } from "./telemetry";
 import { useTheme } from "./theme";
-import { type SavedFilter, savedRounds, savedSummary } from "./ux-state";
+import {
+	RECENT_LIMIT,
+	type SavedFilter,
+	savedRounds,
+	savedSummary,
+} from "./ux-state";
 
 type Panel =
 	| "custom"
@@ -197,6 +202,11 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 		options.fixed.length > 0 ||
 		options.excluded.length > 0 ||
 		options.oddCount !== null;
+	const oldestRecent = model.recent[model.recent.length - 1];
+	const recentLimitAtRisk =
+		model.recent.length >= RECENT_LIMIT &&
+		!!oldestRecent &&
+		!model.saved.some((item) => item.generationId === oldestRecent.id);
 	const saveGeneration = async (item: Generation) => {
 		setSavingGenerationId(item.id);
 		try {
@@ -561,6 +571,18 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 												</Button>
 											</View>
 										) : null}
+										{recentLimitAtRisk ? (
+											<Pressable
+												accessibilityRole="button"
+												onPress={() => setPanel("recent")}
+												style={{ paddingVertical: 10 }}
+											>
+												<Text style={[s.caption, { color: theme.blue }]}>
+													최근 번호가 {RECENT_LIMIT}개예요. 새 번호를 만들면
+													가장 오래된 미보관 번호가 사라져요. 먼저 보관하기 ›
+												</Text>
+											</Pressable>
+										) : null}
 										<AdCtaImpression
 											enabled={
 												model.generationAdRequired &&
@@ -787,7 +809,7 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 													결과 대기
 												</SegmentedControl.Item>
 												<SegmentedControl.Item value="ready">
-													결과 확인
+													추첨 완료
 												</SegmentedControl.Item>
 											</SegmentedControl.Root>
 											<ScrollView
@@ -841,7 +863,9 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 												</Text>
 											) : (
 												<Text style={[s.body, muted]}>
-													이 조건에 해당하는 보관 번호가 없어요.
+													{model.context
+														? "이 조건에 해당하는 보관 번호가 없어요."
+														: "회차 정보를 확인하고 있어요."}
 												</Text>
 											)}
 										</View>
@@ -1104,8 +1128,8 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 					{panel === "recent" ? (
 						<View style={{ gap: 16 }}>
 							<Text style={[s.caption, muted]}>
-								앱을 이용하는 동안 최근 10개를 임시로 기억해요. 남겨두고 싶은
-								번호는 아래에서 보관해 주세요.
+								앱을 이용하는 동안 최근 {RECENT_LIMIT}개를 임시로 기억해요.
+								남겨두고 싶은 번호는 아래에서 보관해 주세요.
 							</Text>
 							{model.recent.map((item) => (
 								<View
