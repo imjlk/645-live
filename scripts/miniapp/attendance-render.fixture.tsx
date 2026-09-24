@@ -140,6 +140,33 @@ await act(async () => {
 		?.props.onPress();
 });
 expect(generateCalls).toBe(1);
+// Generation can update local state before the attendance refresh completes.
+// Checking in during that window must still warn about the missed-day restore.
+await act(async () => {
+	root.update(
+		<AttendancePanel
+			model={{
+				...restore,
+				attendance: {
+					...restore.attendance,
+					canRestore: false,
+					restoreAfterGeneration: true,
+				},
+			}}
+			onGenerate={() => {}}
+		/>,
+	);
+});
+alert.mockClear();
+checkIn.mockClear();
+await act(async () => {
+	root.root
+		.findAllByType("button")
+		.find((button) => button.props.children === "오늘 출석하기")
+		?.props.onPress();
+});
+expect(alert).toHaveBeenCalledTimes(1);
+expect(checkIn).not.toHaveBeenCalled();
 expect(refresh).not.toHaveBeenCalled();
 for (let i = 0; i < 5; i++) {
 	await act(async () => {

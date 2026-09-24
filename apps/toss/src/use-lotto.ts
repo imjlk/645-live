@@ -200,7 +200,14 @@ export function useLotto() {
 			const generated = lastGenerated.current;
 			return generated &&
 				Math.floor((generated.createdAt + 32_400_000) / 86_400_000) === next.day
-				? { ...next, generatedToday: true }
+				? {
+						...next,
+						generatedToday: true,
+						canRestore:
+							!next.checkedIn &&
+							(next.canRestore || next.restoreAfterGeneration),
+						restoreAfterGeneration: false,
+					}
 				: next;
 		});
 	}, []);

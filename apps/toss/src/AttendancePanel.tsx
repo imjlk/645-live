@@ -94,7 +94,7 @@ export function AttendancePanel({
 		(p) => p.placement === "attendance_restore",
 	)?.enabled;
 	const checkIn = () => {
-		if (!state?.canRestore) {
+		if (!state?.canRestore && !state?.restoreAfterGeneration) {
 			void model.checkIn();
 			return;
 		}
