@@ -1,5 +1,11 @@
 # @645/toss
 
+## 1.3.1 — 2026-09-24
+
+### Patch changes
+
+- [655c4c7](https://github.com/imjlk/645-live/commit/655c4c72edeeed65fd0c8f9e2200d9df31d7b568) Update shared client adapters and server helpers, including promotion response validation and the private proxy image. Require rewarded ads for attendance restoration, surface the restore opportunity before check-in, and keep published saved rounds in the completed-draw view while data loads or fails. Clarify that custom options apply to the next generation and let users save recent numbers directly from their list with a warning before unsaved history rolls off.
+
 ## 1.3.0 — 2026-09-22
 
 ### Minor changes
