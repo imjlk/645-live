@@ -231,16 +231,20 @@ def run():
                 attend_days(range(day-7,day+1))
                 assert state()['streak']==1,'eighth day must start a new cycle'
                 assert reward('weekly')['periodDay']==day-1,'completed bonus was lost at reset'
-                # Both ad formats restore once, never grant yesterday's daily points.
+                # A restore always uses rewarded ads, even if an old operator
+                # setting still assigns a zero rewarded weight.
                 for weight in [100,0]:
                     user,auth=new_user()
                     attend_days(range(day-7,day-1))
+                    assert state()['restoreAfterGeneration'] and not state()['canRestore']
                     generate()
-                    assert state()['canRestore']
+                    assert state()['canRestore'] and not state()['restoreAfterGeneration']
                     fixture([("UPDATE ait_lotto_ad_placements SET rewarded_weight=? WHERE placement='attendance_restore'",[weight])])
+                    placement=next(p for p in request(base,'/api/app/v1/ads/config',headers=auth)[1]['placements'] if p['placement']=='attendance_restore')
+                    assert placement['rewardedWeight']==100 and placement['interstitialGroupId'] is None
                     status,ad=request(base,'/api/app/v1/ads/start',{'placement':'attendance_restore'},auth)
                     expect(status,200,'restore ad')
-                    assert ad['format']==('rewarded' if weight==100 else 'interstitial')
+                    assert ad['format']=='rewarded'
                     events=['show','impression','dismissed','userEarnedReward']
                     for _ in range(2): expect(request(base,'/api/app/v1/ads/complete',{'id':ad['id'],'events':events},auth)[0],200,'restore completion replay')
                     assert not state()['canRestore'] and reward('weekly')['eligible']
@@ -249,6 +253,15 @@ def run():
                     expect(request(base,check_path,{},auth)[0],200,'today starts next cycle')
                     assert state()['streak']==1
                     assert request(base,'/api/app/v1/ads/start',{'placement':'attendance_restore'},auth)[1]['alreadyGranted'], 'retry must not display another restore ad'
+                # A pending interstitial reserved by an older release cannot
+                # restore attendance after this server version is deployed.
+                user,auth=new_user()
+                attend_days([day-2]);generate()
+                legacy_id='legacy-restore-'+uuid.uuid4().hex[:8]
+                fixture([("INSERT INTO ait_lotto_ad_sessions(id,user_id,placement,format,group_id,created_at,expires_at,pass_duration_ms,attendance_day) VALUES (?,?, 'attendance_restore','interstitial','legacy',?,?,?,?)",[legacy_id,user,now,now+300000,86400000,day])])
+                status,result=request(base,'/api/app/v1/ads/complete',{'id':legacy_id,'events':['show','impression','dismissed']},auth)
+                expect(status,409,'legacy interstitial cannot restore');assert result['error']['code']=='AD_INCOMPLETE'
+                assert state()['canRestore'],'rejected interstitial changed attendance'
                 # Restoration remains bounded across a second gap in the same cycle.
                 user,auth=new_user()
                 attend_days([day-5,day-3,day-2])
@@ -409,7 +422,7 @@ def run():
                 print(json.dumps({'case':'attendance-promotions','passed':[
                     'generation-gated check-in; no three-day pass', 'daily and seven-day bonuses independently configurable',
                     'concurrent claims are idempotent; budget survives deletion and rejoin',
-                    'seven-day reset retains completed bonus', 'rewarded and interstitial restore exactly once',
+                    'seven-day reset retains completed bonus', 'rewarded-only restore exactly once',
                     'no retroactive daily points; restore limits, check-in ordering and midnight binding',
                     'exhausted/deleted campaigns and older claims remain readable', 'unknown outcomes never issue another grant',
                     'console verification requires an unexpired tester allowlist and TEST codes',

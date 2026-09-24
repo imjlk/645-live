@@ -39,7 +39,9 @@ function ready() {
 			placement,
 			enabled: 1,
 			rewarded_group_id: ad(6 + i * 2),
-			interstitial_group_id: ad(7 + i * 2),
+			interstitial_group_id:
+				placement === "attendance_restore" ? null : ad(7 + i * 2),
+			rewarded_weight: placement === "attendance_restore" ? 100 : 50,
 		})),
 		test: {
 			configured: false,
@@ -96,6 +98,20 @@ test("live readiness requires both confirmed tests, budget and test access clean
 		},
 		(s: ReturnType<typeof ready>) => {
 			s.proxyReady = false;
+		},
+		(s: ReturnType<typeof ready>) => {
+			const restore = s.placements.find(
+				(p) => p.placement === "attendance_restore",
+			);
+			if (!restore) throw new Error("restore placement missing from fixture");
+			restore.interstitial_group_id = ad(20);
+		},
+		(s: ReturnType<typeof ready>) => {
+			const restore = s.placements.find(
+				(p) => p.placement === "attendance_restore",
+			);
+			if (!restore) throw new Error("restore placement missing from fixture");
+			restore.rewarded_weight = 50;
 		},
 	]) {
 		const snapshot = ready();
@@ -161,7 +177,7 @@ test("collector reads real SQLite without writes and omits secrets and identifie
 		expect(existsSync(path.join(depot, "data/main.db"))).toBe(false);
 		const db = new Database(path.join(depot, "data/main.db"));
 		db.exec(
-			"CREATE TABLE ait_lotto_profiles(user_id BLOB, disabled INTEGER, anonymous_key_sealed TEXT); CREATE TABLE ait_lotto_ad_placements(placement TEXT,enabled INTEGER,rewarded_group_id TEXT,interstitial_group_id TEXT); CREATE TABLE promotion_campaigns(id TEXT,feature_key TEXT,provider TEXT,provider_promotion_code TEXT,reward_amount INTEGER,status TEXT,starts_at INTEGER,ends_at INTEGER,budget_limit_amount INTEGER,max_grant_count INTEGER); CREATE TABLE ait_lotto_promotion_usage(campaign_id TEXT,reserved_amount INTEGER,grant_count INTEGER); CREATE TABLE promotion_reward_ledger(source_type TEXT,source_id TEXT,reward_amount INTEGER,status TEXT,provider TEXT,provider_status TEXT,provider_transaction_key TEXT);",
+			"CREATE TABLE ait_lotto_profiles(user_id BLOB, disabled INTEGER, anonymous_key_sealed TEXT); CREATE TABLE ait_lotto_ad_placements(placement TEXT,enabled INTEGER,rewarded_group_id TEXT,interstitial_group_id TEXT,rewarded_weight INTEGER); CREATE TABLE promotion_campaigns(id TEXT,feature_key TEXT,provider TEXT,provider_promotion_code TEXT,reward_amount INTEGER,status TEXT,starts_at INTEGER,ends_at INTEGER,budget_limit_amount INTEGER,max_grant_count INTEGER); CREATE TABLE ait_lotto_promotion_usage(campaign_id TEXT,reserved_amount INTEGER,grant_count INTEGER); CREATE TABLE promotion_reward_ledger(source_type TEXT,source_id TEXT,reward_amount INTEGER,status TEXT,provider TEXT,provider_status TEXT,provider_transaction_key TEXT);",
 		);
 		db.query("INSERT INTO ait_lotto_profiles VALUES(?,0,?)").run(
 			userId,

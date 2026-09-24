@@ -142,6 +142,8 @@ pub fn status(tx: &mut Transaction, user: &[u8], now: i64) -> ApiResult<Json> {
     let last = latest_end(tx, user)?;
     let days = days_after(tx, user, last, today)?;
     let state = sequences(&days);
+    let generated = generated_today(tx, user, today)?;
+    let restore_available = restorable(&days, today);
     let count = if last == today {
         DAYS
     } else if state.active.last().is_some_and(|d| d.day >= today - 1) {
@@ -150,7 +152,7 @@ pub fn status(tx: &mut Transaction, user: &[u8], now: i64) -> ApiResult<Json> {
         0
     };
     Ok(
-        json!({"day":today,"checkedIn":checked(tx,user,today)?,"generatedToday":generated_today(tx,user,today)?,"streak":count,"cycleLength":DAYS,"canRestore":can_restore(tx,user,now)?,"restoreLimit":1,"serverTime":now}),
+        json!({"day":today,"checkedIn":checked(tx,user,today)?,"generatedToday":generated,"streak":count,"cycleLength":DAYS,"canRestore":generated && restore_available,"restoreAfterGeneration":!generated && restore_available,"restoreLimit":1,"serverTime":now}),
     )
 }
 pub fn weekly_period(tx: &mut Transaction, user: &[u8], today: i64) -> ApiResult<Option<i64>> {

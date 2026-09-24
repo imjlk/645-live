@@ -34,8 +34,13 @@ export function inspectProduction(snapshot, now = Date.now()) {
 	].every(Boolean);
 	const placementIds = FEATURES.flatMap((feature) => {
 		const p = snapshot.placements.find((p) => p.placement === feature);
-		return [p?.rewarded_group_id, p?.interstitial_group_id];
+		return feature === "attendance_restore"
+			? [p?.rewarded_group_id]
+			: [p?.rewarded_group_id, p?.interstitial_group_id];
 	});
+	const restore = snapshot.placements.find(
+		(p) => p.placement === "attendance_restore",
+	);
 	const adIds = [
 		snapshot.card,
 		snapshot.inline,
@@ -61,6 +66,12 @@ export function inspectProduction(snapshot, now = Date.now()) {
 					(p) => p.placement === feature && p.enabled === 1,
 				),
 			),
+		),
+		check(
+			"attendance_restore_rewarded_only",
+			liveAd(restore?.rewarded_group_id) &&
+				restore?.interstitial_group_id === null &&
+				restore?.rewarded_weight === 100,
 		),
 	].every(Boolean);
 	const until = snapshot.test.until;
@@ -194,7 +205,7 @@ export async function collectProduction(depot, fetcher = fetch) {
 			feed: split(settings.AIT_FEED_INLINE_GROUP_IDS).slice(0, 20),
 			placements: db
 				.query(
-					"SELECT placement,enabled,rewarded_group_id,interstitial_group_id FROM ait_lotto_ad_placements",
+					"SELECT placement,enabled,rewarded_group_id,interstitial_group_id,rewarded_weight FROM ait_lotto_ad_placements",
 				)
 				.all(),
 			profiles: db
