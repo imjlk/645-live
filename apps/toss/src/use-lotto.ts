@@ -572,12 +572,6 @@ export function useLotto() {
 					.catch(() => {});
 		},
 		clearActionError: () => setActionError(null),
-		restoreRecent: (item: Generation) => {
-			if (!actionLock.current) {
-				setCurrent(item);
-				trackProduct("recent_restored");
-			}
-		},
 		reports,
 		loadReport,
 		context,

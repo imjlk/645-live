@@ -3,6 +3,7 @@ import {
 	compareDraw,
 	describeCombination,
 	EMPTY_OPTIONS,
+	type Generation,
 	type GenerationOptions,
 	type SavedCombination,
 } from "@645/lotto-core";
@@ -131,6 +132,9 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 	const [savedPage, setSavedPage] = useState(0);
 	const [savedFilter, setSavedFilter] = useState<SavedFilter>("all");
 	const [selectedRound, setSelectedRound] = useState<number | null>(null);
+	const [savingGenerationId, setSavingGenerationId] = useState<number | null>(
+		null,
+	);
 	const rounds = savedRounds(
 		model.saved,
 		model.results,
@@ -193,9 +197,29 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 		options.fixed.length > 0 ||
 		options.excluded.length > 0 ||
 		options.oddCount !== null;
-	const isSaved =
-		!!model.current &&
-		model.saved.some((item) => item.generationId === model.current?.id);
+	const saveGeneration = async (item: Generation) => {
+		setSavingGenerationId(item.id);
+		try {
+			await model.save(item);
+		} finally {
+			setSavingGenerationId(null);
+		}
+	};
+	const saveButton = (item: Generation) => {
+		const saved = model.saved.some((entry) => entry.generationId === item.id);
+		return (
+			<Button
+				display="full"
+				style="weak"
+				accessibilityLabel={`${item.round}회 번호 ${item.numbers.join(", ")} ${saved ? "보관됨" : "보관하기"}`}
+				loading={model.busy === "save" && savingGenerationId === item.id}
+				disabled={!!model.busy || saved || !model.savedReady}
+				onPress={() => void saveGeneration(item)}
+			>
+				{saved ? "보관함에 저장했어요" : "이 번호 보관하기"}
+			</Button>
+		);
+	};
 	const scroll = useRef<ScrollView>(null);
 	useEffect(() => {
 		if (!model.notice || !visible) return;
@@ -458,13 +482,14 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 												: "이번 주, 내 번호는?",
 											"번호를 만들고 마음에 드는 조합을 보관하세요.",
 										)}
-										<View style={{ paddingVertical: 26 }}>
+										<View style={{ paddingVertical: 26, gap: 18 }}>
 											<Balls
 												numbers={model.current?.numbers ?? [0, 0, 0, 0, 0, 0]}
 												size={ballSize}
 												animate
 												reducedMotion={model.reducedMotion}
 											/>
+											{model.current ? saveButton(model.current) : null}
 										</View>
 										<View style={[s.row, { minHeight: 44, marginBottom: 14 }]}>
 											<Pressable
@@ -576,33 +601,18 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 												</Button>
 											)}
 										</AdCtaImpression>
-										{model.current ? (
+										{model.recent.some(
+											(item) => item.id !== model.current?.id,
+										) ? (
 											<View style={{ marginTop: 10 }}>
 												<Button
 													display="full"
 													style="weak"
-													loading={model.busy === "save"}
-													disabled={
-														!!model.busy || isSaved || !model.savedReady
-													}
-													onPress={() => {
-														if (model.current) void model.save(model.current);
-													}}
+													onPress={() => setPanel("recent")}
 												>
-													{isSaved ? "보관함에 저장했어요" : "이 번호 보관하기"}
+													최근 만든 번호 {model.recent.length}개 보기
 												</Button>
 											</View>
-										) : null}
-										{model.recent.some(
-											(item) => item.id !== model.current?.id,
-										) ? (
-											<Button
-												size="tiny"
-												style="weak"
-												onPress={() => setPanel("recent")}
-											>
-												최근 만든 번호 {model.recent.length}개 보기
-											</Button>
 										) : null}
 										<Pressable
 											accessibilityRole="button"
@@ -1094,11 +1104,19 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 					{panel === "recent" ? (
 						<View style={{ gap: 16 }}>
 							<Text style={[s.caption, muted]}>
-								앱을 이용하는 동안 최근 10개를 임시로 기억해요. 오래 보관하려면
-								번호를 선택한 뒤 보관해 주세요.
+								앱을 이용하는 동안 최근 10개를 임시로 기억해요. 남겨두고 싶은
+								번호는 아래에서 보관해 주세요.
 							</Text>
 							{model.recent.map((item) => (
-								<View key={item.id} style={{ gap: 10, paddingVertical: 12 }}>
+								<View
+									key={item.id}
+									style={{
+										gap: 14,
+										paddingVertical: 16,
+										borderBottomWidth: 1,
+										borderBottomColor: theme.line,
+									}}
+								>
 									<Text style={[s.caption, muted]}>
 										{item.round}회 · {relativeTime(item.createdAt, Date.now())}
 									</Text>
@@ -1107,17 +1125,7 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 										size={Math.min(40, ballSize)}
 										reducedMotion
 									/>
-									<Button
-										size="tiny"
-										style="weak"
-										disabled={!!model.busy}
-										onPress={() => {
-											model.restoreRecent(item);
-											setPanel(null);
-										}}
-									>
-										이 번호 다시 보기
-									</Button>
+									{saveButton(item)}
 								</View>
 							))}
 						</View>
