@@ -58,8 +58,12 @@ pub(crate) async fn config(req: &mut Request) -> ApiResult<Json> {
     let test = settings::string_or("AIT_TEST_ADS", "false") == "true";
     let placements = rows.iter().map(|r| -> ApiResult<Json> {
         let feature = db::text(&r[0], "placement")?;
-        let ids = groups(r, test)?;
-        Ok(json!({"placement":feature,"enabled":test || db::integer(&r[1],"enabled")? == 1 && (ids.0.is_some() || ids.1.is_some()),"rewardedGroupId":ids.0,"interstitialGroupId":ids.1,"rewardedWeight":db::integer(&r[4],"weight")?,"passDurationMs":db::integer(&r[5],"duration")?}))
+        let (rewarded, interstitial) = groups(r, test)?;
+        let restore = feature == "attendance_restore";
+        let interstitial = if restore { None } else { interstitial };
+        let enabled = (test || db::integer(&r[1], "enabled")? == 1)
+            && (rewarded.is_some() || interstitial.is_some());
+        Ok(json!({"placement":feature,"enabled":enabled,"rewardedGroupId":rewarded,"interstitialGroupId":interstitial,"rewardedWeight":if restore {100} else {db::integer(&r[4],"weight")?},"passDurationMs":db::integer(&r[5],"duration")?}))
     }).collect::<ApiResult<Vec<_>>>()?;
     let passes = db::tx_query(
         &mut tx,
@@ -141,9 +145,13 @@ pub(crate) async fn start(req: &mut Request) -> ApiResult<Json> {
         .ok_or_else(|| bad_request("INVALID_PLACEMENT", "이용권을 확인해 주세요."))?;
     let test = settings::string_or("AIT_TEST_ADS", "false") == "true";
     let (rewarded, interstitial) = groups(row, test)?;
-    if !test && db::integer(&row[1], "enabled")? != 1
-        || rewarded.is_none() && interstitial.is_none()
-    {
+    let restore = input.placement == "attendance_restore";
+    let available = if restore {
+        rewarded.is_some()
+    } else {
+        rewarded.is_some() || interstitial.is_some()
+    };
+    if (!test && db::integer(&row[1], "enabled")? != 1) || !available {
         return Err(conflict(
             "AD_UNAVAILABLE",
             "지금은 광고 이용권을 준비 중이에요.",
@@ -221,9 +229,10 @@ pub(crate) async fn start(req: &mut Request) -> ApiResult<Json> {
             "광고는 잠시 후 다시 볼 수 있어요.",
         ));
     }
-    let rewarded_selected = rewarded.is_some()
-        && (interstitial.is_none()
-            || lotto::random_index(100) < db::integer(&row[4], "weight")? as usize);
+    let rewarded_selected = restore
+        || (rewarded.is_some()
+            && (interstitial.is_none()
+                || lotto::random_index(100) < db::integer(&row[4], "weight")? as usize));
     let (format, group) = if rewarded_selected {
         ("rewarded", rewarded.unwrap())
     } else {
@@ -272,6 +281,9 @@ pub(crate) fn completed(format: &str, events: &[String]) -> bool {
         } else {
             has("impression") && has("dismissed")
         }
+}
+fn completed_for_placement(placement: &str, format: &str, events: &[String]) -> bool {
+    (placement != "attendance_restore" || format == "rewarded") && completed(format, events)
 }
 pub(crate) async fn complete(req: &mut Request) -> ApiResult<Json> {
     let input: Complete = body(req).await?;
@@ -336,7 +348,7 @@ pub(crate) async fn complete(req: &mut Request) -> ApiResult<Json> {
         db::tx_commit(&mut tx)?;
         return Ok(json!({"feature":feature,"continuedWithoutAd":true,"replayed":false}));
     }
-    if !completed(&db::text(&r[1], "format")?, &input.events) {
+    if !completed_for_placement(&feature, &db::text(&r[1], "format")?, &input.events) {
         // Cancellation releases the outstanding slot without producing a pass.
         db::tx_execute(
             &mut tx,
@@ -346,7 +358,11 @@ pub(crate) async fn complete(req: &mut Request) -> ApiResult<Json> {
         db::tx_commit(&mut tx)?;
         return Err(conflict(
             "AD_INCOMPLETE",
-            "광고를 완료하면 이용권이 열려요.",
+            if feature == "attendance_restore" {
+                "보상형 광고를 완료해야 연속 출석을 복구할 수 있어요."
+            } else {
+                "광고를 완료하면 이용권이 열려요."
+            },
         ));
     }
     let expires = now + db::integer(&r[5], "duration")?;
@@ -395,6 +411,16 @@ mod tests {
         assert!(completed(
             "interstitial",
             &events(&["show", "impression", "dismissed"])
+        ));
+        assert!(!completed_for_placement(
+            "attendance_restore",
+            "interstitial",
+            &events(&["show", "impression", "dismissed", "userEarnedReward"])
+        ));
+        assert!(completed_for_placement(
+            "attendance_restore",
+            "rewarded",
+            &events(&["show", "userEarnedReward"])
         ));
     }
 }

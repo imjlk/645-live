@@ -1,6 +1,6 @@
 import { Button } from "@toss/tds-react-native";
 import { useEffect, useRef } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Alert, StyleSheet, Text, View } from "react-native";
 import { LOCAL_PREVIEW, type Promotion } from "./api";
 import { createPromotionRefresh } from "./promotion-refresh";
 import { useTheme } from "./theme";
@@ -93,6 +93,20 @@ export function AttendancePanel({
 	const restoreAd = model.adConfig?.placements.find(
 		(p) => p.placement === "attendance_restore",
 	)?.enabled;
+	const checkIn = () => {
+		if (!state?.canRestore && !state?.restoreAfterGeneration) {
+			void model.checkIn();
+			return;
+		}
+		Alert.alert(
+			"어제 출석을 먼저 복구할까요?",
+			"오늘 출석을 완료하면 어제 놓친 도장을 복구할 수 없어요.",
+			[
+				{ text: "복구 먼저", style: "cancel" },
+				{ text: "오늘 출석하기", onPress: () => void model.checkIn() },
+			],
+		);
+	};
 	return (
 		<View style={s.content}>
 			<View style={s.intro}>
@@ -129,38 +143,26 @@ export function AttendancePanel({
 					</View>
 				))}
 			</View>
-			{state?.generatedToday || state?.checkedIn ? (
-				<Button
-					display="full"
-					loading={model.busy === "checkIn"}
-					disabled={!!model.busy || !model.user || state.checkedIn}
-					onPress={() => void model.checkIn()}
-				>
-					{state.checkedIn
-						? "오늘 출석 완료"
-						: daily?.available
-							? `출석하고 ${daily.amount}P 받기`
-							: "오늘 출석하기"}
-				</Button>
-			) : (
-				<Button
-					display="full"
-					disabled={!!model.busy || !model.user}
-					onPress={onGenerate}
-				>
-					오늘 번호 만들기
-				</Button>
-			)}
-			{state?.canRestore ? (
+			{state?.canRestore || state?.restoreAfterGeneration ? (
 				<View style={[s.restore, { backgroundColor: theme.surface }]}>
 					<Text style={[s.rewardTitle, { color: theme.text }]}>
 						어제 놓친 도장을 이어볼까요?
 					</Text>
 					<Text style={[s.body, { color: theme.muted }]}>
-						광고를 완료하면 어제 출석을 복구해요. 주기당 한 번 사용할 수 있고,
-						어제의 일일 포인트는 지급하지 않아요.
+						{state.canRestore
+							? "보상형 광고를 완료하면 어제 출석을 복구해요. 오늘 출석을 먼저 완료하면 복구할 수 없어요. 어제의 일일 포인트는 지급하지 않아요."
+							: "오늘 번호를 한 번 만들면 어제 출석을 복구할 수 있어요. 복구를 원하면 오늘 출석보다 먼저 진행해 주세요."}
 					</Text>
-					{LOCAL_PREVIEW ? (
+					{state.restoreAfterGeneration ? (
+						<Button
+							display="full"
+							disabled={!!model.busy || !model.user}
+							onPress={onGenerate}
+						>
+							번호 만들고 복구하기
+						</Button>
+					) : null}
+					{state.canRestore && LOCAL_PREVIEW ? (
 						<Button
 							display="full"
 							style="weak"
@@ -172,21 +174,47 @@ export function AttendancePanel({
 							테스트 · 광고 없이 출석 복구
 						</Button>
 					) : null}
-					<Button
-						display="full"
-						style="weak"
-						disabled={!!model.busy || !restoreAd || !!model.adUnavailableReason}
-						loading={model.busy === "unlock-attendance_restore"}
-						onPress={() => void model.unlock("attendance_restore")}
-					>
-						{restoreAd ? "광고 보고 연속 출석 복구" : "복구 광고 준비 중"}
-					</Button>
-					{model.adUnavailableReason ? (
+					{state.canRestore ? (
+						<Button
+							display="full"
+							style="weak"
+							disabled={
+								!!model.busy || !restoreAd || !!model.adUnavailableReason
+							}
+							loading={model.busy === "unlock-attendance_restore"}
+							onPress={() => void model.unlock("attendance_restore")}
+						>
+							{restoreAd ? "광고 보고 연속 출석 복구" : "복구 광고 준비 중"}
+						</Button>
+					) : null}
+					{state.canRestore && model.adUnavailableReason ? (
 						<Text style={[s.caption, { color: theme.muted }]}>
 							{model.adUnavailableReason}
 						</Text>
 					) : null}
 				</View>
+			) : null}
+			{state?.generatedToday || state?.checkedIn ? (
+				<Button
+					display="full"
+					loading={model.busy === "checkIn"}
+					disabled={!!model.busy || !model.user || state.checkedIn}
+					onPress={checkIn}
+				>
+					{state.checkedIn
+						? "오늘 출석 완료"
+						: daily?.available
+							? `출석하고 ${daily.amount}P 받기`
+							: "오늘 출석하기"}
+				</Button>
+			) : !state?.restoreAfterGeneration ? (
+				<Button
+					display="full"
+					disabled={!!model.busy || !model.user}
+					onPress={onGenerate}
+				>
+					오늘 번호 만들기
+				</Button>
 			) : null}
 			{state?.promotions.map((reward) => (
 				<Reward key={reward.kind} reward={reward} model={model} />

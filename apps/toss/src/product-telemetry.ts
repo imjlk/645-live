@@ -3,7 +3,6 @@ export type ProductEvent =
 	| "generation_succeeded"
 	| "generation_failed"
 	| "combination_saved"
-	| "recent_restored"
 	| "saved_results_viewed"
 	| "notification_prompt_viewed"
 	| "notification_prompt_accepted"

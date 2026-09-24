@@ -118,6 +118,7 @@ export function useLotto() {
 	const [savedReady, setSavedReady] = useState(false);
 	const [reports, setReports] = useState<Record<string, ReportState>>({});
 	const [results, setResults] = useState<Record<number, Draw>>({});
+	const [resultsLoading, setResultsLoading] = useState(false);
 	const [adConfig, setAdConfig] = useState<AdConfig | null>(null);
 	const [attendance, setAttendance] = useState<Attendance | null>(null);
 	const [busy, setBusy] = useState<string | null>(null);
@@ -199,7 +200,14 @@ export function useLotto() {
 			const generated = lastGenerated.current;
 			return generated &&
 				Math.floor((generated.createdAt + 32_400_000) / 86_400_000) === next.day
-				? { ...next, generatedToday: true }
+				? {
+						...next,
+						generatedToday: true,
+						canRestore:
+							!next.checkedIn &&
+							(next.canRestore || next.restoreAfterGeneration),
+						restoreAfterGeneration: false,
+					}
 				: next;
 		});
 	}, []);
@@ -392,8 +400,12 @@ export function useLotto() {
 		: "";
 	// biome-ignore lint/correctness/useExhaustiveDependencies: Re-fetch saved results after an imported result correction or explicit retry.
 	useEffect(() => {
-		if (!foreground || !roundsKey) return;
+		if (!foreground || !roundsKey) {
+			setResultsLoading(false);
+			return;
+		}
 		let closed = false;
+		setResultsLoading(true);
 		// Bound concurrency even for a large local collection spanning many rounds.
 		void (async () => {
 			const rounds = roundsKey.split(",").map(Number);
@@ -427,6 +439,7 @@ export function useLotto() {
 					setActionError((previous) =>
 						previous?.source === "saved-results" ? null : previous,
 					);
+				setResultsLoading(false);
 			}
 		})();
 		return () => {
@@ -566,12 +579,6 @@ export function useLotto() {
 					.catch(() => {});
 		},
 		clearActionError: () => setActionError(null),
-		restoreRecent: (item: Generation) => {
-			if (!actionLock.current) {
-				setCurrent(item);
-				trackProduct("recent_restored");
-			}
-		},
 		reports,
 		loadReport,
 		context,
@@ -582,6 +589,7 @@ export function useLotto() {
 		saved,
 		savedReady,
 		results,
+		resultsLoading,
 		adConfig,
 		generationCooling,
 		generationAdRequired:

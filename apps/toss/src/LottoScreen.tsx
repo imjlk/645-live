@@ -3,6 +3,7 @@ import {
 	compareDraw,
 	describeCombination,
 	EMPTY_OPTIONS,
+	type Generation,
 	type GenerationOptions,
 	type SavedCombination,
 } from "@645/lotto-core";
@@ -65,7 +66,12 @@ import { SAVED_LIMIT } from "./saved-store";
 import { useTabShell } from "./TabShell";
 import { trackProduct } from "./telemetry";
 import { useTheme } from "./theme";
-import { type SavedFilter, savedRounds, savedSummary } from "./ux-state";
+import {
+	RECENT_LIMIT,
+	type SavedFilter,
+	savedRounds,
+	savedSummary,
+} from "./ux-state";
 
 type Panel =
 	| "custom"
@@ -131,7 +137,15 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 	const [savedPage, setSavedPage] = useState(0);
 	const [savedFilter, setSavedFilter] = useState<SavedFilter>("all");
 	const [selectedRound, setSelectedRound] = useState<number | null>(null);
-	const rounds = savedRounds(model.saved, model.results, savedFilter);
+	const [savingGenerationId, setSavingGenerationId] = useState<number | null>(
+		null,
+	);
+	const rounds = savedRounds(
+		model.saved,
+		model.results,
+		savedFilter,
+		model.context?.latestDraw?.round ?? null,
+	);
 	const savedRound =
 		selectedRound !== null && rounds.includes(selectedRound)
 			? selectedRound
@@ -188,9 +202,34 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 		options.fixed.length > 0 ||
 		options.excluded.length > 0 ||
 		options.oddCount !== null;
-	const isSaved =
-		!!model.current &&
-		model.saved.some((item) => item.generationId === model.current?.id);
+	const oldestRecent = model.recent[model.recent.length - 1];
+	const recentLimitAtRisk =
+		model.recent.length >= RECENT_LIMIT &&
+		!!oldestRecent &&
+		!model.saved.some((item) => item.generationId === oldestRecent.id);
+	const saveGeneration = async (item: Generation) => {
+		setSavingGenerationId(item.id);
+		try {
+			await model.save(item);
+		} finally {
+			setSavingGenerationId(null);
+		}
+	};
+	const saveButton = (item: Generation) => {
+		const saved = model.saved.some((entry) => entry.generationId === item.id);
+		return (
+			<Button
+				display="full"
+				style="weak"
+				accessibilityLabel={`${item.round}회 번호 ${item.numbers.join(", ")} ${saved ? "보관됨" : "보관하기"}`}
+				loading={model.busy === "save" && savingGenerationId === item.id}
+				disabled={!!model.busy || saved || !model.savedReady}
+				onPress={() => void saveGeneration(item)}
+			>
+				{saved ? "보관함에 저장했어요" : "이 번호 보관하기"}
+			</Button>
+		);
+	};
 	const scroll = useRef<ScrollView>(null);
 	useEffect(() => {
 		if (!model.notice || !visible) return;
@@ -453,13 +492,14 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 												: "이번 주, 내 번호는?",
 											"번호를 만들고 마음에 드는 조합을 보관하세요.",
 										)}
-										<View style={{ paddingVertical: 26 }}>
+										<View style={{ paddingVertical: 26, gap: 18 }}>
 											<Balls
 												numbers={model.current?.numbers ?? [0, 0, 0, 0, 0, 0]}
 												size={ballSize}
 												animate
 												reducedMotion={model.reducedMotion}
 											/>
+											{model.current ? saveButton(model.current) : null}
 										</View>
 										<View style={[s.row, { minHeight: 44, marginBottom: 14 }]}>
 											<Pressable
@@ -473,7 +513,7 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 											>
 												<Text style={[s.body, { color: theme.blue }]}>
 													{hasOptions
-														? "맞춤 조건 적용 중"
+														? "다음 번호 맞춤 조건"
 														: "내 취향대로 만들기"}{" "}
 													›
 												</Text>
@@ -489,6 +529,7 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 										</View>
 										{hasOptions ? (
 											<Text style={[s.caption, muted, { marginBottom: 12 }]}>
+												다음 생성 ·{" "}
 												{[
 													options.fixed.length
 														? `고정 ${options.fixed.join("·")}`
@@ -530,6 +571,18 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 												</Button>
 											</View>
 										) : null}
+										{recentLimitAtRisk ? (
+											<Pressable
+												accessibilityRole="button"
+												onPress={() => setPanel("recent")}
+												style={{ paddingVertical: 10 }}
+											>
+												<Text style={[s.caption, { color: theme.blue }]}>
+													최근 번호가 {RECENT_LIMIT}개예요. 새 번호를 만들면
+													가장 오래된 미보관 번호가 사라져요. 먼저 보관하기 ›
+												</Text>
+											</Pressable>
+										) : null}
 										<AdCtaImpression
 											enabled={
 												model.generationAdRequired &&
@@ -570,33 +623,18 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 												</Button>
 											)}
 										</AdCtaImpression>
-										{model.current ? (
+										{model.recent.some(
+											(item) => item.id !== model.current?.id,
+										) ? (
 											<View style={{ marginTop: 10 }}>
 												<Button
 													display="full"
 													style="weak"
-													loading={model.busy === "save"}
-													disabled={
-														!!model.busy || isSaved || !model.savedReady
-													}
-													onPress={() => {
-														if (model.current) void model.save(model.current);
-													}}
+													onPress={() => setPanel("recent")}
 												>
-													{isSaved ? "보관함에 저장했어요" : "이 번호 보관하기"}
+													최근 만든 번호 {model.recent.length}개 보기
 												</Button>
 											</View>
-										) : null}
-										{model.recent.some(
-											(item) => item.id !== model.current?.id,
-										) ? (
-											<Button
-												size="tiny"
-												style="weak"
-												onPress={() => setPanel("recent")}
-											>
-												최근 만든 번호 {model.recent.length}개 보기
-											</Button>
 										) : null}
 										<Pressable
 											accessibilityRole="button"
@@ -771,7 +809,7 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 													결과 대기
 												</SegmentedControl.Item>
 												<SegmentedControl.Item value="ready">
-													결과 확인
+													추첨 완료
 												</SegmentedControl.Item>
 											</SegmentedControl.Root>
 											<ScrollView
@@ -812,13 +850,22 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 											) : savedRound ? (
 												<Text style={[s.caption, muted]}>
 													{savedRound}회 · {roundItems.length}개 보관 ·{" "}
-													{savedRound <= (model.context?.latestDraw?.round ?? 0)
-														? "결과를 다시 불러와 주세요."
-														: "추첨 결과를 기다리고 있어요."}
+													{!model.context
+														? "회차 정보를 확인하고 있어요."
+														: savedRound <=
+																(model.context.latestDraw?.round ?? 0)
+															? model.resultsLoading
+																? "결과를 불러오고 있어요."
+																: model.actionError?.source === "saved-results"
+																	? "결과를 불러오지 못했어요. 아래로 당겨 다시 확인해 주세요."
+																	: "아직 결과를 확인할 수 없어요. 아래로 당겨 다시 확인해 주세요."
+															: "추첨 결과를 기다리고 있어요."}
 												</Text>
 											) : (
 												<Text style={[s.body, muted]}>
-													이 조건에 해당하는 보관 번호가 없어요.
+													{model.context
+														? "이 조건에 해당하는 보관 번호가 없어요."
+														: "회차 정보를 확인하고 있어요."}
 												</Text>
 											)}
 										</View>
@@ -884,10 +931,14 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 																	? result.rank
 																		? `${result.rank}등 번호 일치`
 																		: `${result.matches.length}개 일치`
-																	: item.round <=
-																			(model.context?.latestDraw?.round ?? 0)
-																		? "결과 확인 필요"
-																		: "추첨 결과 기다리는 중"}
+																	: !model.context
+																		? "회차 정보 확인 중"
+																		: item.round <=
+																				(model.context.latestDraw?.round ?? 0)
+																			? model.resultsLoading
+																				? "결과 불러오는 중"
+																				: "결과 확인 필요"
+																			: "추첨 결과 기다리는 중"}
 															</Text>
 														</View>
 														<Balls
@@ -1077,11 +1128,19 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 					{panel === "recent" ? (
 						<View style={{ gap: 16 }}>
 							<Text style={[s.caption, muted]}>
-								앱을 이용하는 동안 최근 10개를 임시로 기억해요. 오래 보관하려면
-								번호를 선택한 뒤 보관해 주세요.
+								앱을 이용하는 동안 최근 {RECENT_LIMIT}개를 임시로 기억해요.
+								남겨두고 싶은 번호는 아래에서 보관해 주세요.
 							</Text>
 							{model.recent.map((item) => (
-								<View key={item.id} style={{ gap: 10, paddingVertical: 12 }}>
+								<View
+									key={item.id}
+									style={{
+										gap: 14,
+										paddingVertical: 16,
+										borderBottomWidth: 1,
+										borderBottomColor: theme.line,
+									}}
+								>
 									<Text style={[s.caption, muted]}>
 										{item.round}회 · {relativeTime(item.createdAt, Date.now())}
 									</Text>
@@ -1090,17 +1149,7 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 										size={Math.min(40, ballSize)}
 										reducedMotion
 									/>
-									<Button
-										size="tiny"
-										style="weak"
-										disabled={!!model.busy}
-										onPress={() => {
-											model.restoreRecent(item);
-											setPanel(null);
-										}}
-									>
-										이 번호 다시 보기
-									</Button>
+									{saveButton(item)}
 								</View>
 							))}
 						</View>

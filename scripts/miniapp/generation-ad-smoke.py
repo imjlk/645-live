@@ -47,6 +47,14 @@ def migration_check():
         assert db.execute("SELECT * FROM ait_lotto_ad_placements WHERE placement!='generation_continue' ORDER BY placement").fetchall() == placements
         assert db.execute("SELECT enabled FROM ait_lotto_ad_placements WHERE placement='generation_continue'").fetchone() == (0,)
         assert db.execute('PRAGMA foreign_key_check').fetchall() == []
+        db.execute("UPDATE ait_lotto_ad_placements SET rewarded_group_id='restore-reward',interstitial_group_id='restore-interstitial',rewarded_weight=0,enabled=1 WHERE placement='attendance_restore'")
+        before_restore_migration = db.execute('SELECT * FROM ait_lotto_ad_sessions ORDER BY id').fetchall()
+        rewarded_only = (SOURCE / 'migrations/U1790200000__attendance_restore_rewarded_only.sql').read_text()
+        db.executescript('BEGIN;' + rewarded_only + 'COMMIT;')
+        assert db.execute("SELECT rewarded_group_id,interstitial_group_id,rewarded_weight,enabled FROM ait_lotto_ad_placements WHERE placement='attendance_restore'").fetchone() == ('restore-reward', None, 100, 1)
+        assert db.execute('SELECT * FROM ait_lotto_ad_sessions ORDER BY id').fetchall() == before_restore_migration
+        assert db.execute('SELECT * FROM ait_lotto_attendance_restores').fetchall() == restores
+        assert db.execute('PRAGMA foreign_key_check').fetchall() == []
         db.execute("DELETE FROM ait_lotto_ad_sessions WHERE id='restored'")
         assert db.execute('SELECT ad_session_id FROM ait_lotto_attendance_restores').fetchone() == (None,)
         db.execute("INSERT INTO ait_lotto_generation_ad_progress VALUES (x'02',10,0,1)")

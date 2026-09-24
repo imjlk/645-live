@@ -182,6 +182,18 @@ export function createAdController(api: Pick<Api, "startAd" | "completeAd">) {
 						continuedWithoutAd: !session,
 					};
 				}
+				if (
+					placement === "attendance_restore" &&
+					session.format !== "rewarded"
+				) {
+					// Older servers may still offer a mixed-format restore placement.
+					// Release the reservation without showing an ad or granting a restore.
+					pendingCancellation = session.id;
+					await flushCancellation().catch(() => {});
+					throw new Error(
+						"연속 출석 복구에는 보상형 광고가 필요해요. 잠시 후 다시 시도해 주세요.",
+					);
+				}
 				// Set the format before native callbacks arrive.
 				flow.track("session_started", "", session.format);
 				try {

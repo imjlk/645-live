@@ -81,6 +81,7 @@ export type Attendance = {
 	streak: number;
 	cycleLength: number;
 	canRestore: boolean;
+	restoreAfterGeneration: boolean;
 	restoreLimit: number;
 	notificationTemplateCode: string | null;
 	notificationsEnabled: boolean;

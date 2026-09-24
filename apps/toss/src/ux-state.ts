@@ -25,26 +25,35 @@ export function normalizePreferences(value: unknown): Preferences | null {
 		return null;
 	return { options: p.options, liveColumns: p.liveColumns === 9 ? 9 : 5 };
 }
+export const RECENT_LIMIT = 10;
 export function rememberGeneration(
 	items: Generation[],
 	next: Generation,
 ): Generation[] {
-	return [next, ...items.filter((item) => item.id !== next.id)].slice(0, 10);
+	return [next, ...items.filter((item) => item.id !== next.id)].slice(
+		0,
+		RECENT_LIMIT,
+	);
 }
 export type SavedFilter = "all" | "waiting" | "ready";
 export function savedRounds(
 	items: SavedCombination[],
 	results: Record<number, Draw>,
 	filter: SavedFilter,
+	latestDrawRound: number | null,
 ) {
 	const rounds = [...new Set(items.map((item) => item.round))].sort(
 		(a, b) => b - a,
 	);
-	return rounds.filter(
-		(round) =>
-			filter === "all" ||
-			(filter === "ready" ? !!results[round] : !results[round]),
-	);
+	return rounds.filter((round) => {
+		if (filter === "all") return true;
+		const published =
+			!!results[round] ||
+			(latestDrawRound !== null && round <= latestDrawRound);
+		return filter === "ready"
+			? published
+			: !published && latestDrawRound !== null;
+	});
 }
 export function savedSummary(items: SavedCombination[], draw: Draw) {
 	const rankCounts = [0, 0, 0, 0, 0, 0];

@@ -5,11 +5,13 @@ import { act, create, type ReactTestRenderer } from "react-test-renderer";
 import type { LottoModel } from "../../apps/toss/src/use-lotto";
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+const alert = mock(() => {});
 mock.module(
 	Bun.resolveSync("react", `${import.meta.dir}/../../apps/toss`),
 	() => React,
 );
 mock.module("react-native", () => ({
+	Alert: { alert },
 	View: "view",
 	Text: "text",
 	StyleSheet: { create: (v: unknown) => v },
@@ -81,6 +83,90 @@ await act(async () => {
 });
 expect(labels()).toContain("지급 상태 확인");
 expect(labels()).toContain("지급 확인");
+const checkIn = mock(async () => true);
+const restore = {
+	...model("success"),
+	checkIn,
+	adConfig: {
+		placements: [{ placement: "attendance_restore", enabled: true }],
+	},
+	attendance: {
+		...model("success").attendance,
+		checkedIn: false,
+		canRestore: true,
+		restoreAfterGeneration: false,
+	},
+} as LottoModel;
+await act(async () => {
+	root.update(<AttendancePanel model={restore} onGenerate={() => {}} />);
+});
+expect(labels()).toContain("광고 보고 연속 출석 복구");
+expect(labels()).toContain("오늘 출석하기");
+await act(async () => {
+	root.root
+		.findAllByType("button")
+		.find((button) => button.props.children === "오늘 출석하기")
+		?.props.onPress();
+});
+expect(checkIn).not.toHaveBeenCalled();
+expect(alert).toHaveBeenCalledTimes(1);
+await act(async () => {
+	alert.mock.calls[0]?.[2]?.[1]?.onPress();
+});
+expect(checkIn).toHaveBeenCalledTimes(1);
+let generateCalls = 0;
+await act(async () => {
+	root.update(
+		<AttendancePanel
+			model={{
+				...restore,
+				attendance: {
+					...restore.attendance,
+					generatedToday: false,
+					canRestore: false,
+					restoreAfterGeneration: true,
+				},
+			}}
+			onGenerate={() => generateCalls++}
+		/>,
+	);
+});
+expect(labels()).toContain("번호 만들고 복구하기");
+expect(labels()).not.toContain("오늘 번호 만들기");
+await act(async () => {
+	root.root
+		.findAllByType("button")
+		.find((button) => button.props.children === "번호 만들고 복구하기")
+		?.props.onPress();
+});
+expect(generateCalls).toBe(1);
+// Generation can update local state before the attendance refresh completes.
+// Checking in during that window must still warn about the missed-day restore.
+await act(async () => {
+	root.update(
+		<AttendancePanel
+			model={{
+				...restore,
+				attendance: {
+					...restore.attendance,
+					canRestore: false,
+					restoreAfterGeneration: true,
+				},
+			}}
+			onGenerate={() => {}}
+		/>,
+	);
+});
+alert.mockClear();
+checkIn.mockClear();
+await act(async () => {
+	root.root
+		.findAllByType("button")
+		.find((button) => button.props.children === "오늘 출석하기")
+		?.props.onPress();
+});
+expect(alert).toHaveBeenCalledTimes(1);
+expect(checkIn).not.toHaveBeenCalled();
 expect(refresh).not.toHaveBeenCalled();
 for (let i = 0; i < 5; i++) {
 	await act(async () => {

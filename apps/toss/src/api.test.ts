@@ -304,6 +304,31 @@ test("attendance restoration never bypasses unavailable, unsupported, or unfinis
 		}
 	}
 });
+test("a legacy interstitial restore session is cancelled before showing an ad", async () => {
+	const completions: string[][] = [];
+	const controller = createAdController({
+		startAd: async () => ({
+			alreadyGranted: false,
+			id: "legacy-restore",
+			format: "interstitial",
+			groupId: "legacy-group",
+			expiresAt: Date.now() + 300000,
+		}),
+		completeAd: async (_id, events) => {
+			completions.push(events);
+			return { feature: "attendance_restore" };
+		},
+	});
+	try {
+		await expect(controller.unlock("attendance_restore")).rejects.toThrow(
+			"보상형 광고",
+		);
+		expect(completions).toEqual([["cancelled"]]);
+		expect(adShowCount).toBe(0);
+	} finally {
+		controller.dispose();
+	}
+});
 test("an already-restored day is distinct from a new restore and shows no second ad", async () => {
 	const controller = createAdController({
 		startAd: async () => ({ alreadyGranted: true }),
