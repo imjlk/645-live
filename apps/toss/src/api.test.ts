@@ -85,6 +85,7 @@ mock.module("@trailbase-apps-in-toss-kit/trailbase-client", () => ({
 			if (sessionFailure) throw sessionFailure;
 			return options.bootstrap("ait:fixture-identity");
 		},
+		renewAppSession: () => options.bootstrap("ait:fixture-identity"),
 		clearSessions: async () => {},
 		cancelPendingOperations: () => {},
 	}),

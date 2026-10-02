@@ -12,6 +12,7 @@ import {
 } from "@trailbase-apps-in-toss-kit/ait-rn/storage";
 import {
 	createAppsInTossSessionManager,
+	createTrailBaseTokenRefresher,
 	normalizeTrailBaseAuthTokens,
 	type TrailBaseAuthTokens,
 	TrailBaseHttpError,
@@ -180,6 +181,7 @@ export function createApi() {
 			? async () => undefined
 			: () => connectionStep("C20", getAnonymousKey),
 		production: !LOCAL_PREVIEW,
+		revalidateAnonymousHash: true,
 		allowFallback: false,
 		productionRequired: true,
 	});
@@ -193,7 +195,7 @@ export function createApi() {
 	function initialize(tokens: unknown) {
 		return connectionSync("C40", () => {
 			const normalized = toTrailBaseSdkTokens(tokens);
-			client = initClient(
+			return initClient(
 				API_BASE,
 				normalized
 					? {
@@ -205,13 +207,13 @@ export function createApi() {
 						}
 					: {},
 			);
-			return client;
 		});
 	}
 	async function requestWith<T>(
 		instance: ReturnType<typeof initClient>,
 		path: string,
 		body?: unknown,
+		parent?: AbortSignal,
 	): Promise<T> {
 		return withTimeout(async (signal) => {
 			const response = await connectionStep("C41", () =>
@@ -227,8 +229,9 @@ export function createApi() {
 				}),
 			);
 			return readResponse<T>(response);
-		});
+		}, parent);
 	}
+	const refreshTokens = createTrailBaseTokenRefresher({ baseUrl: API_BASE });
 	const manager = createAppsInTossSessionManager<User>({
 		...storage,
 		appLogin: async () => {
@@ -237,28 +240,36 @@ export function createApi() {
 		completeTossLogin: async () => {
 			throw new Error("계정 연동을 사용하지 않아요.");
 		},
-		bootstrap: async (anonymousHash) => {
-			const response = await withTimeout(async (signal) =>
-				readResponse<{
-					user: User;
-					authTokens: TrailBaseAuthTokens;
-				}>(
-					await fetch(`${API_BASE}/api/app/v1/session/bootstrap`, {
-						signal,
-						method: "POST",
-						headers: { "Content-Type": "application/json" },
-						body: JSON.stringify({ anonymousHash }),
-					}),
-				),
+		refreshAuthTokens: (tokens, { signal }) =>
+			withTimeout(
+				(current) => refreshTokens(tokens, { signal: current }),
+				signal,
+			),
+		bootstrap: async (anonymousHash, operation) => {
+			const response = await withTimeout(
+				async (signal) =>
+					readResponse<{
+						user: User;
+						authTokens: TrailBaseAuthTokens;
+					}>(
+						await fetch(`${API_BASE}/api/app/v1/session/bootstrap`, {
+							signal,
+							method: "POST",
+							headers: { "Content-Type": "application/json" },
+							body: JSON.stringify({ anonymousHash }),
+						}),
+					),
+				operation?.signal,
 			);
-			initialize(response.authTokens);
 			return { user: response.user, tokens: response.authTokens };
 		},
-		loadSession: async (input) => {
+		loadSession: async (input, operation) => {
 			const instance = initialize(input.authTokens);
 			const response = await requestWith<{ user: User }>(
 				instance,
 				"/api/app/v1/session/me",
+				undefined,
+				operation?.signal,
 			);
 			return {
 				...response,
@@ -269,32 +280,36 @@ export function createApi() {
 		isInvalidSessionError: (error) =>
 			error instanceof TrailBaseHttpError && error.status === 401,
 	});
-	async function ensure(): Promise<User> {
+	async function acquire(renew = false): Promise<User> {
 		if (paused) throw interrupted();
-		if (currentUser) return currentUser;
+		if (currentUser && !renew) return currentUser;
 		if (pending) return pending;
 		const attempt = epoch;
-		pending = connectionStep("C30", async () => {
+		const acquiring = connectionStep("C30", async () => {
 			// Assign pending before invoking SDK code that can throw synchronously.
 			await Promise.resolve();
 			try {
-				const session = await manager.getOrCreateAppSession();
+				const session = await (renew
+					? manager.renewAppSession()
+					: manager.getOrCreateAppSession());
 				if (attempt !== epoch || paused) throw interrupted();
 				const tokens =
 					normalizeTrailBaseAuthTokens(session) ?? session.authTokens;
 				if (!tokens) throw new Error("연결 정보를 확인하지 못했어요.");
-				initialize(tokens);
+				client = initialize(tokens);
 				currentUser = session.user;
 				return session.user;
 			} finally {
-				pending = null;
+				if (pending === acquiring) pending = null;
 			}
 		});
-		return pending;
+		pending = acquiring;
+		return acquiring;
 	}
+	const ensure = () => acquire();
 	async function request<T>(path: string, body?: unknown): Promise<T> {
 		const attempt = epoch;
-		await ensure();
+		const principal = await ensure();
 		if (attempt !== epoch || paused) throw interrupted();
 		try {
 			if (!client) throw new Error("세션을 다시 연결해 주세요.");
@@ -305,8 +320,20 @@ export function createApi() {
 			if (attempt !== epoch || paused) throw interrupted();
 			if (error instanceof TrailBaseHttpError && error.status === 401) {
 				currentUser = null;
-				await manager.clearSessions();
-				await ensure();
+				// Preserve credentials on outages. The kit refreshes once and only
+				// bootstraps again after authoritative credential rejection.
+				const restored = await acquire(true);
+				if (attempt !== epoch || paused) throw interrupted();
+				if (restored.id !== principal.id) {
+					// A request from the previous account must never be replayed as
+					// another principal. Reopen to bind all user stores together.
+					epoch += 1;
+					paused = true;
+					currentUser = null;
+					client = null;
+					manager.cancelPendingOperations();
+					throw new Error("토스 계정이 바뀌었어요. 앱을 다시 열어 주세요.");
+				}
 				if (!client) throw new Error("세션을 다시 연결해 주세요.");
 				const result = await requestWith<T>(client, path, body);
 				if (attempt !== epoch || paused) throw interrupted();
@@ -428,6 +455,7 @@ export function createApi() {
 		dispose() {
 			epoch += 1;
 			paused = true;
+			pending = null;
 			manager.cancelPendingOperations();
 		},
 		reconnect() {
