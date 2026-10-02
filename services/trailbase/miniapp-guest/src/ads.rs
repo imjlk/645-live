@@ -121,10 +121,7 @@ pub(crate) async fn start(req: &mut Request) -> ApiResult<Json> {
         rewarded.is_some() || interstitial.is_some()
     };
     if (!test && db::integer(&row[1], "enabled")? != 1) || !available {
-        return Err(conflict(
-            "AD_UNAVAILABLE",
-            "지금은 광고를 준비 중이에요.",
-        ));
+        return Err(conflict("AD_UNAVAILABLE", "지금은 광고를 준비 중이에요."));
     }
     let generation_cycle = if input.placement == generation_ads::PLACEMENT {
         if input.client_managed_counter {
