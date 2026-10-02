@@ -16,6 +16,8 @@ const SLOT_FORMAT = {
 	generator: "inline",
 	saved: "card",
 	live_feed: "inline",
+	insights_summary: "card",
+	insights_patterns: "inline",
 } as const;
 export type BannerPlacement = keyof typeof SLOT_FORMAT;
 

@@ -28,12 +28,24 @@ mock.module("@apps-in-toss/framework", () => ({
 	getTossShareLink: async () => "",
 	share: async () => {},
 }));
+let visible = true;
+const stack = [{ name: "/", params: {} as object }];
+const nativeStack = {
+	getState: () => ({ type: "stack", index: stack.length - 1, routes: stack }),
+	push(name: string, params: object) {
+		stack.push({ name, params });
+		visible = false;
+	},
+};
 mock.module("@granite-js/native/@react-navigation/native", () => ({
-	useNavigation: () => ({}),
+	useNavigation: () => ({
+		getState: () => ({ index: 0, routes: [{ name: "live" }] }),
+		getParent: () => nativeStack,
+	}),
 }));
 mock.module("@granite-js/react-native", () => ({
 	IOScrollView: "scroll",
-	useVisibility: () => true,
+	useVisibility: () => visible,
 }));
 mock.module("@toss/tds-react-native/private", () => ({
 	HideAccessibilityProvider: host("accessible"),
@@ -108,6 +120,7 @@ for (const name of [
 	"LocalResultPreview",
 	"FeatureAccessPrompt",
 	"ActivityPanel",
+	"GenerationInsightPreview",
 	"AdCtaImpression",
 ]) {
 	mock.module(`../../apps/toss/src/${name}`, () => ({ [name]: host(name) }));
@@ -156,13 +169,28 @@ expect(selected()).toBe(1243);
 await act(async () => {
 	root.root
 		.findAllByType("button")
-		.find((node) => String(node.props.children).includes("생성·스캔 번호 분석"))
+		.find((node) => String(node.props.children).includes("회 생성 통계 보기"))
 		?.props.onPress();
 });
-expect(root.root.findByType("ActivityPanel").props.round).toBe(1243);
+expect(stack).toHaveLength(1);
+expect(sheet().props.open).toBe(false);
 await act(async () => {
-	back?.();
+	sheet().props.onExited();
+	sheet().props.onExited();
+	root.update(<LottoScreen tab="live" />);
 });
+expect(stack).toHaveLength(2);
+expect(stack[1]).toEqual({
+	name: "/insights",
+	params: { round: 1243, number: undefined },
+});
+expect(back).toBeNull();
+await act(async () => {
+	stack.pop();
+	visible = true;
+	root.update(<LottoScreen tab="live" />);
+});
+expect(sheet().props.open).toBe(true);
 expect(selected()).toBe(1243);
 // Reopen before the exit animation has cleared the old result component.
 await act(async () => {
@@ -180,12 +208,19 @@ expect(selected()).toBe(1242);
 await act(async () => {
 	root.root
 		.findAllByType("button")
-		.find((node) => String(node.props.children).includes("생성·스캔 번호 분석"))
+		.find((node) => String(node.props.children).includes("회 생성 통계 보기"))
 		?.props.onPress();
 });
-expect(root.root.findByType("ActivityPanel").props.round).toBe(1242);
+expect(stack).toHaveLength(1);
 await act(async () => {
-	back?.();
+	sheet().props.onExited();
+	root.update(<LottoScreen tab="live" />);
+});
+expect(stack[1].params).toEqual({ round: 1242, number: undefined });
+await act(async () => {
+	stack.pop();
+	visible = true;
+	root.update(<LottoScreen tab="live" />);
 });
 expect(selected()).toBe(1242);
 await act(async () => {
@@ -193,6 +228,35 @@ await act(async () => {
 	live().props.onResults();
 });
 expect(selected()).toBe(1243);
+// Native Back during dismissal cancels the queued push, rather than opening a stale screen.
+await act(async () => {
+	root.root
+		.findAllByType("button")
+		.find((node) => String(node.props.children).includes("회 생성 통계 보기"))
+		?.props.onPress();
+});
+await act(async () => {
+	back?.();
+	sheet().props.onExited();
+});
+expect(stack).toHaveLength(1);
+await act(async () => {
+	live().props.onResults();
+});
+expect(selected()).toBe(1243);
+// Reopening before onExited also invalidates the pending navigation.
+await act(async () => {
+	root.root
+		.findAllByType("button")
+		.find((node) => String(node.props.children).includes("회 생성 통계 보기"))
+		?.props.onPress();
+});
+await act(async () => {
+	live().props.onResults();
+	sheet().props.onExited();
+});
+expect(stack).toHaveLength(1);
+expect(sheet().props.open).toBe(true);
 await act(async () => {
 	sheet().props.onClose();
 	sheet().props.onExited();
@@ -200,8 +264,19 @@ await act(async () => {
 });
 expect(selected()).toBe(1243);
 await act(async () => {
+	root.root
+		.findAllByType("button")
+		.find((node) => String(node.props.children).includes("회 생성 통계 보기"))
+		?.props.onPress();
+});
+const lateExit = sheet().props.onExited;
+await act(async () => {
 	root.unmount();
 });
+await act(async () => {
+	lateExit();
+});
+expect(stack).toHaveLength(1);
 console.log(
 	"analysis return and direct result reopen preserve the intended round",
 );

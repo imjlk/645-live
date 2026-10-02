@@ -48,7 +48,7 @@ export function FeatureAccessPrompt({
 		<ConfirmDialog
 			open={open}
 			title="광고 보고 계속 이용할까요?"
-			description="맞춤 설정과 번호 분석은 기본으로 제공해요. 간헐적으로 광고를 보고 이어서 이용할 수 있어요."
+			description="맞춤 설정과 생성 통계는 기본으로 제공해요. 간헐적으로 광고를 보고 이어서 이용할 수 있어요."
 			leftButton={
 				<ConfirmDialog.Button
 					style="weak"

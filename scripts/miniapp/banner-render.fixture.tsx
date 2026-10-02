@@ -78,7 +78,12 @@ expect(tree().toJSON()).toBeNull();
 expect(mounts).toBe(0);
 const manager = {};
 function screen(
-	placement: "saved" | "generator" | "live_feed",
+	placement:
+		| "saved"
+		| "generator"
+		| "live_feed"
+		| "insights_summary"
+		| "insights_patterns",
 	groupId = "group",
 ) {
 	return (
@@ -102,12 +107,20 @@ await act(async () => {
 	props.onAdViewable();
 });
 expect(metrics).toEqual(["banner_rendered", "banner_viewable"]);
-for (const placement of ["generator", "live_feed"] as const) {
+for (const placement of [
+	"generator",
+	"live_feed",
+	"insights_patterns",
+] as const) {
 	await act(async () => {
 		tree().update(screen(placement));
 	});
 	expect(props.variant).toBe("expanded");
 }
+await act(async () => {
+	tree().update(screen("insights_summary"));
+});
+expect(props.variant).toBe("card");
 visible = false;
 await act(async () => {
 	tree().update(screen("saved"));

@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { createRequire } from "node:module";
 import {
 	type LottoTab,
+	navigateToInsights,
 	navigateToTab,
 	TAB_BACK_BEHAVIOR,
 } from "../../apps/toss/src/navigation";
@@ -17,9 +18,8 @@ const navigationRequire = createRequire(
 const coreRequire = createRequire(
 	navigationRequire.resolve("@react-navigation/core"),
 );
-const { TabRouter, TabActions, CommonActions } = await import(
-	coreRequire.resolve("@react-navigation/routers")
-);
+const { TabRouter, TabActions, CommonActions, StackRouter, StackActions } =
+	await import(coreRequire.resolve("@react-navigation/routers"));
 
 function fixture(initialRouteName: LottoTab = "make") {
 	const router = TabRouter({
@@ -125,4 +125,47 @@ test("a saved deep link starts at saved and Back returns through subsequent visi
 	expect(app.back()).toBe(true);
 	expect(app.current()).toBe("saved");
 	expect(app.back()).toBe(false);
+});
+
+test("generation insights push onto Granite's parent stack and return to the same tab history", () => {
+	const app = fixture();
+	app.select("live");
+	app.select("saved");
+	const tabs = app.state;
+	const router = StackRouter({ initialRouteName: "/" });
+	const config = {
+		routeNames: ["/", "/insights"],
+		routeParamList: {},
+		routeGetIdList: {},
+	};
+	let stack = router.getInitialState(config);
+	const parent = {
+		getState: () => stack,
+		push(name: string, params: object) {
+			stack = router.getStateForAction(
+				stack,
+				StackActions.push(name, params),
+				config,
+			);
+		},
+	};
+	const navigation = {
+		...app.navigation,
+		getParent: () => parent,
+	} as unknown as Parameters<typeof navigateToInsights>[0];
+	expect(navigateToInsights(navigation, "saved", false)).toBe(false);
+	expect(navigateToInsights(navigation, "make", true)).toBe(false);
+	expect(
+		navigateToInsights(navigation, "saved", true, { round: 1243, number: 7 }),
+	).toBe(true);
+	expect(stack.routes[stack.index].name).toBe("/insights");
+	expect(stack.routes[stack.index].params).toEqual({ round: 1243, number: 7 });
+	expect(navigateToInsights(navigation, "saved", true)).toBe(false);
+	expect(stack.routes).toHaveLength(2);
+	stack = router.getStateForAction(stack, CommonActions.goBack(), config);
+	expect(stack.routes[stack.index].name).toBe("/");
+	expect(app.state).toBe(tabs);
+	expect(app.current()).toBe("saved");
+	expect(app.back()).toBe(true);
+	expect(app.current()).toBe("live");
 });

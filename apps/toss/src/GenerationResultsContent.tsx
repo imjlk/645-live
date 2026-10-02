@@ -158,7 +158,7 @@ export function GenerationResultsContent({
 							style="weak"
 							onPress={() => onInsights(selected.round)}
 						>
-							{selected.round}회 생성·스캔 번호 분석
+							{selected.round}회 생성 통계 보기
 						</Button>
 					) : null}
 					{selected.draw ? (
