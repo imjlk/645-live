@@ -43,6 +43,15 @@ export const ACTIVITY_PERIODS: { value: ActivityPeriod; label: string }[] = [
 	{ value: "day", label: "최근 24시간" },
 	{ value: "all", label: "수집 기간 누적" },
 ];
+export function activityAllowsDay(
+	snapshot: ActivitySnapshot | null,
+	requestedRound?: number,
+) {
+	return (
+		snapshot !== null &&
+		(requestedRound ?? snapshot.round) === snapshot.currentRound
+	);
+}
 const object = (v: unknown): Record<string, unknown> => {
 	if (!v || typeof v !== "object" || Array.isArray(v))
 		throw new Error("분석 응답을 확인하지 못했어요.");

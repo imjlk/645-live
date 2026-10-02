@@ -5,6 +5,20 @@ use rusqlite::{
 };
 struct SqlStore<'a>(&'a Connection);
 impl Store for SqlStore<'_> {
+    fn execute(&mut self, sql: &str, values: &[Value]) -> ApiResult<()> {
+        let values = values
+            .iter()
+            .map(|v| match v {
+                Value::Integer(n) => SqlValue::Integer(*n),
+                Value::Text(s) => SqlValue::Text(s.clone()),
+                _ => SqlValue::Null,
+            })
+            .collect::<Vec<_>>();
+        self.0
+            .execute(sql, params_from_iter(values))
+            .map(|_| ())
+            .map_err(internal)
+    }
     fn query(&mut self, sql: &str, values: &[Value]) -> ApiResult<Vec<Vec<Value>>> {
         let values = values
             .iter()
@@ -49,6 +63,10 @@ fn fixture() -> Connection {
 fn migrate(conn: &Connection) {
     conn.execute_batch(include_str!(
         "../../../traildepot/migrations/U1790952000__number_activity_insights.sql"
+    ))
+    .unwrap();
+    conn.execute_batch(include_str!(
+        "../../../traildepot/migrations/U1790958000__activity_snapshot_cache.sql"
     ))
     .unwrap();
 }
@@ -186,4 +204,72 @@ fn invalid_delta_rolls_back_every_aggregate() {
             0
         );
     }
+}
+
+#[test]
+fn cumulative_cache_reuses_pair_queries_and_refreshes_after_expiry() {
+    struct Counted<'a> {
+        inner: SqlStore<'a>,
+        pairs: usize,
+    }
+    impl Store for Counted<'_> {
+        fn query(&mut self, sql: &str, params: &[Value]) -> ApiResult<Vec<Vec<Value>>> {
+            if sql.contains("FROM lotto_activity_pairs") {
+                self.pairs += 1;
+            }
+            self.inner.query(sql, params)
+        }
+        fn execute(&mut self, sql: &str, params: &[Value]) -> ApiResult<()> {
+            self.inner.execute(sql, params)
+        }
+    }
+    let conn = fixture();
+    migrate(&conn);
+    let now = lotto::close_time(1242) - 3_600_000;
+    generate(&conn, 1242, now);
+    let mut store = Counted {
+        inner: SqlStore(&conn),
+        pairs: 0,
+    };
+    let first = cached_snapshot(&mut store, 1242, "all", now).unwrap();
+    assert_eq!(store.pairs, 2);
+    generate(&conn, 1242, now + 1000);
+    assert_eq!(
+        cached_snapshot(&mut store, 1242, "all", now + 2000).unwrap(),
+        first
+    );
+    assert_eq!(store.pairs, 2);
+    assert_eq!(
+        cached_snapshot(&mut store, 1242, "round", now + 2000).unwrap()["sources"]["generated"]["records"],
+        2
+    );
+    let expired = cached_snapshot(&mut store, 1242, "all", now + 15_000).unwrap();
+    assert_eq!(expired["sources"]["generated"]["records"], 2);
+    assert_eq!(expired["updatedAt"], now + 15_000);
+    assert_eq!(store.pairs, 6);
+}
+
+#[test]
+fn cumulative_cache_is_bounded_and_cannot_cross_the_current_round_boundary() {
+    let conn = fixture();
+    migrate(&conn);
+    let now = lotto::close_time(1242) - 1000;
+    let first = cached_snapshot(&mut SqlStore(&conn), 1242, "all", now).unwrap();
+    assert_eq!(first["currentRound"], 1242);
+    assert_eq!(
+        cached_snapshot(&mut SqlStore(&conn), 1242, "all", now + 2000).unwrap()["currentRound"],
+        1243
+    );
+    for round in 1..=40 {
+        cached_snapshot(&mut SqlStore(&conn), round, "all", now + round).unwrap();
+    }
+    assert_eq!(
+        conn.query_row("SELECT count(*) FROM lotto_activity_all_cache", [], |r| r
+            .get::<_, i64>(
+            0
+        ))
+        .unwrap(),
+        32
+    );
+    assert!(cached_snapshot(&mut SqlStore(&conn), 1243, "all", now).is_err());
 }

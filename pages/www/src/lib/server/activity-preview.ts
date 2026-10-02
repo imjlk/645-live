@@ -12,7 +12,8 @@ export async function getActivityPreview(
 	const base = (TRAILBASE_URL || "http://localhost:4000").replace(/\/$/, "");
 	try {
 		return await fetchActivityInsights(base, { round: requestedRound });
-	} catch {
+	} catch {}
+	try {
 		// Publish useful static rankings even before the aggregate API is deployed.
 		const preview = await getGenerationPreview();
 		if (!preview.context) return null;
@@ -77,5 +78,8 @@ export async function getActivityPreview(
 				},
 			},
 		});
+	} catch {
+		// Optional activity data must not suppress an otherwise valid draw.
+		return null;
 	}
 }

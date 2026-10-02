@@ -136,7 +136,12 @@ def run_case(image, copy_existing):
             assert scan_before==request(base,scan_path),'invalid QR altered aggregates'
             expect(request(base,f'/api/app/v1/lotto/activity?round={round+1}')[0],400,'future insights rejected')
             expect(request(base,f'/api/app/v1/lotto/activity?round={round-1}&period=day')[0],400,'historical rolling window rejected')
-            for table in ['lotto_activity_rounds','lotto_activity_pairs','lotto_activity_hours','lotto_activity_deltas']:
+            status,cumulative=request(base,f'/api/app/v1/lotto/activity?round={round}&period=all');expect(status,200,'cumulative cache')
+            status,reused=request(base,f'/api/app/v1/lotto/activity?round={round}&period=all');expect(status,200,'cumulative cache reuse')
+            if reused['currentRound']==cumulative['currentRound'] and reused['updatedAt']<cumulative['updatedAt']+15000:
+                assert reused==cumulative,'cumulative snapshot was recomputed inside its cache window'
+            checks.append('bounded cumulative snapshot cache is shared across reads')
+            for table in ['lotto_activity_rounds','lotto_activity_pairs','lotto_activity_hours','lotto_activity_deltas','lotto_activity_all_cache']:
                 status,body=request(base,f'/api/records/v1/{table}')
                 assert status in (400,401,403,404) or body is None or (isinstance(body,dict) and 'error' in body), f'internal aggregate record API exposed: {table}'
             checks.append('public source insights match transactional QR and generation aggregates')

@@ -10,11 +10,17 @@ use trailbase_wasm::{
 pub(crate) async fn retention_job() -> trailbase_wasm::http::Response {
     let result = (|| -> ApiResult<Json> {
         let mut tx = db::tx()?;
-        let cutoff = db::now_ms_tx(&mut tx)? / 3_600_000 - 45 * 24;
+        let now = db::now_ms_tx(&mut tx)?;
+        let cutoff = now / 3_600_000 - 45 * 24;
         db::tx_execute(
             &mut tx,
             "DELETE FROM lotto_activity_hours WHERE (source,round,hour) IN (SELECT source,round,hour FROM lotto_activity_hours WHERE hour<?1 ORDER BY hour LIMIT 2000)",
             &[Value::Integer(cutoff)],
+        )?;
+        db::tx_execute(
+            &mut tx,
+            "DELETE FROM lotto_activity_all_cache WHERE expires_at<=?1",
+            &[Value::Integer(now)],
         )?;
         db::tx_commit(&mut tx)?;
         Ok(json!({"success":true}))
@@ -24,10 +30,14 @@ pub(crate) async fn retention_job() -> trailbase_wasm::http::Response {
 
 trait Store {
     fn query(&mut self, sql: &str, params: &[Value]) -> ApiResult<Vec<Vec<Value>>>;
+    fn execute(&mut self, sql: &str, params: &[Value]) -> ApiResult<()>;
 }
 impl Store for Transaction {
     fn query(&mut self, sql: &str, params: &[Value]) -> ApiResult<Vec<Vec<Value>>> {
         db::tx_query(self, sql, params)
+    }
+    fn execute(&mut self, sql: &str, params: &[Value]) -> ApiResult<()> {
+        db::tx_execute(self, sql, params).map(|_| ())
     }
 }
 fn vector(value: &Value, len: usize) -> ApiResult<Vec<i64>> {
@@ -156,16 +166,7 @@ fn source(
 }
 fn snapshot(store: &mut impl Store, round: i64, period: &str, now: i64) -> ApiResult<Json> {
     let current = lotto::target_round(now);
-    if round < 1
-        || round > current
-        || !["round", "four", "all", "day"].contains(&period)
-        || (period == "day" && round != current)
-    {
-        return Err(bad_request(
-            "INVALID_ACTIVITY_QUERY",
-            "회차와 집계 기간을 확인해 주세요.",
-        ));
-    }
+    validate_query(round, period, current)?;
     let generated = source(store, "generated", round, period, now)?;
     let scanned = source(store, "scanned", round, period, now)?;
     let draws=store.query("SELECT draw_number_1,draw_number_2,draw_number_3,draw_number_4,draw_number_5,draw_number_6,bonus_number,draw_date FROM lotto_draw_results WHERE round=?1",&[Value::Integer(round)])?;
@@ -182,6 +183,35 @@ fn snapshot(store: &mut impl Store, round: i64, period: &str, now: i64) -> ApiRe
         json!({"round":round,"currentRound":current,"period":period,"updatedAt":now,"sources":{"generated":generated,"scanned":scanned},"draw":draw,"knownRounds":known}),
     )
 }
+fn validate_query(round: i64, period: &str, current: i64) -> ApiResult<()> {
+    if round < 1
+        || round > current
+        || !["round", "four", "all", "day"].contains(&period)
+        || (period == "day" && round != current)
+    {
+        return Err(bad_request(
+            "INVALID_ACTIVITY_QUERY",
+            "회차와 집계 기간을 확인해 주세요.",
+        ));
+    }
+    Ok(())
+}
+fn cached_snapshot(store: &mut impl Store, round: i64, period: &str, now: i64) -> ApiResult<Json> {
+    let current = lotto::target_round(now);
+    validate_query(round, period, current)?;
+    if period != "all" {
+        return snapshot(store, round, period, now);
+    }
+    let rows=store.query("SELECT snapshot_json FROM lotto_activity_all_cache WHERE round=?1 AND current_round=?2 AND captured_at<=?3 AND expires_at>?3",&[Value::Integer(round),Value::Integer(current),Value::Integer(now)])?;
+    if let Some(row) = rows.first() {
+        return serde_json::from_str(&db::text(&row[0], "cached activity")?).map_err(internal);
+    }
+    let result = snapshot(store, round, period, now)?;
+    store.execute("INSERT INTO lotto_activity_all_cache(round,current_round,captured_at,expires_at,snapshot_json) VALUES (?1,?2,?3,?4,?5) ON CONFLICT(round) DO UPDATE SET current_round=excluded.current_round,captured_at=excluded.captured_at,expires_at=excluded.expires_at,snapshot_json=excluded.snapshot_json",&[Value::Integer(round),Value::Integer(current),Value::Integer(now),Value::Integer(now+15_000),Value::Text(result.to_string())])?;
+    // Arbitrary historical queries cannot grow the cache without bound.
+    store.execute("DELETE FROM lotto_activity_all_cache WHERE round IN (SELECT round FROM lotto_activity_all_cache ORDER BY captured_at DESC,round DESC LIMIT -1 OFFSET 32)",&[])?;
+    Ok(result)
+}
 pub(crate) async fn get(req: &mut Request) -> ApiResult<Json> {
     let mut tx = db::tx()?;
     let now = db::now_ms_tx(&mut tx)?;
@@ -194,7 +224,7 @@ pub(crate) async fn get(req: &mut Request) -> ApiResult<Json> {
         .transpose()?
         .unwrap_or(lotto::target_round(now));
     let period = req.query_param("period").unwrap_or_else(|| "round".into());
-    let result = snapshot(&mut tx, round, &period, now)?;
+    let result = cached_snapshot(&mut tx, round, &period, now)?;
     db::tx_commit(&mut tx)?;
     Ok(result)
 }

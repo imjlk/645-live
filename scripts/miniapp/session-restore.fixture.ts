@@ -44,6 +44,7 @@ let refreshes = 0;
 let dataFailure = 0;
 let refreshFailure = 0;
 let rejectProbe = false;
+const probeAttempts: { id: string; body: unknown }[] = [];
 let bootstrapWait: Promise<void> | undefined;
 let bootstrapSignal: AbortSignal | undefined;
 globalThis.fetch = (async (
@@ -85,6 +86,10 @@ globalThis.fetch = (async (
 			);
 		return Response.json({ user: user(id) });
 	}
+	probeAttempts.push({
+		id,
+		body: options?.body ? JSON.parse(String(options.body)) : null,
+	});
 	if (rejectProbe) {
 		rejectProbe = false;
 		return Response.json({ error: { code: "AUTH_REQUIRED" } }, { status: 401 });
@@ -165,9 +170,13 @@ api = createApi();
 await api.ensure();
 identity = "fixture-account-b";
 rejectProbe = true;
+probeAttempts.length = 0;
 await expect(api.request("/probe", { from: "old-account" })).rejects.toThrow(
 	"계정이 바뀌었어요",
 );
+expect(probeAttempts).toEqual([
+	{ id: "user-a", body: { from: "old-account" } },
+]);
 await expect(api.ensure()).rejects.toThrow("연결 요청을 중단");
 api.dispose();
 api = createApi();

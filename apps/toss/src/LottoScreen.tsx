@@ -178,14 +178,20 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 		panel: Panel;
 		open: boolean;
 	}>({ panel: null, open: false });
+	const [activityRound, setActivityRound] = useState<number | undefined>();
+	const [resultsEntry, setResultsEntry] = useState(0);
+	const [activityParent, setActivityParent] = useState<
+		"generationResults" | null
+	>(null);
 	const setPanel = useCallback((next: Panel) => {
+		if (!next) {
+			setActivityParent(null);
+			setActivityRound(undefined);
+		}
 		setSheet((current) =>
 			next ? { panel: next, open: true } : { ...current, open: false },
 		);
 	}, []);
-	const [activityParent, setActivityParent] = useState<
-		"generationResults" | null
-	>(null);
 	const parentPanel =
 		panel === "activity"
 			? activityParent
@@ -212,7 +218,6 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 		Math.floor((Math.min(width, 640) - 40 - 30) / 6),
 	);
 	const now = model.feed?.serverTime ?? model.context?.serverTime ?? Date.now();
-	const [activityRound, setActivityRound] = useState<number | undefined>();
 	const [featureRequest, setFeatureRequest] = useState<FeatureRequest | null>(
 		null,
 	);
@@ -436,7 +441,12 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 						refreshing={model.refreshing}
 						onRefresh={model.retry}
 						onInsights={() => openActivity()}
-						onResults={() => setPanel("generationResults")}
+						onResults={() => {
+							setResultsEntry((value) => value + 1);
+							setActivityParent(null);
+							setActivityRound(undefined);
+							setPanel("generationResults");
+						}}
 					/>
 				) : (
 					<IOScrollView
@@ -1146,6 +1156,7 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 						</View>
 					) : panel === "generationResults" ? (
 						<GenerationResultsContent
+							key={resultsEntry}
 							active={sheetOpen && visible}
 							initialRound={activityParent ? activityRound : undefined}
 							onInsights={(round) => openActivity(round)}

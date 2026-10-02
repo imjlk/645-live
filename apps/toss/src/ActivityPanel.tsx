@@ -3,6 +3,7 @@ import {
 	ACTIVITY_PERIODS,
 	type ActivityPeriod,
 	type ActivitySource,
+	activityAllowsDay,
 	activityComparison,
 	activityNumbers,
 	combinationActivity,
@@ -214,10 +215,7 @@ export function ActivityPanel({
 				contentContainerStyle={s.filters}
 			>
 				{ACTIVITY_PERIODS.filter(
-					(p) =>
-						p.value !== "day" ||
-						!snapshot ||
-						snapshot.round === snapshot.currentRound,
+					(p) => p.value !== "day" || activityAllowsDay(snapshot, target),
 				).map((p) => (
 					<Button
 						key={p.value}

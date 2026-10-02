@@ -5,6 +5,7 @@ import {
 	type ActivityPeriod,
 	type ActivitySnapshot,
 	type ActivitySource,
+	activityAllowsDay,
 	activityComparison,
 	activityNumbers,
 	combinationActivity,
@@ -108,7 +109,7 @@ function changeRound(next: number) {
 <section class="activity" aria-label="생성·QR 스캔 번호 분석" aria-busy={view.loading}>
  <div class="sources" role="group" aria-label="집계 출처">{#if sourceLinks}<a class:chosen={kind==='generated'} href={`${resolve("/stats/activity/[source]",{source:"generated"})}${snapshot?`?round=${snapshot.round}`:""}`}>생성된 번호</a><a class:chosen={kind==='scanned'} href={`${resolve("/stats/activity/[source]",{source:"scanned"})}${snapshot?`?round=${snapshot.round}`:""}`}>QR 스캔 번호</a>{:else}<button class:chosen={kind==='generated'} aria-pressed={kind==='generated'} onclick={()=>{kind='generated';selected=null;}}>생성된 번호</button><button class:chosen={kind==='scanned'} aria-pressed={kind==='scanned'} onclick={()=>{kind='scanned';selected=null;}}>QR 스캔 번호</button>{/if}</div>
  {#if snapshot&&!fixedRound}<div class="round"><button disabled={snapshot.round<=1||view.loading} onclick={()=>changeRound(snapshot.round-1)} aria-label="이전 회차">←</button><label for="activity-round">회차 <select id="activity-round" value={snapshot.round} onchange={event=>changeRound(Number(event.currentTarget.value))}>{#each [...new Set([snapshot.round,...snapshot.knownRounds])] as r (r)}<option value={r}>{r}회</option>{/each}</select></label><button disabled={snapshot.round>=snapshot.currentRound||view.loading} onclick={()=>changeRound(snapshot.round+1)} aria-label="다음 회차">→</button></div>{/if}
- <div class="filters" role="group" aria-label="집계 기간">{#each ACTIVITY_PERIODS.filter(p=>p.value!=='day'||!snapshot||snapshot.round===snapshot.currentRound) as p (p.value)}<button class:chosen={period===p.value} aria-pressed={period===p.value} onclick={()=>{period=p.value;selected=null;}}>{p.label}</button>{/each}</div>
+ <div class="filters" role="group" aria-label="집계 기간">{#each ACTIVITY_PERIODS.filter(p=>p.value!=='day'||activityAllowsDay(snapshot,fixedRound?round:pickedRound)) as p (p.value)}<button class:chosen={period===p.value} aria-pressed={period===p.value} onclick={()=>{period=p.value;selected=null;}}>{p.label}</button>{/each}</div>
  {#if view.error}<div class="notice" role="alert"><p>{view.error}</p><button class="text-action" onclick={()=>void controller.refresh()}>다시 불러오기</button></div>{/if}
  {#if !data&&view.loading}<p class="notice" role="status">번호 분석을 불러오고 있어요.</p>{/if}
  {#if data&&snapshot}

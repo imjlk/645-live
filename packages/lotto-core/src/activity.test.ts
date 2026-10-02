@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
 	type ActivityData,
 	type ActivitySnapshot,
+	activityAllowsDay,
 	activityComparison,
 	activityNumbers,
 	combinationActivity,
@@ -57,6 +58,14 @@ const deferred = <T>() => {
 };
 
 describe("recorded number insights", () => {
+	test("rolling hours wait for a confirmed current requested round", () => {
+		expect(activityAllowsDay(null, 1241)).toBe(false);
+		expect(activityAllowsDay(null)).toBe(false);
+		expect(activityAllowsDay(fixture(1241), 1241)).toBe(false);
+		expect(activityAllowsDay(fixture(), 1241)).toBe(false);
+		expect(activityAllowsDay(fixture(), 1242)).toBe(true);
+		expect(activityAllowsDay(fixture())).toBe(true);
+	});
 	test("competition ranks keep ties and zero counts out of Top 10", () => {
 		expect(
 			rankNumberCounts(counts(12, 12, 6))

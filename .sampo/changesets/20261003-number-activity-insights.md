@@ -9,3 +9,5 @@ Provide custom settings and analysis from the first use. Replace expiring featur
 Update the shared kit and enable anonymous session restoration with official token refresh, account identity revalidation, and cancellation-aware bootstrap. Existing user storage namespaces remain compatible.
 
 Pin the private mTLS proxy deployment to the latest released image, using its verified multi-platform digest.
+
+Bound cumulative analysis load with a 15-second snapshot cache. Keep historical filters and return navigation consistent, and preserve draw results when optional analysis data is unavailable.
