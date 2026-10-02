@@ -15,7 +15,10 @@ export function GenerationInsightPreview({
 	onInsights: (round: number, number?: number) => void;
 }) {
 	const theme = useTheme();
-	const [key, setKey] = useState<string | null>(null);
+	const [key, setKey] = useState(() => {
+		const initial = generationInsights(generation, feed);
+		return initial[generation.id % initial.length].key;
+	});
 	const facts = generationInsights(generation, feed);
 	const fact = facts.find((item) => item.key === key) ?? facts[0];
 	return (

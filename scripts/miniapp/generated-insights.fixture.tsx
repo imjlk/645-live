@@ -139,6 +139,7 @@ const source = (kind: string) => ({
 	hours: [],
 });
 let hold: (() => void) | null = null;
+let empty = false;
 globalThis.fetch = (async (
 	input: string | URL | Request,
 	init?: RequestInit,
@@ -157,7 +158,24 @@ globalThis.fetch = (async (
 		updatedAt: 1,
 		knownRounds: [1244, 1243],
 		draw: null,
-		sources: { generated: source("generated"), scanned: source("scanned") },
+		sources: {
+			generated: empty
+				? {
+						...source("generated"),
+						records: 0,
+						numberCounts: Array(45).fill(0),
+						pairs: [],
+						patterns: {
+							combinations: 0,
+							oddCounts: Array(7).fill(0),
+							sumCounts: Array(14).fill(0),
+							withConsecutive: 0,
+							since: null,
+						},
+					}
+				: source("generated"),
+			scanned: source("scanned"),
+		},
 	});
 }) as typeof fetch;
 const { GeneratedInsightsScreen } = await import(
@@ -196,6 +214,21 @@ expect(
 	["feed-inline", "expanded"],
 ]);
 expect(text()).not.toContain("스캔");
+// An expanded section remains collapsible when the selected round has no records.
+empty = true;
+await act(async () => {
+	button("다음")?.props.onPress();
+});
+expect(text()).toContain("아직 모인 번호가 없어요");
+expect(button("조합 패턴 접기")?.props.disabled).toBe(false);
+await act(async () => {
+	button("조합 패턴 접기")?.props.onPress();
+});
+expect(button("조합 패턴 더 보기")?.props.disabled).toBe(true);
+empty = false;
+await act(async () => {
+	button("이전")?.props.onPress();
+});
 await act(async () => {
 	for (const fn of appState) fn("background");
 });
@@ -204,9 +237,6 @@ await act(async () => {
 	for (const fn of appState) fn("active");
 });
 expect(intervals.size).toBe(1);
-await act(async () => {
-	button("조합 패턴 접기")?.props.onPress();
-});
 model.featureAdRequired = true;
 await act(async () => {
 	root.update(<GeneratedInsightsScreen />);
@@ -291,6 +321,33 @@ await act(async () => {
 	button("생성 통계 보기")?.props.onPress();
 });
 expect(opened).toEqual([[1244, undefined]]);
+// New combinations start with different facts, including a number-specific entry.
+await act(async () => {
+	root.update(
+		<GenerationInsightPreview
+			key={7}
+			generation={{ ...generation, id: 7 }}
+			feed={feed}
+			onInsights={() => {}}
+		/>,
+	);
+});
+expect(text()).toContain("연속된 번호가 1쌍");
+await act(async () => {
+	root.update(
+		<GenerationInsightPreview
+			key={8}
+			generation={{ ...generation, id: 8 }}
+			feed={feed}
+			onInsights={(round, number) => opened.push([round, number])}
+		/>,
+	);
+});
+expect(text()).toContain("25번은 이번 회차에 3회");
+await act(async () => {
+	button("생성 통계 보기")?.props.onPress();
+});
+expect(opened.at(-1)).toEqual([1244, 25]);
 expect(requests).toHaveLength(requestCount);
 await act(async () => {
 	root.unmount();

@@ -411,7 +411,7 @@ export function ActivityPanel({
 					<Button
 						display="full"
 						style="weak"
-						disabled={total === 0}
+						disabled={!more && total === 0}
 						onPress={() =>
 							more ? setMore(false) : onExplore(() => setMore(true))
 						}
