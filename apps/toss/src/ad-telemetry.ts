@@ -11,6 +11,10 @@ export type AdMetric =
 	| "failed"
 	| "settled"
 	| "generation_completed"
+	| "batch_completed"
+	| "banner_slot_viewed"
+	| "banner_requested"
+	| "banner_impression"
 	| "banner_rendered"
 	| "banner_viewable"
 	| "banner_clicked"
@@ -21,6 +25,7 @@ export type AdMetricContext = {
 	format?: string;
 	policy?: string;
 	flowId?: string;
+	entryPoint?: string;
 };
 export type AdMetricPayload = {
 	placement: string;
@@ -28,6 +33,7 @@ export type AdMetricPayload = {
 	policy: string;
 	flow_id: string;
 	outcome: string;
+	entry_point: string;
 };
 export type AdMetricSink = (event: {
 	log_name: string;
@@ -63,6 +69,7 @@ export function createAdTelemetry(send: AdMetricSink) {
 				policy: (context.policy ?? "not_applicable").slice(0, 96),
 				flow_id: (context.flowId ?? "").slice(0, 64),
 				outcome: outcome.slice(0, 64),
+				entry_point: (context.entryPoint ?? "continuation").slice(0, 32),
 			});
 		},
 		flush: router.flush,
@@ -103,6 +110,11 @@ export function adPolicyLabel(policy?: {
 
 function logType(event: AdMetric): "click" | "impression" | "event" {
 	if (event === "requested" || event === "banner_clicked") return "click";
-	if (event.endsWith("viewable") || event === "cta_viewed") return "impression";
+	if (
+		event.endsWith("viewable") ||
+		event.endsWith("_viewed") ||
+		event === "banner_impression"
+	)
+		return "impression";
 	return "event";
 }

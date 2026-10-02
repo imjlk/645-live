@@ -53,6 +53,7 @@ import {
 	FeatureAccessPrompt,
 	type FeatureRequest,
 } from "./FeatureAccessPrompt";
+import { GenerationBatchAction } from "./GenerationBatchAction";
 import { GenerationInsightPreview } from "./GenerationInsightPreview";
 import { GenerationResultsContent } from "./GenerationResultsContent";
 import { generationOptionsError } from "./generation-options";
@@ -660,6 +661,7 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 																hasOptions ? options : EMPTY_OPTIONS,
 																model.generationAdRequired,
 																adFlow,
+																() => visibleRef.current,
 															),
 														);
 													}}
@@ -670,6 +672,26 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 												</Button>
 											)}
 										</AdCtaImpression>
+										{model.generationAdRequired ? (
+											<Text style={[s.caption, muted, { marginTop: 8 }]}>
+												광고 한 번을 완료하면 다시 여러 번 번호를 만들 수
+												있어요.
+											</Text>
+										) : null}
+										<GenerationBatchAction
+											model={model}
+											onGenerate={(flow) =>
+												model.generateMany(
+													hasOptions ? options : EMPTY_OPTIONS,
+													flow,
+													() => visibleRef.current,
+												)
+											}
+											onCompleted={() => {
+												if (visibleRef.current && mounted.current)
+													setPanel("recent");
+											}}
+										/>
 										{model.recent.some(
 											(item) => item.id !== model.current?.id,
 										) ? (

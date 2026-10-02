@@ -13,6 +13,8 @@ let bootstrapCount = 0;
 let adEnvironment = "toss";
 let adLoadFails = false;
 let adShowCount = 0;
+const adLoads: string[] = [];
+let loadGate: (() => void) | null = null;
 let sessionFailure: Error | null = null;
 let notificationResult = "newAgreement";
 const adEvents = [
@@ -35,12 +37,18 @@ mock.module("@apps-in-toss/framework", () => ({
 	getAnonymousKey: async () => "fixture",
 	getOperationalEnvironment: () => adEnvironment,
 	loadFullScreenAd: Object.assign(
-		({ onEvent, onError }: AdCallbacks) => {
-			queueMicrotask(() =>
+		({
+			onEvent,
+			onError,
+			options,
+		}: AdCallbacks & { options: { adGroupId: string } }) => {
+			adLoads.push(options.adGroupId);
+			const loaded = () =>
 				adLoadFails
 					? onError(new Error("no fill"))
-					: onEvent({ type: "loaded" }),
-			);
+					: onEvent({ type: "loaded" });
+			if (loadGate) loadGate = loaded;
+			else queueMicrotask(loaded);
 			return () => {};
 		},
 		{ isSupported: () => true },
@@ -103,6 +111,8 @@ afterEach(() => {
 	adEnvironment = "toss";
 	adLoadFails = false;
 	adShowCount = 0;
+	adLoads.length = 0;
+	loadGate = null;
 	sessionFailure = null;
 	adEvents.splice(
 		0,
@@ -113,6 +123,92 @@ afterEach(() => {
 		"userEarnedReward",
 		"dismissed",
 	);
+});
+
+test("full-screen requests are lazy and load only the server-selected group after a choice", async () => {
+	const controller = createAdController({
+		startAd: async () => ({
+			alreadyGranted: false,
+			id: "chosen",
+			format: "rewarded",
+			groupId: "chosen-group",
+			expiresAt: Date.now() + 300000,
+		}),
+		completeAd: async () => ({ feature: "generation_continue" }),
+	});
+	try {
+		expect(adLoads).toEqual([]);
+		await controller.unlock("generation_continue", true);
+		expect(adLoads).toEqual(["chosen-group"]);
+		expect(adShowCount).toBe(1);
+	} finally {
+		controller.dispose();
+	}
+});
+
+test("disposing during native loading prevents a late full-screen show", async () => {
+	loadGate = () => {};
+	const cancelled: string[][] = [];
+	const controller = createAdController({
+		startAd: async () => ({
+			alreadyGranted: false,
+			id: "late",
+			format: "rewarded",
+			groupId: "late-group",
+			expiresAt: Date.now() + 300000,
+		}),
+		completeAd: async (_id, events) => {
+			cancelled.push(events);
+			return { feature: "generation_continue" };
+		},
+	});
+	const attempt = controller.unlock("generation_continue", true);
+	for (let i = 0; i < 5 && !adLoads.length; i++) await Promise.resolve();
+	expect(adLoads).toEqual(["late-group"]);
+	controller.dispose();
+	loadGate?.();
+	await expect(attempt).rejects.toThrow("중단");
+	expect(adShowCount).toBe(0);
+	expect(cancelled).toEqual([["cancelled"]]);
+	await expect(controller.unlock("generation_continue", true)).rejects.toThrow(
+		"중단",
+	);
+	expect(adLoads).toHaveLength(1);
+});
+
+test("leaving the originating screen during loading cancels the session instead of opening an ad elsewhere", async () => {
+	loadGate = () => {};
+	let visible = true;
+	const cancellations: string[][] = [];
+	const controller = createAdController({
+		startAd: async () => ({
+			alreadyGranted: false,
+			id: "left",
+			format: "rewarded",
+			groupId: "left-group",
+			expiresAt: Date.now() + 300000,
+		}),
+		completeAd: async (_id, events) => {
+			cancellations.push(events);
+			return { feature: "generation_continue" };
+		},
+	});
+	try {
+		const attempt = controller.unlock(
+			"generation_continue",
+			true,
+			undefined,
+			() => visible,
+		);
+		for (let i = 0; i < 5 && !adLoads.length; i++) await Promise.resolve();
+		visible = false;
+		loadGate?.();
+		await expect(attempt).rejects.toThrow("중단");
+		expect(adShowCount).toBe(0);
+		expect(cancellations).toEqual([["cancelled"]]);
+	} finally {
+		controller.dispose();
+	}
 });
 
 test("a synchronous session runtime failure can be diagnosed and retried", async () => {

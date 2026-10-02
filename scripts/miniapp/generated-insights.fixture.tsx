@@ -21,6 +21,18 @@ const backEvent = {
 let returns = 0;
 mock.module("@granite-js/react-native", () => ({
 	IOContext: io,
+	InView: ({
+		onChange,
+		children,
+	}: {
+		onChange: (visible: boolean, ratio: number) => void;
+		children: React.ReactNode;
+	}) => {
+		React.useEffect(() => {
+			onChange(true, 1);
+		}, []);
+		return children;
+	},
 	IOScrollView: (props: Record<string, unknown>) => (
 		<io.Provider value={{ manager: {} }}>
 			<scroll {...props}>{props.children as React.ReactNode}</scroll>

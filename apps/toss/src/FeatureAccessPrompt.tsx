@@ -47,8 +47,16 @@ export function FeatureAccessPrompt({
 	return (
 		<ConfirmDialog
 			open={open}
-			title="광고 보고 계속 이용할까요?"
-			description="맞춤 설정과 생성 통계는 기본으로 제공해요. 간헐적으로 광고를 보고 이어서 이용할 수 있어요."
+			title={
+				request.feature === "custom"
+					? "맞춤 조건으로 계속 만들까요?"
+					: "조합 분석을 더 살펴볼까요?"
+			}
+			description={
+				request.feature === "custom"
+					? "광고 한 번을 완료하면 고정·제외 번호와 홀짝 조건을 다시 여러 번 설정할 수 있어요. 기본 번호 생성은 그대로 이용할 수 있어요."
+					: "광고 한 번을 완료하면 번호별 흐름과 조합 패턴을 다시 여러 번 살펴볼 수 있어요. 기본 생성 통계는 그대로 볼 수 있어요."
+			}
 			leftButton={
 				<ConfirmDialog.Button
 					style="weak"

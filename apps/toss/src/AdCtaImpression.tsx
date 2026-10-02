@@ -9,6 +9,7 @@ type RunAdAttempt = (
 type Props = {
 	enabled: boolean;
 	policy: string;
+	entryPoint?: string;
 	children: (runAttempt: RunAdAttempt) => ReactNode;
 };
 
@@ -17,7 +18,7 @@ export function AdCtaImpression(props: Props) {
 	const [revision, rotate] = useReducer((value: number) => value + 1, 0);
 	return (
 		<CtaAttempt
-			key={`${props.enabled}:${props.policy}:${revision}`}
+			key={`${props.enabled}:${props.policy}:${props.entryPoint}:${revision}`}
 			{...props}
 			onSettled={rotate}
 		/>
@@ -27,6 +28,7 @@ export function AdCtaImpression(props: Props) {
 function CtaAttempt({
 	enabled,
 	policy,
+	entryPoint,
 	children,
 	onSettled,
 }: Props & {
@@ -40,9 +42,10 @@ function CtaAttempt({
 				? createAdFlow(adTelemetry, {
 						placement: "generation_continue",
 						policy,
+						entryPoint,
 					})
 				: undefined,
-		[enabled, policy],
+		[enabled, policy, entryPoint],
 	);
 	useEffect(() => {
 		active.current = true;
