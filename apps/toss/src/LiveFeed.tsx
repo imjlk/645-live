@@ -84,6 +84,7 @@ export function LiveFeed({
 	refreshing,
 	onRefresh,
 	onResults,
+	onInsights,
 }: {
 	feed: Feed | null;
 	myGeneration: Generation | null;
@@ -98,6 +99,7 @@ export function LiveFeed({
 	refreshing: boolean;
 	onRefresh: () => void;
 	onResults: () => void;
+	onInsights: () => void;
 }) {
 	const theme = useTheme();
 	const visible = useVisibility();
@@ -245,6 +247,9 @@ export function LiveFeed({
 							reducedMotion={reducedMotion || !visible}
 						/>
 						<GenerationResultsLink onPress={onResults} />
+						<Button display="full" style="weak" onPress={onInsights}>
+							생성·스캔 Top 10과 번호 분석
+						</Button>
 						<View style={[s.row, s.gridToolbar]}>
 							<Text style={[s.sectionTitle, text]}>번호별 생성 횟수</Text>
 							<SegmentedControl.Root

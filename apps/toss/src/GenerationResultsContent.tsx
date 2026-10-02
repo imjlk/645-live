@@ -22,7 +22,15 @@ import { Balls } from "./Balls";
 import { previousGenerationResults } from "./generation-result-view";
 import { useTheme } from "./theme";
 
-export function GenerationResultsContent({ active }: { active: boolean }) {
+export function GenerationResultsContent({
+	active,
+	onInsights,
+	initialRound,
+}: {
+	active: boolean;
+	onInsights?: (round: number) => void;
+	initialRound?: number;
+}) {
 	const theme = useTheme();
 	const { width } = useWindowDimensions();
 	const controller = useMemo(
@@ -54,13 +62,15 @@ export function GenerationResultsContent({ active }: { active: boolean }) {
 	const [picker, setPicker] = useState(false);
 	useEffect(() => {
 		if (!active) return;
-		void controller.refresh();
+		const requested =
+			initialRound !== undefined ? controller.select(initialRound) : null;
+		if (!requested) void controller.refresh();
 		const timer = setInterval(() => void controller.refresh(), 60000);
 		return () => {
 			clearInterval(timer);
 			controller.stop();
 		};
-	}, [controller, active]);
+	}, [controller, active, initialRound]);
 	async function previous() {
 		if (!selected) return;
 		const round = selected.round;
@@ -142,6 +152,15 @@ export function GenerationResultsContent({ active }: { active: boolean }) {
 							{status.label}
 						</Text>
 					</View>
+					{onInsights ? (
+						<Button
+							display="full"
+							style="weak"
+							onPress={() => onInsights(selected.round)}
+						>
+							{selected.round}회 생성·스캔 번호 분석
+						</Button>
+					) : null}
 					{selected.draw ? (
 						<View style={s.draw}>
 							<Balls

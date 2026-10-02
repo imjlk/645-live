@@ -66,7 +66,7 @@ export function LocalTestPanel({
 				))}
 			</View>
 			<View style={{ gap: 10 }}>
-				<Text style={text}>결과와 광고 이용권</Text>
+				<Text style={text}>결과와 상세 기능 광고</Text>
 				<Button
 					display="full"
 					style="weak"
@@ -80,11 +80,10 @@ export function LocalTestPanel({
 					display="full"
 					style="weak"
 					type="dark"
-					loading={model.busy === "test-pass"}
 					disabled={!!model.busy || !model.user}
-					onPress={() => void model.testPass()}
+					onPress={model.prepareFeatureAd}
 				>
-					테스트 이용권 초기화
+					테스트: 상세 기능 광고 시점 만들기
 				</Button>
 			</View>
 		</View>

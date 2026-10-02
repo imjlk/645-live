@@ -7,26 +7,6 @@ use trailbase_wasm::{
     http::Request,
 };
 
-pub(crate) fn require_pass(
-    tx: &mut Transaction,
-    user: &[u8],
-    feature: &str,
-    now: i64,
-) -> ApiResult<()> {
-    let rows = db::tx_query(
-        tx,
-        "SELECT 1 FROM ait_lotto_entitlements WHERE user_id = ?1 AND feature = ?2 AND expires_at > ?3",
-        &[
-            Value::Blob(user.to_vec()),
-            Value::Text(feature.into()),
-            Value::Integer(now),
-        ],
-    )?;
-    if rows.is_empty() {
-        return Err(forbidden("PASS_REQUIRED", "이용권을 먼저 열어 주세요."));
-    }
-    Ok(())
-}
 pub(crate) fn grant_pass(
     tx: &mut Transaction,
     user: &[u8],
@@ -63,22 +43,11 @@ pub(crate) async fn config(req: &mut Request) -> ApiResult<Json> {
         let interstitial = if restore { None } else { interstitial };
         let enabled = (test || db::integer(&r[1], "enabled")? == 1)
             && (rewarded.is_some() || interstitial.is_some());
-        Ok(json!({"placement":feature,"enabled":enabled,"rewardedGroupId":rewarded,"interstitialGroupId":interstitial,"rewardedWeight":if restore {100} else {db::integer(&r[4],"weight")?},"passDurationMs":db::integer(&r[5],"duration")?}))
+        Ok(json!({"placement":feature,"enabled":enabled,"rewardedGroupId":rewarded,"interstitialGroupId":interstitial,"rewardedWeight":if restore {100} else {db::integer(&r[4],"weight")?},"passDurationMs":if feature=="custom" || feature=="report" {0} else {db::integer(&r[5],"duration")?}}))
     }).collect::<ApiResult<Vec<_>>>()?;
-    let passes = db::tx_query(
-        &mut tx,
-        "SELECT feature, expires_at FROM ait_lotto_entitlements WHERE user_id = ?1 AND expires_at > ?2",
-        &[Value::Blob(user.id), Value::Integer(now)],
-    )?;
-    let passes = passes
-        .iter()
-        .map(|r| {
-            Ok((
-                db::text(&r[0], "feature")?,
-                json!(db::integer(&r[1], "expires")?),
-            ))
-        })
-        .collect::<ApiResult<serde_json::Map<String, Json>>>()?;
+    // Compatibility hints for older clients; feature requests no longer check
+    // expiring entitlements, and continuation ads do not create entitlements.
+    let passes = json!({"custom":now+86400000,"report":now+86400000});
     db::tx_commit(&mut tx)?;
     let inline_banner = if test {
         Some("ait-ad-test-banner-id".into())
@@ -108,7 +77,7 @@ pub(crate) async fn config(req: &mut Request) -> ApiResult<Json> {
         feed_inline_groups.extend(inline_banner.clone());
     }
     Ok(
-        json!({"placements":placements,"passes":passes,"testMode":test,"bannerGroupId":inline_banner,"bannerGroups":{"inline":inline_banner,"card":card_banner},"feedInlineGroupIds":feed_inline_groups,"generationAdRequired":generation_ad_required,"generationAdPolicy":generation_ad_policy,"serverTime":now}),
+        json!({"featureAccess":"basic","featureAdPolicy":{"minUses":3,"maxUses":15},"placements":placements,"passes":passes,"testMode":test,"bannerGroupId":inline_banner,"bannerGroups":{"inline":inline_banner,"card":card_banner},"feedInlineGroupIds":feed_inline_groups,"generationAdRequired":generation_ad_required,"generationAdPolicy":generation_ad_policy,"serverTime":now}),
     )
 }
 fn groups(row: &[Value], test: bool) -> ApiResult<(Option<String>, Option<String>)> {
@@ -142,7 +111,7 @@ pub(crate) async fn start(req: &mut Request) -> ApiResult<Json> {
     )?;
     let row = rows
         .first()
-        .ok_or_else(|| bad_request("INVALID_PLACEMENT", "이용권을 확인해 주세요."))?;
+        .ok_or_else(|| bad_request("INVALID_PLACEMENT", "광고 종류를 확인해 주세요."))?;
     let test = settings::string_or("AIT_TEST_ADS", "false") == "true";
     let (rewarded, interstitial) = groups(row, test)?;
     let restore = input.placement == "attendance_restore";
@@ -152,10 +121,7 @@ pub(crate) async fn start(req: &mut Request) -> ApiResult<Json> {
         rewarded.is_some() || interstitial.is_some()
     };
     if (!test && db::integer(&row[1], "enabled")? != 1) || !available {
-        return Err(conflict(
-            "AD_UNAVAILABLE",
-            "지금은 광고 이용권을 준비 중이에요.",
-        ));
+        return Err(conflict("AD_UNAVAILABLE", "지금은 광고를 준비 중이에요."));
     }
     let generation_cycle = if input.placement == generation_ads::PLACEMENT {
         if input.client_managed_counter {
@@ -184,20 +150,11 @@ pub(crate) async fn start(req: &mut Request) -> ApiResult<Json> {
             return Ok(json!({"alreadyGranted":true}));
         }
         attendance::require_restore(&mut tx, &user.id, now)?;
-    } else if input.placement != generation_ads::PLACEMENT {
-        match require_pass(&mut tx, &user.id, &input.placement, now) {
-            Ok(()) => {
-                db::tx_commit(&mut tx)?;
-                return Ok(json!({"alreadyGranted":true}));
-            }
-            Err(err) if err.code == "PASS_REQUIRED" => {}
-            Err(err) => return Err(err),
-        }
     }
-    // Expired reservations remain in the ledger for daily caps; they release the outstanding slot.
+    // Keep expired attempts for usage accounting, but release their pending slot.
     db::tx_execute(
         &mut tx,
-        "UPDATE ait_lotto_ad_sessions SET status = 'expired' WHERE user_id = ?1 AND status = 'pending' AND expires_at <= ?2",
+        "UPDATE ait_lotto_ad_sessions SET status='expired' WHERE user_id=?1 AND status='pending' AND expires_at<=?2",
         &[Value::Blob(user.id.clone()), Value::Integer(now)],
     )?;
     let pending = db::tx_query(
@@ -251,7 +208,13 @@ pub(crate) async fn start(req: &mut Request) -> ApiResult<Json> {
             Value::Text(group.clone()),
             Value::Integer(now),
             Value::Integer(expires),
-            Value::Integer(db::integer(&row[5], "duration")?),
+            Value::Integer(
+                if input.placement == "custom" || input.placement == "report" {
+                    0
+                } else {
+                    db::integer(&row[5], "duration")?
+                },
+            ),
             if input.placement == "attendance_restore" {
                 Value::Integer(day)
             } else {
@@ -281,6 +244,9 @@ pub(crate) fn completed(format: &str, events: &[String]) -> bool {
         } else {
             has("impression") && has("dismissed")
         }
+}
+fn continuation(placement: &str) -> bool {
+    matches!(placement, "generation_continue" | "custom" | "report")
 }
 fn completed_for_placement(placement: &str, format: &str, events: &[String]) -> bool {
     (placement != "attendance_restore" || format == "rewarded") && completed(format, events)
@@ -323,7 +289,7 @@ pub(crate) async fn complete(req: &mut Request) -> ApiResult<Json> {
     if let Some(at) = db::nullable_integer(&r[3])? {
         db::tx_commit(&mut tx)?;
         return Ok(
-            json!({"feature":feature,"expiresAt":at+db::integer(&r[5],"duration")?,"replayed":true,"continuedWithoutAd":feature == generation_ads::PLACEMENT && status == "cancelled"}),
+            json!({"feature":feature,"expiresAt":at+db::integer(&r[5],"duration")?,"replayed":true,"continuedWithoutAd":continuation(&feature) && status == "cancelled"}),
         );
     }
     if status == "cancelled" || status == "expired" {
@@ -332,10 +298,12 @@ pub(crate) async fn complete(req: &mut Request) -> ApiResult<Json> {
     if now >= db::integer(&r[4], "expires")? {
         return Err(conflict("AD_EXPIRED", "광고 요청이 만료됐어요."));
     }
-    if feature == generation_ads::PLACEMENT && input.events == ["failedToShow"] {
-        // A no-fill/unsupported SDK allows basic generation and stays a cancelled
+    if continuation(&feature) && input.events == ["failedToShow"] {
+        // A no-fill/unsupported SDK allows basic features and stays a cancelled
         // ad, never a fabricated impression, reward, or feature pass.
-        generation_ads::continued(&mut tx, &user.id, db::nullable_integer(&r[8])?, now)?;
+        if feature == generation_ads::PLACEMENT {
+            generation_ads::continued(&mut tx, &user.id, db::nullable_integer(&r[8])?, now)?;
+        }
         db::tx_execute(
             &mut tx,
             "UPDATE ait_lotto_ad_sessions SET status='cancelled',completed_at=?1,events_json=?2 WHERE id=?3",
@@ -361,7 +329,7 @@ pub(crate) async fn complete(req: &mut Request) -> ApiResult<Json> {
             if feature == "attendance_restore" {
                 "보상형 광고를 완료해야 연속 출석을 복구할 수 있어요."
             } else {
-                "광고를 완료하면 이용권이 열려요."
+                "광고를 완료하면 계속 이용할 수 있어요."
             },
         ));
     }
@@ -376,8 +344,6 @@ pub(crate) async fn complete(req: &mut Request) -> ApiResult<Json> {
             &input.id,
             db::nullable_integer(&r[7])?,
         )?;
-    } else {
-        grant_pass(&mut tx, &user.id, &feature, expires)?;
     }
     db::tx_execute(
         &mut tx,

@@ -30,6 +30,9 @@ export type AdUnlockResult = {
 		| "unavailable";
 };
 
+const continuation = (placement: AdPlacement) =>
+	placement !== "attendance_restore";
+
 function resolvedAd(
 	result: Awaited<ReturnType<Api["completeAd"]>>,
 	placement: AdPlacement,
@@ -37,7 +40,7 @@ function resolvedAd(
 ): AdUnlockResult {
 	if (
 		result.feature !== placement ||
-		(placement !== "generation_continue" && result.continuedWithoutAd)
+		(!continuation(placement) && result.continuedWithoutAd)
 	) {
 		throw new Error("광고 완료 결과를 확인하지 못했어요. 다시 시도해 주세요.");
 	}
@@ -124,8 +127,7 @@ export function createAdController(api: Pick<Api, "startAd" | "completeAd">) {
 		): Promise<AdUnlockResult> {
 			if (busy) throw new Error("진행 중인 광고를 먼저 완료해 주세요.");
 			const reason = unavailableReason();
-			if (reason && placement !== "generation_continue")
-				throw new Error(reason);
+			if (reason && !continuation(placement)) throw new Error(reason);
 			busy = true;
 			const flow = providedFlow ?? createAdFlow(adTelemetry, { placement });
 			activeFlow = flow;
@@ -163,7 +165,7 @@ export function createAdController(api: Pick<Api, "startAd" | "completeAd">) {
 					.startAd(placement, clientManagedCounter)
 					.catch((error) => {
 						if (
-							placement === "generation_continue" &&
+							continuation(placement) &&
 							["AD_COOLDOWN", "AD_UNAVAILABLE"].includes(
 								apiErrorCode(error) ?? "",
 							)
@@ -217,7 +219,7 @@ export function createAdController(api: Pick<Api, "startAd" | "completeAd">) {
 						interstitialCompletionFallbackMs: 120_000,
 						preloadNext: false,
 					});
-					if (placement !== "generation_continue" && !result.completed) {
+					if (!continuation(placement) && !result.completed) {
 						throw new Error(
 							"광고를 끝까지 보면 출석 복구·기능 이용이 가능해요.",
 						);
@@ -240,7 +242,7 @@ export function createAdController(api: Pick<Api, "startAd" | "completeAd">) {
 							: "completion_error",
 					);
 					if (
-						placement === "generation_continue" &&
+						continuation(placement) &&
 						!pendingCompletion &&
 						error instanceof AppsInTossAdBridgeError &&
 						error.code !== "AD_SHOW_TIMEOUT"

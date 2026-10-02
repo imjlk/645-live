@@ -85,6 +85,7 @@ mock.module("@trailbase-apps-in-toss-kit/trailbase-client", () => ({
 			if (sessionFailure) throw sessionFailure;
 			return options.bootstrap("ait:fixture-identity");
 		},
+		renewAppSession: () => options.bootstrap("ait:fixture-identity"),
 		clearSessions: async () => {},
 		cancelPendingOperations: () => {},
 	}),
@@ -250,7 +251,7 @@ test("no-fill and unsupported environments continue generation without a fabrica
 	}
 });
 
-test("feature passes keep their normal no-fill failure behavior", async () => {
+test("unavailable feature continuation ads keep basic access without a fabricated reward", async () => {
 	adLoadFails = true;
 	const events: string[][] = [];
 	const controller = createAdController({
@@ -263,12 +264,12 @@ test("feature passes keep their normal no-fill failure behavior", async () => {
 		}),
 		completeAd: async (_id, observed) => {
 			events.push(observed);
-			return { feature: "custom" };
+			return { feature: "custom", continuedWithoutAd: true };
 		},
 	});
 	try {
-		await expect(controller.unlock("custom")).rejects.toThrow("load failed");
-		expect(events).toEqual([["cancelled"]]);
+		expect((await controller.unlock("custom"))?.continuedWithoutAd).toBe(true);
+		expect(events).toEqual([["failedToShow"]]);
 		expect(adShowCount).toBe(0);
 	} finally {
 		controller.dispose();

@@ -250,7 +250,8 @@ def run():
             assert progress(device_user)['cycle'] == 1
             assert start(device_auth, device=True)[1]['alreadyGranted'], 'device path retains shared ad cooldown'
             payload = {'requestId': uuid.uuid4().hex, 'round': round, 'options': {'fixed': [1], 'excluded': [], 'oddCount': None}, 'clientManagedCounter': True}
-            expect(request(base, '/api/app/v1/lotto/generations', payload, device_auth)[0], 403, 'device cadence does not bypass feature passes')
+            time.sleep(1.1)
+            expect(request(base, '/api/app/v1/lotto/generations', payload, device_auth)[0], 200, 'device cadence accepts basic custom options')
             payload['options'] = {'fixed': [], 'excluded': [], 'oddCount': None}
             payload['requestId'] = uuid.uuid4().hex
             expect(request(base, '/api/app/v1/lotto/generations', payload, capped_auth)[0], 429, 'device cadence does not bypass generation rate limits')
@@ -260,7 +261,7 @@ def run():
             expect(generate(user50, auth50)[0], 200, 'configuration disable immediately releases generation')
             expect(request(base, '/api/app/v1/dev/entitlements', {'action': 'generation_ad'}, auth50)[0], 404, 'production flags reject the local shortcut')
             assert sql('PRAGMA foreign_key_check') == []
-            print(json.dumps({'random-generation-ads': 'passed', 'checks': ['five-generation default first gate', '10 and 50 endpoint overrides', 'random intervals after each ad', 'server restart persistence', 'generation retry idempotency', 'rewarded and interstitial completion', 'cancellation and no-fill distinction', 'no-fill replay idempotency', 'global cooldown fallback', 'daily generation cap never prompts an ad', 'disabled placement fallback', 'identity and local-only gates', 'device cadence avoids progress writes', 'device generation replay idempotency', 'device ads retain shared limits', 'device cadence preserves passes and attendance']}), flush=True)
+            print(json.dumps({'random-generation-ads': 'passed', 'checks': ['five-generation default first gate', '10 and 50 endpoint overrides', 'random intervals after each ad', 'server restart persistence', 'generation retry idempotency', 'rewarded and interstitial completion', 'cancellation and no-fill distinction', 'no-fill replay idempotency', 'global cooldown fallback', 'daily generation cap never prompts an ad', 'disabled placement fallback', 'identity and local-only gates', 'device cadence avoids progress writes', 'device generation replay idempotency', 'device ads retain shared limits', 'device cadence preserves attendance and basic feature access']}), flush=True)
         finally:
             cleanup_case(name, folder, IMAGE)
 

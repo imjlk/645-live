@@ -2,6 +2,8 @@
  * 로또 관련 유틸리티 함수들
  */
 
+import { validateScanGames } from "./scan-data";
+
 import {
 	execute,
 	HttpError,
@@ -185,44 +187,14 @@ export function isValidLottoNumber(num: unknown): num is number {
 export function sanitizeGameData(
 	games: unknown[],
 ): Array<{ round?: number; numbers: number[] }> {
-	if (!Array.isArray(games)) {
-		throw new Error("Invalid games data format");
-	}
-
-	return games.map((game: unknown) => {
-		if (!game || typeof game !== "object") {
-			throw new Error("Invalid game object");
-		}
-
-		const gameObj = game as Record<string, unknown>;
-		const sanitizedGame: { round?: number; numbers: number[] } = {
-			numbers: [],
-		};
-
-		// round 검증 (선택적)
-		if (gameObj.round !== undefined) {
-			if (isValidLottoRound(gameObj.round)) {
-				sanitizedGame.round = gameObj.round;
-			}
-			// 유효하지 않은 round는 무시 (undefined로 처리)
-		}
-
-		// numbers 검증 (필수)
-		if (!Array.isArray(gameObj.numbers)) {
-			throw new Error("Game numbers must be an array");
-		}
-
-		// 유효한 번호만 필터링
-		sanitizedGame.numbers = gameObj.numbers
-			.filter(isValidLottoNumber)
-			.slice(0, 6); // 최대 6개 번호만 허용
-
-		if (sanitizedGame.numbers.length === 0) {
-			throw new Error("No valid lotto numbers found in game");
-		}
-
-		return sanitizedGame;
-	});
+	if (!Array.isArray(games)) throw new Error("Invalid games data format");
+	const validated = validateScanGames(games);
+	const rounds = new Set(
+		validated.flatMap((g) => (g.round === undefined ? [] : [g.round])),
+	);
+	if (rounds.size > 1)
+		throw new Error("All games must belong to the same round");
+	return validated;
 }
 
 /**
@@ -1024,6 +996,12 @@ export async function processScannedLottoData(req: { body: unknown }) {
 				`;
 
 				tx.execute(insertQuery, values);
+			}
+			for (const game of games) {
+				tx.execute(
+					"INSERT INTO lotto_activity_deltas(source,round,numbers_json,created_at,delta) VALUES ('scanned',?,?,?,1)",
+					[currentRound, JSON.stringify(game.numbers), Date.now()],
+				);
 			}
 		});
 

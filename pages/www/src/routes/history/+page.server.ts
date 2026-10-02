@@ -1,5 +1,4 @@
-import { initClient } from "trailbase";
-import { env } from "$env/dynamic/private";
+import { getActivityPreview } from "$lib/server/activity-preview";
 import { getLatestLottoRound, getLottoNumbers } from "$lib/utils/lotto-api";
 import type { PageServerLoad } from "./$types";
 
@@ -21,34 +20,18 @@ export const load: PageServerLoad = async ({ url }) => {
 			Number.isInteger(requestedRound) && requestedRound > 0
 				? Math.min(requestedRound, latestRound)
 				: latestRound;
-		const client = initClient(env.TRAILBASE_URL || "http://localhost:4000");
-		const [lottoNumbers, scanResult] = await Promise.all([
+		const [lottoNumbers, activity] = await Promise.all([
 			targetRound === latestRound
 				? Promise.resolve(latestDraw)
 				: getLottoNumbers(targetRound),
-			client
-				.records("lotto_draw_scan_counts")
-				.list({
-					filters: [
-						{ column: "round", op: "equal", value: String(targetRound) },
-					],
-					pagination: { limit: 1 },
-				})
-				.then((response) => ({
-					data:
-						(response.records[0] as Record<string, unknown> | undefined) ??
-						null,
-					error: false,
-				}))
-				.catch(() => ({ data: null, error: true })),
+			getActivityPreview(targetRound),
 		]);
 		return {
+			activity,
 			error: null,
 			targetRound,
 			latestRound,
 			lottoNumbers,
-			scanData: scanResult.data,
-			scanError: scanResult.error,
 			availableRounds: Array.from(
 				{ length: latestRound },
 				(_, index) => latestRound - index,
@@ -57,12 +40,11 @@ export const load: PageServerLoad = async ({ url }) => {
 	} catch (error) {
 		console.error("Error loading history page:", error);
 		return {
+			activity: null,
 			error: "당첨 결과를 불러오지 못했어요. 잠시 후 다시 확인해주세요.",
 			targetRound: null,
 			latestRound: null,
 			lottoNumbers: null,
-			scanData: null,
-			scanError: false,
 			availableRounds: [],
 		};
 	}

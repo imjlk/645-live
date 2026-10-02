@@ -108,6 +108,25 @@ describe("public generation results", () => {
 		expect(history.getSnapshot().nextBeforeRound).toBeNull();
 		expect(queries).toEqual([{}, { before: 1241 }, {}, { round: 1238 }]);
 	});
+	test("a round deep link loads an older result outside the initial history page", async () => {
+		const queries: { round?: number; before?: number }[] = [];
+		const history = createGenerationResultHistory(
+			async (query) => {
+				queries.push(query);
+				return query.round
+					? page([result(query.round)])
+					: page([result(1242)], 1242);
+			},
+			page([result(1242)], 1242),
+		);
+		await history.select(1200);
+		expect(history.getSnapshot().selectedRound).toBe(1200);
+		expect(
+			history.getSnapshot().rounds.find((r) => r.round === 1200)?.rankCounts,
+		).toEqual([5, 2, 3, 1, 1, 4]);
+		expect(history.getSnapshot().nextBeforeRound).toBe(1242);
+		expect(queries).toEqual([{}, { round: 1200 }]);
+	});
 	test("refresh and unmount discard pending stale pagination even when the transport ignores abort", async () => {
 		const old = deferred<GenerationResultsPage>();
 		const initial = page([result(1242)], 1242);

@@ -108,6 +108,8 @@ export const GET = async () => {
 		]);
 
 	const entries = [
+		{ path: "/stats/activity/generated", lastmod: "" },
+		{ path: "/stats/activity/scanned", lastmod: "" },
 		{
 			path: "/stats",
 			lastmod: toLastMod(
