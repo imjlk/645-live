@@ -60,7 +60,7 @@ def run_case(image, blocked_by=None):
             context = request(base, '/api/app/v1/lotto/round-context')[1]
             generation = {'requestId': uuid.uuid4().hex, 'round': context['targetRound'],
                 'options': {'fixed': [7, 8], 'excluded': [1], 'oddCount': 3}}
-            expect(request(base, '/api/app/v1/lotto/generations', generation, auth)[0], 403, 'pass required')
+            expect(request(base, '/api/app/v1/lotto/generations', generation, auth)[0], 200, 'custom options are basic access')
             expect(request(base, path, {'action': 'unlock', 'feature': 'attendance_restore'}, auth)[0], 400, 'no attendance shortcut')
             for feature in ['custom', 'report']:
                 expect(request(base, path, {'action': 'unlock', 'feature': feature}, auth)[0], 200, 'local pass')
@@ -96,8 +96,8 @@ def run_case(image, blocked_by=None):
                 assert db.execute('SELECT count(*) FROM ait_lotto_ad_sessions').fetchone()[0] == 0
                 assert db.execute('SELECT count(*) FROM promotion_reward_ledger').fetchone()[0] == 0
             expect(request(base, path, {'action': 'reset'}, auth)[0], 200, 'reset passes')
-            assert request(base, '/api/app/v1/ads/config', headers=auth)[1]['passes'] == {}
-            expect(request(base, '/api/app/v1/lotto/report', {'numbers': numbers}, auth)[0], 403, 'reset revokes shortcut')
+            assert request(base, '/api/app/v1/ads/config', headers=auth)[1]['featureAccess'] == 'basic'
+            expect(request(base, '/api/app/v1/lotto/report', {'numbers': numbers}, auth)[0], 200, 'basic reports remain available after legacy shortcut reset')
             status, ad = request(base, '/api/app/v1/ads/start', {'placement': 'custom'}, auth)
             expect(status, 200, 'real test-ad flow still available')
             assert ad['groupId'] in ['ait-ad-test-rewarded-id', 'ait-ad-test-interstitial-id']

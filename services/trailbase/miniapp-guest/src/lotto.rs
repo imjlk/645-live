@@ -1,4 +1,4 @@
-use crate::{ads, auth, body, db, generation_ads};
+use crate::{auth, body, db, generation_ads};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value as Json, json};
 use trailbase_guest_common::responses::*;
@@ -58,9 +58,6 @@ pub struct Options {
     pub odd_count: Option<usize>,
 }
 impl Options {
-    pub fn custom(&self) -> bool {
-        !self.fixed.is_empty() || !self.excluded.is_empty() || self.odd_count.is_some()
-    }
     pub fn validate(&mut self) -> ApiResult<()> {
         self.fixed.sort_unstable();
         self.excluded.sort_unstable();
@@ -259,9 +256,6 @@ pub(crate) async fn generate(req: &mut Request) -> ApiResult<Json> {
             "대상 회차가 바뀌었어요. 새 회차를 확인해 주세요.",
         ));
     }
-    if input.options.custom() {
-        ads::require_pass(&mut tx, &user.id, "custom", now)?;
-    }
     let recent = db::tx_query(
         &mut tx,
         "SELECT count(*), coalesce(max(created_at), 0) FROM ait_lotto_generation_requests WHERE user_id = ?1 AND created_at > ?2 - 86400000",
@@ -302,7 +296,7 @@ pub(crate) async fn generate(req: &mut Request) -> ApiResult<Json> {
         ],
     )?;
     // New clients own the optional ad cadence. Auth, persistence, request replay,
-    // rate limits, custom passes and attendance eligibility remain server-owned.
+    // rate limits and attendance eligibility remain server-owned.
     let generation_ad_required =
         !input.client_managed_counter && generation_ads::generated(&mut tx, &user.id, now)?;
     db::tx_commit(&mut tx)?;
@@ -473,9 +467,8 @@ pub(crate) async fn report(req: &mut Request) -> ApiResult<Json> {
         return Err(bad_request("INVALID_NUMBERS", "6개 번호를 확인해 주세요."));
     }
     let mut tx = db::tx()?;
-    let user = auth::user(req, &mut tx)?;
-    let now = db::now_ms_tx(&mut tx)?;
-    ads::require_pass(&mut tx, &user.id, "report", now)?;
+    auth::user(req, &mut tx)?;
+
     let params: Vec<Value> = options.fixed.iter().map(|n| Value::Integer(*n)).collect();
     let matched = (1..=6)
         .map(|n| format!("(draw_number_{n} IN (?1,?2,?3,?4,?5,?6))"))

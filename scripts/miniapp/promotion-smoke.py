@@ -200,7 +200,9 @@ def run():
                 attend_days([day-2,day-1])
                 for _ in range(2): expect(request(base,check_path,{},auth)[0],200,'idempotent attendance')
                 assert state()['streak']==3 and 'nextPassIn' not in state()
-                assert request(base,'/api/app/v1/ads/config',headers=auth)[1]['passes']=={}, 'three-day attendance still grants feature passes'
+                assert request(base,'/api/app/v1/ads/config',headers=auth)[1]['featureAccess']=='basic'
+                with sqlite3.connect(f'{folder}/data/main.db') as db:
+                    assert db.execute('SELECT count(*) FROM ait_lotto_entitlements').fetchone()[0]==0, 'attendance granted a legacy pass'
                 campaign('daily-1','daily',1,1)
                 campaign('weekly-1','weekly',30,300)
                 daily=reward('daily')

@@ -20,6 +20,7 @@ import {
 } from "@trailbase-apps-in-toss-kit/trailbase-client";
 import { initClient } from "trailbase";
 import { connectionStep, connectionSync } from "./connection-error";
+import { createFeatureAdCounter } from "./feature-ad-counter";
 import {
 	createGenerationAdCounter,
 	type GenerationAdPolicy,
@@ -356,6 +357,10 @@ export function createApi() {
 				fallback: false,
 				normalize: (value) => (typeof value === "boolean" ? value : null),
 			}),
+		featureAds: createFeatureAdCounter(
+			storage.storage,
+			`${runtime.storageKey}.featureAds.v1`,
+		),
 		generationAds: createGenerationAdCounter(
 			storage.storage,
 			`${runtime.storageKey}.generationAds.v1`,

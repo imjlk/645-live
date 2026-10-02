@@ -1,4 +1,5 @@
 <script lang="ts">
+import ActivityTopTen from "$lib/activity/ActivityTopTen.svelte";
 import type { Generation } from "@645/lotto-core";
 import { onMount, tick } from "svelte";
 import { resolve } from "$app/paths";
@@ -86,6 +87,7 @@ function timeLabel(time: number) {
 			</div>{/each}
 		</div>
 	{/if}
+	{#if !compact && live.feed}<ActivityTopTen counts={live.feed.numberCounts} round={live.feed.round}/>{/if}
 	<div class="feed-heading"><h3>최근 생성한 조합</h3>{#if compact}<a href={resolve("/generator/live")}>전체 현황 <span aria-hidden="true">→</span></a>{/if}</div>
 	{#if rows.length}
 		<ol class="generation-feed">

@@ -285,6 +285,7 @@ const statsCategories = [
 		{/each}
 	</nav>
 
+	<section class="activity-entry" aria-labelledby="activity-entry-heading"><h2 id="activity-entry-heading">생성·스캔 기록으로 보는 번호</h2><p>회차별 Top 10, 함께 등장한 번호와 조합 패턴을 참여 기록으로 살펴보세요.</p><div><a href={resolve("/stats/activity/[source]",{source:"generated"})}>생성된 번호 분석 →</a><a href={resolve("/stats/activity/[source]",{source:"scanned"})}>QR 스캔 번호 분석 →</a></div></section>
 	<section aria-labelledby="frequency-heading">
 		<div class="section-head">
 			<div><h2 id="frequency-heading">번호별 출현 횟수</h2><p>전체 {data.totalRounds}회 본 번호 기준</p></div>
@@ -390,6 +391,7 @@ const statsCategories = [
 </div>
 
 <style>
+.activity-entry{padding:1.5rem 0;border-block:1px solid var(--color-base-300);margin-bottom:var(--section-space)}.activity-entry h2{font-size:1.4rem;font-weight:700}.activity-entry p{font-size:.875rem;line-height:1.8;color:var(--text-muted);margin-block:.75rem}.activity-entry>div{display:flex;flex-wrap:wrap;gap:1rem 2rem}.activity-entry a{color:var(--color-primary);font-weight:600;display:inline-flex;min-height:44px;align-items:center}
 	.analysis-nav { display: flex; gap: 0.4rem; overflow-x: auto; padding-bottom: 0.3rem; scrollbar-width: thin; }
 	.analysis-nav a { display: inline-flex; align-items: center; flex-shrink: 0; min-height: 2.75rem; padding: 0.65rem 0.85rem; border: 1px solid var(--color-base-300); border-radius: 0.5rem; font-size: 0.8125rem; font-weight: 600; background: var(--color-base-100); transition: background 140ms ease; }
 	.analysis-nav a:hover { background: var(--color-base-200); color: var(--color-primary); }

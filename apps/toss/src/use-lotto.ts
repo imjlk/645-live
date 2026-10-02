@@ -70,6 +70,13 @@ export function useLotto() {
 			}),
 		[api],
 	);
+	const featureAds = useSyncExternalStore(
+		api.featureAds.subscribe,
+		api.featureAds.getSnapshot,
+	);
+	useEffect(() => {
+		void api.featureAds.load();
+	}, [api]);
 	const generationAds = useSyncExternalStore(
 		api.generationAds.subscribe,
 		api.generationAds.getSnapshot,
@@ -600,6 +607,15 @@ export function useLotto() {
 						(p) => p.placement === "generation_continue" && p.enabled,
 					)
 				: adConfig?.generationAdRequired === true,
+		featureAdRequired: featureAds.ready && featureAds.remaining === 0,
+		featureUsed: api.featureAds.used,
+		continueFeature: (feature: "custom" | "report") =>
+			run("feature-ad", async () => {
+				const outcome = await adsController.unlock(feature);
+				if (outcome.continuedWithoutAd && active.current)
+					setNotice("지금은 광고를 이용할 수 없어 바로 이어서 이용해요.");
+				api.featureAds.continued();
+			}),
 		adUnavailableReason: adsController.unavailableReason(),
 		attendance,
 		refreshPromotionClaims,
@@ -769,21 +785,9 @@ export function useLotto() {
 					await refreshPrivate();
 				}
 			}),
-		testPass: (feature?: "custom" | "report") =>
-			run("test-pass", async () => {
-				if (!LOCAL_PREVIEW)
-					throw new Error("로컬 테스트에서만 사용할 수 있어요.");
-				await api.request(
-					"/api/app/v1/dev/entitlements",
-					feature ? { action: "unlock", feature } : { action: "reset" },
-				);
-				await refreshPrivate();
-				setNotice(
-					feature
-						? "테스트 이용권을 열었어요. 바로 기능을 확인해 보세요."
-						: "테스트 이용권을 초기화했어요. 광고 시청을 다시 확인할 수 있어요.",
-				);
-			}),
+		prepareFeatureAd: () => {
+			if (LOCAL_PREVIEW) api.featureAds.prepare();
+		},
 		localAttendance: (action: LocalAttendanceAction) =>
 			run("local-attendance", async () => {
 				if (!LOCAL_PREVIEW)
@@ -831,7 +835,7 @@ export function useLotto() {
 				setNotice(
 					feature === "attendance_restore"
 						? "놓친 출석을 복구했어요. 연속 출석을 이어가세요!"
-						: "24시간 이용권이 열렸어요.",
+						: "계속 이용할 수 있어요.",
 				);
 			}),
 		notifications: (enabled: boolean) =>

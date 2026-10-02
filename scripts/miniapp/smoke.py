@@ -126,6 +126,21 @@ def run_case(image, copy_existing):
             for number in range(1,46): assert counts[f'generation_count_{number}']==int(number in numbers)
             assert scan_before==request(base,scan_path),'QR counters changed'
             checks.append('all 45 counters match; QR scans untouched')
+            status,activity=request(base,f'/api/app/v1/lotto/activity?round={round}');expect(status,200,'public insights')
+            generated=activity['sources']['generated'];scanned=activity['sources']['scanned']
+            assert generated['records']==1 and sum(generated['numberCounts'])==6
+            assert generated['patterns']['combinations']==1 and len(generated['pairs'])==15
+            assert scanned['records']==scan_before[1]['total_scans'] and scanned['patterns']['combinations']==1
+            expect(request(base,'/scanned',{'games':[{'round':round,'numbers':[1,2,3]}]})[0],400,'partial QR game rejected')
+            expect(request(base,'/scanned',{'games':[{'round':round,'numbers':[1,2,3,4,5,6]},{'round':round-1,'numbers':[7,8,9,10,11,12]}]})[0],400,'mixed QR rounds rejected')
+            assert scan_before==request(base,scan_path),'invalid QR altered aggregates'
+            expect(request(base,f'/api/app/v1/lotto/activity?round={round+1}')[0],400,'future insights rejected')
+            expect(request(base,f'/api/app/v1/lotto/activity?round={round-1}&period=day')[0],400,'historical rolling window rejected')
+            for table in ['lotto_activity_rounds','lotto_activity_pairs','lotto_activity_hours','lotto_activity_deltas']:
+                status,body=request(base,f'/api/records/v1/{table}')
+                assert status in (400,401,403,404) or body is None or (isinstance(body,dict) and 'error' in body), f'internal aggregate record API exposed: {table}'
+            checks.append('public source insights match transactional QR and generation aggregates')
+
             with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
                 replies=list(pool.map(lambda _:request(base,'/api/app/v1/lotto/generations',payload,auth),range(4)))
             assert all(status==200 and response['generation']['id']==generation['id'] for status,response in replies)
@@ -133,7 +148,9 @@ def run_case(image, copy_existing):
             changed={**payload,'round':round+1};expect(request(base,'/api/app/v1/lotto/generations',changed,auth)[0],409,'idempotency payload mismatch')
             invalid={**payload,'requestId':uuid.uuid4().hex,'round':round-1};expect(request(base,'/api/app/v1/lotto/generations',invalid,auth)[0],409,'stale round')
             invalid={**payload,'requestId':uuid.uuid4().hex,'options':{'fixed':[1,1],'excluded':[],'oddCount':None}};expect(request(base,'/api/app/v1/lotto/generations',invalid,auth)[0],400,'invalid filters')
-            custom={**payload,'requestId':uuid.uuid4().hex,'options':{'fixed':[1,2],'excluded':[3,4],'oddCount':3}};expect(request(base,'/api/app/v1/lotto/generations',custom,auth)[0],403,'custom pass required')
+            custom={**payload,'requestId':uuid.uuid4().hex,'options':{'fixed':[1,2],'excluded':[3,4],'oddCount':3}}
+            time.sleep(1.1)
+            expect(request(base,'/api/app/v1/lotto/generations',custom,auth)[0],200,'custom generation is basic access')
             checks.append('concurrent retries are idempotent; round and filters validated')
             for _ in range(2):expect(request(base,'/api/app/v1/attendance/check-in',{},auth)[0],200,'attendance')
             attendance=request(base,'/api/app/v1/attendance/status',headers=auth)[1];assert attendance['streak']==1 and attendance['checkedIn']
@@ -151,18 +168,30 @@ def run_case(image, copy_existing):
             expect(request(base,'/api/app/v1/ads/complete',{'id':cancel_ad['id'],'events':['dismissed']},other_auth)[0],409,'incomplete ad')
             expect(request(base,'/api/app/v1/ads/complete',{'id':cancel_ad['id'],'events':events},other_auth)[0],409,'cancelled ad cannot be reused')
             expect(request(base,'/api/app/v1/ads/start',{'placement':'report'},other_auth)[0],429,'cancel preserves cooldown')
-            checks.append('KST check-in and ad entitlement are idempotent and owned')
+            _,expired_auth=bootstrap('dev-anon-'+uuid.uuid4().hex)
+            status,expired_ad=request(base,'/api/app/v1/ads/start',{'placement':'report'},expired_auth);expect(status,200,'expiry reservation')
+            # Write this time-sensitive fixture through the container's SQLite
+            # VFS; macOS host writes can leave the VM's WAL page cache stale.
+            expiry=json.loads(command('docker','exec',name,'bun','-e',
+                'import {Database} from "bun:sqlite"; const db=new Database("/app/traildepot/data/main.db"); const id=Bun.argv.at(-1); db.query("UPDATE ait_lotto_ad_sessions SET created_at=created_at-600000,expires_at=expires_at-600000 WHERE id=?").run(id); console.log(JSON.stringify(db.query("SELECT expires_at,status FROM ait_lotto_ad_sessions WHERE id=?").get(id))); db.close();',expired_ad['id']))
+            assert expiry['expires_at']<request(base,'/api/app/v1/ads/config',headers=expired_auth)[1]['serverTime'], f'fixture not expired: {expiry}'
+            status,replacement=request(base,'/api/app/v1/ads/start',{'placement':'report'},expired_auth);expect(status,200,f'expired ad releases pending slot: {replacement}')
+            assert replacement['id']!=expired_ad['id']
+            closed=json.loads(command('docker','exec',name,'bun','-e',
+                'import {Database} from "bun:sqlite"; const db=new Database("/app/traildepot/data/main.db",{readonly:true}); console.log(JSON.stringify(db.query("SELECT status FROM ait_lotto_ad_sessions WHERE id=?").get(Bun.argv.at(-1)))); db.close();',expired_ad['id']))
+            assert closed['status']=='expired'
+            checks.append('KST check-in and continuation ads are idempotent and owned')
             _,report_auth=bootstrap('dev-anon-'+uuid.uuid4().hex)
             report_payload={'numbers':numbers}
-            expect(request(base,'/api/app/v1/lotto/report',report_payload,report_auth)[0],403,'report pass required')
+            expect(request(base,'/api/app/v1/lotto/report',report_payload,report_auth)[0],200,'report is basic access')
             status,ad=request(base,'/api/app/v1/ads/start',{'placement':'report'},report_auth);expect(status,200,'report ad')
-            expect(request(base,'/api/app/v1/ads/complete',{'id':ad['id'],'events':events},report_auth)[0],200,'report pass')
+            expect(request(base,'/api/app/v1/ads/complete',{'id':ad['id'],'events':events},report_auth)[0],200,'report continuation')
             status,report=request(base,'/api/app/v1/lotto/report',report_payload,report_auth);expect(status,200,'historical report')
             assert len(report['historical'])<=3
             for draw in report['historical']:assert draw['matches']==len(set(numbers)&set(draw['numbers']))
             assert all(row['number'] in numbers and row['drawCount']>=0 for row in report['frequencies'])
             if copy_existing:assert len(report['historical'])==3 and len(report['frequencies'])==6
-            checks.append('historical report checks entitlement and actual overlap')
+            checks.append('historical report is available by default with actual overlap')
             gid=generation['id']
             assert request(base,'/api/app/v1/lotto/generations/delete',{'id':gid},other_auth)[1]['deleted'] is False
             with HTTP.open(base+f'/api/records/v1/lotto_draw_generation_counts/subscribe/{round}',timeout=10) as stream:

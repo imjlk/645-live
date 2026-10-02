@@ -42,6 +42,7 @@ import {
 	View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { ActivityPanel } from "./ActivityPanel";
 import { AdCtaImpression } from "./AdCtaImpression";
 import { AttendancePanel } from "./AttendancePanel";
 import { adPolicyLabel } from "./ad-telemetry";
@@ -49,6 +50,10 @@ import { LOCAL_PREVIEW } from "./api";
 import { Balls } from "./Balls";
 import { Banner } from "./Banner";
 import { Celebration } from "./Celebration";
+import {
+	FeatureAccessPrompt,
+	type FeatureRequest,
+} from "./FeatureAccessPrompt";
 import { GenerationResultsContent } from "./GenerationResultsContent";
 import { generationOptionsError } from "./generation-options";
 import { LiveFeed, relativeTime } from "./LiveFeed";
@@ -74,6 +79,7 @@ import {
 } from "./ux-state";
 
 type Panel =
+	| "activity"
 	| "custom"
 	| "report"
 	| "attendance"
@@ -86,6 +92,7 @@ type Panel =
 	| "generationResults"
 	| null;
 const PANEL_TITLES = {
+	activity: "생성·스캔 번호 분석",
 	recent: "최근 만든 번호",
 	custom: "내 취향대로 만들기",
 	report: "내 조합 살펴보기",
@@ -176,13 +183,22 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 			next ? { panel: next, open: true } : { ...current, open: false },
 		);
 	}, []);
+	const [activityParent, setActivityParent] = useState<
+		"generationResults" | null
+	>(null);
+	const parentPanel =
+		panel === "activity"
+			? activityParent
+			: panel
+				? (PANEL_PARENTS[panel] ?? null)
+				: null;
 	const sheetScroll = useRef<ScrollView>(null);
 	useLayoutEffect(() => {
 		if (!visible || !panel) return;
 		return presentOverlay(() => {
-			if (sheetOpen) setPanel(PANEL_PARENTS[panel] ?? null);
+			if (sheetOpen) setPanel(parentPanel);
 		});
-	}, [panel, presentOverlay, setPanel, sheetOpen, visible]);
+	}, [panel, parentPanel, presentOverlay, setPanel, sheetOpen, visible]);
 	useEffect(() => {
 		if (panel && sheetOpen)
 			sheetScroll.current?.scrollTo({ y: 0, animated: false });
@@ -196,8 +212,29 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 		Math.floor((Math.min(width, 640) - 40 - 30) / 6),
 	);
 	const now = model.feed?.serverTime ?? model.context?.serverTime ?? Date.now();
-	const customOpen = (model.adConfig?.passes.custom ?? 0) > now;
-	const reportOpen = (model.adConfig?.passes.report ?? 0) > now;
+	const [activityRound, setActivityRound] = useState<number | undefined>();
+	const [featureRequest, setFeatureRequest] = useState<FeatureRequest | null>(
+		null,
+	);
+	const accessFeature = (feature: "custom" | "report", action: () => void) => {
+		if (featureRequest || model.busy) return;
+		const adsEnabled = model.adConfig?.placements.some(
+			(p) => p.placement === feature && p.enabled,
+		);
+		if (model.featureAdRequired && adsEnabled && model.user) {
+			setFeatureRequest({ feature, action });
+			return;
+		}
+		model.featureUsed();
+		action();
+	};
+	const openActivity = (round?: number) => {
+		setActivityParent(
+			panel === "generationResults" ? "generationResults" : null,
+		);
+		setActivityRound(round);
+		setPanel("activity");
+	};
 	const hasOptions =
 		options.fixed.length > 0 ||
 		options.excluded.length > 0 ||
@@ -243,7 +280,6 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 			sheetOpen &&
 			panel === "report" &&
 			report &&
-			reportOpen &&
 			!model.busy &&
 			!model.reports[report.id]
 		)
@@ -253,7 +289,6 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 		sheetOpen,
 		panel,
 		report,
-		reportOpen,
 		model.busy,
 		model.reports,
 		model.loadReport,
@@ -262,7 +297,8 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 	const text = { color: theme.text };
 	const muted = { color: theme.muted };
 	const actionMessage = (area: string) =>
-		model.actionError?.area === area ? (
+		model.actionError?.area === area ||
+		model.actionError?.area === "feature" ? (
 			<View accessibilityRole="alert" style={{ paddingVertical: 12, gap: 8 }}>
 				<Text style={[s.caption, { color: "#F04452" }]}>
 					{model.actionError.message}
@@ -363,56 +399,6 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 			)}
 		</View>
 	);
-	const featurePass = (feature: "custom" | "report") => {
-		const enabled = model.adConfig?.placements.find(
-			(p) => p.placement === feature,
-		)?.enabled;
-		return (
-			<View style={{ gap: 20 }}>
-				<Text style={[s.description, muted]}>
-					{feature === "custom"
-						? "고정·제외 번호와 홀짝 비율을 내 취향에 맞춰 골라보세요."
-						: "내 조합의 구간 분포와 번호 겹침을 살펴보세요."}
-				</Text>
-				<Text style={[s.body, text]}>
-					광고 한 번으로 24시간 이용할 수 있어요.
-				</Text>
-				{LOCAL_PREVIEW ? (
-					<Button
-						display="full"
-						type="dark"
-						style="weak"
-						loading={model.busy === "test-pass"}
-						disabled={!!model.busy || !model.user}
-						onPress={() => void model.testPass(feature)}
-					>
-						테스트 · 광고 없이 이용권 열기
-					</Button>
-				) : null}
-				<Button
-					display="full"
-					loading={model.busy === `unlock-${feature}`}
-					disabled={!!model.busy || !enabled || !!model.adUnavailableReason}
-					onPress={() => void model.unlock(feature)}
-				>
-					{model.adUnavailableReason
-						? "현재 환경에서 광고 이용 불가"
-						: enabled
-							? LOCAL_PREVIEW
-								? "테스트 광고 보고 이용권 열기"
-								: "광고 보고 이용권 열기"
-							: "광고 이용권 준비 중"}
-				</Button>
-				{model.adUnavailableReason ? (
-					<Text style={[s.caption, muted]}>{model.adUnavailableReason}</Text>
-				) : null}
-
-				<Text style={[s.caption, muted]}>
-					기본 번호 생성·보관·결과 확인은 언제나 무료예요.
-				</Text>
-			</View>
-		);
-	};
 
 	return (
 		<View
@@ -449,6 +435,7 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 						onColumnsChange={setLiveColumns}
 						refreshing={model.refreshing}
 						onRefresh={model.retry}
+						onInsights={() => openActivity()}
 						onResults={() => setPanel("generationResults")}
 					/>
 				) : (
@@ -507,7 +494,7 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 												onPress={() => {
 													model.clearError();
 													setDraft(options);
-													setPanel("custom");
+													accessFeature("custom", () => setPanel("custom"));
 												}}
 												style={{ paddingVertical: 10 }}
 											>
@@ -584,10 +571,7 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 											</Pressable>
 										) : null}
 										<AdCtaImpression
-											enabled={
-												model.generationAdRequired &&
-												!(hasOptions && !customOpen)
-											}
+											enabled={model.generationAdRequired}
 											policy={adPolicyLabel(model.adConfig?.generationAdPolicy)}
 										>
 											{(runAttempt) => (
@@ -601,11 +585,6 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 														!model.context
 													}
 													onPress={() => {
-														if (hasOptions && !customOpen) {
-															setDraft(options);
-															setPanel("custom");
-															return;
-														}
 														void runAttempt((adFlow) =>
 															model.generate(
 																hasOptions ? options : EMPTY_OPTIONS,
@@ -615,11 +594,9 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 														);
 													}}
 												>
-													{hasOptions && !customOpen
-														? "맞춤 조건 이용권 열기"
-														: model.generationAdRequired
-															? "광고 보고 계속 만들기"
-															: generationLabel}
+													{model.generationAdRequired
+														? "광고 보고 계속 만들기"
+														: generationLabel}
 												</Button>
 											)}
 										</AdCtaImpression>
@@ -951,7 +928,9 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 																accessibilityRole="button"
 																onPress={() => {
 																	setReport(item);
-																	setPanel("report");
+																	accessFeature("report", () =>
+																		setPanel("report"),
+																	);
 																}}
 																style={{ paddingVertical: 10 }}
 															>
@@ -1054,6 +1033,15 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 				</View>
 			) : null}
 
+			<FeatureAccessPrompt
+				request={visible ? featureRequest : null}
+				continueFeature={async (feature) => {
+					const ok = await model.continueFeature(feature);
+					if (ok) model.featureUsed();
+					return ok;
+				}}
+				onDone={() => setFeatureRequest(null)}
+			/>
 			<BottomSheet.Root
 				open={sheetOpen && visible}
 				onClose={() => setPanel(null)}
@@ -1073,7 +1061,7 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 					keyboardShouldPersistTaps: "handled",
 				}}
 				cta={
-					panel === "custom" && customOpen ? (
+					panel === "custom" ? (
 						<View>
 							{draftError ? (
 								<Text
@@ -1100,21 +1088,24 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 								이 조건으로 만들기
 							</BottomSheet.CTA>
 						</View>
-					) : panel && PANEL_PARENTS[panel] ? (
+					) : parentPanel ? (
 						<BottomSheet.CTA
 							type="dark"
 							style="weak"
-							onPress={() => setPanel(PANEL_PARENTS[panel] ?? null)}
+							onPress={() => setPanel(parentPanel)}
 						>
-							{panel === "resultPreview"
-								? "테스트 도구로 돌아가기"
-								: "설정으로 돌아가기"}
+							{panel === "activity"
+								? "이전 회차 결과로 돌아가기"
+								: panel === "resultPreview"
+									? "테스트 도구로 돌아가기"
+									: "설정으로 돌아가기"}
 						</BottomSheet.CTA>
 					) : undefined
 				}
 			>
 				{model.actionError &&
 				(model.actionError.area === panel ||
+					model.actionError.area === "feature" ||
 					(panel === "custom" && model.actionError.area === "make") ||
 					(panel === "recent" && model.actionError.area === "saved")) ? (
 					<Text
@@ -1154,118 +1145,117 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 							))}
 						</View>
 					) : panel === "generationResults" ? (
-						<GenerationResultsContent active={sheetOpen && visible} />
+						<GenerationResultsContent
+							active={sheetOpen && visible}
+							initialRound={activityParent ? activityRound : undefined}
+							onInsights={(round) => openActivity(round)}
+						/>
 					) : panel === "custom" ? (
-						customOpen ? (
-							<View style={{ gap: 20 }}>
-								<Text style={[s.description, muted]}>
-									넣고 싶은 번호와 빼고 싶은 번호를 골라 주세요.
-								</Text>
-								<Tab
-									value={pickMode}
-									onChange={(v) => setPickMode(v as "fixed" | "excluded")}
-									size="small"
-								>
-									<Tab.Item value="fixed">고정 {draft.fixed.length}/6</Tab.Item>
-									<Tab.Item value="excluded">
-										제외 {draft.excluded.length}/39
-									</Tab.Item>
-								</Tab>
-								<View style={s.pickerGrid}>
-									{NUMBERS.map((n) => {
-										const fixed = draft.fixed.includes(n),
-											excluded = draft.excluded.includes(n);
-										return (
-											<Pressable
-												key={n}
-												accessibilityRole="button"
-												accessibilityLabel={`${n}번 ${fixed ? "고정" : excluded ? "제외" : "선택"}`}
-												accessibilityState={{ selected: fixed || excluded }}
-												disabled={!!model.busy}
-												onPress={() =>
-													setDraft((prev) => {
-														const list = prev[pickMode],
-															other =
-																pickMode === "fixed" ? "excluded" : "fixed";
-														if (
-															!list.includes(n) &&
-															list.length >= (pickMode === "fixed" ? 6 : 39)
-														)
-															return prev;
-														return {
-															...prev,
-															[pickMode]: list.includes(n)
-																? list.filter((v) => v !== n)
-																: [...list, n].sort((a, b) => a - b),
-															[other]: prev[other].filter((v) => v !== n),
-														};
-													})
-												}
-												style={[
-													s.picker,
-													{
-														backgroundColor: fixed
+						<View style={{ gap: 20 }}>
+							<Text style={[s.description, muted]}>
+								넣고 싶은 번호와 빼고 싶은 번호를 골라 주세요.
+							</Text>
+							<Tab
+								value={pickMode}
+								onChange={(v) => setPickMode(v as "fixed" | "excluded")}
+								size="small"
+							>
+								<Tab.Item value="fixed">고정 {draft.fixed.length}/6</Tab.Item>
+								<Tab.Item value="excluded">
+									제외 {draft.excluded.length}/39
+								</Tab.Item>
+							</Tab>
+							<View style={s.pickerGrid}>
+								{NUMBERS.map((n) => {
+									const fixed = draft.fixed.includes(n),
+										excluded = draft.excluded.includes(n);
+									return (
+										<Pressable
+											key={n}
+											accessibilityRole="button"
+											accessibilityLabel={`${n}번 ${fixed ? "고정" : excluded ? "제외" : "선택"}`}
+											accessibilityState={{ selected: fixed || excluded }}
+											disabled={!!model.busy}
+											onPress={() =>
+												setDraft((prev) => {
+													const list = prev[pickMode],
+														other = pickMode === "fixed" ? "excluded" : "fixed";
+													if (
+														!list.includes(n) &&
+														list.length >= (pickMode === "fixed" ? 6 : 39)
+													)
+														return prev;
+													return {
+														...prev,
+														[pickMode]: list.includes(n)
+															? list.filter((v) => v !== n)
+															: [...list, n].sort((a, b) => a - b),
+														[other]: prev[other].filter((v) => v !== n),
+													};
+												})
+											}
+											style={[
+												s.picker,
+												{
+													backgroundColor: fixed
+														? theme.blue
+														: excluded
+															? theme.surface
+															: theme.background,
+													borderColor: excluded
+														? theme.muted
+														: fixed
 															? theme.blue
-															: excluded
-																? theme.surface
-																: theme.background,
-														borderColor: excluded
+															: theme.line,
+												},
+											]}
+										>
+											<Text
+												style={{
+													color: fixed
+														? "white"
+														: excluded
 															? theme.muted
-															: fixed
-																? theme.blue
-																: theme.line,
-													},
-												]}
+															: theme.text,
+													fontSize: 16,
+													fontWeight: "600",
+													textDecorationLine: excluded
+														? "line-through"
+														: "none",
+												}}
 											>
-												<Text
-													style={{
-														color: fixed
-															? "white"
-															: excluded
-																? theme.muted
-																: theme.text,
-														fontSize: 16,
-														fontWeight: "600",
-														textDecorationLine: excluded
-															? "line-through"
-															: "none",
-													}}
-												>
-													{n}
-												</Text>
-											</Pressable>
-										);
-									})}
-								</View>
-								<Text style={[s.body, text]}>홀수 개수</Text>
-								<ScrollView horizontal showsHorizontalScrollIndicator={false}>
-									<View style={{ flexDirection: "row", gap: 8 }}>
-										{[null, 0, 1, 2, 3, 4, 5, 6].map((n) => (
-											<Button
-												key={String(n)}
-												size="tiny"
-												type={draft.oddCount === n ? "primary" : "dark"}
-												style="weak"
-												disabled={!!model.busy}
-												onPress={() =>
-													setDraft((prev) => ({ ...prev, oddCount: n }))
-												}
-											>
-												{n === null ? "상관없음" : `${n}개`}
-											</Button>
-										))}
-									</View>
-								</ScrollView>
-								<Text style={[s.caption, muted]}>
-									조건은 취향을 반영해요. 모든 조합의 당첨 확률은 같아요.
-								</Text>
+												{n}
+											</Text>
+										</Pressable>
+									);
+								})}
 							</View>
-						) : (
-							featurePass("custom")
-						)
+							<Text style={[s.body, text]}>홀수 개수</Text>
+							<ScrollView horizontal showsHorizontalScrollIndicator={false}>
+								<View style={{ flexDirection: "row", gap: 8 }}>
+									{[null, 0, 1, 2, 3, 4, 5, 6].map((n) => (
+										<Button
+											key={String(n)}
+											size="tiny"
+											type={draft.oddCount === n ? "primary" : "dark"}
+											style="weak"
+											disabled={!!model.busy}
+											onPress={() =>
+												setDraft((prev) => ({ ...prev, oddCount: n }))
+											}
+										>
+											{n === null ? "상관없음" : `${n}개`}
+										</Button>
+									))}
+								</View>
+							</ScrollView>
+							<Text style={[s.caption, muted]}>
+								조건은 취향을 반영해요. 모든 조합의 당첨 확률은 같아요.
+							</Text>
+						</View>
 					) : null}
 					{panel === "report"
-						? reportOpen && report
+						? report
 							? (() => {
 									const info = describeCombination(
 										report.numbers,
@@ -1356,8 +1346,16 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 										</View>
 									);
 								})()
-							: featurePass("report")
+							: null
 						: null}
+					{panel === "activity" ? (
+						<ActivityPanel
+							active={sheetOpen && visible}
+							round={activityRound}
+							savedNumbers={model.saved}
+							onExplore={(action) => accessFeature("report", action)}
+						/>
+					) : null}
 					{panel === "attendance" ? (
 						<AttendancePanel
 							model={model}

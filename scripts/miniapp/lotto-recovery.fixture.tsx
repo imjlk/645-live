@@ -57,6 +57,11 @@ const order: string[] = [];
 const progress = { ready: true, remaining: 10 };
 const api = {
 	preferences: {},
+	featureAds: {
+		getSnapshot: () => progress,
+		subscribe: () => () => {},
+		load: async () => {},
+	},
 	generationAds: { getSnapshot: () => progress, subscribe: () => () => {} },
 	context: async () => ({ targetRound: 101, serverTime: 1, latestDraw: null }),
 	feed: async () => ({

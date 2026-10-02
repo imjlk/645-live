@@ -1,4 +1,5 @@
 <script lang="ts">
+import ActivityTopTen from "$lib/activity/ActivityTopTen.svelte";
 import { onMount, untrack } from "svelte";
 import { resolve } from "$app/paths";
 import ScreenReaderStatus from "$lib/components/ui/ScreenReaderStatus.svelte";
@@ -280,6 +281,7 @@ $effect(() => {
 		{/each}
 	</div>
 	<p class="scan-caption">번호 아래는 해당 번호가 포함된 횟수입니다.{#if enableNavigation} 볼을 누르면 회차별 기록을 볼 수 있어요.{/if}</p>
+	{#if showHeader && hasSnapshot}<ActivityTopTen counts={numbers.map(n => n.value)} round={displayedRound ?? undefined} source="scanned" />{/if}
 </div>
 
 {#snippet scanBall(ball: BallNumber)}

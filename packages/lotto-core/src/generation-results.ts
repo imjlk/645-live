@@ -311,8 +311,10 @@ export function createGenerationResultHistory(
 			};
 		},
 		select(round: number) {
-			if (state.rounds.some((r) => r.round === round))
-				update({ selectedRound: round });
+			if (!integer(round) || round < 1) return;
+			update({ selectedRound: round });
+			// Deep links can address a round outside the first history page.
+			if (!state.rounds.some((r) => r.round === round)) return request();
 		},
 		refresh: () => request(),
 		more: () => request(true),

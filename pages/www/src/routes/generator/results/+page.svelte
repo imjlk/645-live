@@ -9,6 +9,9 @@ import {
 	generationResultStatus,
 	winningGenerations,
 } from "@645/lotto-core";
+import ActivityInsights from "$lib/activity/ActivityInsights.svelte";
+import { page } from "$app/state";
+import { browser } from "$app/environment";
 import { onMount, untrack } from "svelte";
 import SimpleBall from "$lib/components/SimpleBall.svelte";
 import { absoluteUrl } from "$lib/seo";
@@ -22,6 +25,11 @@ const controller = createGenerationResultHistory(
 	untrack(() => data.generationResults),
 );
 let history = $state(controller.getSnapshot());
+const requestedRound = $derived(browser ? Number(page.url.searchParams.get("round")) : 0);
+$effect(() => {
+	const round = requestedRound;
+	if (Number.isSafeInteger(round) && round > 0) untrack(() => controller.select(round));
+});
 const selected = $derived(
 	history.rounds.find((r) => r.round === history.selectedRound),
 );
@@ -83,12 +91,14 @@ async function previous() {
 			<table><caption>등수별 번호 일치</caption><thead><tr><th scope="col">등수</th><th scope="col">일치 조건</th><th scope="col" class="numeric">생성 조합</th></tr></thead><tbody>{#each GENERATION_RANKS as rank (rank.rank)}{@const count = selected.rankCounts?.[rank.rank]}<tr><th scope="row">{rank.label}</th><td>{rank.condition}</td><td class="numeric"><strong>{count === undefined ? "—" : `${count.toLocaleString()}개`}</strong><span class="track" aria-hidden="true"><span style:width={`${((count ?? 0) / maxCount) * 100}%`}></span></span></td></tr>{/each}</tbody></table>
 			{#if selected.rankCounts}<p class="nonwinning"><span>3개 미만 일치</span><span>{selected.rankCounts[0].toLocaleString()}개</span></p>{/if}
 		</section>
+		<section class="activity-results"><h2>{selected.round}회 생성·스캔 번호 분석</h2>{#key selected.round}<ActivityInsights round={selected.round} fixedRound />{/key}</section>
 	{:else if history.loading}<p class="empty" role="status">회차별 생성 결과를 불러오고 있어요.</p>
 	{:else if !history.error}<p class="empty">첫 회차의 생성 결과를 준비하고 있어요.</p>{/if}
 	{#if history.nextBeforeRound !== null}<button type="button" class="more" disabled={history.loading || history.loadingMore} onclick={() => controller.more()}>{history.loadingMore ? "불러오는 중…" : "이전 회차 목록 더 불러오기"}</button>{/if}
 	<footer><p>{GENERATION_RESULTS_COUNTING}</p><p>생성·추첨 정보 제공: 645.live</p></footer>
 </div>
 <style>
+.activity-results {margin-top:var(--section-space);}.activity-results h2{font-size:1.4rem;font-weight:700;margin-bottom:1.5rem;}
 .page-header .eyebrow,.eyebrow { color:var(--color-primary);font-size:.85rem;font-weight:650;margin-bottom:.5rem; }
 .toolbar,.round-controls { display:flex;align-items:center;gap:.75rem; }.toolbar { justify-content:space-between;flex-wrap:wrap;margin-bottom:2rem; }
 button,select { min-height:44px;padding:.65rem .9rem;border:1px solid var(--color-base-300);border-radius:.6rem;background:var(--color-base-100);color:var(--color-base-content);font-size:.875rem;cursor:pointer; }

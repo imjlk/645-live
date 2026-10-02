@@ -63,6 +63,7 @@ export function savedSummary(items: SavedCombination[], draw: Draw) {
 	return { total: rankCounts.reduce((a, b) => a + b, 0), rankCounts };
 }
 export function actionArea(name: string) {
+	if (name === "feature-ad") return "feature";
 	if (
 		name.includes("promotion") ||
 		name.includes("attendance") ||
