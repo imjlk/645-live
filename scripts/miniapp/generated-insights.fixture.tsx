@@ -89,7 +89,9 @@ mock.module("../../apps/toss/src/api", () => ({
 	API_BASE: "https://insights.invalid",
 	LOCAL_PREVIEW: false,
 }));
+const productEvents: string[] = [];
 mock.module("../../apps/toss/src/telemetry", () => ({
+	trackProduct: (event: string) => productEvents.push(event),
 	adTelemetry: { track() {} },
 }));
 mock.module("../../apps/toss/src/theme", () => ({
@@ -201,6 +203,17 @@ await act(async () => {
 const text = () => JSON.stringify(root.toJSON());
 const button = (label: string) =>
 	root.root.findAllByType("button").find((n) => n.props.children === label);
+expect(productEvents.filter((e) => e === "insights_viewed")).toHaveLength(1);
+expect(
+	productEvents.filter((e) => e === "insights_detail_viewed"),
+).toHaveLength(1);
+await act(async () => {
+	root.update(<GeneratedInsightsScreen />);
+});
+expect(productEvents.filter((e) => e === "insights_viewed")).toHaveLength(1);
+expect(
+	productEvents.filter((e) => e === "insights_detail_viewed"),
+).toHaveLength(1);
 expect(requests).toHaveLength(1);
 expect(requests[0].searchParams.get("round")).toBe("1243");
 expect(text()).toContain("7번 자세히 보기");
@@ -265,6 +278,9 @@ await act(async () => {
 });
 expect(back.size).toBe(0);
 expect(uses).toBe(1);
+expect(
+	productEvents.filter((e) => e === "insights_patterns_viewed"),
+).toHaveLength(1);
 await act(async () => {
 	button("이전 화면으로 돌아가기")?.props.onPress();
 });

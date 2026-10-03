@@ -10,7 +10,7 @@ import {
 	HideAccessibilityProvider,
 	HideAccessibilityView,
 } from "@toss/tds-react-native/private";
-import { useLayoutEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ActivityPanel } from "./ActivityPanel";
@@ -20,6 +20,7 @@ import {
 } from "./FeatureAccessPrompt";
 import { useLottoContext } from "./LottoProvider";
 import { TabShellContext, useOverlayStack } from "./TabShell";
+import { trackProduct } from "./telemetry";
 import { useTheme } from "./theme";
 
 export function GeneratedInsightsScreen() {
@@ -32,6 +33,13 @@ export function GeneratedInsightsScreen() {
 	const insets = useSafeAreaInsets();
 	const { overlay, presentOverlay } = useOverlayStack();
 	const [request, setRequest] = useState<FeatureRequest | null>(null);
+	useEffect(() => {
+		if (visible)
+			trackProduct(
+				"insights_viewed",
+				params.number ? "number_preview" : "overview",
+			);
+	}, [visible, params.number]);
 	useLayoutEffect(() => {
 		if (!visible || !overlay) return;
 		const back = () => overlay.onBack();
