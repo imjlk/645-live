@@ -1,5 +1,15 @@
 # @645/toss
 
+## 1.4.2 — 2026-10-03
+
+### Patch changes
+
+- [d1a695f](https://github.com/imjlk/645-live/commit/d1a695fd2a35a8df2c8edb444864f37ac15c82a0) Streamline the generator's result, statistics, attendance and banner flow. Remove the optional ad-supported five-combination action and its batch state.
+  
+  Show a compact public-registration receipt only after a successful generation response, independently of live-feed pagination. Place one generation-statistics entry beside a short hint using already subscribed community counts, with accurate local patterns when counts are unavailable.
+  
+  Keep recent combinations as a secondary link and clarify attendance actions before generation, after generation and after check-in.
+
 ## 1.4.1 — 2026-10-03
 
 ### Patch changes
