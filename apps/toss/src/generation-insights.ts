@@ -2,6 +2,19 @@ import type { Feed, Generation } from "@645/lotto-core";
 
 export type GenerationInsight = { key: string; text: string; number?: number };
 
+/** Prefer community counts; local patterns remain useful before a matching feed arrives. */
+export function preferredGenerationInsight(
+	facts: GenerationInsight[],
+	generationId: number,
+): GenerationInsight {
+	const preferred = generationId % 2 === 0 ? "frequency" : "top";
+	return (
+		facts.find((fact) => fact.key === preferred) ??
+		facts.find((fact) => fact.key === "frequency" || fact.key === "top") ??
+		facts[generationId % facts.length]
+	);
+}
+
 /** Reuse the subscribed round counts. This preview never fetches or invents counts. */
 export function generationInsights(
 	generation: Generation,

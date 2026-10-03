@@ -65,6 +65,7 @@ mock.module("react-native-safe-area-context", () => ({
 mock.module("@toss/tds-react-native", () => ({
 	TDSProvider: host("tds"),
 	Button: "button",
+	Badge: "badge",
 	SegmentedControl: { Root: "segmented", Item: "item" },
 	ConfirmDialog: Object.assign(host("dialog"), { Button: "dialogButton" }),
 }));
@@ -290,7 +291,8 @@ await act(async () => {
 expect(back.size).toBe(0);
 expect(appState.size).toBe(0);
 
-// Cycling the local preview and receiving counters does not issue requests or change the chosen fact.
+// The compact preview upgrades cached hints without issuing requests or cycling
+// the chosen number. Publication receipts do not depend on feed pagination.
 const { GenerationInsightPreview } = await import(
 	"../../apps/toss/src/GenerationInsightPreview"
 );
@@ -314,26 +316,38 @@ const preview = (snapshot: Feed | null) => (
 	<GenerationInsightPreview
 		generation={generation}
 		feed={snapshot}
-		onInsights={(round, number) => opened.push([round, number])}
+		published
+		onInsights={(round) => opened.push([round])}
 	/>
 );
 const requestCount = requests.length;
 await act(async () => {
 	root = create(preview(null));
 });
-await act(async () => {
-	button("다른 내용 보기")?.props.onPress();
-});
-expect(text()).toContain("번호 합계는 144");
+expect(text()).toContain("홀수 4개, 짝수 2개");
+expect(text()).toContain("✓ 실시간 등록");
+expect(root.root.findAllByType("button")).toHaveLength(0);
 await act(async () => {
 	root.update(preview(feed));
 });
-expect(text()).toContain("번호 합계는 144");
+expect(text()).toContain("7번은 이번 회차에 3회");
+const previewLink = () =>
+	root.root.findByProps({ accessibilityLabel: "생성 통계 보기" });
 await act(async () => {
-	button("생성 통계 보기")?.props.onPress();
+	previewLink().props.onPress();
 });
-expect(opened).toEqual([[1244, undefined]]);
-// New combinations start with different facts, including a number-specific entry.
+expect(opened).toEqual([[1244]]);
+await act(async () => {
+	root.update(
+		preview({
+			...feed,
+			numberCounts: feed.numberCounts.map((count) => count + 1),
+		}),
+	);
+});
+expect(text()).toContain("7번은 이번 회차에 4회");
+// New combinations start with different number hints; the one CTA always opens
+// basic statistics without silently spending a number-detail ad action.
 await act(async () => {
 	root.update(
 		<GenerationInsightPreview
@@ -344,22 +358,53 @@ await act(async () => {
 		/>,
 	);
 });
-expect(text()).toContain("연속된 번호가 1쌍");
+expect(text()).toContain("10번은 이번 회차에 3회");
+expect(text()).not.toContain("✓ 실시간 등록");
 await act(async () => {
 	root.update(
 		<GenerationInsightPreview
 			key={8}
 			generation={{ ...generation, id: 8 }}
 			feed={feed}
-			onInsights={(round, number) => opened.push([round, number])}
+			onInsights={(round) => opened.push([round])}
 		/>,
 	);
 });
 expect(text()).toContain("25번은 이번 회차에 3회");
 await act(async () => {
-	button("생성 통계 보기")?.props.onPress();
+	previewLink().props.onPress();
 });
-expect(opened.at(-1)).toEqual([1244, 25]);
+expect(opened.at(-1)).toEqual([1244]);
+// Overview statistics are available before generating; an old snapshot is not
+// labelled as the new round's activity.
+await act(async () => {
+	root.update(
+		<GenerationInsightPreview
+			key="overview"
+			generation={null}
+			round={1244}
+			feed={feed}
+			onInsights={(round) => opened.push([round])}
+		/>,
+	);
+});
+expect(text()).toContain("이번 회차에 3개 조합이 모였어요.");
+await act(async () => {
+	previewLink().props.onPress();
+});
+expect(opened.at(-1)).toEqual([1244]);
+await act(async () => {
+	root.update(
+		<GenerationInsightPreview
+			key="next-round"
+			generation={null}
+			round={1245}
+			feed={feed}
+			onInsights={() => {}}
+		/>,
+	);
+});
+expect(text()).not.toContain("3개 조합");
 expect(requests).toHaveLength(requestCount);
 await act(async () => {
 	root.unmount();
