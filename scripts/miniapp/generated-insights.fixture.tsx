@@ -427,4 +427,64 @@ expect(requests).toHaveLength(requestCount);
 await act(async () => {
 	root.unmount();
 });
+// Personal comparisons use local data only and honor the shared feature continuation.
+const { SavedCombinationComparison } = await import(
+	"../../apps/toss/src/SavedCombinationComparison"
+);
+let pendingExplore: (() => void) | null = null;
+const savedItem = (
+	id: number,
+	round: number,
+	numbers: Generation["numbers"],
+) => ({
+	version: 1 as const,
+	id: String(id),
+	generationId: id,
+	round,
+	numbers,
+	savedAt: id,
+});
+const compared = [
+	savedItem(6, 1244, generation.numbers),
+	savedItem(7, 1244, [7, 10, 25, 29, 31, 42]),
+	savedItem(8, 1243, generation.numbers),
+];
+await act(async () => {
+	root = create(
+		<SavedCombinationComparison
+			generation={generation}
+			saved={compared}
+			onExplore={(action) => {
+				pendingExplore = action;
+			}}
+		/>,
+	);
+});
+expect(text()).toContain("최대 4개 번호");
+await act(async () => {
+	button("보관한 조합과 비교")?.props.onPress();
+});
+expect(text()).not.toContain("가장 비슷한 보관 조합");
+expect(
+	productEvents.filter((e) => e === "saved_comparison_viewed"),
+).toHaveLength(0);
+// A canceled prompt leaves the section collapsed; only a successful continuation invokes it.
+pendingExplore = null;
+await act(async () => {
+	button("보관한 조합과 비교")?.props.onPress();
+	pendingExplore?.();
+});
+expect(text()).toContain("가장 비슷한 보관 조합");
+expect(text()).toContain("다른 ");
+expect(
+	productEvents.filter((e) => e === "saved_comparison_viewed"),
+).toHaveLength(1);
+expect(requests).toHaveLength(requestCount);
+await act(async () => {
+	button("보관한 조합 비교 접기")?.props.onPress();
+});
+expect(text()).not.toContain("가장 비슷한 보관 조합");
+await act(async () => {
+	root.unmount();
+});
 console.log("generated insight screen lifecycle and cached preview passed");

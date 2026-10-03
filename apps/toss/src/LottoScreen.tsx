@@ -74,6 +74,7 @@ import {
 import { PrivacyNotice } from "./PrivacyNotice";
 import { ReportHistory } from "./ReportHistory";
 import { unreadSavedRounds } from "./result-return";
+import { SavedCombinationComparison } from "./SavedCombinationComparison";
 import { SAVED_LIMIT } from "./saved-store";
 import { useTabShell } from "./TabShell";
 import { trackProduct } from "./telemetry";
@@ -631,6 +632,14 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 											}
 											onInsights={(round) => openInsights(round)}
 										/>
+										{model.current && model.savedReady ? (
+											<SavedCombinationComparison
+												key={model.current.id}
+												generation={model.current}
+												saved={model.saved}
+												onExplore={(action) => accessFeature("report", action)}
+											/>
+										) : null}
 										<View style={[s.row, { minHeight: 44, marginBottom: 8 }]}>
 											<Pressable
 												accessibilityRole="button"
