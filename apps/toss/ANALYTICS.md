@@ -6,6 +6,8 @@ Use the existing Apps in Toss event logger. Never reinitialize the SDK logger or
 
 Suggested primary conversion: `lotto_combination_saved`. Supporting conversions: `lotto_generation_succeeded` and `lotto_saved_results_viewed`. Revisit activity is a separate console metric. Verify the current console settings before changing them; metric changes take effect the following day.
 
+The console uses these three conversions, with saving as the representative conversion and the existing seven-day revisit definition for activity. Do not filter the core definitions by app version; compare versions in diagnostics instead. When an event is missing from the metric picker, check the full event inventory and load more picker entries before treating it as absent.
+
 Statistics consumption: `lotto_insights_viewed`, `lotto_insights_detail_viewed`, and `lotto_insights_patterns_viewed`. Only a completed feature action records the corresponding detail/pattern event; dismissing an ad prompt does not. Screen visibility and stable selection keys prevent render-driven duplicates.
 
 All app-owned product and ad events include a bounded `app_version`. Product conversion events expose only a bounded `source`. Performance events additionally project the allowed stage, outcome and bounded duration. Ad events project placement, format, policy, attempt-local flow ID, outcome and entry point. Never add credentials, account IDs, generated combinations or raw errors to these payloads. The SDK manages its own anonymous identity.
@@ -28,7 +30,9 @@ Official references: [event logging](https://developers-apps-in-toss.toss.im/doc
 
 ## Result return links
 
-A functional result notification may target `/saved?round=<draw-round>&entry=notification`. Match the approved console template link to this route using its round variable; the worker already supplies `context.round`. Do not change a template or request new consent implicitly during a code release. Verify the actual approved template and test its link before enabling dispatch.
+A saved-result route accepts `/saved?round=<draw-round>&entry=notification`. The worker supplies `context.round` as a template value, but the [documented messaging API](https://developers-apps-in-toss.toss.im/documentation/common/growth/smart-message) does not guarantee substitution in the console's destination URL. Do not assume that this payload changes a fixed approved link.
+
+The currently approved functional template opens the home route. Its recipients can use the home unread-result entry to open their local saved results; this is not a round-targeted notification entry. Keep that fallback until a supported destination link is approved and tested. Do not change a template or request new consent implicitly during a code release. Verify the actual approved template before dispatch and test any proposed destination using the supported console workflow.
 
 Home returns use the existing saved tab and record `lotto_results_return_opened`. A round-targeted notification entry records `lotto_notification_result_opened`. Result viewing requires the summary to be at least half visible for one second on an active screen, including when it is below a banner. Read markers persist with each local saved combination, reopen after draw corrections, and do not suppress newly saved combinations. An absent local round is explained without showing a different round as the requested result.
 
