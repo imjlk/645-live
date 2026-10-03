@@ -40,7 +40,6 @@ import {
 	type User,
 } from "./api";
 import { createFeedHistory, deletedGenerationId } from "./feed-history";
-import { createGenerationBatch } from "./generation-batch";
 import { createGenerationCooldown } from "./generation-cooldown";
 import { createGenerationRequest } from "./generation-request";
 import { promotionFeedback } from "./promotion-feedback";
@@ -57,27 +56,12 @@ const message = (value: unknown) =>
 export function useLotto() {
 	const api = useMemo(createApi, []);
 	const generationCooldown = useMemo(() => createGenerationCooldown(), []);
-	const generationBatch = useMemo(() => createGenerationBatch(), []);
-	const batchProgress = useSyncExternalStore(
-		generationBatch.subscribe,
-		generationBatch.getSnapshot,
-	);
 	const generationCooling = useSyncExternalStore(
 		generationCooldown.subscribe,
 		generationCooldown.getSnapshot,
 	);
 	const adsController = useMemo(() => createAdController(api), [api]);
 	const requestGeneration = useMemo(
-		() =>
-			createGenerationRequest({
-				...api,
-				errorCode: apiErrorCode,
-				newRequestId,
-			}),
-		[api],
-	);
-	// Keep the batch's idempotency lane independent from ordinary single requests.
-	const requestBatchGeneration = useMemo(
 		() =>
 			createGenerationRequest({
 				...api,
@@ -137,6 +121,9 @@ export function useLotto() {
 		message: string;
 	} | null>(null);
 	const [current, setCurrent] = useState<Generation | null>(null);
+	const [publishedGenerationId, setPublishedGenerationId] = useState<
+		number | null
+	>(null);
 	const [saved, setSaved] = useState<SavedCombination[]>([]);
 	const [savedReady, setSavedReady] = useState(false);
 	const [reports, setReports] = useState<Record<string, ReportState>>({});
@@ -160,7 +147,6 @@ export function useLotto() {
 	const lastGenerated = useRef<Generation | null>(null);
 	const active = useRef(true);
 	const actionLock = useRef(false);
-	const batchAdFlow = useRef<AdFlow | undefined>(undefined);
 	const attendanceRefreshDay = useRef<number | null>(null);
 	const seenWins = useRef(new Set<string>());
 	const store = useMemo(() => (user ? api.saved(user) : null), [api, user]);
@@ -279,9 +265,8 @@ export function useLotto() {
 			adsController.dispose();
 			feedHistory.cancel();
 			generationCooldown.stop();
-			generationBatch.dispose();
 		};
-	}, [api, adsController, feedHistory, generationCooldown, generationBatch]);
+	}, [api, adsController, feedHistory, generationCooldown]);
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: Revision represents an explicit user retry.
 	useEffect(() => {
@@ -592,11 +577,10 @@ export function useLotto() {
 		options: GenerationOptions,
 		cached: RoundContext | null,
 		deviceCounter: boolean,
-		request: typeof requestGeneration,
 		adFlow?: AdFlow,
 	) {
 		try {
-			const { response, context: round } = await request(
+			const { response, context: round } = await requestGeneration(
 				options,
 				cached,
 				deviceCounter,
@@ -607,6 +591,9 @@ export function useLotto() {
 				previous && previous.serverTime > round.serverTime ? previous : round,
 			);
 			setCurrent(response.generation);
+			// The successful POST confirms the public record was committed. Feed
+			// pagination must not hide this receipt when other users generate quickly.
+			setPublishedGenerationId(response.generation.id);
 			setRecent((items) => rememberGeneration(items, response.generation));
 			trackProduct("generation_succeeded");
 			if (deviceCounter) api.generationAds.generated(response.generation.id);
@@ -680,19 +667,13 @@ export function useLotto() {
 		history,
 		feedHistory,
 		current,
+		publishedGenerationId,
 		saved,
 		savedReady,
 		results,
 		resultsLoading,
 		adConfig,
 		generationCooling,
-		batchProgress,
-		canGenerateMany:
-			generationAds.ready &&
-			adConfig?.generationAdPolicy?.counter === "device" &&
-			adConfig.placements.some(
-				(p) => p.placement === "generation_continue" && p.enabled,
-			),
 		generationAdRequired:
 			adConfig?.generationAdPolicy?.counter === "device"
 				? generationAds.ready &&
@@ -771,79 +752,7 @@ export function useLotto() {
 					if (result?.continuedWithoutAd)
 						setNotice("광고를 불러오지 못해 바로 이어서 만들어요.");
 				}
-				await generateOne(
-					options,
-					context,
-					deviceCounter,
-					requestGeneration,
-					adFlow,
-				);
-			});
-		},
-		generateMany: async (
-			options: GenerationOptions = EMPTY_OPTIONS,
-			impressionFlow?: AdFlow,
-			canShow?: () => boolean,
-		) => {
-			if (actionLock.current || generationCooldown.blocked()) return false;
-			const deviceCounter = adConfig?.generationAdPolicy?.counter === "device";
-			if (!deviceCounter && !batchProgress.remaining) return false;
-			generationCooldown.start();
-			let cached = context;
-			return run("generate-batch", async () => {
-				const complete = await generationBatch.run({
-					options,
-					canContinue: () =>
-						active.current && AppState.currentState === "active",
-					authorize: async () => {
-						if (
-							!adConfig?.placements.some(
-								(p) => p.placement === "generation_continue" && p.enabled,
-							)
-						)
-							throw new Error(
-								"여러 번호 만들기를 준비 중이에요. 기본 번호 생성을 이용해 주세요.",
-							);
-						if (adConfig.generationAdPolicy)
-							await api.generationAds.load(adConfig.generationAdPolicy);
-						const flow =
-							impressionFlow ??
-							createAdFlow(adTelemetry, {
-								placement: "generation_continue",
-								policy: adPolicyLabel(adConfig.generationAdPolicy),
-								entryPoint: "batch",
-							});
-						const outcome = await adsController.unlock(
-							"generation_continue",
-							true,
-							flow,
-							canShow,
-						);
-						batchAdFlow.current = flow;
-						api.generationAds.continued();
-						if (
-							(outcome.continuedWithoutAd ||
-								outcome.resolution === "already_granted") &&
-							active.current
-						)
-							setNotice(
-								"지금은 광고를 이용할 수 없어 바로 여러 번호를 만들어요.",
-							);
-					},
-					generate: async (conditions) => {
-						trackProduct("generation_started");
-						cached = await generateOne(
-							conditions,
-							cached,
-							true,
-							requestBatchGeneration,
-						);
-					},
-				});
-				if (complete && active.current) {
-					batchAdFlow.current?.track("batch_completed");
-					batchAdFlow.current = undefined;
-				}
+				await generateOne(options, context, deviceCounter, adFlow);
 			});
 		},
 		save: (generation: Generation) => run("save", () => save(generation)),
@@ -857,6 +766,9 @@ export function useLotto() {
 				if (result.deleted) {
 					setRecent((items) => items.filter((g) => g.id !== item.generationId));
 					setCurrent((g) => (g?.id === item.generationId ? null : g));
+					setPublishedGenerationId((id) =>
+						id === item.generationId ? null : id,
+					);
 				}
 				if (store) setSaved(await store.remove(item.id));
 				setNotice(
@@ -1019,13 +931,13 @@ export function useLotto() {
 				setSaved(await store.clear());
 				if (user) await api.notificationPrompt(user).clear();
 				const result = await api.withdraw();
-				generationBatch.reset();
-				batchAdFlow.current = undefined;
+				lastGenerated.current = null;
 				attendanceRefreshDay.current = null;
 				setUser(null);
 				setSaved([]);
 				setRecent([]);
 				setCurrent(null);
+				setPublishedGenerationId(null);
 				setNotificationPrompt(false);
 				setPendingPromptRound(null);
 				promptChecked.current = false;

@@ -1,6 +1,11 @@
-// Exercise the real model; isolate RN/API mocks from the native ad-bridge tests.
+// Exercise the real model with an empty feed and a lost POST response.
+// Native mocks stay isolated from the bridge and navigation fixtures.
 import { expect, mock } from "bun:test";
-import { EMPTY_OPTIONS, type GenerationOptions } from "@645/lotto-core";
+import {
+	EMPTY_OPTIONS,
+	type Generation,
+	type GenerationOptions,
+} from "@645/lotto-core";
 import * as React from "react";
 import { act, create } from "react-test-renderer";
 
@@ -9,21 +14,31 @@ mock.module(
 	Bun.resolveSync("react", `${import.meta.dir}/../../apps/toss`),
 	() => React,
 );
-const batchModule = await import("../../apps/toss/src/generation-batch");
-const batchFactory = batchModule.createGenerationBatch;
-mock.module("../../apps/toss/src/generation-batch", () => ({
-	...batchModule,
-	createGenerationBatch: () => batchFactory(async () => {}),
-}));
+const { createGenerationCooldown } = await import(
+	"../../apps/toss/src/generation-cooldown"
+);
+let clock = 0;
+let timer: (() => void) | null = null;
 mock.module("../../apps/toss/src/generation-cooldown", () => ({
-	createGenerationCooldown: () => ({
-		getSnapshot: () => false,
-		subscribe: () => () => {},
-		blocked: () => false,
-		start() {},
-		stop() {},
-	}),
+	createGenerationCooldown: () =>
+		createGenerationCooldown(
+			() => clock,
+			(callback) => {
+				timer = callback;
+				return () => {
+					timer = null;
+				};
+			},
+		),
 }));
+async function advance() {
+	await act(async () => {
+		clock += 1_000;
+		const callback = timer;
+		timer = null;
+		callback?.();
+	});
+}
 mock.module("react-native", () => ({
 	AccessibilityInfo: {
 		isReduceMotionEnabled: async () => true,
@@ -38,10 +53,10 @@ let ads = 0;
 let failAd = false;
 let failRequest = 0;
 let requests = 0;
+let feedReads = 0;
 let attendanceReads = 0;
-const phases: string[] = [];
-const conditions: number[][] = [];
 const identities: string[] = [];
+const records = new Map<string, Generation>();
 mock.module("../../apps/toss/src/ad-bridge", () => ({
 	createAdController: () => ({
 		dispose() {},
@@ -93,17 +108,22 @@ const api = {
 		serverTime: at,
 		latestDraw: null,
 	}),
-	feed: async () => ({
-		round: 1244,
-		serverTime: at,
-		generations: [],
-		totalGenerations: 0,
-		numberCounts: Array(45).fill(0),
-		activeUsers: 0,
-		nextCursor: null,
-	}),
+	feed: async () => {
+		feedReads++;
+		return {
+			round: 1244,
+			serverTime: at,
+			generations: [],
+			totalGenerations: 0,
+			numberCounts: Array(45).fill(0),
+			activeUsers: 0,
+			nextCursor: null,
+		};
+	},
 	ensure: async () => ({ id: "fixture", displayName: "fixture" }),
-	saved: () => ({ read: async () => [] }),
+	saved: () => ({ read: async () => [], clear: async () => [] }),
+	notificationPrompt: () => ({ clear: async () => {} }),
+	withdraw: async () => ({ credentialsCleared: true }),
 	ads: async () => ({
 		generationAdPolicy: {
 			counter: "device",
@@ -129,24 +149,23 @@ const api = {
 	generate: async (
 		id: string,
 		round: number,
-		options: GenerationOptions,
+		_options: GenerationOptions,
 		device: boolean,
 	) => {
 		requests++;
-		conditions.push([...options.fixed]);
 		identities.push(id);
 		expect(device).toBe(true);
-		if (requests === failRequest) throw new Error("offline");
-		return {
-			generation: {
-				id: requests,
-				round,
-				numbers: [7, 10, 25, 29, 30, 43],
-				displayName: "fixture",
-				createdAt: at,
-			},
-			replayed: false,
+		const existing = records.get(id);
+		const generation = existing ?? {
+			id: records.size + 1,
+			round,
+			numbers: [7, 10, 25, 29, 30, 43],
+			displayName: "fixture",
+			createdAt: at,
 		};
+		records.set(id, generation);
+		if (requests === failRequest) throw new Error("lost response");
+		return { generation, replayed: !!existing };
 	},
 };
 let requestId = 0;
@@ -161,66 +180,90 @@ const { useLotto } = await import("../../apps/toss/src/use-lotto");
 let model!: ReturnType<typeof useLotto>;
 function Probe() {
 	model = useLotto();
-	phases.push(model.batchProgress.phase);
 	return null;
 }
 let root!: ReturnType<typeof create>;
 await act(async () => {
 	root = create(<Probe />);
 });
+expect(model.publishedGenerationId).toBeNull();
 expect(ads).toBe(0);
 expect(requests).toBe(0);
-expect(model.canGenerateMany).toBe(true);
 const beforeAttendance = attendanceReads;
-await act(async () => {
-	expect(await model.generateMany()).toBe(true);
-});
-expect(ads).toBe(1);
-expect(requests).toBe(5);
-expect(model.recent.map((item) => item.id)).toEqual([5, 4, 3, 2, 1]);
-expect(model.current?.id).toBe(5);
-expect(attendanceReads - beforeAttendance).toBe(1);
-expect(phases).toContain("idle");
-
-failRequest = 8;
-await act(async () => {
-	expect(await model.generateMany({ ...EMPTY_OPTIONS, fixed: [7] })).toBe(
-		false,
-	);
-});
-expect(ads).toBe(2);
-expect(model.batchProgress).toEqual({
-	phase: "paused",
-	completed: 2,
-	remaining: 3,
-});
-expect(model.recent.slice(0, 2).map((item) => item.id)).toEqual([7, 6]);
-const pendingIdentity = identities.at(-1);
-// A normal request has a different idempotency lane and leaves the batch credit alone.
+const beforeFeed = feedReads;
 await act(async () => {
 	expect(await model.generate()).toBe(true);
 });
-expect(identities.at(-1)).not.toBe(pendingIdentity);
-expect(model.batchProgress.remaining).toBe(3);
+expect(requests).toBe(1);
+expect(model.current?.id).toBe(1);
+expect(model.publishedGenerationId).toBe(1);
+expect(model.feed?.generations).toEqual([]);
+expect(model.attendance?.generatedToday).toBe(true);
+expect(attendanceReads - beforeAttendance).toBe(1);
 await act(async () => {
-	expect(await model.generateMany({ ...EMPTY_OPTIONS, fixed: [12] })).toBe(
-		true,
-	);
+	expect(await model.generate()).toBe(false);
 });
-expect(ads).toBe(2);
-expect(identities.at(-3)).toBe(pendingIdentity);
-expect(conditions.slice(-3)).toEqual([[7], [7], [7]]);
-expect(model.batchProgress.remaining).toBe(0);
+expect(requests).toBe(1);
 
+await advance();
+failRequest = 2;
+const conditions = { ...EMPTY_OPTIONS, fixed: [7] };
+await act(async () => {
+	expect(await model.generate(conditions)).toBe(false);
+});
+expect(model.current?.id).toBe(1);
+expect(model.publishedGenerationId).toBe(1);
+const pendingIdentity = identities.at(-1);
+await advance();
+await act(async () => {
+	expect(await model.generate(conditions)).toBe(true);
+});
+expect(identities.at(-1)).toBe(pendingIdentity);
+expect(model.publishedGenerationId).toBe(2);
+expect(records.size).toBe(2);
+for (let i = 0; i < 3; i++) {
+	await advance();
+	await act(async () => {
+		expect(await model.generate()).toBe(true);
+	});
+}
+expect(ads).toBe(0);
+expect(model.generationAdRequired).toBe(true);
+expect(model.publishedGenerationId).toBe(5);
+expect(attendanceReads - beforeAttendance).toBe(1);
+expect(feedReads).toBe(beforeFeed);
+
+await advance();
 failAd = true;
 const before = requests;
 await act(async () => {
-	expect(await model.generateMany()).toBe(false);
+	expect(await model.generate(EMPTY_OPTIONS, true)).toBe(false);
 });
 expect(requests).toBe(before);
-expect(model.batchProgress.remaining).toBe(0);
-expect(model.actionError?.area).toBe("make");
+expect(model.publishedGenerationId).toBe(5);
+expect(progress.remaining).toBe(0);
+await advance();
+failAd = false;
+await act(async () => {
+	expect(await model.generate(EMPTY_OPTIONS, true)).toBe(true);
+});
+expect(ads).toBe(2);
+expect(requests).toBe(before + 1);
+expect(model.publishedGenerationId).toBe(6);
+expect(progress.remaining).toBe(14);
+
+await act(async () => {
+	expect(await model.withdraw()).toBe(true);
+});
+expect(model.current).toBeNull();
+expect(model.publishedGenerationId).toBeNull();
+await act(async () => {
+	model.retry();
+});
+expect(model.attendance?.generatedToday).toBe(false);
 await act(async () => {
 	root.unmount();
 });
-console.log("generation batch model integration passed");
+expect(timer).toBeNull();
+expect(listeners.size).toBe(0);
+console.log("generator publication receipts and single-generation flow passed");

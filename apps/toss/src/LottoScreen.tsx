@@ -53,9 +53,9 @@ import {
 	FeatureAccessPrompt,
 	type FeatureRequest,
 } from "./FeatureAccessPrompt";
-import { GenerationBatchAction } from "./GenerationBatchAction";
 import { GenerationInsightPreview } from "./GenerationInsightPreview";
 import { GenerationResultsContent } from "./GenerationResultsContent";
+import { GeneratorAttendanceEntry } from "./GeneratorAttendanceEntry";
 import { generationOptionsError } from "./generation-options";
 import type { InsightsParams } from "./insights-route";
 import { LiveFeed, relativeTime } from "./LiveFeed";
@@ -536,7 +536,9 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 												: "이번 주, 내 번호는?",
 											"번호를 만들고 마음에 드는 조합을 보관하세요.",
 										)}
-										<View style={{ paddingVertical: 26, gap: 18 }}>
+										<View
+											style={{ paddingTop: 24, paddingBottom: 12, gap: 14 }}
+										>
 											<Balls
 												numbers={model.current?.numbers ?? [0, 0, 0, 0, 0, 0]}
 												size={ballSize}
@@ -545,21 +547,18 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 											/>
 											{model.current ? saveButton(model.current) : null}
 										</View>
-										{model.current ? (
-											<GenerationInsightPreview
-												key={model.current.id}
-												generation={model.current}
-												feed={model.feed}
-												onInsights={(round, number) =>
-													number === undefined
-														? openInsights(round)
-														: accessFeature("report", () =>
-																openInsights(round, number),
-															)
-												}
-											/>
-										) : null}
-										<View style={[s.row, { minHeight: 44, marginBottom: 14 }]}>
+										<GenerationInsightPreview
+											key={model.current?.id ?? "overview"}
+											generation={model.current}
+											feed={model.feed}
+											round={model.context?.targetRound}
+											published={
+												!!model.current &&
+												model.current.id === model.publishedGenerationId
+											}
+											onInsights={(round) => openInsights(round)}
+										/>
+										<View style={[s.row, { minHeight: 44, marginBottom: 8 }]}>
 											<Pressable
 												accessibilityRole="button"
 												onPress={() => {
@@ -601,20 +600,6 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 												]
 													.filter(Boolean)
 													.join(" / ")}
-											</Text>
-										) : null}
-										{model.current &&
-										model.recent[0]?.id === model.current.id &&
-										model.feed?.generations.some(
-											(item) => item.id === model.current?.id,
-										) ? (
-											<Text
-												style={[
-													s.caption,
-													{ color: theme.positive, marginBottom: 12 },
-												]}
-											>
-												내 번호도 실시간 현황에 더해졌어요
 											</Text>
 										) : null}
 										{LOCAL_PREVIEW ? (
@@ -678,75 +663,29 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 												있어요.
 											</Text>
 										) : null}
-										<GenerationBatchAction
-											model={model}
-											onGenerate={(flow) =>
-												model.generateMany(
-													hasOptions ? options : EMPTY_OPTIONS,
-													flow,
-													() => visibleRef.current,
-												)
-											}
-											onCompleted={() => {
-												if (visibleRef.current && mounted.current)
-													setPanel("recent");
-											}}
-										/>
 										{model.recent.some(
 											(item) => item.id !== model.current?.id,
 										) ? (
-											<View style={{ marginTop: 10 }}>
-												<Button
-													display="full"
-													style="weak"
+											<View style={s.recentEntry}>
+												<Pressable
+													accessibilityRole="button"
+													accessibilityLabel={`최근 만든 번호 ${model.recent.length}개 보기`}
 													onPress={() => setPanel("recent")}
+													style={({ pressed }) => [
+														s.recentLink,
+														{ opacity: pressed ? 0.65 : 1 },
+													]}
 												>
-													최근 만든 번호 {model.recent.length}개 보기
-												</Button>
+													<Text style={[s.caption, { color: theme.blue }]}>
+														최근 만든 번호 {model.recent.length}개 보기 ›
+													</Text>
+												</Pressable>
 											</View>
 										) : null}
-										<Pressable
-											accessibilityRole="button"
-											accessibilityLabel="오늘의 출석과 혜택 보기"
+										<GeneratorAttendanceEntry
+											attendance={model.attendance}
 											onPress={() => setPanel("attendance")}
-											style={({ pressed }) => [
-												s.attendanceEntry,
-												{
-													borderColor: theme.line,
-													opacity: pressed ? 0.65 : 1,
-												},
-											]}
-										>
-											<View style={s.attendanceCopy}>
-												<Text style={[s.body, text]}>
-													{model.attendance?.checkedIn
-														? `오늘 출석 완료 · ${model.attendance.streak}/7일`
-														: "오늘의 출석"}
-												</Text>
-												<Text style={[s.caption, muted]}>
-													{model.attendance?.generatedToday
-														? model.attendance.checkedIn
-															? model.attendance.streak === 7
-																? "7일을 채웠어요. 혜택을 확인해 보세요."
-																: `7일 완성까지 ${7 - model.attendance.streak}일 남았어요.`
-															: "오늘 번호를 만들었어요. 출석을 완료해 보세요."
-														: "번호를 한 번 만들면 출석할 수 있어요."}
-												</Text>
-											</View>
-											<Text style={[s.body, { color: theme.blue }]}>
-												{model.attendance?.checkedIn
-													? "혜택 보기 ›"
-													: model.attendance?.generatedToday &&
-															model.attendance.promotions.some(
-																(p) => p.kind === "daily" && p.available,
-															)
-														? `출석하고 ${model.attendance.promotions.find((p) => p.kind === "daily" && p.available)?.amount}P 받기 ›`
-														: "출석하기 ›"}
-											</Text>
-										</Pressable>
-										<Text style={[s.finePrint, muted]}>
-											생성한 번호는 실시간 활동에 함께 표시돼요.
-										</Text>
+										/>
 										<Banner
 											placement="generator"
 											groupId={
@@ -775,15 +714,6 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 											</Text>
 										</View>
 										{feedRows(3)}
-										<View style={{ marginTop: 12, marginBottom: 12 }}>
-											<Button
-												display="full"
-												style="weak"
-												onPress={() => openInsights()}
-											>
-												생성 통계 보기
-											</Button>
-										</View>
 										<Button
 											display="full"
 											type="dark"
@@ -1602,17 +1532,12 @@ const s = StyleSheet.create({
 	headingRow: { flexDirection: "row", alignItems: "center", gap: 12 },
 	headingTitle: { flex: 1 },
 	firstSection: { paddingTop: 16 },
-	attendanceEntry: {
-		marginTop: 20,
-		paddingVertical: 16,
-		borderTopWidth: 1,
-		flexDirection: "row",
-		alignItems: "center",
-		justifyContent: "space-between",
-		gap: 16,
-		minHeight: 64,
+	recentEntry: { alignItems: "center", marginTop: 4 },
+	recentLink: {
+		minHeight: 44,
+		justifyContent: "center",
+		paddingHorizontal: 12,
 	},
-	attendanceCopy: { flex: 1, gap: 4 },
 	section: { paddingHorizontal: 20, paddingTop: 28, paddingBottom: 26 },
 	heading: { marginTop: 16, gap: 10 },
 	title: {

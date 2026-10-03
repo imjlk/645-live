@@ -15,7 +15,7 @@ test("ad funnel distinguishes rendered/viewed, deduplicates callbacks and strips
 		placement: "generation_continue",
 		policy: "device:5:5-30",
 		flowId: "attempt",
-		entryPoint: "batch",
+		entryPoint: "continuation",
 		...{ authToken: "secret", numbers: [1, 2, 3], userId: "private" },
 	});
 	flow.track("requested");
@@ -34,7 +34,9 @@ test("ad funnel distinguishes rendered/viewed, deduplicates callbacks and strips
 		"lotto_ad_generation_completed",
 	]);
 	expect(events.every((e) => e.params.flow_id === "attempt")).toBe(true);
-	expect(events.every((e) => e.params.entry_point === "batch")).toBe(true);
+	expect(events.every((e) => e.params.entry_point === "continuation")).toBe(
+		true,
+	);
 	expect(events[4].params.format).toBe("rewarded");
 	expect(JSON.stringify(events)).not.toContain("secret");
 	expect(JSON.stringify(events)).not.toContain("numbers");

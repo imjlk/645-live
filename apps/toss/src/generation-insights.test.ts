@@ -1,6 +1,9 @@
 import { expect, test } from "bun:test";
 import type { Feed, Generation } from "@645/lotto-core";
-import { generationInsights } from "./generation-insights";
+import {
+	generationInsights,
+	preferredGenerationInsight,
+} from "./generation-insights";
 import { insightsParams } from "./insights-route";
 
 const generation: Generation = {
@@ -69,6 +72,15 @@ test("a subscribed update changes the count without changing the highlighted num
 		number: 7,
 		text: "7번은 이번 회차에 301회 생성됐어요.",
 	});
+});
+test("inline hints prefer community statistics and fall back to exact local patterns", () => {
+	const facts = generationInsights(generation, feed);
+	expect(preferredGenerationInsight(facts, 6).key).toBe("frequency");
+	expect(preferredGenerationInsight(facts, 7).key).toBe("top");
+	for (const snapshot of [null, { ...feed, round: 1243 }]) {
+		const local = generationInsights(generation, snapshot);
+		expect(preferredGenerationInsight(local, 6).key).toBe("odd");
+	}
 });
 test("optional native route filters reject malformed deep links", () => {
 	expect(insightsParams({ round: 1243, number: 45 })).toEqual({

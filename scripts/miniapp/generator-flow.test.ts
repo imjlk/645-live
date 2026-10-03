@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
 
-test("batch generation integrates with real request retries, recent numbers and one attendance refresh", async () => {
+test("single generation preserves publication receipts, retry identity, cadence and attendance refresh", async () => {
 	const child = Bun.spawn(
-		[process.execPath, `${import.meta.dir}/generation-batch.fixture.tsx`],
+		[process.execPath, `${import.meta.dir}/generator-flow.fixture.tsx`],
 		{ stdout: "pipe", stderr: "pipe" },
 	);
 	const [code, stdout, stderr] = await Promise.all([
@@ -14,5 +14,7 @@ test("batch generation integrates with real request retries, recent numbers and 
 		code: 0,
 		error: "",
 	});
-	expect(stdout).toContain("generation batch model integration passed");
+	expect(stdout).toContain(
+		"generator publication receipts and single-generation flow passed",
+	);
 });

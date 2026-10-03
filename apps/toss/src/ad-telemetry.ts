@@ -11,7 +11,6 @@ export type AdMetric =
 	| "failed"
 	| "settled"
 	| "generation_completed"
-	| "batch_completed"
 	| "banner_slot_viewed"
 	| "banner_requested"
 	| "banner_impression"
