@@ -3,6 +3,7 @@ import { createRequire } from "node:module";
 import {
 	type LottoTab,
 	navigateToInsights,
+	navigateToSavedRound,
 	navigateToTab,
 	TAB_BACK_BEHAVIOR,
 } from "../../apps/toss/src/navigation";
@@ -168,4 +169,41 @@ test("generation insights push onto Granite's parent stack and return to the sam
 	expect(app.current()).toBe("saved");
 	expect(app.back()).toBe(true);
 	expect(app.current()).toBe("live");
+});
+
+test("result return targets the existing saved tab and Back returns to the generator", () => {
+	const app = fixture();
+	const keys = app.state.routes.map((r: { key: string }) => r.key);
+	expect(navigateToSavedRound(app.navigation, "make", 1243, false)).toBe(false);
+	expect(navigateToSavedRound(app.navigation, "live", 1243, true)).toBe(false);
+	expect(navigateToSavedRound(app.navigation, "make", 0, true)).toBe(false);
+	// Use the real TabRouter with a parameter-carrying jump.
+	const router = TabRouter({
+		initialRouteName: "make",
+		backBehavior: TAB_BACK_BEHAVIOR,
+	});
+	const config = {
+		routeNames: ["make", "live", "saved"],
+		routeParamList: {},
+		routeGetIdList: {},
+	};
+	let state = router.getInitialState(config);
+	const navigation = {
+		getState: () => state,
+		jumpTo: (name: string, params: object) => {
+			state = router.getStateForAction(
+				state,
+				TabActions.jumpTo(name, params),
+				config,
+			);
+		},
+	};
+	expect(navigateToSavedRound(navigation, "make", 1243, true)).toBe(true);
+	expect(state.routes[state.index].params).toEqual({
+		round: 1243,
+		entry: "home",
+	});
+	expect(state.routes).toHaveLength(keys.length);
+	state = router.getStateForAction(state, CommonActions.goBack(), config);
+	expect(state.routes[state.index].name).toBe("make");
 });

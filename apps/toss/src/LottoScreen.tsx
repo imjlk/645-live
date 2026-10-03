@@ -5,6 +5,7 @@ import {
 	EMPTY_OPTIONS,
 	type Generation,
 	type GenerationOptions,
+	resultFingerprint,
 	type SavedCombination,
 } from "@645/lotto-core";
 import { getTossShareLink, share } from "@apps-in-toss/framework";
@@ -27,6 +28,7 @@ import {
 	useCallback,
 	useEffect,
 	useLayoutEffect,
+	useMemo,
 	useRef,
 	useState,
 } from "react";
@@ -66,10 +68,12 @@ import {
 	type LottoTab,
 	type LottoTabNavigation,
 	navigateToInsights,
+	navigateToSavedRound,
 	navigateToTab,
 } from "./navigation";
 import { PrivacyNotice } from "./PrivacyNotice";
 import { ReportHistory } from "./ReportHistory";
+import { unreadSavedRounds } from "./result-return";
 import { SAVED_LIMIT } from "./saved-store";
 import { useTabShell } from "./TabShell";
 import { trackProduct } from "./telemetry";
@@ -141,10 +145,30 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 	const theme = useTheme();
 	const insets = useSafeAreaInsets();
 	const { width } = useWindowDimensions();
-	const { tabBarHeight, presentOverlay } = useTabShell();
+	const { tabBarHeight, presentOverlay, savedTarget } = useTabShell();
 	const [savedPage, setSavedPage] = useState(0);
 	const [savedFilter, setSavedFilter] = useState<SavedFilter>("all");
 	const [selectedRound, setSelectedRound] = useState<number | null>(null);
+	const [linkedRound, setLinkedRound] = useState<number | null>(null);
+	const unreadRounds = useMemo(
+		() => unreadSavedRounds(model.saved, model.results),
+		[model.saved, model.results],
+	);
+	const returnRound = unreadRounds[0];
+	const returnCount = model.saved.filter(
+		(item) => item.round === returnRound,
+	).length;
+	useLayoutEffect(() => {
+		if (!visible || tab !== "saved" || !savedTarget?.round) return;
+		setSelectedRound(savedTarget.round);
+		setLinkedRound(savedTarget.round);
+		setSavedFilter("all");
+		setSavedPage(0);
+		if (savedTarget.entry === "notification")
+			trackProduct("notification_result_opened", "saved_deep_link");
+		// Consume the navigation target, preserving subsequent manual selection and Back history.
+		navigation.setParams({ round: undefined, entry: undefined });
+	}, [visible, tab, savedTarget?.round, savedTarget?.entry, navigation]);
 	const [savingGenerationId, setSavingGenerationId] = useState<number | null>(
 		null,
 	);
@@ -154,26 +178,45 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 		savedFilter,
 		model.context?.latestDraw?.round ?? null,
 	);
-	const savedRound =
-		selectedRound !== null && rounds.includes(selectedRound)
-			? selectedRound
-			: rounds[0];
+	let savedRound: number | undefined = rounds[0];
+	if (selectedRound !== null && rounds.includes(selectedRound))
+		savedRound = selectedRound;
+	if (linkedRound !== null && !rounds.includes(linkedRound))
+		savedRound = undefined;
 	const roundItems = model.saved.filter((item) => item.round === savedRound);
 	const roundDraw = savedRound ? model.results[savedRound] : undefined;
 	const summary = roundDraw ? savedSummary(roundItems, roundDraw) : null;
 	const savedPages = Math.max(1, Math.ceil(roundItems.length / 20));
-	const viewedResults = useRef(new Set<number>());
+	const viewedResults = useRef(new Set<string>());
 	useEffect(() => {
 		if (
 			visible &&
 			tab === "saved" &&
+			!savedTarget?.round &&
 			roundDraw &&
-			!viewedResults.current.has(roundDraw.round)
+			!viewedResults.current.has(resultFingerprint(roundDraw))
 		) {
-			viewedResults.current.add(roundDraw.round);
+			viewedResults.current.add(resultFingerprint(roundDraw));
 			trackProduct("saved_results_viewed");
 		}
-	}, [visible, tab, roundDraw]);
+	}, [visible, tab, roundDraw, savedTarget?.round]);
+	useEffect(() => {
+		if (
+			visible &&
+			tab === "saved" &&
+			!savedTarget?.round &&
+			roundDraw &&
+			model.savedReady
+		)
+			void model.markResultsViewed?.(roundDraw.round);
+	}, [
+		visible,
+		tab,
+		roundDraw,
+		model.savedReady,
+		model.markResultsViewed,
+		savedTarget?.round,
+	]);
 	const currentSavedPage = Math.min(savedPage, savedPages - 1);
 	const [{ panel, open: sheetOpen }, setSheet] = useState<{
 		panel: Panel;
@@ -536,6 +579,36 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 												: "이번 주, 내 번호는?",
 											"번호를 만들고 마음에 드는 조합을 보관하세요.",
 										)}
+										{returnRound ? (
+											<View style={{ gap: 8, marginTop: 16 }}>
+												<Text style={[s.caption, muted]}>
+													{returnRound}회 · 새 결과
+												</Text>
+												<Text style={[s.body, text]}>
+													보관한 {returnCount}개 조합의 결과가 나왔어요.
+												</Text>
+												<Button
+													size="medium"
+													style="weak"
+													onPress={() => {
+														if (
+															navigateToSavedRound(
+																navigation,
+																tab,
+																returnRound,
+																visible,
+															)
+														)
+															trackProduct(
+																"results_return_opened",
+																"generator",
+															);
+													}}
+												>
+													보관한 번호 결과 보기
+												</Button>
+											</View>
+										) : null}
 										<View
 											style={{ paddingTop: 24, paddingBottom: 12, gap: 14 }}
 										>
@@ -807,6 +880,7 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 														return;
 													setSavedFilter(value);
 													setSelectedRound(null);
+													setLinkedRound(null);
 													setSavedPage(0);
 												}}
 											>
@@ -832,10 +906,12 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 														style={round === savedRound ? "fill" : "weak"}
 														onPress={() => {
 															setSelectedRound(round);
+															setLinkedRound(null);
 															setSavedPage(0);
 														}}
 													>
 														{round}회
+														{unreadRounds.includes(round) ? " · 새 결과" : ""}
 													</Button>
 												))}
 											</ScrollView>
@@ -872,7 +948,9 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 											) : (
 												<Text style={[s.body, muted]}>
 													{model.context
-														? "이 조건에 해당하는 보관 번호가 없어요."
+														? linkedRound !== null
+															? `${linkedRound}회 번호가 이 기기에 보관되어 있지 않아요.`
+															: "이 조건에 해당하는 보관 번호가 없어요."
 														: "회차 정보를 확인하고 있어요."}
 												</Text>
 											)}
@@ -892,7 +970,9 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 												size={Math.min(38, ballSize)}
 											/>
 											<Text style={[s.sectionTitle, text, { marginTop: 24 }]}>
-												아직 보관한 번호가 없어요
+												{linkedRound !== null
+													? `${linkedRound}회 번호가 이 기기에 없어요`
+													: "아직 보관한 번호가 없어요"}
 											</Text>
 											<Text
 												style={[

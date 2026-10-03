@@ -539,6 +539,27 @@ export function useLotto() {
 		context,
 	]);
 
+	const markResultsViewed = useCallback(
+		async (round: number) => {
+			const draw = results[round];
+			if (!store || !savedReady || !draw) return;
+			const fingerprint = resultFingerprint(draw);
+			const ids = saved
+				.filter(
+					(item) => item.round === round && item.viewedResult !== fingerprint,
+				)
+				.map((item) => item.id);
+			if (!ids.length) return;
+			try {
+				const items = await store.viewResults(ids, fingerprint);
+				if (active.current) setSaved(items);
+			} catch {
+				// Optional read markers must never prevent viewing the actual result.
+			}
+		},
+		[store, savedReady, results, saved],
+	);
+
 	async function save(generation: Generation) {
 		if (!store || !savedReady)
 			throw new Error("보관함 연결을 먼저 확인해 주세요.");
@@ -670,6 +691,7 @@ export function useLotto() {
 		publishedGenerationId,
 		saved,
 		savedReady,
+		markResultsViewed,
 		results,
 		resultsLoading,
 		adConfig,

@@ -16,6 +16,7 @@ import {
 	startTransition,
 	useEffect,
 	useLayoutEffect,
+	useMemo,
 	useState,
 } from "react";
 import { StyleSheet, useWindowDimensions, View } from "react-native";
@@ -24,6 +25,11 @@ import { useLottoContext } from "./LottoProvider";
 import { LottoScreen } from "./LottoScreen";
 import { type LottoTab, navigateToTab, TAB_BACK_BEHAVIOR } from "./navigation";
 import { ResultNotificationPrompt } from "./ResultNotificationPrompt";
+import {
+	type SavedParams,
+	savedParams,
+	unreadSavedRounds,
+} from "./result-return";
 import { TabShellContext, useOverlayStack } from "./TabShell";
 import { useTheme } from "./theme";
 
@@ -98,6 +104,10 @@ function TabNavigator(props: NavigatorProps) {
 		};
 	}, [routeKeys]);
 	const { model } = useLottoContext();
+	const hasUnreadResults = useMemo(
+		() => unreadSavedRounds(model.saved, model.results).length > 0,
+		[model.saved, model.results],
+	);
 	const theme = useTheme();
 	const insets = useSafeAreaInsets();
 	const { fontScale } = useWindowDimensions();
@@ -127,7 +137,15 @@ function TabNavigator(props: NavigatorProps) {
 
 	return (
 		<NavigationContent>
-			<TabShellContext.Provider value={{ tabBarHeight, presentOverlay }}>
+			<TabShellContext.Provider
+				value={{
+					tabBarHeight,
+					presentOverlay,
+					savedTarget: savedParams(
+						state.routes.find((route) => route.name === "saved")?.params,
+					),
+				}}
+			>
 				<View style={[s.root, { backgroundColor: theme.background }]}>
 					{state.routes.map((route, index) =>
 						loaded.includes(route.key) || index === state.index ? (
@@ -172,7 +190,10 @@ function TabNavigator(props: NavigatorProps) {
 									>
 										<Tab.Item value="make">번호 만들기</Tab.Item>
 										<Tab.Item value="live">실시간</Tab.Item>
-										<Tab.Item value="saved" redBean={!!model.celebration}>
+										<Tab.Item
+											value="saved"
+											redBean={!!model.celebration || hasUnreadResults}
+										>
 											보관함
 										</Tab.Item>
 									</Tab>
@@ -225,7 +246,13 @@ function SavedScreen() {
 	return <LottoScreen tab="saved" />;
 }
 
-export function LottoTabs({ initialTab = "make" }: { initialTab?: LottoTab }) {
+export function LottoTabs({
+	initialTab = "make",
+	savedTarget,
+}: {
+	initialTab?: LottoTab;
+	savedTarget?: SavedParams;
+}) {
 	return (
 		<TDSProvider colorPreference="light" fontScaleAvailable>
 			<Tabs.Navigator
@@ -234,7 +261,11 @@ export function LottoTabs({ initialTab = "make" }: { initialTab?: LottoTab }) {
 			>
 				<Tabs.Screen name="make" component={MakeScreen} />
 				<Tabs.Screen name="live" component={LiveScreen} />
-				<Tabs.Screen name="saved" component={SavedScreen} />
+				<Tabs.Screen
+					name="saved"
+					component={SavedScreen}
+					initialParams={savedTarget}
+				/>
 			</Tabs.Navigator>
 		</TDSProvider>
 	);

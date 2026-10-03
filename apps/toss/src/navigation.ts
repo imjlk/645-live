@@ -5,9 +5,14 @@ import type {
 } from "@granite-js/native/@react-navigation/native";
 import type { NativeStackNavigationProp } from "@granite-js/native/@react-navigation/native-stack";
 import type { InsightsParams } from "./insights-route";
+import type { SavedParams } from "./result-return";
 
 export type LottoTab = "make" | "live" | "saved";
-export type LottoTabParams = Record<LottoTab, undefined>;
+export type LottoTabParams = {
+	make: undefined;
+	live: undefined;
+	saved: SavedParams | undefined;
+};
 export type LottoTabNavigation = NavigationProp<LottoTabParams> &
 	TabActionHelpers<LottoTabParams>;
 // Keep the visit sequence like a browser, while TabRouter retains only three
@@ -54,5 +59,22 @@ export function navigateToInsights(
 	if (stack.type !== "stack" || stack.routes[stack.index]?.name === "/insights")
 		return false;
 	parent.push("/insights", params);
+	return true;
+}
+
+/** Target an existing tab; no duplicate native screen/controller is created. */
+export function navigateToSavedRound(
+	navigation: {
+		getState(): Pick<NavigationState, "index" | "routes">;
+		jumpTo(tab: LottoTab, params?: SavedParams): void;
+	},
+	current: LottoTab,
+	round: number,
+	visible: boolean,
+) {
+	if (!visible || !Number.isSafeInteger(round) || round < 1) return false;
+	const state = navigation.getState();
+	if (state.routes[state.index]?.name !== current) return false;
+	navigation.jumpTo("saved", { round, entry: "home" });
 	return true;
 }
