@@ -1,10 +1,7 @@
 import {
-	ACTIVITY_LABELS,
 	ACTIVITY_PERIODS,
 	type ActivityPeriod,
-	type ActivitySource,
 	activityAllowsDay,
-	activityComparison,
 	activityNumbers,
 	combinationActivity,
 	createActivityController,
@@ -23,19 +20,24 @@ import {
 	Text,
 	View,
 } from "react-native";
-import { API_BASE } from "./api";
+import { type AdConfig, API_BASE } from "./api";
 import { Balls } from "./Balls";
+import { Banner } from "./Banner";
 import { useTheme } from "./theme";
 
 const percent = (n: number) => `${(n * 100).toFixed(1)}%`;
 export function ActivityPanel({
 	active,
-	round,
+	initialRound,
+	initialNumber,
+	adConfig,
 	savedNumbers = [],
 	onExplore = (action) => action(),
 }: {
 	active: boolean;
-	round?: number;
+	initialRound?: number;
+	initialNumber?: number;
+	adConfig?: AdConfig | null;
 	savedNumbers?: readonly {
 		id: string;
 		round: number;
@@ -54,13 +56,13 @@ export function ActivityPanel({
 		controller.getSnapshot,
 	);
 	const [detailOrder, setDetailOrder] = useState<number[]>([]);
-	const [kind, setKind] = useState<ActivitySource>("generated"),
-		[period, setPeriod] = useState<ActivityPeriod>("round"),
-		[pickedRound, setPickedRound] = useState<number | undefined>(round),
+	const [period, setPeriod] = useState<ActivityPeriod>("round"),
+		[pickedRound, setPickedRound] = useState<number | undefined>(initialRound),
 		[order, setOrder] = useState<"most" | "least" | "number">("most"),
 		[all, setAll] = useState(false),
-		[selected, setSelected] = useState<number | null>(null),
+		[selected, setSelected] = useState<number | null>(initialNumber ?? null),
 		[more, setMore] = useState(false);
+	const [entryDetail, setEntryDetail] = useState(initialNumber !== undefined);
 	const [foreground, setForeground] = useState(
 		AppState.currentState !== "background" &&
 			AppState.currentState !== "inactive",
@@ -71,7 +73,7 @@ export function ActivityPanel({
 		);
 		return () => listener.remove();
 	}, []);
-	const target = round ?? pickedRound;
+	const target = pickedRound;
 	useEffect(() => {
 		if (!active || !foreground) return;
 		void controller.select({ round: target, period });
@@ -82,7 +84,7 @@ export function ActivityPanel({
 		};
 	}, [active, foreground, controller, target, period]);
 	const snapshot = state.data,
-		data = snapshot?.sources[kind],
+		data = snapshot?.sources.generated,
 		ranked = data ? activityNumbers(data, order) : [],
 		numbers =
 			selected && detailOrder.length
@@ -91,6 +93,10 @@ export function ActivityPanel({
 					)
 				: ranked,
 		selectedData = data && selected ? numberActivity(data, selected) : null;
+	useEffect(() => {
+		if (selected && data && !detailOrder.length)
+			setDetailOrder(activityNumbers(data, order).map((item) => item.number));
+	}, [selected, data, order, detailOrder.length]);
 	const personal = savedNumbers.filter(
 		(item) => item.round === snapshot?.round,
 	);
@@ -152,24 +158,7 @@ export function ActivityPanel({
 	) : null;
 	return (
 		<View style={s.root}>
-			<SegmentedControl.Root
-				name="activity-source"
-				value={kind}
-				onChange={(v) => {
-					if (v === "generated" || v === "scanned") {
-						setKind(v);
-						setSelected(null);
-					}
-				}}
-			>
-				<SegmentedControl.Item value="generated">
-					생성된 번호
-				</SegmentedControl.Item>
-				<SegmentedControl.Item value="scanned">
-					QR 스캔 번호
-				</SegmentedControl.Item>
-			</SegmentedControl.Root>
-			{!round && snapshot ? (
+			{snapshot ? (
 				<View style={s.row}>
 					<Button
 						size="tiny"
@@ -190,7 +179,7 @@ export function ActivityPanel({
 					</Button>
 				</View>
 			) : null}
-			{!round && snapshot ? (
+			{snapshot ? (
 				<ScrollView
 					horizontal
 					showsHorizontalScrollIndicator={false}
@@ -246,20 +235,18 @@ export function ActivityPanel({
 			{!data && state.loading ? (
 				<ActivityIndicator
 					color={theme.blue}
-					accessibilityLabel="번호 분석 불러오는 중"
+					accessibilityLabel="생성 통계 불러오는 중"
 				/>
 			) : null}
 			{data && snapshot ? (
 				<>
 					<View style={[s.summary, { borderColor: theme.line }]}>
 						<Text style={[s.caption, muted]}>
-							{snapshot.round}회 기준 · {ACTIVITY_LABELS[kind]}
+							{snapshot.round}회 기준 · 생성된 번호
 						</Text>
 						<Text style={[s.total, text]}>
 							{data.records.toLocaleString()}
-							<Text style={s.unit}>
-								{period === "day" || kind === "generated" ? "게임" : "회 스캔"}
-							</Text>
+							<Text style={s.unit}>조합</Text>
 						</Text>
 						<Text style={[s.caption, muted]}>
 							번호 등장 {total.toLocaleString()}회 · 비중은 전체 번호 등장 횟수
@@ -275,13 +262,16 @@ export function ActivityPanel({
 						</View>
 					) : (
 						<>
+							{entryDetail ? detailView : null}
 							<View style={s.row}>
 								{title(
 									order === "least"
-										? "적게 등장한 번호"
+										? "적게 생성된 번호"
 										: order === "number"
-											? "번호별 등장 횟수"
-											: "많이 등장한 번호",
+											? "번호별 생성 횟수"
+											: all
+												? "많이 생성된 번호"
+												: "많이 생성된 번호 Top 10",
 								)}
 								<Button
 									size="tiny"
@@ -329,6 +319,7 @@ export function ActivityPanel({
 											selected === n.number
 												? setSelected(null)
 												: onExplore(() => {
+														setEntryDetail(false);
 														setDetailOrder(numbers.map((item) => item.number));
 														setSelected(n.number);
 													})
@@ -362,7 +353,7 @@ export function ActivityPanel({
 											{n.count.toLocaleString()}회
 										</Text>
 									</Pressable>
-									{selected === n.number ? detailView : null}
+									{selected === n.number && !entryDetail ? detailView : null}
 								</View>
 							))}
 
@@ -411,41 +402,24 @@ export function ActivityPanel({
 							) : null}
 						</>
 					)}
+					{total > 0 ? (
+						<Banner
+							placement="insights_summary"
+							groupId={adConfig?.bannerGroups?.card ?? adConfig?.bannerGroupId}
+						/>
+					) : null}
 					<Button
 						display="full"
 						style="weak"
+						disabled={!more && total === 0}
 						onPress={() =>
 							more ? setMore(false) : onExplore(() => setMore(true))
 						}
 					>
-						{more ? "분포 분석 접기" : "번호 쌍·패턴·두 데이터 비교"}
+						{more ? "조합 패턴 접기" : "조합 패턴 더 보기"}
 					</Button>
 					{more ? (
 						<>
-							<View style={s.block}>
-								{title("생성과 스캔의 비중 차이")}
-								<Text style={[s.caption, muted]}>
-									두 출처의 표본 크기가 달라 번호 등장 비중으로 비교해요.
-								</Text>
-								{sum(snapshot.sources.generated.numberCounts) &&
-								sum(snapshot.sources.scanned.numberCounts) ? (
-									activityComparison(snapshot)
-										.slice(0, 5)
-										.map((n) => (
-											<View key={n.number} style={s.row}>
-												<Balls numbers={[n.number]} size={30} reducedMotion />
-												<Text style={[s.caption, text]}>
-													생성 {percent(n.generatedShare)} · 스캔{" "}
-													{percent(n.scannedShare)}
-												</Text>
-											</View>
-										))
-								) : (
-									<Text style={[s.body, muted]}>
-										두 출처 모두에 번호가 모이면 비교할 수 있어요.
-									</Text>
-								)}
-							</View>
 							<View style={s.block}>
 								{title("함께 등장한 번호 Top 10")}
 								{data.pairs.length ? (
@@ -467,7 +441,7 @@ export function ActivityPanel({
 								{title("조합 패턴")}
 								<Text style={[s.caption, muted]}>
 									패턴 집계 대상 {data.patterns.combinations.toLocaleString()}
-									게임 · 과거 번호별 합계와 집계 범위가 다를 수 있어요.
+									조합 · 과거 번호별 합계와 집계 범위가 다를 수 있어요.
 								</Text>
 								{data.patterns.combinations ? (
 									<>
@@ -539,8 +513,18 @@ export function ActivityPanel({
 									</View>
 								))}
 							</View>
+							{total > 0 ? (
+								<Banner
+									placement="insights_patterns"
+									groupId={
+										adConfig?.feedInlineGroupIds?.[0] ??
+										adConfig?.bannerGroups?.inline ??
+										adConfig?.bannerGroupId
+									}
+								/>
+							) : null}
 							<View style={s.block}>
-								{title("시간별 활동")}
+								{title("시간별 생성 활동")}
 								<Text style={[s.caption, muted]}>
 									최근 24시간 · 시간 단위로 새로 집계된 조합
 								</Text>
@@ -555,7 +539,7 @@ export function ActivityPanel({
 												시
 											</Text>
 											<Text style={text}>
-												{h.combinations.toLocaleString()}게임
+												{h.combinations.toLocaleString()}조합
 											</Text>
 										</View>
 									))
@@ -584,7 +568,7 @@ const s = StyleSheet.create({
 		justifyContent: "space-between",
 		gap: 8,
 	},
-	heading: { fontSize: 18, fontWeight: "700" },
+	heading: { fontSize: 18, fontWeight: "700", flexShrink: 1 },
 	body: { fontSize: 15, lineHeight: 23 },
 	caption: { fontSize: 12, lineHeight: 19 },
 	summary: { paddingVertical: 18, borderBottomWidth: 1, gap: 8 },

@@ -42,7 +42,6 @@ import {
 	View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ActivityPanel } from "./ActivityPanel";
 import { AdCtaImpression } from "./AdCtaImpression";
 import { AttendancePanel } from "./AttendancePanel";
 import { adPolicyLabel } from "./ad-telemetry";
@@ -54,8 +53,11 @@ import {
 	FeatureAccessPrompt,
 	type FeatureRequest,
 } from "./FeatureAccessPrompt";
+import { GenerationBatchAction } from "./GenerationBatchAction";
+import { GenerationInsightPreview } from "./GenerationInsightPreview";
 import { GenerationResultsContent } from "./GenerationResultsContent";
 import { generationOptionsError } from "./generation-options";
+import type { InsightsParams } from "./insights-route";
 import { LiveFeed, relativeTime } from "./LiveFeed";
 import { LocalResultPreview } from "./LocalResultPreview";
 import { LocalTestPanel } from "./LocalTestPanel";
@@ -63,6 +65,7 @@ import { useLottoContext } from "./LottoProvider";
 import {
 	type LottoTab,
 	type LottoTabNavigation,
+	navigateToInsights,
 	navigateToTab,
 } from "./navigation";
 import { PrivacyNotice } from "./PrivacyNotice";
@@ -79,7 +82,6 @@ import {
 } from "./ux-state";
 
 type Panel =
-	| "activity"
 	| "custom"
 	| "report"
 	| "attendance"
@@ -92,7 +94,6 @@ type Panel =
 	| "generationResults"
 	| null;
 const PANEL_TITLES = {
-	activity: "생성·스캔 번호 분석",
 	recent: "최근 만든 번호",
 	custom: "내 취향대로 만들기",
 	report: "내 조합 살펴보기",
@@ -178,31 +179,58 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 		panel: Panel;
 		open: boolean;
 	}>({ panel: null, open: false });
-	const [activityRound, setActivityRound] = useState<number | undefined>();
+	const [resultsInitialRound, setResultsInitialRound] = useState<
+		number | undefined
+	>();
 	const [resultsEntry, setResultsEntry] = useState(0);
-	const [activityParent, setActivityParent] = useState<
-		"generationResults" | null
-	>(null);
+	const pendingInsights = useRef<InsightsParams | null>(null);
+	const insightsOpening = useRef(false);
+	const resultsReturnRound = useRef<number | undefined>(undefined);
+	const wasAway = useRef(false);
+	const mounted = useRef(false);
+	const visibleRef = useRef(visible);
+	visibleRef.current = visible;
 	const setPanel = useCallback((next: Panel) => {
-		if (!next) {
-			setActivityParent(null);
-			setActivityRound(undefined);
-		}
+		pendingInsights.current = null;
+		insightsOpening.current = false;
+		resultsReturnRound.current = undefined;
+		wasAway.current = false;
+		setResultsInitialRound(undefined);
 		setSheet((current) =>
 			next ? { panel: next, open: true } : { ...current, open: false },
 		);
 	}, []);
-	const parentPanel =
-		panel === "activity"
-			? activityParent
-			: panel
-				? (PANEL_PARENTS[panel] ?? null)
-				: null;
+	const parentPanel = panel ? (PANEL_PARENTS[panel] ?? null) : null;
+	useEffect(() => {
+		if (!visible) {
+			if (resultsReturnRound.current !== undefined) wasAway.current = true;
+			pendingInsights.current = null;
+			insightsOpening.current = false;
+			return;
+		}
+		if (!wasAway.current || resultsReturnRound.current === undefined) return;
+		const round = resultsReturnRound.current;
+		resultsReturnRound.current = undefined;
+		wasAway.current = false;
+		setResultsInitialRound(round);
+		setResultsEntry((value) => value + 1);
+		setSheet({ panel: "generationResults", open: true });
+	}, [visible]);
+	useLayoutEffect(() => {
+		mounted.current = true;
+		return () => {
+			mounted.current = false;
+			pendingInsights.current = null;
+			resultsReturnRound.current = undefined;
+			visibleRef.current = false;
+		};
+	}, []);
 	const sheetScroll = useRef<ScrollView>(null);
 	useLayoutEffect(() => {
 		if (!visible || !panel) return;
 		return presentOverlay(() => {
-			if (sheetOpen) setPanel(parentPanel);
+			// Back during the sheet exit cancels a queued native navigation too.
+			if (sheetOpen || pendingInsights.current) setPanel(parentPanel);
 		});
 	}, [panel, parentPanel, presentOverlay, setPanel, sheetOpen, visible]);
 	useEffect(() => {
@@ -233,12 +261,33 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 		model.featureUsed();
 		action();
 	};
-	const openActivity = (round?: number) => {
-		setActivityParent(
-			panel === "generationResults" ? "generationResults" : null,
+	const openInsights = (round?: number, number?: number) => {
+		if (!visible || insightsOpening.current) return;
+		if (sheetOpen) {
+			const returnRound = panel === "generationResults" ? round : undefined;
+			setPanel(null);
+			pendingInsights.current = { round, number };
+			resultsReturnRound.current = returnRound;
+			insightsOpening.current = true;
+			return;
+		}
+		insightsOpening.current = navigateToInsights(navigation, tab, visible, {
+			round,
+			number,
+		});
+	};
+	const onSheetExited = () => {
+		if (!mounted.current) return;
+		setSheet((current) =>
+			current.open ? current : { panel: null, open: false },
 		);
-		setActivityRound(round);
-		setPanel("activity");
+		const params = pendingInsights.current;
+		if (!params) return;
+		pendingInsights.current = null;
+		if (!navigateToInsights(navigation, tab, visibleRef.current, params)) {
+			insightsOpening.current = false;
+			resultsReturnRound.current = undefined;
+		}
 	};
 	const hasOptions =
 		options.fixed.length > 0 ||
@@ -440,11 +489,9 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 						onColumnsChange={setLiveColumns}
 						refreshing={model.refreshing}
 						onRefresh={model.retry}
-						onInsights={() => openActivity()}
+						onInsights={() => openInsights()}
 						onResults={() => {
 							setResultsEntry((value) => value + 1);
-							setActivityParent(null);
-							setActivityRound(undefined);
 							setPanel("generationResults");
 						}}
 					/>
@@ -498,6 +545,20 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 											/>
 											{model.current ? saveButton(model.current) : null}
 										</View>
+										{model.current ? (
+											<GenerationInsightPreview
+												key={model.current.id}
+												generation={model.current}
+												feed={model.feed}
+												onInsights={(round, number) =>
+													number === undefined
+														? openInsights(round)
+														: accessFeature("report", () =>
+																openInsights(round, number),
+															)
+												}
+											/>
+										) : null}
 										<View style={[s.row, { minHeight: 44, marginBottom: 14 }]}>
 											<Pressable
 												accessibilityRole="button"
@@ -600,6 +661,7 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 																hasOptions ? options : EMPTY_OPTIONS,
 																model.generationAdRequired,
 																adFlow,
+																() => visibleRef.current,
 															),
 														);
 													}}
@@ -610,6 +672,26 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 												</Button>
 											)}
 										</AdCtaImpression>
+										{model.generationAdRequired ? (
+											<Text style={[s.caption, muted, { marginTop: 8 }]}>
+												광고 한 번을 완료하면 다시 여러 번 번호를 만들 수
+												있어요.
+											</Text>
+										) : null}
+										<GenerationBatchAction
+											model={model}
+											onGenerate={(flow) =>
+												model.generateMany(
+													hasOptions ? options : EMPTY_OPTIONS,
+													flow,
+													() => visibleRef.current,
+												)
+											}
+											onCompleted={() => {
+												if (visibleRef.current && mounted.current)
+													setPanel("recent");
+											}}
+										/>
 										{model.recent.some(
 											(item) => item.id !== model.current?.id,
 										) ? (
@@ -693,6 +775,15 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 											</Text>
 										</View>
 										{feedRows(3)}
+										<View style={{ marginTop: 12, marginBottom: 12 }}>
+											<Button
+												display="full"
+												style="weak"
+												onPress={() => openInsights()}
+											>
+												생성 통계 보기
+											</Button>
+										</View>
 										<Button
 											display="full"
 											type="dark"
@@ -1055,11 +1146,7 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 			<BottomSheet.Root
 				open={sheetOpen && visible}
 				onClose={() => setPanel(null)}
-				onExited={() =>
-					setSheet((current) =>
-						current.open ? current : { panel: null, open: false },
-					)
-				}
+				onExited={onSheetExited}
 				header={
 					<BottomSheet.Header>
 						{panel ? PANEL_TITLES[panel] : ""}
@@ -1104,11 +1191,9 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 							style="weak"
 							onPress={() => setPanel(parentPanel)}
 						>
-							{panel === "activity"
-								? "이전 회차 결과로 돌아가기"
-								: panel === "resultPreview"
-									? "테스트 도구로 돌아가기"
-									: "설정으로 돌아가기"}
+							{panel === "resultPreview"
+								? "테스트 도구로 돌아가기"
+								: "설정으로 돌아가기"}
 						</BottomSheet.CTA>
 					) : undefined
 				}
@@ -1158,8 +1243,8 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 						<GenerationResultsContent
 							key={resultsEntry}
 							active={sheetOpen && visible}
-							initialRound={activityParent ? activityRound : undefined}
-							onInsights={(round) => openActivity(round)}
+							initialRound={resultsInitialRound}
+							onInsights={(round) => openInsights(round)}
 						/>
 					) : panel === "custom" ? (
 						<View style={{ gap: 20 }}>
@@ -1359,14 +1444,6 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 								})()
 							: null
 						: null}
-					{panel === "activity" ? (
-						<ActivityPanel
-							active={sheetOpen && visible}
-							round={activityRound}
-							savedNumbers={model.saved}
-							onExplore={(action) => accessFeature("report", action)}
-						/>
-					) : null}
 					{panel === "attendance" ? (
 						<AttendancePanel
 							model={model}

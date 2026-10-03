@@ -3,7 +3,7 @@ import {
 	InlineAd,
 	isMinVersionSupported,
 } from "@apps-in-toss/framework";
-import { IOContext, useVisibility } from "@granite-js/react-native";
+import { InView, IOContext, useVisibility } from "@granite-js/react-native";
 import { isAppsInTossInlineAdSupported } from "@trailbase-apps-in-toss-kit/ait-rn/inline-ads";
 import { memo, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
@@ -16,6 +16,8 @@ const SLOT_FORMAT = {
 	generator: "inline",
 	saved: "card",
 	live_feed: "inline",
+	insights_summary: "card",
+	insights_patterns: "inline",
 } as const;
 export type BannerPlacement = keyof typeof SLOT_FORMAT;
 
@@ -50,12 +52,14 @@ function BannerSlot({
 	format: "card" | "inline";
 }) {
 	const [supported, setSupported] = useState<boolean | null>(null);
+	const [entered, setEntered] = useState(false);
 	const [rendered, setRendered] = useState(false);
 	const [unavailable, setUnavailable] = useState(false);
 	const theme = useTheme();
 	const active = useRef(true);
 	const flow = useMemo(
-		() => createAdFlow(adTelemetry, { placement, format }),
+		() =>
+			createAdFlow(adTelemetry, { placement, format, entryPoint: "banner" }),
 		[placement, format],
 	);
 	const track = (event: AdMetric) => {
@@ -68,6 +72,10 @@ function BannerSlot({
 		};
 	}, []);
 	useEffect(() => {
+		if (entered && supported === true) flow.track("banner_requested");
+	}, [entered, supported, flow]);
+	useEffect(() => {
+		if (!entered) return;
 		let active = true;
 		void isAppsInTossInlineAdSupported({
 			InlineAd,
@@ -83,16 +91,29 @@ function BannerSlot({
 		return () => {
 			active = false;
 		};
-	}, []);
+	}, [entered]);
 	const preview =
 		LOCAL_PREVIEW && !rendered && (supported !== true || unavailable);
-	if (supported !== true && !preview) return null;
+	if (supported === false && !preview) return null;
+	if (unavailable && !preview) return null;
 	return (
-		<View
+		<InView
+			// FlatList overscan can mount many slots beyond the viewport. A real,
+			// non-zero placeholder lets IO observe them without requesting an ad.
+			onChange={(inView, ratio) => {
+				if (active.current && inView && ratio >= 0.5) {
+					flow.track("banner_slot_viewed");
+					setEntered(true);
+				}
+			}}
 			accessibilityLabel="광고"
-			style={{ width: "100%", marginVertical: rendered || preview ? 24 : 0 }}
+			style={{
+				width: "100%",
+				marginVertical: 24,
+				minHeight: !rendered ? (format === "card" ? 156 : 76) : undefined,
+			}}
 		>
-			{supported ? (
+			{entered && supported && !unavailable ? (
 				<View style={format === "card" ? s.cardSlot : undefined}>
 					<InlineAd
 						adGroupId={groupId}
@@ -104,14 +125,19 @@ function BannerSlot({
 							track("banner_rendered");
 						}}
 						onAdViewable={() => track("banner_viewable")}
+						onAdImpression={() => track("banner_impression")}
 						onAdClicked={() => track("banner_clicked")}
 						onNoFill={() => {
-							if (active.current) setUnavailable(true);
+							if (!active.current) return;
+							setUnavailable(true);
 							track("banner_no_fill");
+							active.current = false;
 						}}
 						onAdFailedToRender={({ error }) => {
-							if (active.current) setUnavailable(true);
+							if (!active.current) return;
+							setUnavailable(true);
 							track("banner_failed");
+							active.current = false;
 							if (LOCAL_PREVIEW)
 								console.info(
 									`[645 local] ${format} banner unavailable (${error.code}).`,
@@ -140,7 +166,7 @@ function BannerSlot({
 					</Text>
 				</View>
 			) : null}
-		</View>
+		</InView>
 	);
 }
 

@@ -246,10 +246,12 @@ export function LiveFeed({
 							count={feed?.totalGenerations ?? 0}
 							reducedMotion={reducedMotion || !visible}
 						/>
-						<GenerationResultsLink onPress={onResults} />
-						<Button display="full" style="weak" onPress={onInsights}>
-							생성·스캔 Top 10과 번호 분석
-						</Button>
+						<View style={{ gap: 12, paddingVertical: 20 }}>
+							<GenerationResultsLink onPress={onResults} />
+							<Button display="full" style="weak" onPress={onInsights}>
+								생성 통계 보기
+							</Button>
+						</View>
 						<View style={[s.row, s.gridToolbar]}>
 							<Text style={[s.sectionTitle, text]}>번호별 생성 횟수</Text>
 							<SegmentedControl.Root

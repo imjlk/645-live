@@ -40,6 +40,7 @@ import {
 	type User,
 } from "./api";
 import { createFeedHistory, deletedGenerationId } from "./feed-history";
+import { createGenerationBatch } from "./generation-batch";
 import { createGenerationCooldown } from "./generation-cooldown";
 import { createGenerationRequest } from "./generation-request";
 import { promotionFeedback } from "./promotion-feedback";
@@ -56,12 +57,27 @@ const message = (value: unknown) =>
 export function useLotto() {
 	const api = useMemo(createApi, []);
 	const generationCooldown = useMemo(() => createGenerationCooldown(), []);
+	const generationBatch = useMemo(() => createGenerationBatch(), []);
+	const batchProgress = useSyncExternalStore(
+		generationBatch.subscribe,
+		generationBatch.getSnapshot,
+	);
 	const generationCooling = useSyncExternalStore(
 		generationCooldown.subscribe,
 		generationCooldown.getSnapshot,
 	);
 	const adsController = useMemo(() => createAdController(api), [api]);
 	const requestGeneration = useMemo(
+		() =>
+			createGenerationRequest({
+				...api,
+				errorCode: apiErrorCode,
+				newRequestId,
+			}),
+		[api],
+	);
+	// Keep the batch's idempotency lane independent from ordinary single requests.
+	const requestBatchGeneration = useMemo(
 		() =>
 			createGenerationRequest({
 				...api,
@@ -144,6 +160,8 @@ export function useLotto() {
 	const lastGenerated = useRef<Generation | null>(null);
 	const active = useRef(true);
 	const actionLock = useRef(false);
+	const batchAdFlow = useRef<AdFlow | undefined>(undefined);
+	const attendanceRefreshDay = useRef<number | null>(null);
 	const seenWins = useRef(new Set<string>());
 	const store = useMemo(() => (user ? api.saved(user) : null), [api, user]);
 	const clearNotice = useCallback(() => setNotice(null), []);
@@ -169,7 +187,7 @@ export function useLotto() {
 			await task();
 			return true;
 		} catch (e) {
-			if (name === "generate") trackProduct("generation_failed");
+			if (name.startsWith("generate")) trackProduct("generation_failed");
 			if (active.current)
 				setActionError({ area: actionArea(name), message: message(e) });
 			return false;
@@ -226,9 +244,8 @@ export function useLotto() {
 		if (active.current) {
 			setAdConfig(ads);
 			receiveAttendance(check);
-			adsController.preload(ads);
 		}
-	}, [api, adsController, receiveAttendance]);
+	}, [api, receiveAttendance]);
 
 	const refreshPromotionClaims = useCallback(
 		async (claimIds: string[]) => {
@@ -251,9 +268,9 @@ export function useLotto() {
 			"reduceMotionChanged",
 			setReducedMotion,
 		);
-		const subscription = AppState.addEventListener("change", (state) =>
-			setForeground(state === "active"),
-		);
+		const subscription = AppState.addEventListener("change", (state) => {
+			setForeground(state === "active");
+		});
 		return () => {
 			active.current = false;
 			motion.remove();
@@ -262,8 +279,9 @@ export function useLotto() {
 			adsController.dispose();
 			feedHistory.cancel();
 			generationCooldown.stop();
+			generationBatch.dispose();
 		};
-	}, [api, adsController, feedHistory, generationCooldown]);
+	}, [api, adsController, feedHistory, generationCooldown, generationBatch]);
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: Revision represents an explicit user retry.
 	useEffect(() => {
@@ -570,6 +588,75 @@ export function useLotto() {
 					),
 				);
 	}
+	async function generateOne(
+		options: GenerationOptions,
+		cached: RoundContext | null,
+		deviceCounter: boolean,
+		request: typeof requestGeneration,
+		adFlow?: AdFlow,
+	) {
+		try {
+			const { response, context: round } = await request(
+				options,
+				cached,
+				deviceCounter,
+			);
+			adFlow?.track("generation_completed");
+			if (!active.current) return round;
+			setContext((previous) =>
+				previous && previous.serverTime > round.serverTime ? previous : round,
+			);
+			setCurrent(response.generation);
+			setRecent((items) => rememberGeneration(items, response.generation));
+			trackProduct("generation_succeeded");
+			if (deviceCounter) api.generationAds.generated(response.generation.id);
+			setAdConfig((previous) =>
+				previous
+					? {
+							...previous,
+							generationAdRequired: response.generationAdRequired === true,
+						}
+					: previous,
+			);
+			lastGenerated.current = response.generation;
+			const generatedDay = Math.floor(
+				(response.generation.createdAt + 32_400_000) / 86_400_000,
+			);
+			if (attendance) receiveAttendance(attendance);
+			// First-generation eligibility may change restore availability. Recheck once
+			// in the background; later generations do not query attendance again.
+			if (
+				(!attendance?.generatedToday || attendance.day !== generatedDay) &&
+				!attendanceRefresh.current &&
+				attendanceRefreshDay.current !== generatedDay
+			) {
+				attendanceRefreshDay.current = generatedDay;
+				attendanceRefresh.current = api
+					.attendance()
+					.then(receiveAttendance)
+					.catch(() => {
+						attendanceRefreshDay.current = null;
+					})
+					.finally(() => {
+						attendanceRefresh.current = null;
+					});
+			}
+			// Share the subscription's one-second batch, including when SSE reconnects.
+			refreshLive.current?.();
+			return round;
+		} catch (e) {
+			if (apiErrorCode(e) === "GENERATION_AD_REQUIRED") {
+				await api
+					.ads()
+					.then((ads) => {
+						if (active.current) setAdConfig(ads);
+					})
+					.catch(() => {});
+			}
+			throw e;
+		}
+	}
+
 	return {
 		user,
 		preferences: api.preferences,
@@ -599,6 +686,13 @@ export function useLotto() {
 		resultsLoading,
 		adConfig,
 		generationCooling,
+		batchProgress,
+		canGenerateMany:
+			generationAds.ready &&
+			adConfig?.generationAdPolicy?.counter === "device" &&
+			adConfig.placements.some(
+				(p) => p.placement === "generation_continue" && p.enabled,
+			),
 		generationAdRequired:
 			adConfig?.generationAdPolicy?.counter === "device"
 				? generationAds.ready &&
@@ -647,6 +741,7 @@ export function useLotto() {
 			options: GenerationOptions = EMPTY_OPTIONS,
 			watchAd = false,
 			impressionFlow?: AdFlow,
+			canShow?: () => boolean,
 		) => {
 			if (actionLock.current || generationCooldown.blocked()) return false;
 			// Enforce one second from the tap; actionLock covers slow requests and ads.
@@ -670,68 +765,84 @@ export function useLotto() {
 						"generation_continue",
 						deviceCounter,
 						adFlow,
+						canShow,
 					);
 					if (deviceCounter) api.generationAds.continued();
 					if (result?.continuedWithoutAd)
 						setNotice("광고를 불러오지 못해 바로 이어서 만들어요.");
 				}
-				try {
-					const { response, context: round } = await requestGeneration(
-						options,
-						context,
-						deviceCounter,
-					);
-					adFlow?.track("generation_completed");
-					if (!active.current) return;
-					setContext((previous) =>
-						previous && previous.serverTime > round.serverTime
-							? previous
-							: round,
-					);
-					setCurrent(response.generation);
-					setRecent((items) => rememberGeneration(items, response.generation));
-					trackProduct("generation_succeeded");
-					if (deviceCounter)
-						api.generationAds.generated(response.generation.id);
-					setAdConfig((previous) =>
-						previous
-							? {
-									...previous,
-									generationAdRequired: response.generationAdRequired === true,
-								}
-							: previous,
-					);
-					lastGenerated.current = response.generation;
-					const generatedDay = Math.floor(
-						(response.generation.createdAt + 32_400_000) / 86_400_000,
-					);
-					if (attendance) receiveAttendance(attendance);
-					// First-generation eligibility may change restore availability. Recheck once
-					// in the background; later generations do not query attendance again.
-					if (
-						(!attendance?.generatedToday || attendance.day !== generatedDay) &&
-						!attendanceRefresh.current
-					) {
-						attendanceRefresh.current = api
-							.attendance()
-							.then(receiveAttendance)
-							.catch(() => {})
-							.finally(() => {
-								attendanceRefresh.current = null;
+				await generateOne(
+					options,
+					context,
+					deviceCounter,
+					requestGeneration,
+					adFlow,
+				);
+			});
+		},
+		generateMany: async (
+			options: GenerationOptions = EMPTY_OPTIONS,
+			impressionFlow?: AdFlow,
+			canShow?: () => boolean,
+		) => {
+			if (actionLock.current || generationCooldown.blocked()) return false;
+			const deviceCounter = adConfig?.generationAdPolicy?.counter === "device";
+			if (!deviceCounter && !batchProgress.remaining) return false;
+			generationCooldown.start();
+			let cached = context;
+			return run("generate-batch", async () => {
+				const complete = await generationBatch.run({
+					options,
+					canContinue: () =>
+						active.current && AppState.currentState === "active",
+					authorize: async () => {
+						if (
+							!adConfig?.placements.some(
+								(p) => p.placement === "generation_continue" && p.enabled,
+							)
+						)
+							throw new Error(
+								"여러 번호 만들기를 준비 중이에요. 기본 번호 생성을 이용해 주세요.",
+							);
+						if (adConfig.generationAdPolicy)
+							await api.generationAds.load(adConfig.generationAdPolicy);
+						const flow =
+							impressionFlow ??
+							createAdFlow(adTelemetry, {
+								placement: "generation_continue",
+								policy: adPolicyLabel(adConfig.generationAdPolicy),
+								entryPoint: "batch",
 							});
-					}
-					// Share the subscription's one-second batch, including when SSE reconnects.
-					refreshLive.current?.();
-				} catch (e) {
-					if (apiErrorCode(e) === "GENERATION_AD_REQUIRED") {
-						await api
-							.ads()
-							.then((ads) => {
-								if (active.current) setAdConfig(ads);
-							})
-							.catch(() => {});
-					}
-					throw e;
+						const outcome = await adsController.unlock(
+							"generation_continue",
+							true,
+							flow,
+							canShow,
+						);
+						batchAdFlow.current = flow;
+						api.generationAds.continued();
+						if (
+							(outcome.continuedWithoutAd ||
+								outcome.resolution === "already_granted") &&
+							active.current
+						)
+							setNotice(
+								"지금은 광고를 이용할 수 없어 바로 여러 번호를 만들어요.",
+							);
+					},
+					generate: async (conditions) => {
+						trackProduct("generation_started");
+						cached = await generateOne(
+							conditions,
+							cached,
+							true,
+							requestBatchGeneration,
+						);
+					},
+				});
+				if (complete && active.current) {
+					batchAdFlow.current?.track("batch_completed");
+					batchAdFlow.current = undefined;
 				}
 			});
 		},
@@ -908,6 +1019,9 @@ export function useLotto() {
 				setSaved(await store.clear());
 				if (user) await api.notificationPrompt(user).clear();
 				const result = await api.withdraw();
+				generationBatch.reset();
+				batchAdFlow.current = undefined;
+				attendanceRefreshDay.current = null;
 				setUser(null);
 				setSaved([]);
 				setRecent([]);

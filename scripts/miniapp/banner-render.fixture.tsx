@@ -16,16 +16,29 @@ let mounts = 0;
 const metrics: string[] = [];
 const flows: string[] = [];
 let onImpression = () => {};
+let onViewport = (_inView: boolean, _ratio: number) => {};
 let props = {
 	variant: "",
 	adGroupId: "",
 	onAdRendered: () => {},
+	onAdImpression: () => {},
 	onNoFill: () => {},
 	onAdViewable: () => {},
 };
 mock.module("@granite-js/react-native", () => ({
 	IOContext: io,
 	useVisibility: () => visible,
+	InView: ({
+		onChange,
+		children,
+		...rest
+	}: {
+		onChange: typeof onViewport;
+		children: React.ReactNode;
+	}) => {
+		onViewport = onChange;
+		return createElement("viewport", rest, children);
+	},
 	ImpressionArea: ({
 		onImpressionStart,
 		children,
@@ -78,7 +91,12 @@ expect(tree().toJSON()).toBeNull();
 expect(mounts).toBe(0);
 const manager = {};
 function screen(
-	placement: "saved" | "generator" | "live_feed",
+	placement:
+		| "saved"
+		| "generator"
+		| "live_feed"
+		| "insights_summary"
+		| "insights_patterns",
 	groupId = "group",
 ) {
 	return (
@@ -90,24 +108,63 @@ function screen(
 await act(async () => {
 	tree().update(screen("saved"));
 });
+// Overscan mounts an observable placeholder, never an SDK ad request.
+expect(mounts).toBe(0);
+await act(async () => onViewport(true, 0.1));
+expect(mounts).toBe(0);
+await act(async () => onViewport(false, 0));
+expect(mounts).toBe(0);
+await act(async () => onViewport(true, 0.5));
 expect(props.variant).toBe("card");
 // Filled ads exercise the delayed path absent from no-fill-only checks.
 await act(async () => {
 	props.onAdRendered();
 });
 expect(tree().toJSON()).not.toBeNull();
-expect(metrics).toEqual(["banner_rendered"]);
+expect(metrics).toEqual([
+	"banner_slot_viewed",
+	"banner_requested",
+	"banner_rendered",
+]);
 await act(async () => {
 	props.onAdViewable();
 	props.onAdViewable();
 });
-expect(metrics).toEqual(["banner_rendered", "banner_viewable"]);
-for (const placement of ["generator", "live_feed"] as const) {
+expect(metrics).toEqual([
+	"banner_slot_viewed",
+	"banner_requested",
+	"banner_rendered",
+	"banner_viewable",
+]);
+await act(async () => {
+	props.onAdImpression();
+	props.onAdImpression();
+});
+expect(metrics.at(-1)).toBe("banner_impression");
+expect(metrics.filter((m) => m === "banner_impression")).toHaveLength(1);
+const mountedBeforeScroll = mounts;
+await act(async () => {
+	onViewport(false, 0);
+	onViewport(true, 1);
+});
+expect(mounts).toBe(mountedBeforeScroll);
+expect(metrics.filter((m) => m === "banner_requested")).toHaveLength(1);
+for (const placement of [
+	"generator",
+	"live_feed",
+	"insights_patterns",
+] as const) {
 	await act(async () => {
 		tree().update(screen(placement));
 	});
+	await act(async () => onViewport(true, 1));
 	expect(props.variant).toBe("expanded");
 }
+await act(async () => {
+	tree().update(screen("insights_summary"));
+});
+await act(async () => onViewport(true, 1));
+expect(props.variant).toBe("card");
 visible = false;
 await act(async () => {
 	tree().update(screen("saved"));
@@ -117,10 +174,16 @@ visible = true;
 await act(async () => {
 	tree().update(screen("saved", "new-group"));
 });
+await act(async () => onViewport(true, 1));
 expect(props.adGroupId).toBe("new-group");
 await act(async () => {
 	props.onNoFill();
 });
+expect(tree().toJSON()).toBeNull();
+const afterNoFill = metrics.length;
+props.onAdViewable();
+props.onAdRendered();
+expect(metrics.length).toBe(afterNoFill);
 // Removing the context also removes the filled SDK child before it can crash.
 await act(async () => {
 	tree().update(<Banner placement="saved" groupId="new-group" />);

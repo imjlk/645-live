@@ -10,13 +10,7 @@ import {
 } from "@trailbase-apps-in-toss-kit/ait-rn/ads";
 import { createAppsInTossNotificationAgreementBridge } from "@trailbase-apps-in-toss-kit/ait-rn/notifications";
 import { type AdFlow, createAdFlow } from "./ad-telemetry";
-import {
-	type AdConfig,
-	type AdPlacement,
-	type Api,
-	apiErrorCode,
-	LOCAL_PREVIEW,
-} from "./api";
+import { type AdPlacement, type Api, apiErrorCode, LOCAL_PREVIEW } from "./api";
 import { adTelemetry } from "./telemetry";
 
 export type AdUnlockResult = {
@@ -109,22 +103,13 @@ export function createAdController(api: Pick<Api, "startAd" | "completeAd">) {
 	return {
 		supported,
 		unavailableReason,
-		preload(config: AdConfig) {
-			if (!supported() || disposed) return;
-			const groups = new Set(
-				config.placements
-					.filter((p) => p.enabled)
-					.flatMap((p) => [p.rewardedGroupId, p.interstitialGroupId])
-					.filter((v): v is string => !!v),
-			);
-			for (const id of groups)
-				void bridge.preload({ adGroupId: id }).catch(() => {});
-		},
 		async unlock(
 			placement: AdPlacement,
 			clientManagedCounter = false,
 			providedFlow?: AdFlow,
+			canShow: () => boolean = () => true,
 		): Promise<AdUnlockResult> {
+			if (disposed) throw new Error("광고 요청을 중단했어요.");
 			if (busy) throw new Error("진행 중인 광고를 먼저 완료해 주세요.");
 			const reason = unavailableReason();
 			if (reason && !continuation(placement)) throw new Error(reason);
@@ -199,6 +184,8 @@ export function createAdController(api: Pick<Api, "startAd" | "completeAd">) {
 				// Set the format before native callbacks arrive.
 				flow.track("session_started", "", session.format);
 				try {
+					if (disposed || !canShow())
+						throw new Error("광고 요청을 중단했어요.");
 					if (reason) {
 						flow.track("unavailable", "unsupported");
 						pendingCompletion = {
@@ -213,11 +200,15 @@ export function createAdController(api: Pick<Api, "startAd" | "completeAd">) {
 						pendingCompletion = null;
 						return resolvedAd(result, placement, "unavailable");
 					}
-					const result = await bridge.preloadAndShow({
+					// Load only the server-selected group after an explicit CTA. A
+					// disposed provider must never open a late native ad after loading.
+					await bridge.preload({ adGroupId: session.groupId });
+					if (disposed || !canShow())
+						throw new Error("광고 요청을 중단했어요.");
+					const result = await bridge.show({
 						adGroupId: session.groupId,
 						adFormat: session.format,
 						interstitialCompletionFallbackMs: 120_000,
-						preloadNext: false,
 					});
 					if (!continuation(placement) && !result.completed) {
 						throw new Error(
@@ -270,6 +261,7 @@ export function createAdController(api: Pick<Api, "startAd" | "completeAd">) {
 					)
 						pendingCompletion = null;
 					if (!pendingCompletion) {
+						bridge.clear(session.groupId);
 						pendingCancellation = session.id;
 						await flushCancellation().catch(() => {});
 					}

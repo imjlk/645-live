@@ -32,7 +32,7 @@ export default defineConfig({
 			brand: {
 				displayName: "645 번호 생성기",
 				primaryColor: "#3182F6",
-				icon: "https://645.live/assets/icons/icon-512.png",
+				icon: "https://static.toss.im/appsintoss/17003/79197a95-3997-48e5-9206-aae1c17705ee.png",
 			},
 			permissions: [],
 			navigationBar: { withBackButton: true, withHomeButton: false },
