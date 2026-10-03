@@ -720,7 +720,7 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 														!!model.busy ||
 														model.generationCooling ||
 														!model.user ||
-														!model.context
+														!model.generationReady
 													}
 													onPress={() => {
 														void runAttempt((adFlow) =>
@@ -1196,7 +1196,7 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 									!!model.busy ||
 									model.generationCooling ||
 									!model.user ||
-									!model.context ||
+									!model.generationReady ||
 									!!draftError
 								}
 								onPress={() => void generateDraft()}

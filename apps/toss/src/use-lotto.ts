@@ -42,9 +42,12 @@ import {
 import { createFeedHistory, deletedGenerationId } from "./feed-history";
 import { createGenerationCooldown } from "./generation-cooldown";
 import { createGenerationRequest } from "./generation-request";
+import { createPerformanceTracker } from "./performance";
+import { createPrivateRefresh } from "./private-refresh";
 import { promotionFeedback } from "./promotion-feedback";
 import type { ReportState } from "./ReportHistory";
 import { type ConnectionState, subscribeRealtime } from "./realtime";
+import { loadLottoStartup } from "./startup";
 import { adTelemetry, trackProduct } from "./telemetry";
 import { actionArea, rememberGeneration } from "./ux-state";
 
@@ -55,6 +58,12 @@ const message = (value: unknown) =>
 
 export function useLotto() {
 	const api = useMemo(createApi, []);
+	const performance = useMemo(() => createPerformanceTracker(trackProduct), []);
+	const generatorTime = useRef<ReturnType<typeof performance.start> | null>(
+		null,
+	);
+	const initialReady = useRef(false);
+	const startupHidden = useRef(false);
 	const generationCooldown = useMemo(() => createGenerationCooldown(), []);
 	const generationCooling = useSyncExternalStore(
 		generationCooldown.subscribe,
@@ -136,7 +145,8 @@ export function useLotto() {
 	const [notice, setNotice] = useState<string | null>(null);
 	const [connection, setConnection] = useState<ConnectionState>("connecting");
 	const [foreground, setForeground] = useState(
-		AppState.currentState !== "background",
+		AppState.currentState !== "background" &&
+			AppState.currentState !== "inactive",
 	);
 	const [reducedMotion, setReducedMotion] = useState(true);
 	const [celebration, setCelebration] = useState<string | null>(null);
@@ -223,15 +233,21 @@ export function useLotto() {
 		});
 	}, []);
 
-	const refreshPrivate = useCallback(async () => {
-		const [ads, check] = await Promise.all([api.ads(), api.attendance()]);
-		if (ads.generationAdPolicy?.counter === "device")
-			await api.generationAds.load(ads.generationAdPolicy);
-		if (active.current) {
-			setAdConfig(ads);
-			receiveAttendance(check);
-		}
-	}, [api, receiveAttendance]);
+	const refreshPrivate = useMemo(
+		() =>
+			createPrivateRefresh(async () => {
+				const [ads, check] = await Promise.all([api.ads(), api.attendance()]);
+				if (ads.generationAdPolicy?.counter === "device")
+					await api.generationAds.load(ads.generationAdPolicy);
+				if (active.current) {
+					setAdConfig((previous) =>
+						previous && previous.serverTime > ads.serverTime ? previous : ads,
+					);
+					receiveAttendance(check);
+				}
+			}),
+		[api, receiveAttendance],
+	);
 
 	const refreshPromotionClaims = useCallback(
 		async (claimIds: string[]) => {
@@ -255,6 +271,11 @@ export function useLotto() {
 			setReducedMotion,
 		);
 		const subscription = AppState.addEventListener("change", (state) => {
+			if (state !== "active") {
+				startupHidden.current = true;
+				generatorTime.current?.end("canceled");
+				generatorTime.current = null;
+			}
 			setForeground(state === "active");
 		});
 		return () => {
@@ -271,34 +292,66 @@ export function useLotto() {
 	// biome-ignore lint/correctness/useExhaustiveDependencies: Revision represents an explicit user retry.
 	useEffect(() => {
 		let cancelled = false;
+		startupHidden.current =
+			AppState.currentState === "background" ||
+			AppState.currentState === "inactive";
 		setRefreshing(true);
 		setError(null);
-		void (async () => {
-			try {
-				const context = await api.context();
-				if (cancelled) return;
-				setContext(context);
-				const initial = await api.feed(context.targetRound);
-				if (cancelled) return;
-				receiveFeed(initial);
-				const account = await api.ensure();
-				if (cancelled) return;
-				setUser(account);
-				const items = await api.saved(account).read();
-				if (cancelled) return;
-				setSaved(items);
-				setSavedReady(true);
-				await refreshPrivate();
-			} catch (e) {
-				if (!cancelled) setError(message(e));
-			} finally {
+		const controller = new AbortController();
+		if (!initialReady.current && !generatorTime.current)
+			generatorTime.current = performance.start("generator_ready", "startup");
+		void loadLottoStartup(
+			api,
+			{
+				active: () => !cancelled,
+				context: setContext,
+				user: setUser,
+				saved: (items) => {
+					setSaved(items);
+					setSavedReady(true);
+				},
+				private: refreshPrivate,
+				track: (event, source, timing) =>
+					trackProduct(
+						event,
+						source,
+						timing && startupHidden.current
+							? { ...timing, outcome: "canceled" }
+							: timing,
+					),
+			},
+			controller.signal,
+		)
+			.catch((error) => {
+				if (!cancelled) {
+					setError(message(error));
+					generatorTime.current?.end("failed");
+					generatorTime.current = null;
+				}
+			})
+			.finally(() => {
 				if (!cancelled) setRefreshing(false);
-			}
-		})();
+			});
 		return () => {
 			cancelled = true;
+			controller.abort();
+			generatorTime.current?.end("canceled");
+			generatorTime.current = null;
 		};
-	}, [api, revision, refreshPrivate, receiveFeed]);
+	}, [api, revision, refreshPrivate, performance]);
+
+	const generationReady =
+		!!user &&
+		!!context &&
+		!!adConfig &&
+		(adConfig.generationAdPolicy?.counter !== "device" || generationAds.ready);
+	useEffect(() => {
+		if (generationReady && foreground && !initialReady.current) {
+			initialReady.current = true;
+			generatorTime.current?.end();
+			generatorTime.current = null;
+		}
+	}, [generationReady, foreground]);
 
 	useEffect(() => {
 		const round = context?.targetRound;
@@ -306,6 +359,7 @@ export function useLotto() {
 		let closed = false;
 		let refreshing = false;
 		let dirty = false;
+		let reconnectTime: ReturnType<typeof performance.start> | null = null;
 		const refresh = async () => {
 			if (closed) return;
 			if (refreshing) {
@@ -342,7 +396,15 @@ export function useLotto() {
 					changed();
 				},
 				onState: (state) => {
-					if (!closed) setConnection(state);
+					if (!closed) {
+						if (state === "reconnecting" && !reconnectTime)
+							reconnectTime = performance.start("live_reconnect", "live");
+						if (state === "live") {
+							reconnectTime?.end();
+							reconnectTime = null;
+						}
+						setConnection(state);
+					}
 				},
 			}),
 			subscribeRealtime({
@@ -365,13 +427,21 @@ export function useLotto() {
 		);
 		return () => {
 			closed = true;
+			reconnectTime?.end("canceled");
 			if (refreshLive.current === changed) refreshLive.current = null;
 			for (const close of cleanup) close();
 			batch.cancel();
 			clearInterval(poll);
 			clearInterval(roundPoll);
 		};
-	}, [api, context?.targetRound, foreground, receiveFeed, feedHistory]);
+	}, [
+		api,
+		context?.targetRound,
+		foreground,
+		receiveFeed,
+		feedHistory,
+		performance,
+	]);
 
 	useEffect(() => {
 		if (!user) return;
@@ -684,6 +754,8 @@ export function useLotto() {
 		reports,
 		loadReport,
 		context,
+		generationReady,
+		foreground,
 		feed,
 		history,
 		feedHistory,
@@ -738,7 +810,7 @@ export function useLotto() {
 				await api.request("/api/app/v1/dev/entitlements", {
 					action: "generation_ad",
 				});
-				await refreshPrivate();
+				await refreshPrivate(true);
 			}),
 		generate: async (
 			options: GenerationOptions = EMPTY_OPTIONS,
@@ -746,7 +818,12 @@ export function useLotto() {
 			impressionFlow?: AdFlow,
 			canShow?: () => boolean,
 		) => {
-			if (actionLock.current || generationCooldown.blocked()) return false;
+			if (
+				!generationReady ||
+				actionLock.current ||
+				generationCooldown.blocked()
+			)
+				return false;
 			// Enforce one second from the tap; actionLock covers slow requests and ads.
 			generationCooldown.start();
 			trackProduct("generation_started");
@@ -827,7 +904,7 @@ export function useLotto() {
 						"출석은 완료했어요. 아래에서 일일 혜택을 다시 확인해 주세요.",
 					);
 				} finally {
-					await refreshPrivate();
+					await refreshPrivate(true);
 				}
 			}),
 		prepareFeatureAd: () => {
@@ -838,7 +915,7 @@ export function useLotto() {
 				if (!LOCAL_PREVIEW)
 					throw new Error("로컬 테스트에서만 사용할 수 있어요.");
 				await api.request("/api/app/v1/dev/attendance", action);
-				await refreshPrivate();
+				await refreshPrivate(true);
 				setNotice(
 					action.action === "restore"
 						? "테스트 출석을 복구했어요."
@@ -852,7 +929,7 @@ export function useLotto() {
 				try {
 					outcome = await adsController.unlock(feature);
 				} finally {
-					await refreshPrivate().catch(() => {
+					await refreshPrivate(true).catch(() => {
 						refreshed = false;
 					});
 				}
@@ -906,7 +983,7 @@ export function useLotto() {
 				} finally {
 					// Agreement may succeed before a round watch fails. Keep the switch
 					// consistent with the saved consent even on that partial failure.
-					await refreshPrivate();
+					await refreshPrivate(true);
 				}
 				trackProduct(opted ? "notification_enabled" : "notification_disabled");
 				setNotice(
@@ -942,7 +1019,7 @@ export function useLotto() {
 						claimId: promotion.claimId,
 					},
 				);
-				await refreshPrivate();
+				await refreshPrivate(true);
 				setNotice(promotionFeedback(result));
 			}),
 		withdraw: () =>

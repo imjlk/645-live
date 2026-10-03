@@ -17,6 +17,7 @@ import {
 	useEffect,
 	useLayoutEffect,
 	useMemo,
+	useRef,
 	useState,
 } from "react";
 import { StyleSheet, useWindowDimensions, View } from "react-native";
@@ -24,6 +25,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLottoContext } from "./LottoProvider";
 import { LottoScreen } from "./LottoScreen";
 import { type LottoTab, navigateToTab, TAB_BACK_BEHAVIOR } from "./navigation";
+import { createPerformanceTracker } from "./performance";
 import { ResultNotificationPrompt } from "./ResultNotificationPrompt";
 import {
 	type SavedParams,
@@ -31,6 +33,7 @@ import {
 	unreadSavedRounds,
 } from "./result-return";
 import { TabShellContext, useOverlayStack } from "./TabShell";
+import { trackProduct } from "./telemetry";
 import { useTheme } from "./theme";
 
 type Options = Record<string, never>;
@@ -62,6 +65,24 @@ function TabNavigator(props: NavigatorProps) {
 		>(TabRouter, props);
 	const tab = state.routes[state.index].name as LottoTab;
 	const [loaded, setLoaded] = useState([state.routes[state.index].key]);
+	const performance = useMemo(() => createPerformanceTracker(trackProduct), []);
+	const pendingTab = useRef<{
+		tab: LottoTab;
+		timing: ReturnType<typeof performance.start>;
+	} | null>(null);
+	useEffect(
+		() => () => {
+			pendingTab.current?.timing.end("canceled");
+			pendingTab.current = null;
+		},
+		[],
+	);
+	useEffect(() => {
+		if (pendingTab.current && pendingTab.current.tab !== tab) {
+			pendingTab.current.timing.end("canceled");
+			pendingTab.current = null;
+		}
+	}, [tab]);
 	const currentKey = state.routes[state.index].key;
 	useLayoutEffect(() => {
 		setLoaded((current) =>
@@ -112,6 +133,12 @@ function TabNavigator(props: NavigatorProps) {
 	const insets = useSafeAreaInsets();
 	const { fontScale } = useWindowDimensions();
 	const visible = useVisibility();
+	useEffect(() => {
+		if (!visible || model.foreground === false) {
+			pendingTab.current?.timing.end("canceled");
+			pendingTab.current = null;
+		}
+	}, [visible, model.foreground]);
 	const [tabBarHeight, setTabBarHeight] = useState(72);
 	const { overlay, presentOverlay } = useOverlayStack();
 	const backEvent = useBackEvent();
@@ -149,7 +176,20 @@ function TabNavigator(props: NavigatorProps) {
 				<View style={[s.root, { backgroundColor: theme.background }]}>
 					{state.routes.map((route, index) =>
 						loaded.includes(route.key) || index === state.index ? (
-							<TabScene key={route.key} focused={index === state.index}>
+							<TabScene
+								key={route.key}
+								focused={index === state.index}
+								onReady={() => {
+									if (pendingTab.current?.tab === route.name) {
+										pendingTab.current.timing.end(
+											visible && model.foreground !== false
+												? "ready"
+												: "canceled",
+										);
+										pendingTab.current = null;
+									}
+								}}
+							>
 								{descriptors[route.key].render()}
 							</TabScene>
 						) : null,
@@ -182,9 +222,22 @@ function TabNavigator(props: NavigatorProps) {
 								<View style={s.clip}>
 									<Tab
 										value={tab}
-										onChange={(next) =>
-											navigateToTab(navigation, tab, next, visible && !overlay)
-										}
+										onChange={(next) => {
+											if (
+												!visible ||
+												overlay ||
+												next === tab ||
+												(next !== "make" && next !== "live" && next !== "saved")
+											)
+												return;
+											pendingTab.current?.timing.end("canceled");
+											const timing = performance.start("tab_navigation", next);
+											pendingTab.current = { tab: next, timing };
+											if (!navigateToTab(navigation, tab, next, true)) {
+												timing.end("canceled");
+												pendingTab.current = null;
+											}
+										}}
 										size="large"
 										fluid={fontScale > 1.25}
 									>
@@ -211,9 +264,13 @@ function TabNavigator(props: NavigatorProps) {
 function TabScene({
 	focused,
 	children,
-}: PropsWithChildren<{ focused: boolean }>) {
+	onReady,
+}: PropsWithChildren<{ focused: boolean; onReady: () => void }>) {
 	const [measured, setMeasured] = useState(false);
 	const [ready, setReady] = useState(false);
+	useEffect(() => {
+		if (focused && ready) onReady();
+	}, [focused, ready, onReady]);
 	useLayoutEffect(() => {
 		if (!measured) return;
 		const frame = requestAnimationFrame(() => setReady(true));

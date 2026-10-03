@@ -370,7 +370,8 @@ export function createApi() {
 				storage.storage,
 				`${runtime.storageKey}.saved.v1.${user.id}`,
 			),
-		context: () => publicGet<RoundContext>("/api/app/v1/lotto/round-context"),
+		context: (signal?: AbortSignal) =>
+			publicGet<RoundContext>("/api/app/v1/lotto/round-context", signal),
 		feed: (round: number, signal?: AbortSignal, cursor?: string) =>
 			publicGet<Feed>(
 				`/api/app/v1/lotto/feed?round=${round}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`,

@@ -55,6 +55,13 @@ let failRequest = 0;
 let requests = 0;
 let feedReads = 0;
 let attendanceReads = 0;
+let releaseInitialFeed: (() => void) | null = null;
+let holdInitialFeed = true;
+let releaseAds: (() => void) | null = null;
+const initialAds = new Promise<void>((resolve) => {
+	releaseAds = resolve;
+});
+let holdInitialAds = true;
 const identities: string[] = [];
 const records = new Map<string, Generation>();
 mock.module("../../apps/toss/src/ad-bridge", () => ({
@@ -110,6 +117,12 @@ const api = {
 	}),
 	feed: async () => {
 		feedReads++;
+		if (holdInitialFeed) {
+			holdInitialFeed = false;
+			await new Promise<void>((resolve) => {
+				releaseInitialFeed = resolve;
+			});
+		}
 		return {
 			round: 1244,
 			serverTime: at,
@@ -124,15 +137,21 @@ const api = {
 	saved: () => ({ read: async () => [], clear: async () => [] }),
 	notificationPrompt: () => ({ clear: async () => {} }),
 	withdraw: async () => ({ credentialsCleared: true }),
-	ads: async () => ({
-		generationAdPolicy: {
-			counter: "device",
-			firstGenerations: 5,
-			minGenerations: 10,
-			maxGenerations: 50,
-		},
-		placements: [{ placement: "generation_continue", enabled: true }],
-	}),
+	ads: async () => {
+		if (holdInitialAds) {
+			holdInitialAds = false;
+			await initialAds;
+		}
+		return {
+			generationAdPolicy: {
+				counter: "device",
+				firstGenerations: 5,
+				minGenerations: 10,
+				maxGenerations: 50,
+			},
+			placements: [{ placement: "generation_continue", enabled: true }],
+		};
+	},
 	attendance: async () => {
 		attendanceReads++;
 		return {
@@ -185,6 +204,23 @@ function Probe() {
 let root!: ReturnType<typeof create>;
 await act(async () => {
 	root = create(<Probe />);
+});
+// A slow feed cannot block authenticated generation, but pending ad policy must.
+expect(model.user).not.toBeNull();
+expect(model.generationReady).toBe(false);
+await act(async () => {
+	expect(await model.generate()).toBe(false);
+});
+expect(requests).toBe(0);
+await act(async () => {
+	releaseAds?.();
+});
+expect(model.generationReady).toBe(true);
+expect(model.feed).toBeNull();
+expect(feedReads).toBe(1);
+expect(attendanceReads).toBe(1);
+await act(async () => {
+	releaseInitialFeed?.();
 });
 expect(model.publishedGenerationId).toBeNull();
 expect(ads).toBe(0);

@@ -1,3 +1,4 @@
+import type { Timing } from "./performance";
 export type ProductEvent =
 	| "generation_started"
 	| "generation_succeeded"
@@ -15,16 +16,17 @@ export type ProductEvent =
 	| "insights_patterns_viewed"
 	| "results_return_opened"
 	| "notification_result_opened"
-	| "saved_comparison_viewed";
+	| "saved_comparison_viewed"
+	| "performance";
 export function createProductTelemetry(
 	send: (event: {
 		log_name: string;
 		log_type: "event";
-		params: { source: string; app_version: string };
+		params: { source: string; app_version: string } & Partial<Timing>;
 	}) => unknown,
 	appVersion = "unknown",
 ) {
-	return (event: ProductEvent, source = "app") => {
+	return (event: ProductEvent, source = "app", timing?: Timing) => {
 		try {
 			void Promise.resolve(
 				send({
@@ -33,6 +35,13 @@ export function createProductTelemetry(
 					params: {
 						source: source.slice(0, 48),
 						app_version: appVersion.slice(0, 24),
+						...(event === "performance" && timing
+							? {
+									stage: timing.stage,
+									duration_ms: timing.duration_ms,
+									outcome: timing.outcome,
+								}
+							: {}),
 					},
 				}),
 			).catch(() => {});

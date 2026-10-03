@@ -29,6 +29,7 @@ import {
 import { type AdConfig, API_BASE } from "./api";
 import { Balls } from "./Balls";
 import { Banner } from "./Banner";
+import { createPerformanceTracker } from "./performance";
 import { trackProduct } from "./telemetry";
 import { useTheme } from "./theme";
 
@@ -53,11 +54,31 @@ export function ActivityPanel({
 	onExplore?: (action: () => void) => void;
 }) {
 	const theme = useTheme();
-	const controller = useMemo(
-		() =>
-			createActivityController((q, s) => fetchActivityInsights(API_BASE, q, s)),
-		[],
-	);
+	const controller = useMemo(() => {
+		const measured = new Set<string>();
+		const performance = createPerformanceTracker(trackProduct);
+		return createActivityController(async (query, signal) => {
+			const key = JSON.stringify(query);
+			if (measured.has(key))
+				return fetchActivityInsights(API_BASE, query, signal);
+			const timing = performance.start(
+				"insights_first_load",
+				query.period ?? "round",
+			);
+			try {
+				const snapshot = await fetchActivityInsights(API_BASE, query, signal);
+				timing.end(signal?.aborted ? "canceled" : "ready");
+				if (!signal?.aborted) {
+					if (measured.size >= 32) measured.clear();
+					measured.add(key);
+				}
+				return snapshot;
+			} catch (error) {
+				timing.end(signal?.aborted ? "canceled" : "failed");
+				throw error;
+			}
+		});
+	}, []);
 	const state = useSyncExternalStore(
 		controller.subscribe,
 		controller.getSnapshot,
