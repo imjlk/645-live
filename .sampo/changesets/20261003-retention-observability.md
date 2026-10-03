@@ -7,3 +7,5 @@ Add versioned conversion and performance diagnostics, unread saved-result return
 Keep generated insight and saved-comparison component identities distinct to prevent duplicate-key reconciliation warnings after generation.
 
 Measure feature-ad dialog opportunities and cancellations, preserving one attempt identity through the subsequent ad request.
+
+Request native miniapp reviews after repeated successful saves or a viewed saved result, with local fatigue limits and foreground/overlay guards. Keep requests independent of rewards, rating values, and core task completion. Correct partial startup failure handling and retained-tab result/ad visibility.

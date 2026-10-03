@@ -38,6 +38,12 @@ The currently approved functional template opens the home route. Its recipients 
 
 Home returns use the existing saved tab and record `lotto_results_return_opened`. A round-targeted notification entry records `lotto_notification_result_opened`. Result viewing requires the summary to be at least half visible for one second on an active screen, including when it is below a banner. Read markers persist with each local saved combination, reopen after draw corrections, and do not suppress newly saved combinations. An absent local round is explained without showing a different round as the requested result.
 
+## Native review requests
+
+The official `requestReview()` SDK owns the rating UI. Consider a request after the third saved combination or an actually viewed saved-result summary, once the completed action has settled. Skip local preview, sandbox, unsupported SDKs, hidden tabs, background transitions and conflicting dialogs. Requests are limited to once per app session and once every 30 days per installation. They never depend on a winning rank, reward, or expected rating.
+
+`lotto_review_requested` records the SDK invocation with source `save` or `results`. It does not mean the UI appeared or a review was submitted: SDK fatigue rules and existing reviews can suppress the UI, and the SDK does not expose rating/submission status. A request failure must not change the completed save/result action. See the [official review guide](https://developers-apps-in-toss.toss.im/documentation/common/growth/review).
+
 ## Performance
 
 `lotto_performance` records the bounded stage, outcome and duration in milliseconds, with source and app version. Stages cover public context, restored/bootstrap session, first generator readiness, tab tap-to-layout, first statistics fetch per query, and live stream reconnection. No raw exception or network URL is transmitted. Only compare `outcome=ready` when calculating successful-load p50/p95; canceled, failed and 120-second-capped samples must be considered separately.

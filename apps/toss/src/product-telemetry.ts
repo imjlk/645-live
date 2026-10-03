@@ -17,6 +17,7 @@ export type ProductEvent =
 	| "results_return_opened"
 	| "notification_result_opened"
 	| "saved_comparison_viewed"
+	| "review_requested"
 	| "performance";
 export function createProductTelemetry(
 	send: (event: {

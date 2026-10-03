@@ -85,6 +85,16 @@ const productEvents: string[] = [];
 mock.module("../../apps/toss/src/telemetry", () => ({
 	trackProduct: (event: string) => productEvents.push(event),
 }));
+const reviewSources: string[] = [];
+mock.module("../../apps/toss/src/review-bridge", () => ({
+	requestAppReview: async (options: {
+		source: string;
+		canShow: () => boolean;
+	}) => {
+		if (options.canShow()) reviewSources.push(options.source);
+		return true;
+	},
+}));
 mock.module("../../apps/toss/src/ad-telemetry", () => ({
 	adPolicyLabel: () => "",
 }));
@@ -529,6 +539,57 @@ try {
 	console.error = originalError;
 }
 expect(renderWarnings.filter((line) => line.includes("same key"))).toEqual([]);
+// Successful saves/results expose an optional review only after their UI settles.
+Object.assign(model, {
+	saved: [savedItem(20, 1244), savedItem(21, 1244)],
+	foreground: true,
+	busy: null,
+	save: async (generation: { id: number; round: number }) => {
+		model.saved = [...model.saved, savedItem(generation.id, generation.round)];
+		return true;
+	},
+});
+await act(async () => {
+	root = create(<LottoScreen tab="make" />);
+});
+await act(async () => {
+	root.root
+		.findAllByType("button")
+		.find((node) => node.props.children === "이 번호 보관하기")
+		?.props.onPress();
+});
+expect(reviewSources).toEqual([]);
+await act(async () => {
+	await Bun.sleep(1600);
+});
+expect(reviewSources).toEqual(["save"]);
+await act(async () => root.unmount());
+model.saved = [savedItem(22, 1243)];
+await act(async () => {
+	root = create(<LottoScreen tab="saved" />);
+});
+await act(async () => {
+	root.root.findByType("impression").props.onImpressionStart();
+});
+focused = false;
+await act(async () => root.update(<LottoScreen tab="saved" />));
+await act(async () => {
+	await Bun.sleep(1600);
+});
+expect(reviewSources).toEqual(["save"]);
+await act(async () => root.unmount());
+focused = true;
+await act(async () => {
+	root = create(<LottoScreen tab="saved" />);
+});
+await act(async () => {
+	root.root.findByType("impression").props.onImpressionStart();
+});
+await act(async () => {
+	await Bun.sleep(1600);
+});
+expect(reviewSources).toEqual(["save", "results"]);
+await act(async () => root.unmount());
 console.log(
 	"analysis return and direct result reopen preserve the intended round",
 );

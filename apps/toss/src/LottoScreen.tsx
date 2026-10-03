@@ -81,6 +81,8 @@ import {
 import { PrivacyNotice } from "./PrivacyNotice";
 import { ReportHistory } from "./ReportHistory";
 import { unreadSavedRounds } from "./result-return";
+import { requestAppReview } from "./review-bridge";
+import { REVIEW_SAVED_MILESTONE, type ReviewSource } from "./review-request";
 import { SavedCombinationComparison } from "./SavedCombinationComparison";
 import { SAVED_LIMIT } from "./saved-store";
 import { useTabShell } from "./TabShell";
@@ -272,6 +274,57 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 	const [featureRequest, setFeatureRequest] = useState<FeatureRequest | null>(
 		null,
 	);
+	const [reviewOpportunity, setReviewOpportunity] =
+		useState<ReviewSource | null>(null);
+	const reviewGuard = useRef<() => boolean>(() => false);
+	reviewGuard.current = () =>
+		mounted.current &&
+		visibleRef.current &&
+		model.foreground &&
+		!model.busy &&
+		!sheetOpen &&
+		!featureRequest &&
+		!model.notificationPrompt;
+	useEffect(() => {
+		if (!reviewOpportunity) return;
+		if (
+			!visible ||
+			!model.foreground ||
+			featureRequest ||
+			model.notificationPrompt
+		) {
+			setReviewOpportunity(null);
+			return;
+		}
+		if (sheetOpen || model.busy) return;
+		if (
+			reviewOpportunity === "save" &&
+			model.saved.length < REVIEW_SAVED_MILESTONE
+		) {
+			setReviewOpportunity(null);
+			return;
+		}
+		// Let the successful save/result feedback settle before native review UI.
+		const timer = setTimeout(() => {
+			if (!reviewGuard.current()) return;
+			setReviewOpportunity(null);
+			void requestAppReview({
+				source: reviewOpportunity,
+				eligible: true,
+				canShow: () => reviewGuard.current(),
+			});
+		}, 1500);
+		return () => clearTimeout(timer);
+	}, [
+		reviewOpportunity,
+		visible,
+		model.foreground,
+		model.busy,
+		model.saved.length,
+		model.notificationPrompt,
+		sheetOpen,
+		featureRequest,
+	]);
 	const accessFeature = (feature: "custom" | "report", action: () => void) => {
 		if (featureRequest || model.busy) return;
 		const adsEnabled = model.adConfig?.placements.some(
@@ -324,7 +377,8 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 	const saveGeneration = async (item: Generation) => {
 		setSavingGenerationId(item.id);
 		try {
-			await model.save(item);
+			const saved = await model.save(item);
+			if (saved && mounted.current) setReviewOpportunity("save");
 		} finally {
 			setSavingGenerationId(null);
 		}
@@ -929,6 +983,7 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 														if (!viewedResults.current.has(fingerprint)) {
 															viewedResults.current.add(fingerprint);
 															trackProduct("saved_results_viewed");
+															setReviewOpportunity("results");
 														}
 														void model.markResultsViewed?.(roundDraw.round);
 													}}
