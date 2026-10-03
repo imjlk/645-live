@@ -38,6 +38,7 @@ export type SavedCombination = {
 	numbers: LottoNumbers;
 	savedAt: number;
 	celebratedResult?: string;
+	viewedResult?: string;
 };
 export type RoundContext = {
 	serverTime: number;
@@ -145,7 +146,8 @@ export function normalizeSaved(value: unknown): SavedCombination[] {
 			typeof v.savedAt !== "number" ||
 			!Number.isFinite(v.savedAt) ||
 			(v.celebratedResult !== undefined &&
-				typeof v.celebratedResult !== "string")
+				typeof v.celebratedResult !== "string") ||
+			(v.viewedResult !== undefined && typeof v.viewedResult !== "string")
 		)
 			throw new Error("보관함을 읽지 못했어요. 기존 데이터는 유지돼요.");
 		return {
@@ -156,6 +158,7 @@ export function normalizeSaved(value: unknown): SavedCombination[] {
 			numbers,
 			savedAt: v.savedAt,
 			celebratedResult: v.celebratedResult as string | undefined,
+			viewedResult: v.viewedResult as string | undefined,
 		};
 	});
 }

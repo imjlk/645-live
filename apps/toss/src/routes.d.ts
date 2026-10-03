@@ -3,13 +3,13 @@ declare module "@granite-js/react-native" {
 	interface RegisterScreenInput {
 		"/": undefined;
 		"/live": undefined;
-		"/saved": undefined;
+		"/saved": import("./result-return").SavedParams;
 		"/insights": import("./insights-route").InsightsParams;
 	}
 	interface RegisterScreen {
 		"/": undefined;
 		"/live": undefined;
-		"/saved": undefined;
+		"/saved": import("./result-return").SavedParams;
 		"/insights": import("./insights-route").InsightsParams;
 	}
 }

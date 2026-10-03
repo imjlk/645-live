@@ -10,7 +10,13 @@ import {
 	sum,
 } from "@645/lotto-core";
 import { Button, SegmentedControl } from "@toss/tds-react-native";
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import {
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+	useSyncExternalStore,
+} from "react";
 import {
 	ActivityIndicator,
 	AppState,
@@ -23,6 +29,8 @@ import {
 import { type AdConfig, API_BASE } from "./api";
 import { Balls } from "./Balls";
 import { Banner } from "./Banner";
+import { createPerformanceTracker } from "./performance";
+import { trackProduct } from "./telemetry";
 import { useTheme } from "./theme";
 
 const percent = (n: number) => `${(n * 100).toFixed(1)}%`;
@@ -46,11 +54,31 @@ export function ActivityPanel({
 	onExplore?: (action: () => void) => void;
 }) {
 	const theme = useTheme();
-	const controller = useMemo(
-		() =>
-			createActivityController((q, s) => fetchActivityInsights(API_BASE, q, s)),
-		[],
-	);
+	const controller = useMemo(() => {
+		const measured = new Set<string>();
+		const performance = createPerformanceTracker(trackProduct);
+		return createActivityController(async (query, signal) => {
+			const key = JSON.stringify(query);
+			if (measured.has(key))
+				return fetchActivityInsights(API_BASE, query, signal);
+			const timing = performance.start(
+				"insights_first_load",
+				query.period ?? "round",
+			);
+			try {
+				const snapshot = await fetchActivityInsights(API_BASE, query, signal);
+				timing.end(signal?.aborted ? "canceled" : "ready");
+				if (!signal?.aborted) {
+					if (measured.size >= 32) measured.clear();
+					measured.add(key);
+				}
+				return snapshot;
+			} catch (error) {
+				timing.end(signal?.aborted ? "canceled" : "failed");
+				throw error;
+			}
+		});
+	}, []);
 	const state = useSyncExternalStore(
 		controller.subscribe,
 		controller.getSnapshot,
@@ -97,6 +125,36 @@ export function ActivityPanel({
 		if (selected && data && !detailOrder.length)
 			setDetailOrder(activityNumbers(data, order).map((item) => item.number));
 	}, [selected, data, order, detailOrder.length]);
+	const detailVisit = useRef("");
+	useEffect(() => {
+		if (
+			!active ||
+			!foreground ||
+			!selectedData ||
+			!data ||
+			sum(data.numberCounts) === 0
+		) {
+			detailVisit.current = "";
+			return;
+		}
+		const key = `${snapshot?.round}:${period}:${selected}`;
+		if (detailVisit.current !== key) {
+			detailVisit.current = key;
+			trackProduct(
+				"insights_detail_viewed",
+				entryDetail ? "number_preview" : "ranking",
+			);
+		}
+	}, [
+		active,
+		foreground,
+		selectedData,
+		data,
+		snapshot?.round,
+		period,
+		selected,
+		entryDetail,
+	]);
 	const personal = savedNumbers.filter(
 		(item) => item.round === snapshot?.round,
 	);
@@ -413,7 +471,12 @@ export function ActivityPanel({
 						style="weak"
 						disabled={!more && total === 0}
 						onPress={() =>
-							more ? setMore(false) : onExplore(() => setMore(true))
+							more
+								? setMore(false)
+								: onExplore(() => {
+										trackProduct("insights_patterns_viewed", period);
+										setMore(true);
+									})
 						}
 					>
 						{more ? "조합 패턴 접기" : "조합 패턴 더 보기"}

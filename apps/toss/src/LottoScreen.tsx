@@ -5,11 +5,19 @@ import {
 	EMPTY_OPTIONS,
 	type Generation,
 	type GenerationOptions,
+	resultFingerprint,
 	type SavedCombination,
 } from "@645/lotto-core";
 import { getTossShareLink, share } from "@apps-in-toss/framework";
-import { useNavigation } from "@granite-js/native/@react-navigation/native";
-import { IOScrollView, useVisibility } from "@granite-js/react-native";
+import {
+	useIsFocused,
+	useNavigation,
+} from "@granite-js/native/@react-navigation/native";
+import {
+	ImpressionArea,
+	IOScrollView,
+	useVisibility,
+} from "@granite-js/react-native";
 import {
 	BottomSheet,
 	Button,
@@ -27,6 +35,7 @@ import {
 	useCallback,
 	useEffect,
 	useLayoutEffect,
+	useMemo,
 	useRef,
 	useState,
 } from "react";
@@ -66,10 +75,15 @@ import {
 	type LottoTab,
 	type LottoTabNavigation,
 	navigateToInsights,
+	navigateToSavedRound,
 	navigateToTab,
 } from "./navigation";
 import { PrivacyNotice } from "./PrivacyNotice";
 import { ReportHistory } from "./ReportHistory";
+import { unreadSavedRounds } from "./result-return";
+import { requestAppReview } from "./review-bridge";
+import { REVIEW_SAVED_MILESTONE, type ReviewSource } from "./review-request";
+import { SavedCombinationComparison } from "./SavedCombinationComparison";
 import { SAVED_LIMIT } from "./saved-store";
 import { useTabShell } from "./TabShell";
 import { trackProduct } from "./telemetry";
@@ -129,7 +143,8 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 	const { model, options, setOptions, liveColumns, setLiveColumns } =
 		useLottoContext();
 	const navigation = useNavigation<LottoTabNavigation>();
-	const visible = useVisibility();
+	const focused = useIsFocused();
+	const visible = useVisibility() && focused;
 	const navigateTab = (value: string) => {
 		navigateToTab(navigation, tab, value, visible);
 	};
@@ -141,10 +156,30 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 	const theme = useTheme();
 	const insets = useSafeAreaInsets();
 	const { width } = useWindowDimensions();
-	const { tabBarHeight, presentOverlay } = useTabShell();
+	const { tabBarHeight, presentOverlay, savedTarget } = useTabShell();
 	const [savedPage, setSavedPage] = useState(0);
 	const [savedFilter, setSavedFilter] = useState<SavedFilter>("all");
 	const [selectedRound, setSelectedRound] = useState<number | null>(null);
+	const [linkedRound, setLinkedRound] = useState<number | null>(null);
+	const unreadRounds = useMemo(
+		() => unreadSavedRounds(model.saved, model.results),
+		[model.saved, model.results],
+	);
+	const returnRound = unreadRounds[0];
+	const returnCount = model.saved.filter(
+		(item) => item.round === returnRound,
+	).length;
+	useLayoutEffect(() => {
+		if (!visible || tab !== "saved" || !savedTarget?.round) return;
+		setSelectedRound(savedTarget.round);
+		setLinkedRound(savedTarget.round);
+		setSavedFilter("all");
+		setSavedPage(0);
+		if (savedTarget.entry === "notification")
+			trackProduct("notification_result_opened", "saved_deep_link");
+		// Consume the navigation target, preserving subsequent manual selection and Back history.
+		navigation.setParams({ round: undefined, entry: undefined });
+	}, [visible, tab, savedTarget?.round, savedTarget?.entry, navigation]);
 	const [savingGenerationId, setSavingGenerationId] = useState<number | null>(
 		null,
 	);
@@ -154,26 +189,16 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 		savedFilter,
 		model.context?.latestDraw?.round ?? null,
 	);
-	const savedRound =
-		selectedRound !== null && rounds.includes(selectedRound)
-			? selectedRound
-			: rounds[0];
+	let savedRound: number | undefined = rounds[0];
+	if (selectedRound !== null && rounds.includes(selectedRound))
+		savedRound = selectedRound;
+	if (linkedRound !== null && !rounds.includes(linkedRound))
+		savedRound = undefined;
 	const roundItems = model.saved.filter((item) => item.round === savedRound);
 	const roundDraw = savedRound ? model.results[savedRound] : undefined;
 	const summary = roundDraw ? savedSummary(roundItems, roundDraw) : null;
 	const savedPages = Math.max(1, Math.ceil(roundItems.length / 20));
-	const viewedResults = useRef(new Set<number>());
-	useEffect(() => {
-		if (
-			visible &&
-			tab === "saved" &&
-			roundDraw &&
-			!viewedResults.current.has(roundDraw.round)
-		) {
-			viewedResults.current.add(roundDraw.round);
-			trackProduct("saved_results_viewed");
-		}
-	}, [visible, tab, roundDraw]);
+	const viewedResults = useRef(new Set<string>());
 	const currentSavedPage = Math.min(savedPage, savedPages - 1);
 	const [{ panel, open: sheetOpen }, setSheet] = useState<{
 		panel: Panel;
@@ -249,6 +274,57 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 	const [featureRequest, setFeatureRequest] = useState<FeatureRequest | null>(
 		null,
 	);
+	const [reviewOpportunity, setReviewOpportunity] =
+		useState<ReviewSource | null>(null);
+	const reviewGuard = useRef<() => boolean>(() => false);
+	reviewGuard.current = () =>
+		mounted.current &&
+		visibleRef.current &&
+		model.foreground &&
+		!model.busy &&
+		!sheetOpen &&
+		!featureRequest &&
+		!model.notificationPrompt;
+	useEffect(() => {
+		if (!reviewOpportunity) return;
+		if (
+			!visible ||
+			!model.foreground ||
+			featureRequest ||
+			model.notificationPrompt
+		) {
+			setReviewOpportunity(null);
+			return;
+		}
+		if (sheetOpen || model.busy) return;
+		if (
+			reviewOpportunity === "save" &&
+			model.saved.length < REVIEW_SAVED_MILESTONE
+		) {
+			setReviewOpportunity(null);
+			return;
+		}
+		// Let the successful save/result feedback settle before native review UI.
+		const timer = setTimeout(() => {
+			if (!reviewGuard.current()) return;
+			setReviewOpportunity(null);
+			void requestAppReview({
+				source: reviewOpportunity,
+				eligible: true,
+				canShow: () => reviewGuard.current(),
+			});
+		}, 1500);
+		return () => clearTimeout(timer);
+	}, [
+		reviewOpportunity,
+		visible,
+		model.foreground,
+		model.busy,
+		model.saved.length,
+		model.notificationPrompt,
+		sheetOpen,
+		featureRequest,
+	]);
 	const accessFeature = (feature: "custom" | "report", action: () => void) => {
 		if (featureRequest || model.busy) return;
 		const adsEnabled = model.adConfig?.placements.some(
@@ -301,7 +377,8 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 	const saveGeneration = async (item: Generation) => {
 		setSavingGenerationId(item.id);
 		try {
-			await model.save(item);
+			const saved = await model.save(item);
+			if (saved && mounted.current) setReviewOpportunity("save");
 		} finally {
 			setSavingGenerationId(null);
 		}
@@ -536,6 +613,36 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 												: "이번 주, 내 번호는?",
 											"번호를 만들고 마음에 드는 조합을 보관하세요.",
 										)}
+										{returnRound ? (
+											<View style={{ gap: 8, marginTop: 16 }}>
+												<Text style={[s.caption, muted]}>
+													{returnRound}회 · 새 결과
+												</Text>
+												<Text style={[s.body, text]}>
+													보관한 {returnCount}개 조합의 결과가 나왔어요.
+												</Text>
+												<Button
+													size="medium"
+													style="weak"
+													onPress={() => {
+														if (
+															navigateToSavedRound(
+																navigation,
+																tab,
+																returnRound,
+																visible,
+															)
+														)
+															trackProduct(
+																"results_return_opened",
+																"generator",
+															);
+													}}
+												>
+													보관한 번호 결과 보기
+												</Button>
+											</View>
+										) : null}
 										<View
 											style={{ paddingTop: 24, paddingBottom: 12, gap: 14 }}
 										>
@@ -558,6 +665,14 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 											}
 											onInsights={(round) => openInsights(round)}
 										/>
+										{model.current && model.savedReady ? (
+											<SavedCombinationComparison
+												key={`saved-comparison-${model.current.id}`}
+												generation={model.current}
+												saved={model.saved}
+												onExplore={(action) => accessFeature("report", action)}
+											/>
+										) : null}
 										<View style={[s.row, { minHeight: 44, marginBottom: 8 }]}>
 											<Pressable
 												accessibilityRole="button"
@@ -638,7 +753,7 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 														!!model.busy ||
 														model.generationCooling ||
 														!model.user ||
-														!model.context
+														!model.generationReady
 													}
 													onPress={() => {
 														void runAttempt((adFlow) =>
@@ -807,6 +922,7 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 														return;
 													setSavedFilter(value);
 													setSelectedRound(null);
+													setLinkedRound(null);
 													setSavedPage(0);
 												}}
 											>
@@ -832,29 +948,64 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 														style={round === savedRound ? "fill" : "weak"}
 														onPress={() => {
 															setSelectedRound(round);
+															setLinkedRound(null);
 															setSavedPage(0);
 														}}
 													>
 														{round}회
+														{unreadRounds.includes(round) ? " · 새 결과" : ""}
 													</Button>
 												))}
 											</ScrollView>
-											{summary ? (
-												<View style={{ gap: 6 }}>
-													<Text style={[s.body, text]}>
-														{savedRound}회 · 보관한 {summary.total}개 결과
-													</Text>
-													<Text style={[s.caption, muted]}>
-														{summary.rankCounts
-															.slice(1)
-															.map((count, i) =>
-																count ? `${i + 1}등 번호 일치 ${count}개` : "",
-															)
-															.filter(Boolean)
-															.join(" · ") ||
-															"3개 이상 일치하는 조합이 없어요."}
-													</Text>
-												</View>
+											{summary && roundDraw ? (
+												<ImpressionArea
+													key={`${resultFingerprint(roundDraw)}:${roundItems.map((item) => item.id).join(",")}`}
+													enabled={
+														visible &&
+														model.foreground &&
+														model.savedReady &&
+														!sheetOpen &&
+														!savedTarget?.round
+													}
+													areaThreshold={0.5}
+													timeThreshold={1000}
+													onImpressionStart={() => {
+														if (
+															!visibleRef.current ||
+															!model.foreground ||
+															!model.savedReady ||
+															sheetOpen ||
+															savedTarget?.round ||
+															!roundDraw
+														)
+															return;
+														const fingerprint = resultFingerprint(roundDraw);
+														if (!viewedResults.current.has(fingerprint)) {
+															viewedResults.current.add(fingerprint);
+															trackProduct("saved_results_viewed");
+															setReviewOpportunity("results");
+														}
+														void model.markResultsViewed?.(roundDraw.round);
+													}}
+												>
+													<View style={{ gap: 6 }}>
+														<Text style={[s.body, text]}>
+															{savedRound}회 · 보관한 {summary.total}개 결과
+														</Text>
+														<Text style={[s.caption, muted]}>
+															{summary.rankCounts
+																.slice(1)
+																.map((count, i) =>
+																	count
+																		? `${i + 1}등 번호 일치 ${count}개`
+																		: "",
+																)
+																.filter(Boolean)
+																.join(" · ") ||
+																"3개 이상 일치하는 조합이 없어요."}
+														</Text>
+													</View>
+												</ImpressionArea>
 											) : savedRound ? (
 												<Text style={[s.caption, muted]}>
 													{savedRound}회 · {roundItems.length}개 보관 ·{" "}
@@ -872,7 +1023,9 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 											) : (
 												<Text style={[s.body, muted]}>
 													{model.context
-														? "이 조건에 해당하는 보관 번호가 없어요."
+														? linkedRound !== null
+															? `${linkedRound}회 번호가 이 기기에 보관되어 있지 않아요.`
+															: "이 조건에 해당하는 보관 번호가 없어요."
 														: "회차 정보를 확인하고 있어요."}
 												</Text>
 											)}
@@ -892,7 +1045,9 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 												size={Math.min(38, ballSize)}
 											/>
 											<Text style={[s.sectionTitle, text, { marginTop: 24 }]}>
-												아직 보관한 번호가 없어요
+												{linkedRound !== null
+													? `${linkedRound}회 번호가 이 기기에 없어요`
+													: "아직 보관한 번호가 없어요"}
 											</Text>
 											<Text
 												style={[
@@ -1066,8 +1221,9 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 
 			<FeatureAccessPrompt
 				request={visible ? featureRequest : null}
-				continueFeature={async (feature) => {
-					const ok = await model.continueFeature(feature);
+				entryPoint={tab === "make" ? "generator" : tab}
+				continueFeature={async (feature, flow) => {
+					const ok = await model.continueFeature(feature, flow);
 					if (ok) model.featureUsed();
 					return ok;
 				}}
@@ -1107,7 +1263,7 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 									!!model.busy ||
 									model.generationCooling ||
 									!model.user ||
-									!model.context ||
+									!model.generationReady ||
 									!!draftError
 								}
 								onPress={() => void generateDraft()}

@@ -1,5 +1,9 @@
 import { expect, mock } from "bun:test";
-import { EMPTY_OPTIONS } from "@645/lotto-core";
+import {
+	EMPTY_OPTIONS,
+	resultFingerprint,
+	type SavedCombination,
+} from "@645/lotto-core";
 import * as React from "react";
 import { act, create } from "react-test-renderer";
 
@@ -29,6 +33,10 @@ mock.module("@apps-in-toss/framework", () => ({
 	share: async () => {},
 }));
 let visible = true;
+let focused = true;
+let currentTab = "live";
+let savedTarget: { round?: number; entry?: "notification" | "home" } = {};
+const jumps: unknown[] = [];
 const stack = [{ name: "/", params: {} as object }];
 const nativeStack = {
 	getState: () => ({ type: "stack", index: stack.length - 1, routes: stack }),
@@ -38,13 +46,23 @@ const nativeStack = {
 	},
 };
 mock.module("@granite-js/native/@react-navigation/native", () => ({
+	useIsFocused: () => focused,
 	useNavigation: () => ({
-		getState: () => ({ index: 0, routes: [{ name: "live" }] }),
+		getState: () => ({ index: 0, routes: [{ name: currentTab }] }),
+		jumpTo(name: string, params: typeof savedTarget) {
+			currentTab = name;
+			savedTarget = params;
+			jumps.push([name, params]);
+		},
+		setParams(params: typeof savedTarget) {
+			savedTarget = params;
+		},
 		getParent: () => nativeStack,
 	}),
 }));
 mock.module("@granite-js/react-native", () => ({
 	IOScrollView: "scroll",
+	ImpressionArea: "impression",
 	useVisibility: () => visible,
 }));
 mock.module("@toss/tds-react-native/private", () => ({
@@ -63,7 +81,20 @@ mock.module("../../apps/toss/src/api", () => ({
 	LOCAL_PREVIEW: false,
 	API_BASE: "https://navigation.invalid",
 }));
-mock.module("../../apps/toss/src/telemetry", () => ({ trackProduct() {} }));
+const productEvents: string[] = [];
+mock.module("../../apps/toss/src/telemetry", () => ({
+	trackProduct: (event: string) => productEvents.push(event),
+}));
+const reviewSources: string[] = [];
+mock.module("../../apps/toss/src/review-bridge", () => ({
+	requestAppReview: async (options: {
+		source: string;
+		canShow: () => boolean;
+	}) => {
+		if (options.canShow()) reviewSources.push(options.source);
+		return true;
+	},
+}));
 mock.module("../../apps/toss/src/ad-telemetry", () => ({
 	adPolicyLabel: () => "",
 }));
@@ -83,10 +114,13 @@ const presentOverlay = (close: () => void) => {
 	};
 };
 mock.module("../../apps/toss/src/TabShell", () => ({
-	useTabShell: () => ({ tabBarHeight: 60, presentOverlay }),
+	useTabShell: () => ({ tabBarHeight: 60, presentOverlay, savedTarget }),
 }));
 const model = {
-	saved: [],
+	foreground: true,
+	saved: [] as SavedCombination[],
+	savedReady: true,
+	markResultsViewed: async (_: number) => {},
 	recent: [],
 	results: {},
 	reports: {},
@@ -121,10 +155,18 @@ for (const name of [
 	"FeatureAccessPrompt",
 	"ActivityPanel",
 	"GenerationInsightPreview",
-	"AdCtaImpression",
 ]) {
 	mock.module(`../../apps/toss/src/${name}`, () => ({ [name]: host(name) }));
 }
+mock.module("../../apps/toss/src/AdCtaImpression", () => ({
+	AdCtaImpression: ({
+		children,
+	}: {
+		children: (
+			run: (action: (flow: undefined) => Promise<unknown>) => Promise<unknown>,
+		) => React.ReactNode;
+	}) => children((action) => action(undefined)),
+}));
 mock.module("../../apps/toss/src/LiveFeed", () => ({
 	LiveFeed: host("liveFeed"),
 	relativeTime: () => "",
@@ -277,6 +319,277 @@ await act(async () => {
 	lateExit();
 });
 expect(stack).toHaveLength(1);
+const renderedText = () =>
+	root.root
+		.findAllByType("text")
+		.map((node) =>
+			node.children
+				.filter(
+					(child) => typeof child === "string" || typeof child === "number",
+				)
+				.join(""),
+		)
+		.join("\n");
+// Home and notification returns reuse saved, consume the target once and keep manual selection.
+const { createSavedStore } = await import("../../apps/toss/src/saved-store");
+const draw = {
+	round: 1243,
+	numbers: [1, 2, 3, 4, 5, 6] as [
+		number,
+		number,
+		number,
+		number,
+		number,
+		number,
+	],
+	bonus: 7,
+	drawDate: "2026-09-26",
+};
+const savedItem = (id: number, round: number): SavedCombination => ({
+	version: 1,
+	id: String(id),
+	generationId: id,
+	round,
+	numbers: [1, 2, 3, 4, 5, 6],
+	savedAt: id,
+});
+let raw = JSON.stringify([
+	savedItem(1, 1243),
+	savedItem(2, 1243),
+	savedItem(3, 1244),
+]);
+const savedStore = createSavedStore(
+	{
+		getItem: () => raw,
+		setItem: (_: string, value: string) => {
+			raw = value;
+		},
+	},
+	"saved",
+);
+model.saved = await savedStore.read();
+Object.assign(model, {
+	results: { 1243: draw },
+	context: { targetRound: 1244, latestDraw: draw, drawsAt: 1 },
+	markResultsViewed: async (round: number) => {
+		if (round === draw.round)
+			model.saved = await savedStore.viewResults(
+				model.saved.filter((i) => i.round === round).map((i) => i.id),
+				resultFingerprint(draw),
+			);
+	},
+});
+currentTab = "make";
+await act(async () => {
+	root = create(<LottoScreen tab="make" />);
+});
+expect(renderedText()).toContain("보관한 ");
+await act(async () => {
+	root.root
+		.findAllByType("button")
+		.find((n) => n.props.children === "보관한 번호 결과 보기")
+		?.props.onPress();
+});
+expect(jumps.at(-1)).toEqual(["saved", { round: 1243, entry: "home" }]);
+expect(stack).toHaveLength(1);
+await act(async () => {
+	root.update(<LottoScreen tab="saved" />);
+});
+await act(async () => {
+	root.update(<LottoScreen tab="saved" />);
+});
+expect(renderedText()).toContain("개 결과");
+// The summary can be below the banner. Rendering the saved screen is not reading its result.
+expect(
+	model.saved.filter((i) => i.round === 1243).every((i) => !i.viewedResult),
+).toBe(true);
+expect(productEvents).not.toContain("saved_results_viewed");
+await act(async () => {
+	model.foreground = false;
+	root.update(<LottoScreen tab="saved" />);
+});
+expect(root.root.findByType("impression").props.enabled).toBe(false);
+await act(async () => {
+	root.root.findByType("impression").props.onImpressionStart();
+	model.foreground = true;
+	visible = false;
+	root.update(<LottoScreen tab="saved" />);
+});
+expect(root.root.findByType("impression").props.enabled).toBe(false);
+await act(async () => {
+	root.root.findByType("impression").props.onImpressionStart();
+});
+expect(
+	model.saved.filter((i) => i.round === 1243).every((i) => !i.viewedResult),
+).toBe(true);
+expect(productEvents).not.toContain("saved_results_viewed");
+await act(async () => {
+	visible = true;
+	focused = false;
+	root.update(<LottoScreen tab="saved" />);
+});
+expect(root.root.findByType("impression").props.enabled).toBe(false);
+await act(async () => {
+	root.root.findByType("impression").props.onImpressionStart();
+});
+expect(productEvents).not.toContain("saved_results_viewed");
+expect(
+	model.saved.filter((i) => i.round === 1243).every((i) => !i.viewedResult),
+).toBe(true);
+await act(async () => {
+	focused = true;
+	root.update(<LottoScreen tab="saved" />);
+});
+await act(async () => {
+	root.root.findByType("impression").props.onImpressionStart();
+	root.root.findByType("impression").props.onImpressionStart();
+});
+expect(productEvents.filter((e) => e === "saved_results_viewed")).toHaveLength(
+	1,
+);
+expect(
+	model.saved
+		.filter((i) => i.round === 1243)
+		.every((i) => i.viewedResult === resultFingerprint(draw)),
+).toBe(true);
+expect(savedTarget.round).toBeUndefined();
+expect(productEvents.filter((e) => e === "results_return_opened")).toHaveLength(
+	1,
+);
+await act(async () => {
+	root.root
+		.findAllByType("button")
+		.find((n) => [n.props.children].flat().join("") === "1244회")
+		?.props.onPress();
+});
+await act(async () => {
+	root.update(<LottoScreen tab="make" />);
+});
+await act(async () => {
+	root.update(<LottoScreen tab="saved" />);
+});
+expect(renderedText()).toContain("추첨 결과를 기다리고 있어요.");
+savedTarget = { round: 1241, entry: "notification" };
+await act(async () => {
+	root.update(<LottoScreen tab="saved" />);
+});
+expect(renderedText()).toContain(
+	"1241회 번호가 이 기기에 보관되어 있지 않아요.",
+);
+expect(
+	productEvents.filter((e) => e === "notification_result_opened"),
+).toHaveLength(1);
+await act(async () => {
+	root.unmount();
+});
+// A cold notification entry must not mark the default round before applying its target.
+raw = JSON.stringify([savedItem(5, 1243), savedItem(6, 1242)]);
+model.saved = await savedStore.read();
+const olderDraw = { ...draw, round: 1242 };
+Object.assign(model, {
+	results: { 1243: draw, 1242: olderDraw },
+	markResultsViewed: async (round: number) => {
+		const target = round === 1242 ? olderDraw : draw;
+		model.saved = await savedStore.viewResults(
+			model.saved.filter((i) => i.round === round).map((i) => i.id),
+			resultFingerprint(target),
+		);
+	},
+});
+savedTarget = { round: 1242, entry: "notification" };
+await act(async () => {
+	root = create(<LottoScreen tab="saved" />);
+});
+expect(model.saved.find((i) => i.round === 1242)?.viewedResult).toBeUndefined();
+await act(async () => {
+	root.root.findByType("impression").props.onImpressionStart();
+});
+expect(model.saved.find((i) => i.round === 1242)?.viewedResult).toBe(
+	resultFingerprint(olderDraw),
+);
+expect(model.saved.find((i) => i.round === 1243)?.viewedResult).toBeUndefined();
+await act(async () => {
+	root.unmount();
+});
+// A freshly generated record renders adjacent keyed insight/comparison components.
+// React must not reuse one component's identity for the other, even if the comparison is empty.
+Object.assign(model, {
+	current: {
+		id: 6795,
+		round: 1244,
+		numbers: [14, 17, 20, 25, 35, 44],
+		createdAt: 1,
+		displayName: "local",
+	},
+});
+currentTab = "make";
+savedTarget = {};
+const renderWarnings: string[] = [];
+const originalError = console.error;
+console.error = (...args: unknown[]) =>
+	renderWarnings.push(args.map(String).join(" "));
+try {
+	await act(async () => {
+		root = create(<LottoScreen tab="make" />);
+	});
+	await act(async () => {
+		root.unmount();
+	});
+} finally {
+	console.error = originalError;
+}
+expect(renderWarnings.filter((line) => line.includes("same key"))).toEqual([]);
+// Successful saves/results expose an optional review only after their UI settles.
+Object.assign(model, {
+	saved: [savedItem(20, 1244), savedItem(21, 1244)],
+	foreground: true,
+	busy: null,
+	save: async (generation: { id: number; round: number }) => {
+		model.saved = [...model.saved, savedItem(generation.id, generation.round)];
+		return true;
+	},
+});
+await act(async () => {
+	root = create(<LottoScreen tab="make" />);
+});
+await act(async () => {
+	root.root
+		.findAllByType("button")
+		.find((node) => node.props.children === "이 번호 보관하기")
+		?.props.onPress();
+});
+expect(reviewSources).toEqual([]);
+await act(async () => {
+	await Bun.sleep(1600);
+});
+expect(reviewSources).toEqual(["save"]);
+await act(async () => root.unmount());
+model.saved = [savedItem(22, 1243)];
+await act(async () => {
+	root = create(<LottoScreen tab="saved" />);
+});
+await act(async () => {
+	root.root.findByType("impression").props.onImpressionStart();
+});
+focused = false;
+await act(async () => root.update(<LottoScreen tab="saved" />));
+await act(async () => {
+	await Bun.sleep(1600);
+});
+expect(reviewSources).toEqual(["save"]);
+await act(async () => root.unmount());
+focused = true;
+await act(async () => {
+	root = create(<LottoScreen tab="saved" />);
+});
+await act(async () => {
+	root.root.findByType("impression").props.onImpressionStart();
+});
+await act(async () => {
+	await Bun.sleep(1600);
+});
+expect(reviewSources).toEqual(["save", "results"]);
+await act(async () => root.unmount());
 console.log(
 	"analysis return and direct result reopen preserve the intended round",
 );

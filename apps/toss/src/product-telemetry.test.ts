@@ -9,7 +9,7 @@ test("funnel telemetry contains only event and bounded source, and cannot break 
 		{
 			log_name: "lotto_combination_saved",
 			log_type: "event",
-			params: { source: "first_save" },
+			params: { source: "first_save", app_version: "unknown" },
 		},
 	]);
 	expect(() =>
@@ -21,4 +21,17 @@ test("funnel telemetry contains only event and bounded source, and cannot break 
 		"generation_succeeded",
 	);
 	await Promise.resolve();
+});
+
+test("release comparisons retain only bounded version and source metadata", () => {
+	const events: unknown[] = [];
+	const track = createProductTelemetry((event) => events.push(event), "1.4.4");
+	track("insights_detail_viewed", "ranking");
+	expect(events).toEqual([
+		{
+			log_name: "lotto_insights_detail_viewed",
+			log_type: "event",
+			params: { source: "ranking", app_version: "1.4.4" },
+		},
+	]);
 });

@@ -10,6 +10,7 @@ export type AdMetric =
 	| "unavailable"
 	| "failed"
 	| "settled"
+	| "feature_outcome"
 	| "generation_completed"
 	| "banner_slot_viewed"
 	| "banner_requested"
@@ -33,6 +34,7 @@ export type AdMetricPayload = {
 	flow_id: string;
 	outcome: string;
 	entry_point: string;
+	app_version: string;
 };
 export type AdMetricSink = (event: {
 	log_name: string;
@@ -41,7 +43,7 @@ export type AdMetricSink = (event: {
 }) => void | Promise<void>;
 
 /** No identities, generated numbers, server tokens, or raw error payloads. */
-export function createAdTelemetry(send: AdMetricSink) {
+export function createAdTelemetry(send: AdMetricSink, appVersion = "unknown") {
 	const router = createAnalyticsRouter<AdMetric, AdMetricPayload>({
 		appsInToss: {
 			enabled: true,
@@ -69,6 +71,7 @@ export function createAdTelemetry(send: AdMetricSink) {
 				flow_id: (context.flowId ?? "").slice(0, 64),
 				outcome: outcome.slice(0, 64),
 				entry_point: (context.entryPoint ?? "continuation").slice(0, 32),
+				app_version: appVersion.slice(0, 24),
 			});
 		},
 		flush: router.flush,

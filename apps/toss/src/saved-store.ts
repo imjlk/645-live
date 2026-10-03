@@ -44,6 +44,12 @@ export function createSavedStore(storage: Storage, key: string) {
 				items.some((v) => v.id === item.id) ? items : [item, ...items],
 			),
 		remove: (id: string) => update((items) => items.filter((v) => v.id !== id)),
+		viewResults: (ids: string[], fingerprint: string) =>
+			update((items) =>
+				items.map((item) =>
+					ids.includes(item.id) ? { ...item, viewedResult: fingerprint } : item,
+				),
+			),
 		celebrate: (ids: string[], fingerprint: string) =>
 			update((items) =>
 				items.map((v) =>

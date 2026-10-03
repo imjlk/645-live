@@ -10,7 +10,7 @@ test("ad funnel distinguishes rendered/viewed, deduplicates callbacks and strips
 	const events: Parameters<AdMetricSink>[0][] = [];
 	const telemetry = createAdTelemetry((event) => {
 		events.push(event);
-	});
+	}, "1.4.4");
 	const flow = createAdFlow(telemetry, {
 		placement: "generation_continue",
 		policy: "device:5:5-30",
@@ -37,6 +37,7 @@ test("ad funnel distinguishes rendered/viewed, deduplicates callbacks and strips
 	expect(events.every((e) => e.params.entry_point === "continuation")).toBe(
 		true,
 	);
+	expect(events.every((e) => e.params.app_version === "1.4.4")).toBe(true);
 	expect(events[4].params.format).toBe("rewarded");
 	expect(JSON.stringify(events)).not.toContain("secret");
 	expect(JSON.stringify(events)).not.toContain("numbers");

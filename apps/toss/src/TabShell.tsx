@@ -1,7 +1,10 @@
 import { createContext, useCallback, useContext, useState } from "react";
 
+import type { SavedParams } from "./result-return";
+
 export const TabShellContext = createContext<{
 	tabBarHeight: number;
+	savedTarget?: SavedParams;
 	/** A sheet owns Back until its closing animation has finished. */
 	presentOverlay: (onBack: () => void) => () => void;
 } | null>(null);

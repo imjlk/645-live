@@ -19,6 +19,9 @@ const backEvent = {
 	removeEventListener: (fn: () => void) => back.delete(fn),
 };
 let returns = 0;
+mock.module("@granite-js/native/@react-navigation/native", () => ({
+	useIsFocused: () => true,
+}));
 mock.module("@granite-js/react-native", () => ({
 	IOContext: io,
 	InView: ({
@@ -89,7 +92,9 @@ mock.module("../../apps/toss/src/api", () => ({
 	API_BASE: "https://insights.invalid",
 	LOCAL_PREVIEW: false,
 }));
+const productEvents: string[] = [];
 mock.module("../../apps/toss/src/telemetry", () => ({
+	trackProduct: (event: string) => productEvents.push(event),
 	adTelemetry: { track() {} },
 }));
 mock.module("../../apps/toss/src/theme", () => ({
@@ -201,6 +206,17 @@ await act(async () => {
 const text = () => JSON.stringify(root.toJSON());
 const button = (label: string) =>
 	root.root.findAllByType("button").find((n) => n.props.children === label);
+expect(productEvents.filter((e) => e === "insights_viewed")).toHaveLength(1);
+expect(
+	productEvents.filter((e) => e === "insights_detail_viewed"),
+).toHaveLength(1);
+await act(async () => {
+	root.update(<GeneratedInsightsScreen />);
+});
+expect(productEvents.filter((e) => e === "insights_viewed")).toHaveLength(1);
+expect(
+	productEvents.filter((e) => e === "insights_detail_viewed"),
+).toHaveLength(1);
 expect(requests).toHaveLength(1);
 expect(requests[0].searchParams.get("round")).toBe("1243");
 expect(text()).toContain("7번 자세히 보기");
@@ -265,6 +281,9 @@ await act(async () => {
 });
 expect(back.size).toBe(0);
 expect(uses).toBe(1);
+expect(
+	productEvents.filter((e) => e === "insights_patterns_viewed"),
+).toHaveLength(1);
 await act(async () => {
 	button("이전 화면으로 돌아가기")?.props.onPress();
 });
@@ -408,6 +427,66 @@ await act(async () => {
 });
 expect(text()).not.toContain("3개 조합");
 expect(requests).toHaveLength(requestCount);
+await act(async () => {
+	root.unmount();
+});
+// Personal comparisons use local data only and honor the shared feature continuation.
+const { SavedCombinationComparison } = await import(
+	"../../apps/toss/src/SavedCombinationComparison"
+);
+let pendingExplore: (() => void) | null = null;
+const savedItem = (
+	id: number,
+	round: number,
+	numbers: Generation["numbers"],
+) => ({
+	version: 1 as const,
+	id: String(id),
+	generationId: id,
+	round,
+	numbers,
+	savedAt: id,
+});
+const compared = [
+	savedItem(6, 1244, generation.numbers),
+	savedItem(7, 1244, [7, 10, 25, 29, 31, 42]),
+	savedItem(8, 1243, generation.numbers),
+];
+await act(async () => {
+	root = create(
+		<SavedCombinationComparison
+			generation={generation}
+			saved={compared}
+			onExplore={(action) => {
+				pendingExplore = action;
+			}}
+		/>,
+	);
+});
+expect(text()).toContain("최대 4개 번호");
+await act(async () => {
+	button("보관한 조합과 비교")?.props.onPress();
+});
+expect(text()).not.toContain("가장 비슷한 보관 조합");
+expect(
+	productEvents.filter((e) => e === "saved_comparison_viewed"),
+).toHaveLength(0);
+// A canceled prompt leaves the section collapsed; only a successful continuation invokes it.
+pendingExplore = null;
+await act(async () => {
+	button("보관한 조합과 비교")?.props.onPress();
+	pendingExplore?.();
+});
+expect(text()).toContain("가장 비슷한 보관 조합");
+expect(text()).toContain("다른 ");
+expect(
+	productEvents.filter((e) => e === "saved_comparison_viewed"),
+).toHaveLength(1);
+expect(requests).toHaveLength(requestCount);
+await act(async () => {
+	button("보관한 조합 비교 접기")?.props.onPress();
+});
+expect(text()).not.toContain("가장 비슷한 보관 조합");
 await act(async () => {
 	root.unmount();
 });
