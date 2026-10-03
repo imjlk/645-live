@@ -1,5 +1,13 @@
 # @645/toss
 
+## 1.4.3 — 2026-10-03
+
+### Patch changes
+
+- [610718e](https://github.com/imjlk/645-live/commit/610718e8c3ae1ba68c45af2163ea2e9b9d64ca75) Place the generator banner before the attendance entry. Retain requested banner instances for up to one minute while their screen is inactive, reducing redundant reloads on quick returns while keeping SDK-managed refresh and impression tracking.
+  
+  Keep a filled SDK banner visible when a refresh cannot fill or fails, and release inactive slots after the retention window. Unvisited placements and changed groups still wait for actual viewport entry before requesting an ad.
+
 ## 1.4.2 — 2026-10-03
 
 ### Patch changes
