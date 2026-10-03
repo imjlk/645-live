@@ -10,7 +10,11 @@ import {
 } from "@645/lotto-core";
 import { getTossShareLink, share } from "@apps-in-toss/framework";
 import { useNavigation } from "@granite-js/native/@react-navigation/native";
-import { IOScrollView, useVisibility } from "@granite-js/react-native";
+import {
+	ImpressionArea,
+	IOScrollView,
+	useVisibility,
+} from "@granite-js/react-native";
 import {
 	BottomSheet,
 	Button,
@@ -189,35 +193,6 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 	const summary = roundDraw ? savedSummary(roundItems, roundDraw) : null;
 	const savedPages = Math.max(1, Math.ceil(roundItems.length / 20));
 	const viewedResults = useRef(new Set<string>());
-	useEffect(() => {
-		if (
-			visible &&
-			tab === "saved" &&
-			!savedTarget?.round &&
-			roundDraw &&
-			!viewedResults.current.has(resultFingerprint(roundDraw))
-		) {
-			viewedResults.current.add(resultFingerprint(roundDraw));
-			trackProduct("saved_results_viewed");
-		}
-	}, [visible, tab, roundDraw, savedTarget?.round]);
-	useEffect(() => {
-		if (
-			visible &&
-			tab === "saved" &&
-			!savedTarget?.round &&
-			roundDraw &&
-			model.savedReady
-		)
-			void model.markResultsViewed?.(roundDraw.round);
-	}, [
-		visible,
-		tab,
-		roundDraw,
-		model.savedReady,
-		model.markResultsViewed,
-		savedTarget?.round,
-	]);
 	const currentSavedPage = Math.min(savedPage, savedPages - 1);
 	const [{ panel, open: sheetOpen }, setSheet] = useState<{
 		panel: Panel;
@@ -924,22 +899,54 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 													</Button>
 												))}
 											</ScrollView>
-											{summary ? (
-												<View style={{ gap: 6 }}>
-													<Text style={[s.body, text]}>
-														{savedRound}회 · 보관한 {summary.total}개 결과
-													</Text>
-													<Text style={[s.caption, muted]}>
-														{summary.rankCounts
-															.slice(1)
-															.map((count, i) =>
-																count ? `${i + 1}등 번호 일치 ${count}개` : "",
-															)
-															.filter(Boolean)
-															.join(" · ") ||
-															"3개 이상 일치하는 조합이 없어요."}
-													</Text>
-												</View>
+											{summary && roundDraw ? (
+												<ImpressionArea
+													key={`${resultFingerprint(roundDraw)}:${roundItems.map((item) => item.id).join(",")}`}
+													enabled={
+														visible &&
+														model.foreground &&
+														model.savedReady &&
+														!sheetOpen &&
+														!savedTarget?.round
+													}
+													areaThreshold={0.5}
+													timeThreshold={1000}
+													onImpressionStart={() => {
+														if (
+															!visibleRef.current ||
+															!model.foreground ||
+															!model.savedReady ||
+															sheetOpen ||
+															savedTarget?.round ||
+															!roundDraw
+														)
+															return;
+														const fingerprint = resultFingerprint(roundDraw);
+														if (!viewedResults.current.has(fingerprint)) {
+															viewedResults.current.add(fingerprint);
+															trackProduct("saved_results_viewed");
+														}
+														void model.markResultsViewed?.(roundDraw.round);
+													}}
+												>
+													<View style={{ gap: 6 }}>
+														<Text style={[s.body, text]}>
+															{savedRound}회 · 보관한 {summary.total}개 결과
+														</Text>
+														<Text style={[s.caption, muted]}>
+															{summary.rankCounts
+																.slice(1)
+																.map((count, i) =>
+																	count
+																		? `${i + 1}등 번호 일치 ${count}개`
+																		: "",
+																)
+																.filter(Boolean)
+																.join(" · ") ||
+																"3개 이상 일치하는 조합이 없어요."}
+														</Text>
+													</View>
+												</ImpressionArea>
 											) : savedRound ? (
 												<Text style={[s.caption, muted]}>
 													{savedRound}회 · {roundItems.length}개 보관 ·{" "}

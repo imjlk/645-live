@@ -30,7 +30,7 @@ Official references: [event logging](https://developers-apps-in-toss.toss.im/doc
 
 A functional result notification may target `/saved?round=<draw-round>&entry=notification`. Match the approved console template link to this route using its round variable; the worker already supplies `context.round`. Do not change a template or request new consent implicitly during a code release. Verify the actual approved template and test its link before enabling dispatch.
 
-Home returns use the existing saved tab and record `lotto_results_return_opened`. A round-targeted notification entry records `lotto_notification_result_opened`. Read markers persist with each local saved combination, reopen after draw corrections, and do not suppress newly saved combinations. An absent local round is explained without showing a different round as the requested result.
+Home returns use the existing saved tab and record `lotto_results_return_opened`. A round-targeted notification entry records `lotto_notification_result_opened`. Result viewing requires the summary to be at least half visible for one second on an active screen, including when it is below a banner. Read markers persist with each local saved combination, reopen after draw corrections, and do not suppress newly saved combinations. An absent local round is explained without showing a different round as the requested result.
 
 ## Performance
 

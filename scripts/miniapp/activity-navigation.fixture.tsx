@@ -60,6 +60,7 @@ mock.module("@granite-js/native/@react-navigation/native", () => ({
 }));
 mock.module("@granite-js/react-native", () => ({
 	IOScrollView: "scroll",
+	ImpressionArea: "impression",
 	useVisibility: () => visible,
 }));
 mock.module("@toss/tds-react-native/private", () => ({
@@ -104,6 +105,7 @@ mock.module("../../apps/toss/src/TabShell", () => ({
 	useTabShell: () => ({ tabBarHeight: 60, presentOverlay, savedTarget }),
 }));
 const model = {
+	foreground: true,
 	saved: [] as SavedCombination[],
 	savedReady: true,
 	markResultsViewed: async (_: number) => {},
@@ -385,6 +387,41 @@ await act(async () => {
 	root.update(<LottoScreen tab="saved" />);
 });
 expect(renderedText()).toContain("개 결과");
+// The summary can be below the banner. Rendering the saved screen is not reading its result.
+expect(
+	model.saved.filter((i) => i.round === 1243).every((i) => !i.viewedResult),
+).toBe(true);
+expect(productEvents).not.toContain("saved_results_viewed");
+await act(async () => {
+	model.foreground = false;
+	root.update(<LottoScreen tab="saved" />);
+});
+expect(root.root.findByType("impression").props.enabled).toBe(false);
+await act(async () => {
+	root.root.findByType("impression").props.onImpressionStart();
+	model.foreground = true;
+	visible = false;
+	root.update(<LottoScreen tab="saved" />);
+});
+expect(root.root.findByType("impression").props.enabled).toBe(false);
+await act(async () => {
+	root.root.findByType("impression").props.onImpressionStart();
+});
+expect(
+	model.saved.filter((i) => i.round === 1243).every((i) => !i.viewedResult),
+).toBe(true);
+expect(productEvents).not.toContain("saved_results_viewed");
+await act(async () => {
+	visible = true;
+	root.update(<LottoScreen tab="saved" />);
+});
+await act(async () => {
+	root.root.findByType("impression").props.onImpressionStart();
+	root.root.findByType("impression").props.onImpressionStart();
+});
+expect(productEvents.filter((e) => e === "saved_results_viewed")).toHaveLength(
+	1,
+);
 expect(
 	model.saved
 		.filter((i) => i.round === 1243)
@@ -437,6 +474,10 @@ Object.assign(model, {
 savedTarget = { round: 1242, entry: "notification" };
 await act(async () => {
 	root = create(<LottoScreen tab="saved" />);
+});
+expect(model.saved.find((i) => i.round === 1242)?.viewedResult).toBeUndefined();
+await act(async () => {
+	root.root.findByType("impression").props.onImpressionStart();
 });
 expect(model.saved.find((i) => i.round === 1242)?.viewedResult).toBe(
 	resultFingerprint(olderDraw),
