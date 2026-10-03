@@ -16,6 +16,8 @@ All app-owned product and ad events include a bounded `app_version`. Product con
 
 Full-screen attempts: `lotto_ad_cta_viewed` → `lotto_ad_requested` → `lotto_ad_shown` → `lotto_ad_completed` → `lotto_ad_settled`. Feature-ad dialogs record the CTA only after the TDS enter callback and pass the same attempt to the ad controller. Declining records `settled` with `outcome=declined`, without requesting an ad; abandoning the prompt records `prompt_canceled`. Resolve a reserved attempt's format from `session_started` by `flow_id`; an earlier CTA/request has `format=unknown`. Group by placement and resolved format, deduplicate attempt-local `flow_id`, and report no-fill/failure separately. Rewarded completion and interstitial completion do not mean the same reward behavior.
 
+`lotto_ad_feature_outcome` separately records whether the requested feature continued, failed or was abandoned after the ad flow returned. Ad settlement and the feature action are separate stages; an already settled ad cannot suppress the later feature outcome. Retained tabs use their navigation focus as well as native screen visibility for result impressions and banner requests.
+
 Banners: `lotto_ad_banner_slot_viewed` → `lotto_ad_banner_requested` → `lotto_ad_banner_rendered` → `lotto_ad_banner_viewable`; SDK impression and click callbacks remain separate events. Rendering is not proof of viewability. A banner request denominator cannot explain the percentage of visitors who completed a full-screen ad.
 
 Compare versions with the same window and traffic mix. Confirm delivery before interpreting missing events as zero conversions. Measure ad opportunity among visitors, completion among shown ads, successful generation after settlement, save conversion, and return visits together.

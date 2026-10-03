@@ -10,6 +10,7 @@ export type AdMetric =
 	| "unavailable"
 	| "failed"
 	| "settled"
+	| "feature_outcome"
 	| "generation_completed"
 	| "banner_slot_viewed"
 	| "banner_requested"

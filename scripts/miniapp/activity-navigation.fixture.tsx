@@ -33,6 +33,7 @@ mock.module("@apps-in-toss/framework", () => ({
 	share: async () => {},
 }));
 let visible = true;
+let focused = true;
 let currentTab = "live";
 let savedTarget: { round?: number; entry?: "notification" | "home" } = {};
 const jumps: unknown[] = [];
@@ -45,6 +46,7 @@ const nativeStack = {
 	},
 };
 mock.module("@granite-js/native/@react-navigation/native", () => ({
+	useIsFocused: () => focused,
 	useNavigation: () => ({
 		getState: () => ({ index: 0, routes: [{ name: currentTab }] }),
 		jumpTo(name: string, params: typeof savedTarget) {
@@ -413,6 +415,19 @@ expect(
 expect(productEvents).not.toContain("saved_results_viewed");
 await act(async () => {
 	visible = true;
+	focused = false;
+	root.update(<LottoScreen tab="saved" />);
+});
+expect(root.root.findByType("impression").props.enabled).toBe(false);
+await act(async () => {
+	root.root.findByType("impression").props.onImpressionStart();
+});
+expect(productEvents).not.toContain("saved_results_viewed");
+expect(
+	model.saved.filter((i) => i.round === 1243).every((i) => !i.viewedResult),
+).toBe(true);
+await act(async () => {
+	focused = true;
 	root.update(<LottoScreen tab="saved" />);
 });
 await act(async () => {

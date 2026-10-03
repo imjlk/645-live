@@ -39,15 +39,20 @@ async function advance() {
 		callback?.();
 	});
 }
+const appStates = new Set<(state: string) => void>();
+const appState = {
+	currentState: "active",
+	addEventListener: (_event: string, listener: (state: string) => void) => {
+		appStates.add(listener);
+		return { remove: () => appStates.delete(listener) };
+	},
+};
 mock.module("react-native", () => ({
 	AccessibilityInfo: {
 		isReduceMotionEnabled: async () => true,
 		addEventListener: () => ({ remove() {} }),
 	},
-	AppState: {
-		currentState: "active",
-		addEventListener: () => ({ remove() {} }),
-	},
+	AppState: appState,
 }));
 let ads = 0;
 let failAd = false;
@@ -55,6 +60,7 @@ let failRequest = 0;
 let requests = 0;
 let feedReads = 0;
 let attendanceReads = 0;
+let failAttendance = true;
 let releaseInitialFeed: (() => void) | null = null;
 let holdInitialFeed = true;
 let releaseAds: (() => void) | null = null;
@@ -76,8 +82,15 @@ mock.module("../../apps/toss/src/ad-bridge", () => ({
 	}),
 	setResultNotification: async () => true,
 }));
+const performanceEvents: { stage?: string; outcome?: string }[] = [];
 mock.module("../../apps/toss/src/telemetry", () => ({
-	trackProduct() {},
+	trackProduct(
+		event: string,
+		_source: string,
+		timing?: { stage?: string; outcome?: string },
+	) {
+		if (event === "performance" && timing) performanceEvents.push(timing);
+	},
 	adTelemetry: { track() {} },
 }));
 mock.module("../../apps/toss/src/realtime", () => ({
@@ -154,6 +167,10 @@ const api = {
 	},
 	attendance: async () => {
 		attendanceReads++;
+		if (failAttendance) {
+			failAttendance = false;
+			throw new Error("attendance temporarily unavailable");
+		}
 		return {
 			day,
 			serverTime: at,
@@ -216,6 +233,7 @@ await act(async () => {
 	releaseAds?.();
 });
 expect(model.generationReady).toBe(true);
+expect(model.error).toBe("attendance temporarily unavailable");
 expect(model.feed).toBeNull();
 expect(feedReads).toBe(1);
 expect(attendanceReads).toBe(1);
@@ -302,4 +320,22 @@ await act(async () => {
 });
 expect(timer).toBeNull();
 expect(listeners.size).toBe(0);
+const readyMeasurements = performanceEvents.filter(
+	(event) => event.stage === "generator_ready",
+).length;
+appState.currentState = "background";
+await act(async () => {
+	root = create(<Probe />);
+});
+expect(model.foreground).toBe(false);
+await act(async () => {
+	appState.currentState = "active";
+	for (const listener of appStates) listener("active");
+});
+expect(model.foreground).toBe(true);
+expect(
+	performanceEvents.filter((event) => event.stage === "generator_ready"),
+).toHaveLength(readyMeasurements);
+await act(async () => root.unmount());
+expect(appStates.size).toBe(0);
 console.log("generator publication receipts and single-generation flow passed");

@@ -1,5 +1,11 @@
 // Run in a separate Bun process: native module mocks must not leak into API tests.
 import { expect, mock } from "bun:test";
+
+let focused = true;
+mock.module("@granite-js/native/@react-navigation/native", () => ({
+	useIsFocused: () => focused,
+}));
+
 import * as React from "react";
 import { createContext, createElement, useContext, useEffect } from "react";
 import { act, create, type ReactTestRenderer } from "react-test-renderer";
@@ -138,6 +144,12 @@ await act(async () => {
 	tree().update(screen("saved"));
 });
 // Overscan mounts an observable placeholder, never an SDK ad request.
+focused = false;
+await act(async () => tree().update(screen("saved")));
+await act(async () => onViewport(true, 1));
+expect(mounts).toBe(0);
+focused = true;
+await act(async () => tree().update(screen("saved")));
 expect(mounts).toBe(0);
 await act(async () => onViewport(true, 0.1));
 expect(mounts).toBe(0);
@@ -179,6 +191,16 @@ await act(async () => {
 expect(mounts).toBe(mountedBeforeScroll);
 expect(metrics.filter((m) => m === "banner_requested")).toHaveLength(1);
 // A short tab/app absence preserves the SDK's creative, observer and request.
+focused = false;
+await act(async () => tree().update(screen("saved")));
+const beforeHiddenTab = metrics.length;
+props.onAdViewable();
+props.onAdImpression();
+await act(async () => onViewport(true, 1));
+expect(metrics.length).toBe(beforeHiddenTab);
+expect(mounts).toBe(mountedBeforeScroll);
+focused = true;
+await act(async () => tree().update(screen("saved")));
 for (let i = 0; i < 3; i++) {
 	visible = false;
 	await act(async () => tree().update(screen("saved")));

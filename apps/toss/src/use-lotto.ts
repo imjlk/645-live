@@ -236,15 +236,21 @@ export function useLotto() {
 	const refreshPrivate = useMemo(
 		() =>
 			createPrivateRefresh(async () => {
-				const [ads, check] = await Promise.all([api.ads(), api.attendance()]);
-				if (ads.generationAdPolicy?.counter === "device")
-					await api.generationAds.load(ads.generationAdPolicy);
-				if (active.current) {
-					setAdConfig((previous) =>
-						previous && previous.serverTime > ads.serverTime ? previous : ads,
-					);
-					receiveAttendance(check);
-				}
+				const reads = await Promise.allSettled([
+					api.ads().then(async (ads) => {
+						if (ads.generationAdPolicy?.counter === "device")
+							await api.generationAds.load(ads.generationAdPolicy);
+						if (active.current)
+							setAdConfig((previous) =>
+								previous && previous.serverTime > ads.serverTime
+									? previous
+									: ads,
+							);
+					}),
+					api.attendance().then(receiveAttendance),
+				]);
+				const failed = reads.find((read) => read.status === "rejected");
+				if (failed?.status === "rejected") throw failed.reason;
 			}),
 		[api, receiveAttendance],
 	);
@@ -298,7 +304,11 @@ export function useLotto() {
 		setRefreshing(true);
 		setError(null);
 		const controller = new AbortController();
-		if (!initialReady.current && !generatorTime.current)
+		if (
+			!startupHidden.current &&
+			!initialReady.current &&
+			!generatorTime.current
+		)
 			generatorTime.current = performance.start("generator_ready", "startup");
 		void loadLottoStartup(
 			api,

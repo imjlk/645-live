@@ -3,6 +3,7 @@ import {
 	InlineAd,
 	isMinVersionSupported,
 } from "@apps-in-toss/framework";
+import { useIsFocused } from "@granite-js/native/@react-navigation/native";
 import { InView, IOContext, useVisibility } from "@granite-js/react-native";
 import { isAppsInTossInlineAdSupported } from "@trailbase-apps-in-toss-kit/ait-rn/inline-ads";
 import {
@@ -36,7 +37,8 @@ type BannerProps = {
 };
 /** Retain requested SDK slots during short absences; never preload hidden slots. */
 export const Banner = memo(function Banner(props: BannerProps) {
-	const visible = useVisibility();
+	const focused = useIsFocused();
+	const visible = useVisibility() && focused;
 	const { manager } = useContext(IOContext);
 	const hasIO = !!manager;
 	const key = `${props.placement}:${props.groupId}`;

@@ -39,7 +39,7 @@ export async function loadLottoStartup(
 			}
 			callbacks.user(user);
 			sessionTime.end();
-			const state = await Promise.allSettled([
+			await Promise.all([
 				api
 					.saved(user)
 					.read()
@@ -48,14 +48,10 @@ export async function loadLottoStartup(
 					}),
 				callbacks.private(),
 			]);
-			const failed = state.find((value) => value.status === "rejected");
-			if (failed?.status === "rejected") throw failed.reason;
 		} catch (error) {
 			sessionTime.end(callbacks.active() ? "failed" : "canceled");
 			throw error;
 		}
 	})();
-	const results = await Promise.allSettled([context, account]);
-	const failed = results.find((value) => value.status === "rejected");
-	if (failed?.status === "rejected") throw failed.reason;
+	await Promise.all([context, account]);
 }

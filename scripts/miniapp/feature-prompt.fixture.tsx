@@ -92,6 +92,13 @@ expect(action).toHaveBeenCalledTimes(1);
 expect(onDone).toHaveBeenCalledTimes(1);
 expect(metrics.filter((m) => m.event === "requested")).toHaveLength(1);
 expect(metrics.find((m) => m.event === "requested")?.id).toBe(firstId);
+expect(metrics.find((m) => m.event === "feature_outcome")?.outcome).toBe(
+	"feature_continued",
+);
+expect(metrics.find((m) => m.event === "feature_outcome")?.id).toBe(firstId);
+expect(
+	metrics.filter((m) => m.event === "settled" && m.id === firstId),
+).toHaveLength(1);
 await act(async () => {
 	root.unmount();
 });
@@ -193,6 +200,7 @@ await act(async () => {
 expect(metrics.slice(beforeFailed).map((m) => [m.event, m.outcome])).toEqual([
 	["cta_viewed", ""],
 	["settled", "feature_failed"],
+	["feature_outcome", "feature_failed"],
 ]);
 expect(action).toHaveBeenCalledTimes(1);
 await act(async () => {

@@ -9,7 +9,10 @@ import {
 	type SavedCombination,
 } from "@645/lotto-core";
 import { getTossShareLink, share } from "@apps-in-toss/framework";
-import { useNavigation } from "@granite-js/native/@react-navigation/native";
+import {
+	useIsFocused,
+	useNavigation,
+} from "@granite-js/native/@react-navigation/native";
 import {
 	ImpressionArea,
 	IOScrollView,
@@ -138,7 +141,8 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 	const { model, options, setOptions, liveColumns, setLiveColumns } =
 		useLottoContext();
 	const navigation = useNavigation<LottoTabNavigation>();
-	const visible = useVisibility();
+	const focused = useIsFocused();
+	const visible = useVisibility() && focused;
 	const navigateTab = (value: string) => {
 		navigateToTab(navigation, tab, value, visible);
 	};

@@ -19,6 +19,9 @@ const backEvent = {
 	removeEventListener: (fn: () => void) => back.delete(fn),
 };
 let returns = 0;
+mock.module("@granite-js/native/@react-navigation/native", () => ({
+	useIsFocused: () => true,
+}));
 mock.module("@granite-js/react-native", () => ({
 	IOContext: io,
 	InView: ({

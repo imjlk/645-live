@@ -84,3 +84,65 @@ test("late bootstrap replies cannot publish after cancellation", async () => {
 	await loading;
 	expect(steps).toEqual([]);
 });
+
+const callbacks = () => ({
+	active: () => true,
+	context: () => {},
+	user: () => {},
+	saved: () => {},
+	private: async () => {},
+	track: createProductTelemetry(() => {}),
+});
+
+test("context failures are reported while an unrelated local read is still pending", async () => {
+	const stored = deferred<string | null>();
+	let error: unknown;
+	const loading = loadLottoStartup(
+		{
+			context: async () => {
+				throw new Error("context offline");
+			},
+			ensure: async () => ({ id: "local", displayName: "" }),
+			saved: () =>
+				createSavedStore(
+					{ getItem: () => stored.promise, setItem: () => {} },
+					"saved",
+				),
+		},
+		callbacks(),
+	).catch((value) => {
+		error = value;
+	});
+	await flush();
+	expect(error).toBeInstanceOf(Error);
+	expect((error as Error).message).toBe("context offline");
+	stored.resolve(null);
+	await loading;
+});
+
+test("saved read failures are reported while private state is still pending", async () => {
+	const privateState = deferred<void>();
+	let error: unknown;
+	const loading = loadLottoStartup(
+		{
+			context: async () => context,
+			ensure: async () => ({ id: "local", displayName: "" }),
+			saved: () =>
+				createSavedStore(
+					{
+						getItem: () => Promise.reject(new Error("storage offline")),
+						setItem: () => {},
+					},
+					"saved",
+				),
+		},
+		{ ...callbacks(), private: () => privateState.promise },
+	).catch((value) => {
+		error = value;
+	});
+	await flush();
+	expect(error).toBeInstanceOf(Error);
+	expect((error as Error).message).toBe("storage offline");
+	privateState.resolve();
+	await loading;
+});

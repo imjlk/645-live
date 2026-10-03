@@ -124,12 +124,29 @@ export function FeatureAccessPrompt({
 				void continueFeature(pending.feature, flow ?? undefined).then(
 					(ok) => {
 						flow?.track("settled", ok ? "feature_continued" : "feature_failed");
-						if (current.current !== pending) return;
+						if (current.current !== pending) {
+							flow?.track("feature_outcome", "feature_canceled");
+							return;
+						}
 						onDone();
-						if (ok) pending.action();
+						try {
+							if (ok) pending.action();
+							flow?.track(
+								"feature_outcome",
+								ok ? "feature_continued" : "feature_failed",
+							);
+						} catch {
+							flow?.track("feature_outcome", "feature_failed");
+						}
 					},
 					() => {
 						flow?.track("settled", "feature_failed");
+						flow?.track(
+							"feature_outcome",
+							current.current === pending
+								? "feature_failed"
+								: "feature_canceled",
+						);
 						if (current.current === pending) onDone();
 					},
 				);
