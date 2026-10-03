@@ -1162,8 +1162,9 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 
 			<FeatureAccessPrompt
 				request={visible ? featureRequest : null}
-				continueFeature={async (feature) => {
-					const ok = await model.continueFeature(feature);
+				entryPoint={tab === "make" ? "generator" : tab}
+				continueFeature={async (feature, flow) => {
+					const ok = await model.continueFeature(feature, flow);
 					if (ok) model.featureUsed();
 					return ok;
 				}}

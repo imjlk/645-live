@@ -1,6 +1,9 @@
 import { ConfirmDialog } from "@toss/tds-react-native";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { type AdFlow, createAdFlow } from "./ad-telemetry";
+import { FEATURE_AD_POLICY } from "./feature-ad-counter";
 import { useTabShell } from "./TabShell";
+import { adTelemetry } from "./telemetry";
 export type FeatureRequest = {
 	feature: "custom" | "report";
 	action: () => void;
@@ -9,9 +12,14 @@ export function FeatureAccessPrompt({
 	request,
 	continueFeature,
 	onDone,
+	entryPoint = "feature",
 }: {
 	request: FeatureRequest | null;
-	continueFeature: (feature: "custom" | "report") => Promise<boolean>;
+	continueFeature: (
+		feature: "custom" | "report",
+		flow?: AdFlow,
+	) => Promise<boolean>;
+	entryPoint?: string;
 	onDone: () => void;
 }) {
 	const { presentOverlay } = useTabShell();
@@ -20,6 +28,23 @@ export function FeatureAccessPrompt({
 	const accepted = useRef(false);
 	const current = useRef(request);
 	const processing = useRef(false);
+	const flow = useMemo(
+		() =>
+			request
+				? createAdFlow(adTelemetry, {
+						placement: request.feature,
+						policy: FEATURE_AD_POLICY,
+						entryPoint,
+					})
+				: null,
+		[request, entryPoint],
+	);
+	useEffect(
+		() => () => {
+			if (!processing.current) flow?.track("settled", "prompt_canceled");
+		},
+		[flow],
+	);
 	useEffect(() => {
 		current.current = request;
 		if (!request) {
@@ -47,6 +72,10 @@ export function FeatureAccessPrompt({
 	return (
 		<ConfirmDialog
 			open={open}
+			onEntered={() => {
+				if (current.current !== request || !open || processing.current) return;
+				flow?.track("cta_viewed");
+			}}
 			title={
 				request.feature === "custom"
 					? "맞춤 조건으로 계속 만들까요?"
@@ -88,16 +117,19 @@ export function FeatureAccessPrompt({
 				setMounted(false);
 				const pending = current.current;
 				if (!accepted.current || !pending) {
+					flow?.track("settled", "declined");
 					onDone();
 					return;
 				}
-				void continueFeature(pending.feature).then(
+				void continueFeature(pending.feature, flow ?? undefined).then(
 					(ok) => {
+						flow?.track("settled", ok ? "feature_continued" : "feature_failed");
 						if (current.current !== pending) return;
 						onDone();
 						if (ok) pending.action();
 					},
 					() => {
+						flow?.track("settled", "feature_failed");
 						if (current.current === pending) onDone();
 					},
 				);

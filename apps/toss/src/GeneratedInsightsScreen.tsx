@@ -112,8 +112,9 @@ export function GeneratedInsightsScreen() {
 						</HideAccessibilityView>
 						<FeatureAccessPrompt
 							request={visible ? request : null}
-							continueFeature={async (feature) => {
-								const ok = await model.continueFeature(feature);
+							entryPoint="insights"
+							continueFeature={async (feature, flow) => {
+								const ok = await model.continueFeature(feature, flow);
 								if (ok) model.featureUsed();
 								return ok;
 							}}

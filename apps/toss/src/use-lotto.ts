@@ -778,9 +778,9 @@ export function useLotto() {
 				: adConfig?.generationAdRequired === true,
 		featureAdRequired: featureAds.ready && featureAds.remaining === 0,
 		featureUsed: api.featureAds.used,
-		continueFeature: (feature: "custom" | "report") =>
+		continueFeature: (feature: "custom" | "report", flow?: AdFlow) =>
 			run("feature-ad", async () => {
-				const outcome = await adsController.unlock(feature);
+				const outcome = await adsController.unlock(feature, false, flow);
 				if (outcome.continuedWithoutAd && active.current)
 					setNotice("지금은 광고를 이용할 수 없어 바로 이어서 이용해요.");
 				api.featureAds.continued();
