@@ -50,10 +50,11 @@ const db = new Database('/app/traildepot/data/main.db');
 db.exec('PRAGMA foreign_keys=ON');
 const owner = Buffer.from(user, 'base64url');
 db.transaction(() => {
-  const now = Date.now();
+  const now = db.query("SELECT CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)").values()[0][0];
   for (let i=0;i<120;i++) {
     const source = i<40?'miniapp':i<80?'web':'bot';
-    const at = i%40<20?now-172800000:now-1000;
+    // Keep recent ownership within the rolling day, outside the generation burst cooldown.
+    const at = i%40<20?now-172800000:now-60000;
     const id = Number(db.query("INSERT INTO lotto_public_generations(round,display_name,number_1,number_2,number_3,number_4,number_5,number_6,created_at) VALUES (?,'archive fixture',1,2,3,4,5,6,?)").run(round,at).lastInsertRowid);
     db.query('INSERT INTO ait_lotto_generation_origins VALUES (?,?,?)').run(id,source==='bot'?'bot':'human',source);
     if (source==='miniapp') db.query('INSERT INTO ait_lotto_generation_requests VALUES (?,?,?,?,?)').run(owner,'archive-request-'+i,id,JSON.stringify({round,options:{}}),at);
@@ -104,7 +105,8 @@ console.log(JSON.stringify({
             # The new round and its real Record API subscriptions still accept new activity.
             stream = HTTP.open(base + '/api/records/v1/lotto_draw_generation_counts/subscribe/*', timeout=10)
             try:
-                expect(request(base, '/api/web/v1/lotto/generations', {**payload, 'requestId': uuid.uuid4().hex}, auth)[0], 200, 'generation after archive')
+                status, response = request(base, '/api/web/v1/lotto/generations', {**payload, 'requestId': uuid.uuid4().hex}, auth)
+                assert status == 200, f'generation after archive: expected HTTP 200, got {status}: {response}'
                 found = False
                 for _ in range(20):
                     line = stream.readline().decode().strip()
