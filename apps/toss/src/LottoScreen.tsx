@@ -609,7 +609,7 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 										/>
 										{model.current && model.savedReady ? (
 											<SavedCombinationComparison
-												key={model.current.id}
+												key={`saved-comparison-${model.current.id}`}
 												generation={model.current}
 												saved={model.saved}
 												onExplore={(action) => accessFeature("report", action)}

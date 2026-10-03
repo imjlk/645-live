@@ -486,6 +486,34 @@ expect(model.saved.find((i) => i.round === 1243)?.viewedResult).toBeUndefined();
 await act(async () => {
 	root.unmount();
 });
+// A freshly generated record renders adjacent keyed insight/comparison components.
+// React must not reuse one component's identity for the other, even if the comparison is empty.
+Object.assign(model, {
+	current: {
+		id: 6795,
+		round: 1244,
+		numbers: [14, 17, 20, 25, 35, 44],
+		createdAt: 1,
+		displayName: "local",
+	},
+});
+currentTab = "make";
+savedTarget = {};
+const renderWarnings: string[] = [];
+const originalError = console.error;
+console.error = (...args: unknown[]) =>
+	renderWarnings.push(args.map(String).join(" "));
+try {
+	await act(async () => {
+		root = create(<LottoScreen tab="make" />);
+	});
+	await act(async () => {
+		root.unmount();
+	});
+} finally {
+	console.error = originalError;
+}
+expect(renderWarnings.filter((line) => line.includes("same key"))).toEqual([]);
 console.log(
 	"analysis return and direct result reopen preserve the intended round",
 );
