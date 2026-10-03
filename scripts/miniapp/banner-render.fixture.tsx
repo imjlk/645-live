@@ -1,7 +1,7 @@
 // Run in a separate Bun process: native module mocks must not leak into API tests.
 import { expect, mock } from "bun:test";
 import * as React from "react";
-import { createContext, createElement, useContext } from "react";
+import { createContext, createElement, useContext, useEffect } from "react";
 import { act, create, type ReactTestRenderer } from "react-test-renderer";
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
@@ -13,6 +13,27 @@ mock.module(
 const io = createContext<{ manager: object | null }>({ manager: null });
 let visible = true;
 let mounts = 0;
+let unmounts = 0;
+const originalTimeout = globalThis.setTimeout;
+const originalClearTimeout = globalThis.clearTimeout;
+const retentionTimers = new Map<unknown, () => void>();
+// Deliver only the app's retention timer without waiting a minute in this
+// isolated process. Other timers keep their real behavior.
+globalThis.setTimeout = ((...args: Parameters<typeof setTimeout>) => {
+	const timer = originalTimeout(...args);
+	const callback = args[0];
+	if (args[1] === 60_000 && typeof callback === "function") {
+		retentionTimers.set(timer, () => {
+			originalClearTimeout(timer);
+			callback();
+		});
+	}
+	return timer;
+}) as typeof setTimeout;
+globalThis.clearTimeout = (timer) => {
+	retentionTimers.delete(timer);
+	originalClearTimeout(timer);
+};
 const metrics: string[] = [];
 const flows: string[] = [];
 let onImpression = () => {};
@@ -24,6 +45,8 @@ let props = {
 	onAdImpression: () => {},
 	onNoFill: () => {},
 	onAdViewable: () => {},
+	onAdClicked: () => {},
+	onAdFailedToRender: (_payload: { error: { code: number } }) => {},
 };
 mock.module("@granite-js/react-native", () => ({
 	IOContext: io,
@@ -53,7 +76,12 @@ mock.module("@granite-js/react-native", () => ({
 mock.module("@apps-in-toss/framework", () => ({
 	InlineAd: (value: typeof props) => {
 		if (!useContext(io).manager) throw new Error("Missing native IO context");
-		mounts++;
+		useEffect(() => {
+			mounts++;
+			return () => {
+				unmounts++;
+			};
+		}, []);
 		props = value;
 		return createElement("native-ad", { variant: value.variant });
 	},
@@ -98,9 +126,10 @@ function screen(
 		| "insights_summary"
 		| "insights_patterns",
 	groupId = "group",
+	rootManager: object | null = manager,
 ) {
 	return (
-		<io.Provider value={{ manager }}>
+		<io.Provider value={{ manager: rootManager }}>
 			<Banner placement={placement} groupId={groupId} />
 		</io.Provider>
 	);
@@ -149,6 +178,91 @@ await act(async () => {
 });
 expect(mounts).toBe(mountedBeforeScroll);
 expect(metrics.filter((m) => m === "banner_requested")).toHaveLength(1);
+// A short tab/app absence preserves the SDK's creative, observer and request.
+for (let i = 0; i < 3; i++) {
+	visible = false;
+	await act(async () => tree().update(screen("saved")));
+	expect(tree().toJSON()).not.toBeNull();
+	expect(mounts).toBe(mountedBeforeScroll);
+	expect(retentionTimers.size).toBe(1);
+	await act(async () => onViewport(true, 1));
+	visible = true;
+	await act(async () => tree().update(screen("saved")));
+	expect(retentionTimers.size).toBe(0);
+	expect(mounts).toBe(mountedBeforeScroll);
+}
+expect(metrics.filter((m) => m === "banner_requested")).toHaveLength(1);
+// SDK refresh errors retain its existing filled creative instead of making
+// the slot disappear. Initial no-fill is still terminal below.
+await act(async () => {
+	props.onNoFill();
+	props.onAdFailedToRender({ error: { code: 500 } });
+});
+expect(tree().toJSON()).not.toBeNull();
+expect(mounts).toBe(mountedBeforeScroll);
+const oldRendered = props.onAdRendered;
+const oldImpression = props.onAdImpression;
+const beforeExpiry = metrics.length;
+const beforeUnmount = unmounts;
+visible = false;
+await act(async () => tree().update(screen("saved")));
+expect(retentionTimers.size).toBe(1);
+await act(async () => {
+	for (const [timer, expire] of retentionTimers) {
+		retentionTimers.delete(timer);
+		expire();
+	}
+});
+expect(tree().toJSON()).toBeNull();
+expect(unmounts).toBe(beforeUnmount + 1);
+oldRendered();
+oldImpression();
+expect(metrics.length).toBe(beforeExpiry);
+// Expired slots require actual viewport entry to load again.
+visible = true;
+await act(async () => tree().update(screen("saved")));
+expect(mounts).toBe(mountedBeforeScroll);
+await act(async () => onViewport(true, 0.5));
+expect(mounts).toBe(mountedBeforeScroll + 1);
+expect(metrics.filter((m) => m === "banner_requested")).toHaveLength(2);
+const afterReload = metrics.length;
+visible = false;
+await act(async () => tree().update(screen("saved")));
+props.onAdViewable();
+props.onAdImpression();
+props.onAdClicked();
+expect(metrics.length).toBe(afterReload);
+// A new group cannot reuse a previous group's cache or preload while hidden.
+const beforeGroup = mounts;
+await act(async () => tree().update(screen("saved", "replacement")));
+expect(tree().toJSON()).toBeNull();
+expect(retentionTimers.size).toBe(0);
+await act(async () => onViewport(true, 1));
+expect(mounts).toBe(beforeGroup);
+visible = true;
+await act(async () => tree().update(screen("saved", "replacement")));
+expect(mounts).toBe(beforeGroup);
+await act(async () => onViewport(true, 1));
+expect(props.adGroupId).toBe("replacement");
+expect(mounts).toBe(beforeGroup + 1);
+// Losing the IO root releases both a retained SDK child and its pending timer.
+const beforeContextLoss = unmounts;
+const lateRendered = props.onAdRendered;
+visible = false;
+await act(async () => tree().update(screen("saved", "replacement")));
+expect(retentionTimers.size).toBe(1);
+const retentionTimer = retentionTimers.keys().next().value;
+await act(async () => tree().update(screen("saved", "replacement", {})));
+// Context value rerenders must not extend the retention window.
+expect(retentionTimers.keys().next().value).toBe(retentionTimer);
+await act(async () => tree().update(screen("saved", "replacement", null)));
+expect(tree().toJSON()).toBeNull();
+expect(retentionTimers.size).toBe(0);
+expect(unmounts).toBe(beforeContextLoss + 1);
+const afterContextLoss = metrics.length;
+lateRendered();
+expect(metrics.length).toBe(afterContextLoss);
+visible = true;
 for (const placement of [
 	"generator",
 	"live_feed",
@@ -192,6 +306,7 @@ expect(tree().toJSON()).toBeNull();
 await act(async () => {
 	tree().unmount();
 });
+expect(retentionTimers.size).toBe(0);
 const before = metrics.length;
 props.onAdViewable();
 expect(metrics.length).toBe(before);

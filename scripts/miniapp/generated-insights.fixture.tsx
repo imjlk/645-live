@@ -281,7 +281,9 @@ await act(async () => {
 });
 expect(intervals.size).toBe(0);
 expect(lastSignal?.aborted).toBe(true);
-expect(root.root.findAllByType("nativeAd")).toHaveLength(0);
+// Data work stops immediately; the requested SDK banner stays mounted during
+// the short retention window and is released with the screen below.
+expect(root.root.findAllByType("nativeAd")).toHaveLength(1);
 await act(async () => {
 	hold?.();
 });

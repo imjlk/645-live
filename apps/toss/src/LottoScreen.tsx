@@ -682,16 +682,16 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 												</Pressable>
 											</View>
 										) : null}
-										<GeneratorAttendanceEntry
-											attendance={model.attendance}
-											onPress={() => setPanel("attendance")}
-										/>
 										<Banner
 											placement="generator"
 											groupId={
 												model.adConfig?.bannerGroups?.inline ??
 												model.adConfig?.bannerGroupId
 											}
+										/>
+										<GeneratorAttendanceEntry
+											attendance={model.attendance}
+											onPress={() => setPanel("attendance")}
 										/>
 									</View>
 									<View
