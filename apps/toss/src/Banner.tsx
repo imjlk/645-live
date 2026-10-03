@@ -5,7 +5,15 @@ import {
 } from "@apps-in-toss/framework";
 import { InView, IOContext, useVisibility } from "@granite-js/react-native";
 import { isAppsInTossInlineAdSupported } from "@trailbase-apps-in-toss-kit/ait-rn/inline-ads";
-import { memo, useContext, useEffect, useMemo, useRef, useState } from "react";
+import {
+	memo,
+	useCallback,
+	useContext,
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+} from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { type AdMetric, createAdFlow } from "./ad-telemetry";
 import { LOCAL_PREVIEW } from "./api";
@@ -20,24 +28,45 @@ const SLOT_FORMAT = {
 	insights_patterns: "inline",
 } as const;
 export type BannerPlacement = keyof typeof SLOT_FORMAT;
+const HIDDEN_RETENTION_MS = 60_000;
 
 type BannerProps = {
 	groupId: string | null | undefined;
 	placement: BannerPlacement;
 };
-/** A new group resets SDK state; SSE updates never change the slot's assigned group. */
+/** Retain requested SDK slots during short absences; never preload hidden slots. */
 export const Banner = memo(function Banner(props: BannerProps) {
 	const visible = useVisibility();
 	const { manager } = useContext(IOContext);
+	const hasIO = !!manager;
+	const key = `${props.placement}:${props.groupId}`;
+	const [retainedKey, setRetainedKey] = useState<string | null>(null);
+	const retain = useCallback(() => setRetainedKey(key), [key]);
+	useEffect(() => {
+		if (!hasIO) {
+			setRetainedKey(null);
+			return;
+		}
+		if (visible || retainedKey !== key) return;
+		const timer = setTimeout(() => {
+			setRetainedKey((current) => (current === key ? null : current));
+		}, HIDDEN_RETENTION_MS);
+		return () => clearTimeout(timer);
+	}, [visible, retainedKey, key, hasIO]);
 	// InlineAd mounts ImpressionArea only after an ad fills. Prevent that
 	// delayed crash in portals/plain ScrollViews without inventing an IO root.
 	const format = SLOT_FORMAT[props.placement];
-	return visible && manager && format && props.groupId ? (
+	return (visible || retainedKey === key) &&
+		hasIO &&
+		format &&
+		props.groupId ? (
 		<BannerSlot
-			key={`${props.placement}:${props.groupId}`}
+			key={key}
 			groupId={props.groupId}
 			format={format}
 			placement={props.placement}
+			visible={visible}
+			onRequested={retain}
 		/>
 	) : null;
 });
@@ -46,10 +75,14 @@ function BannerSlot({
 	groupId,
 	format,
 	placement,
+	visible,
+	onRequested,
 }: {
 	placement: BannerPlacement;
 	groupId: string;
 	format: "card" | "inline";
+	visible: boolean;
+	onRequested: () => void;
 }) {
 	const [supported, setSupported] = useState<boolean | null>(null);
 	const [entered, setEntered] = useState(false);
@@ -57,6 +90,9 @@ function BannerSlot({
 	const [unavailable, setUnavailable] = useState(false);
 	const theme = useTheme();
 	const active = useRef(true);
+	const hasRendered = useRef(false);
+	const screenVisible = useRef(visible);
+	screenVisible.current = visible;
 	const flow = useMemo(
 		() =>
 			createAdFlow(adTelemetry, { placement, format, entryPoint: "banner" }),
@@ -65,6 +101,9 @@ function BannerSlot({
 	const track = (event: AdMetric) => {
 		if (active.current) flow.track(event);
 	};
+	const trackVisible = (event: AdMetric) => {
+		if (screenVisible.current) track(event);
+	};
 	useEffect(() => {
 		active.current = true;
 		return () => {
@@ -72,8 +111,11 @@ function BannerSlot({
 		};
 	}, []);
 	useEffect(() => {
-		if (entered && supported === true) flow.track("banner_requested");
-	}, [entered, supported, flow]);
+		if (entered && supported === true) {
+			flow.track("banner_requested");
+			onRequested();
+		}
+	}, [entered, supported, flow, onRequested]);
 	useEffect(() => {
 		if (!entered) return;
 		let active = true;
@@ -101,7 +143,7 @@ function BannerSlot({
 			// FlatList overscan can mount many slots beyond the viewport. A real,
 			// non-zero placeholder lets IO observe them without requesting an ad.
 			onChange={(inView, ratio) => {
-				if (active.current && inView && ratio >= 0.5) {
+				if (active.current && screenVisible.current && inView && ratio >= 0.5) {
 					flow.track("banner_slot_viewed");
 					setEntered(true);
 				}
@@ -109,7 +151,8 @@ function BannerSlot({
 			accessibilityLabel="광고"
 			style={{
 				width: "100%",
-				marginVertical: 24,
+				marginTop: 24,
+				marginBottom: placement === "generator" ? 0 : 24,
 				minHeight: !rendered ? (format === "card" ? 156 : 76) : undefined,
 			}}
 		>
@@ -121,27 +164,32 @@ function BannerSlot({
 						tone="grey"
 						variant={format === "card" ? "card" : "expanded"}
 						onAdRendered={() => {
-							if (active.current) setRendered(true);
+							if (!active.current) return;
+							hasRendered.current = true;
+							setRendered(true);
 							track("banner_rendered");
 						}}
-						onAdViewable={() => track("banner_viewable")}
-						onAdImpression={() => track("banner_impression")}
-						onAdClicked={() => track("banner_clicked")}
+						onAdViewable={() => trackVisible("banner_viewable")}
+						onAdImpression={() => trackVisible("banner_impression")}
+						onAdClicked={() => trackVisible("banner_clicked")}
 						onNoFill={() => {
 							if (!active.current) return;
-							setUnavailable(true);
 							track("banner_no_fill");
+							// The SDK keeps its filled creative during a failed refresh.
+							if (hasRendered.current) return;
+							setUnavailable(true);
 							active.current = false;
 						}}
 						onAdFailedToRender={({ error }) => {
 							if (!active.current) return;
-							setUnavailable(true);
 							track("banner_failed");
-							active.current = false;
 							if (LOCAL_PREVIEW)
 								console.info(
 									`[645 local] ${format} banner unavailable (${error.code}).`,
 								);
+							if (hasRendered.current) return;
+							setUnavailable(true);
+							active.current = false;
 						}}
 					/>
 				</View>

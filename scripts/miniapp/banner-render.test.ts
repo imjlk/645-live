@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 
-test("banner renders filled slots only inside visible Granite IO containers", async () => {
+test("banner requests visible IO slots and retains them only during short absences", async () => {
 	const child = Bun.spawn(
 		[process.execPath, `${import.meta.dir}/banner-render.fixture.tsx`],
 		{
