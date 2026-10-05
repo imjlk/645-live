@@ -24,9 +24,14 @@ fn https_url(raw: &str) -> Option<Url> {
     .then_some(url)
 }
 
+fn single_segment(path: &str, prefix: &str) -> bool {
+    path.strip_prefix(prefix)
+        .is_some_and(|rest| !rest.is_empty() && !rest.contains('/'))
+}
+
 fn affiliate_url(raw: &str) -> bool {
     https_url(raw).is_some_and(|url| match url.host_str() {
-        Some("toss.im") => url.path().starts_with("/_m/") && url.path().len() > 4,
+        Some("toss.im") => single_segment(url.path(), "/_m/"),
         Some("service.toss.im") => {
             url.path() == "/shopping/s/"
                 && url
@@ -34,9 +39,8 @@ fn affiliate_url(raw: &str) -> bool {
                     .any(|(key, value)| key == "k" && !value.is_empty())
         }
         Some("toss.shopping") => {
-            (url.path().starts_with("/_m/") && url.path().len() > 4)
-                || (url.path().starts_with("/t/")
-                    && url.path().len() > 3
+            single_segment(url.path(), "/_m/")
+                || (single_segment(url.path(), "/t/")
                     && url
                         .query_pairs()
                         .any(|(key, value)| key == "k" && !value.is_empty()))
@@ -104,6 +108,14 @@ mod tests {
             "https://toss.im/product/1",
             "https://service.toss.im/shopping/s/",
             "https://toss.im/_m/",
+            "https://toss.im/_m/a/b",
+            "https://toss.im/_m/a/",
+            "https://toss.shopping/_m/",
+            "https://toss.shopping/_m/a/b",
+            "https://toss.shopping/_m/a/",
+            "https://toss.shopping/t/?k=issued",
+            "https://toss.shopping/t/a/b?k=issued",
+            "https://toss.shopping/t/a/?k=issued",
             "https://toss.im:8080/_m/x",
         ] {
             assert!(!affiliate_url(raw), "{raw}");

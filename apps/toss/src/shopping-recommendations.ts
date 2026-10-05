@@ -7,7 +7,7 @@ export type ShoppingRecommendation = {
 	imageUrl: string | null;
 	expiresAt: number;
 };
-const CACHE_MS = 60_000;
+export const SHOPPING_CATALOG_CACHE_MS = 60_000;
 
 export function isSharelinkUrl(raw: unknown): raw is string {
 	if (
@@ -100,7 +100,7 @@ export function normalizeRecommendations(
 				title: r.title,
 				affiliateUrl: r.affiliateUrl,
 				imageUrl,
-				expiresAt: now + Math.min(CACHE_MS, remaining),
+				expiresAt: now + Math.min(SHOPPING_CATALOG_CACHE_MS, remaining),
 			},
 		];
 	});
@@ -133,7 +133,7 @@ export function createShoppingCatalog(
 				})
 				.then((rows) => {
 					refreshAt = Math.min(
-						now() + CACHE_MS,
+						now() + SHOPPING_CATALOG_CACHE_MS,
 						...rows.map((r) => r.expiresAt),
 					);
 					pending = null;

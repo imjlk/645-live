@@ -19,6 +19,7 @@ import {
 	createShoppingCatalog,
 	isSharelinkUrl,
 	type ShoppingRecommendation as Offer,
+	SHOPPING_CATALOG_CACHE_MS,
 	type ShoppingPlacement,
 } from "./shopping-recommendations";
 import { trackShopping } from "./telemetry";
@@ -73,11 +74,12 @@ export const ShoppingRecommendation = memo(function ShoppingRecommendation({
 						(r) => r.placement === placement && r.expiresAt > Date.now(),
 					) ?? null;
 				setOffer(next);
-				if (next)
-					timer = setTimeout(
-						refresh,
-						Math.max(1, next.expiresAt - Date.now() + 1),
-					);
+				timer = setTimeout(
+					refresh,
+					next
+						? Math.max(1, next.expiresAt - Date.now() + 1)
+						: SHOPPING_CATALOG_CACHE_MS + 1,
+				);
 			});
 		refresh();
 		return () => {

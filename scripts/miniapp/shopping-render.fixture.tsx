@@ -15,6 +15,29 @@ let focused = true,
 let complete!: () => void;
 const metrics: string[] = [];
 const listeners = new Set<(state: string) => void>();
+let time = 10_000;
+let available = false;
+Date.now = () => time;
+const originalTimeout = globalThis.setTimeout;
+const originalClearTimeout = globalThis.clearTimeout;
+const refreshTimers = new Map<unknown, () => void>();
+// Deliver only catalog retries in this isolated process, without a minute wait.
+globalThis.setTimeout = ((...args: Parameters<typeof setTimeout>) => {
+	const timer = originalTimeout(...args);
+	const callback = args[0];
+	if (args[1] === 60_001 && typeof callback === "function") {
+		refreshTimers.set(timer, () => {
+			refreshTimers.delete(timer);
+			originalClearTimeout(timer);
+			callback();
+		});
+	}
+	return timer;
+}) as typeof setTimeout;
+globalThis.clearTimeout = (timer) => {
+	refreshTimers.delete(timer);
+	originalClearTimeout(timer);
+};
 mock.module("react-native", () => ({
 	View: "view",
 	Text: "text",
@@ -56,14 +79,16 @@ mock.module("../../apps/toss/src/api", () => ({
 		const now = Date.now();
 		return {
 			serverTime: now,
-			recommendations: ["generator", "previous_results"].map((placement) => ({
-				placement,
-				productId: "example",
-				title: "Example",
-				affiliateUrl: "https://toss.im/_m/example",
-				imageUrl: null,
-				expiresAt: now + 60000,
-			})),
+			recommendations: available
+				? ["generator", "previous_results"].map((placement) => ({
+						placement,
+						productId: "example",
+						title: "Example",
+						affiliateUrl: "https://toss.im/_m/example",
+						imageUrl: null,
+						expiresAt: now + 60000,
+					}))
+				: [],
 		};
 	},
 }));
@@ -88,6 +113,24 @@ await act(async () => root.update(screen(false)));
 expect(calls).toBe(0);
 await act(async () => root.update(screen()));
 expect(calls).toBe(1);
+expect(root.toJSON()).toBeNull();
+expect(refreshTimers.size).toBe(1);
+// Even an empty catalog must recover in place when an operator enables a slot.
+focused = false;
+await act(async () => root.update(screen()));
+expect(refreshTimers.size).toBe(0);
+focused = true;
+await act(async () => root.update(screen()));
+expect(calls).toBe(1);
+expect(refreshTimers.size).toBe(1);
+available = true;
+time += 60_001;
+await act(async () => {
+	for (const expire of [...refreshTimers.values()]) expire();
+});
+expect(calls).toBe(2);
+expect(root.toJSON()).not.toBeNull();
+expect(refreshTimers.size).toBe(1);
 expect(metrics).toEqual([]);
 const impress = () =>
 	root.root.findByType("impression").props.onImpressionStart();
@@ -111,16 +154,18 @@ await act(async () => impress());
 expect(metrics).toHaveLength(3);
 focused = true;
 await act(async () => root.update(screen(true, "previous_results")));
-expect(calls).toBe(1);
+expect(calls).toBe(2);
 await act(async () => impress());
 expect(metrics.at(-1)).toBe("previous_results:viewed");
 expect(listeners.size).toBe(1);
 await act(async () => {
 	for (const listener of listeners) listener("background");
 });
+expect(refreshTimers.size).toBe(0);
 const before = opens;
 await act(async () => press());
 expect(opens).toBe(before);
 await act(async () => root.unmount());
 expect(listeners.size).toBe(0);
+expect(refreshTimers.size).toBe(0);
 console.log("shopping visibility and navigation passed");
