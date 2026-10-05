@@ -1,11 +1,10 @@
 import {
 	IOScrollView,
 	useBackEvent,
-	useNavigation,
 	useParams,
 	useVisibility,
 } from "@granite-js/react-native";
-import { Button, TDSProvider } from "@toss/tds-react-native";
+import { TDSProvider } from "@toss/tds-react-native";
 import {
 	HideAccessibilityProvider,
 	HideAccessibilityView,
@@ -27,7 +26,6 @@ export function GeneratedInsightsScreen() {
 	const { model } = useLottoContext();
 	const params = useParams({ from: "/insights" });
 	const visible = useVisibility();
-	const navigation = useNavigation();
 	const backEvent = useBackEvent();
 	const theme = useTheme();
 	const insets = useSafeAreaInsets();
@@ -97,17 +95,6 @@ export function GeneratedInsightsScreen() {
 										{model.actionError.message}
 									</Text>
 								) : null}
-								<Button
-									display="full"
-									style="weak"
-									onPress={() =>
-										navigation.canGoBack()
-											? navigation.goBack()
-											: navigation.replace("/")
-									}
-								>
-									이전 화면으로 돌아가기
-								</Button>
 							</IOScrollView>
 						</HideAccessibilityView>
 						<FeatureAccessPrompt

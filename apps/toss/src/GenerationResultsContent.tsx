@@ -8,8 +8,14 @@ import {
 	generationResultStatus,
 	winningGenerations,
 } from "@645/lotto-core";
-import { BottomSheet, Button } from "@toss/tds-react-native";
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { Button } from "@toss/tds-react-native";
+import {
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+	useSyncExternalStore,
+} from "react";
 import {
 	ActivityIndicator,
 	StyleSheet,
@@ -61,10 +67,16 @@ export function GenerationResultsContent({
 		Math.min(36, Math.floor((Math.min(width, 640) - 120) / 7)),
 	);
 	const [picker, setPicker] = useState(false);
+	const initialApplied = useRef(false);
 	useEffect(() => {
 		if (!active) return;
+		// Apply a deep-link round once. Returning from statistics retains the
+		// user's current selection and the existing page scroll position.
 		const requested =
-			initialRound !== undefined ? controller.select(initialRound) : null;
+			!initialApplied.current && initialRound !== undefined
+				? controller.select(initialRound)
+				: null;
+		initialApplied.current = true;
 		if (!requested) void controller.refresh();
 		const timer = setInterval(() => void controller.refresh(), 60000);
 		return () => {
@@ -159,6 +171,7 @@ export function GenerationResultsContent({
 					{onInsights ? (
 						<Button
 							display="full"
+							size="medium"
 							style="weak"
 							onPress={() => onInsights(selected.round)}
 						>
@@ -311,17 +324,24 @@ export function GenerationResultsContent({
 			) : null}
 			{picker ? (
 				<View style={s.detail}>
-					<BottomSheet.Select
-						value={String(history.selectedRound ?? "")}
-						options={history.rounds.map((r) => ({
-							name: `${r.round}회 · ${generationResultDate(r)} · ${generationResultStatus(r).label}`,
-							value: String(r.round),
-						}))}
-						onChange={(value) => {
-							controller.select(Number(value));
-							setPicker(false);
-						}}
-					/>
+					{history.rounds.map((r) => (
+						<Button
+							key={r.round}
+							display="full"
+							size="medium"
+							style="weak"
+							type={r.round === history.selectedRound ? "primary" : "dark"}
+							accessibilityState={{
+								selected: r.round === history.selectedRound,
+							}}
+							onPress={() => {
+								controller.select(r.round);
+								setPicker(false);
+							}}
+						>
+							{r.round}회 · {generationResultDate(r)}
+						</Button>
+					))}
 					{history.nextBeforeRound !== null ? (
 						<Button
 							size="medium"

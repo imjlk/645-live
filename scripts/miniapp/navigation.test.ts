@@ -1,7 +1,9 @@
 import { expect, test } from "bun:test";
 import { createRequire } from "node:module";
+import { resultsParams } from "../../apps/toss/src/insights-route";
 import {
 	type LottoTab,
+	navigateToGenerationResults,
 	navigateToInsights,
 	navigateToSavedRound,
 	navigateToTab,
@@ -206,4 +208,56 @@ test("result return targets the existing saved tab and Back returns to the gener
 	expect(state.routes).toHaveLength(keys.length);
 	state = router.getStateForAction(state, CommonActions.goBack(), config);
 	expect(state.routes[state.index].name).toBe("make");
+});
+
+test("results and analysis preserve the native result route and existing tab history on Back", () => {
+	const app = fixture();
+	app.select("saved");
+	app.select("live");
+	const tabs = app.state;
+	const router = StackRouter({ initialRouteName: "/" });
+	const config = {
+		routeNames: ["/", "/results", "/insights"],
+		routeParamList: {},
+		routeGetIdList: {},
+	};
+	let stack = router.getInitialState(config);
+	const parent = {
+		getState: () => stack,
+		push(name: string, params: object) {
+			stack = router.getStateForAction(
+				stack,
+				StackActions.push(name, params),
+				config,
+			);
+		},
+	};
+	const navigation = {
+		...app.navigation,
+		getParent: () => parent,
+	} as unknown as Parameters<typeof navigateToGenerationResults>[0];
+	expect(navigateToGenerationResults(navigation, "live", false)).toBe(false);
+	expect(navigateToGenerationResults(navigation, "saved", true)).toBe(false);
+	expect(
+		navigateToGenerationResults(navigation, "live", true, { round: 1243 }),
+	).toBe(true);
+	const resultKey = stack.routes[stack.index].key;
+	expect(navigateToGenerationResults(navigation, "live", true)).toBe(false);
+	expect(navigateToInsights(navigation, "live", true)).toBe(false);
+	parent.push("/insights", { round: 1242 });
+	stack = router.getStateForAction(stack, CommonActions.goBack(), config);
+	expect(stack.routes[stack.index].name).toBe("/results");
+	expect(stack.routes[stack.index].key).toBe(resultKey);
+	stack = router.getStateForAction(stack, CommonActions.goBack(), config);
+	expect(stack.routes[stack.index].name).toBe("/");
+	expect(app.state).toBe(tabs);
+	expect(app.current()).toBe("live");
+	expect(app.back()).toBe(true);
+	expect(app.current()).toBe("saved");
+});
+
+test("results deep links ignore invalid rounds and unrelated number filters", () => {
+	expect(resultsParams({ round: 1243, number: 7 })).toEqual({ round: 1243 });
+	for (const round of [0, -1, 1.5, "1243", Infinity, NaN])
+		expect(resultsParams({ round })).toEqual({});
 });

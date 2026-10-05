@@ -11,6 +11,7 @@ import {
 	RefreshControl,
 	StyleSheet,
 	Text,
+	useWindowDimensions,
 	View,
 } from "react-native";
 import type { AdConfig } from "./api";
@@ -103,6 +104,8 @@ export function LiveFeed({
 }) {
 	const theme = useTheme();
 	const visible = useVisibility();
+	const { width, fontScale } = useWindowDimensions();
+	const stackedActions = width < 360 || fontScale > 1.2;
 	const lastHighlighted = useRef<number | null>(null);
 	const [highlightId, setHighlightId] = useState<number | null>(null);
 	const confirmedId =
@@ -246,11 +249,26 @@ export function LiveFeed({
 							count={feed?.totalGenerations ?? 0}
 							reducedMotion={reducedMotion || !visible}
 						/>
-						<View style={{ gap: 12, paddingVertical: 20 }}>
-							<GenerationResultsLink onPress={onResults} />
-							<Button display="full" style="weak" onPress={onInsights}>
-								생성 통계 보기
-							</Button>
+						<View
+							style={[
+								s.detailActions,
+								{ flexDirection: stackedActions ? "column" : "row" },
+							]}
+						>
+							<View style={stackedActions ? undefined : s.detailAction}>
+								<GenerationResultsLink onPress={onResults} />
+							</View>
+							<View style={stackedActions ? undefined : s.detailAction}>
+								<Button
+									display="full"
+									size="medium"
+									style="weak"
+									accessibilityLabel="생성 통계 보기"
+									onPress={onInsights}
+								>
+									생성 통계
+								</Button>
+							</View>
 						</View>
 						<View style={[s.row, s.gridToolbar]}>
 							<Text style={[s.sectionTitle, text]}>번호별 생성 횟수</Text>
@@ -372,7 +390,9 @@ const s = StyleSheet.create({
 	live: { flexDirection: "row", alignItems: "center", gap: 6 },
 	dot: { width: 6, height: 6, borderRadius: 3 },
 	generation: { paddingVertical: 18, borderTopWidth: 1 },
-	gridToolbar: { marginTop: 28, flexWrap: "wrap" },
+	detailActions: { gap: 8, paddingTop: 16, paddingBottom: 8 },
+	detailAction: { flex: 1 },
+	gridToolbar: { marginTop: 16, flexWrap: "wrap" },
 	gridControl: { width: 132, paddingHorizontal: 0 },
 	footer: { paddingVertical: 26, alignItems: "center", gap: 12 },
 	newActivity: { position: "absolute", top: 12, alignSelf: "center" },

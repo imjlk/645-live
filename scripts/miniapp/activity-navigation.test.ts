@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 
-test("result sheets preserve immediate analysis returns and reset subsequent direct entry", async () => {
+test("native result pages preserve analysis returns and reset new direct entry", async () => {
 	const child = Bun.spawn(
 		[process.execPath, `${import.meta.dir}/activity-navigation.fixture.tsx`],
 		{ stdout: "pipe", stderr: "pipe" },
@@ -15,6 +15,6 @@ test("result sheets preserve immediate analysis returns and reset subsequent dir
 		error: "",
 	});
 	expect(out).toContain(
-		"analysis return and direct result reopen preserve the intended round",
+		"native result pages preserve selection and tab returns",
 	);
 });

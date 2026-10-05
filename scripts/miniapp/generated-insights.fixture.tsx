@@ -284,10 +284,9 @@ expect(uses).toBe(1);
 expect(
 	productEvents.filter((e) => e === "insights_patterns_viewed"),
 ).toHaveLength(1);
-await act(async () => {
-	button("이전 화면으로 돌아가기")?.props.onPress();
-});
-expect(returns).toBe(1);
+// Native navigation owns Back; no competing in-content Back button is rendered.
+expect(button("이전 화면으로 돌아가기")).toBeUndefined();
+expect(returns).toBe(0);
 // A transport that ignores cancellation cannot publish after the detail screen becomes hidden.
 hold = () => {};
 await act(async () => {

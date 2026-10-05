@@ -4,7 +4,7 @@ import type {
 	TabActionHelpers,
 } from "@granite-js/native/@react-navigation/native";
 import type { NativeStackNavigationProp } from "@granite-js/native/@react-navigation/native-stack";
-import type { InsightsParams } from "./insights-route";
+import type { InsightsParams, ResultsParams } from "./insights-route";
 import type { SavedParams } from "./result-return";
 
 export type LottoTab = "make" | "live" | "saved";
@@ -47,18 +47,44 @@ export function navigateToInsights(
 	visible: boolean,
 	params: InsightsParams = {},
 ) {
+	return navigateToDetail(navigation, tab, visible, "/insights", params);
+}
+
+export function navigateToGenerationResults(
+	navigation: Pick<LottoTabNavigation, "getState" | "getParent">,
+	tab: LottoTab,
+	visible: boolean,
+	params: ResultsParams = {},
+) {
+	return navigateToDetail(navigation, tab, visible, "/results", params);
+}
+
+function navigateToDetail(
+	navigation: Pick<LottoTabNavigation, "getState" | "getParent">,
+	tab: LottoTab,
+	visible: boolean,
+	route: "/insights" | "/results",
+	params: InsightsParams,
+) {
 	if (!visible) return false;
 	const tabs = navigation.getState();
 	if (tabs.routes[tabs.index]?.name !== tab) return false;
 	const parent =
 		navigation.getParent<
-			NativeStackNavigationProp<{ "/insights": InsightsParams }>
+			NativeStackNavigationProp<{
+				"/insights": InsightsParams;
+				"/results": ResultsParams;
+			}>
 		>();
 	if (!parent) return false;
 	const stack = parent.getState();
-	if (stack.type !== "stack" || stack.routes[stack.index]?.name === "/insights")
+	// A stale tab callback cannot place another detail above the first push.
+	if (
+		stack.type !== "stack" ||
+		!["/", "/live", "/saved"].includes(stack.routes[stack.index]?.name)
+	)
 		return false;
-	parent.push("/insights", params);
+	parent.push(route, params);
 	return true;
 }
 
