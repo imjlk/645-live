@@ -11,6 +11,8 @@ services:
     volumes:
       - ./traildepot:/app/traildepot
     environment:
+      - TRAILBASE_AUTH_BASE_URL=${TRAILBASE_AUTH_BASE_URL:-http://127.0.0.1:4000}
+      - TRAILBASE_BOOTSTRAP_TIMING=${TRAILBASE_BOOTSTRAP_TIMING:-false}
       - CORS_ALLOWED_ORIGINS=https://www.645.live,https://645.live
       - BACKFILL_ON_STARTUP=true
       - BACKFILL_DRAWS=true

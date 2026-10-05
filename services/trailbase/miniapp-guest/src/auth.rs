@@ -1,4 +1,4 @@
-use crate::{body, db, enabled, settings};
+use crate::{body, bootstrap_timing::BootstrapTiming, db, enabled, settings};
 use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
 use serde::Deserialize;
 use serde_json::{Value as Json, json};
@@ -47,6 +47,9 @@ struct Bootstrap {
 }
 
 pub(crate) async fn bootstrap(req: &mut Request) -> ApiResult<Json> {
+    let mut timing = BootstrapTiming::new(
+        settings::string("TRAILBASE_BOOTSTRAP_TIMING").as_deref() == Some("true"),
+    );
     enabled()?;
     let input: Bootstrap = body(req).await?;
     let raw = input.anonymous_hash.trim();
@@ -111,8 +114,10 @@ pub(crate) async fn bootstrap(req: &mut Request) -> ApiResult<Json> {
     let password_secret = settings::required("TRAILBASE_AUTH_PASSWORD_SECRET")?;
     let credentials = trailbase_auth::anonymous_auth_user_credentials(&digest, &password_secret)?;
     let current_user;
+    timing.transaction_starting();
     {
         let mut tx = db::tx()?;
+        timing.transaction_opened();
         let principal = trailbase_auth::ensure_verified_auth_user_tx(&mut tx, &credentials)?;
         let sealed = settings::string("AIT_IDENTITY_ENCRYPTION_KEY")
             .map(|key| {
@@ -141,6 +146,7 @@ pub(crate) async fn bootstrap(req: &mut Request) -> ApiResult<Json> {
         };
         db::tx_commit(&mut tx)?;
     }
+    timing.transaction_committed();
     let tokens = trailbase_auth::login_anonymous_auth_user_with_password_rotation(
         &settings::string_or("TRAILBASE_AUTH_BASE_URL", "http://127.0.0.1:4000"),
         &digest,
@@ -148,9 +154,10 @@ pub(crate) async fn bootstrap(req: &mut Request) -> ApiResult<Json> {
         settings::string("TRAILBASE_AUTH_PASSWORD_SECRET_PREVIOUS").as_deref(),
     )
     .await?;
-    Ok(
-        json!({"user":user_json(&current_user),"authTokens":{"authToken":tokens.auth_token,"refreshToken":tokens.refresh_token,"csrfToken":tokens.csrf_token}}),
-    )
+    timing.auth_finished();
+    let response = json!({"user":user_json(&current_user),"authTokens":{"authToken":tokens.auth_token,"refreshToken":tokens.refresh_token,"csrfToken":tokens.csrf_token}});
+    timing.succeeded();
+    Ok(response)
 }
 pub(crate) async fn session(req: &mut Request) -> ApiResult<Json> {
     let mut tx = db::tx()?;

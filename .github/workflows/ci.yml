@@ -120,6 +120,7 @@ jobs:
         run: |
           docker build -f services/trailbase/Dockerfile -t 645-trailbase:miniapp .
           python3 scripts/miniapp/smoke.py --fresh-only
+          python3 scripts/miniapp/bootstrap-timing-smoke.py
           python3 scripts/miniapp/smoke.py --bots-only
           python3 scripts/miniapp/promotion-smoke.py
           python3 scripts/miniapp/local-smoke.py
