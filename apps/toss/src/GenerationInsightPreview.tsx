@@ -91,5 +91,5 @@ const s = StyleSheet.create({
 	link: { minHeight: 44, justifyContent: "center", paddingLeft: 8 },
 	linkText: { fontSize: 13, lineHeight: 20, fontWeight: "500" },
 	caption: { fontSize: 12, lineHeight: 18 },
-	fact: { fontSize: 14, lineHeight: 22, minHeight: 44 },
+	fact: { fontSize: 14, lineHeight: 22 },
 });

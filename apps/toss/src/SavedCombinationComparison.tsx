@@ -11,10 +11,12 @@ export function SavedCombinationComparison({
 	generation,
 	saved,
 	onExplore,
+	compact = false,
 }: {
 	generation: Generation;
 	saved: readonly SavedCombination[];
 	onExplore: (action: () => void) => void;
+	compact?: boolean;
 }) {
 	const theme = useTheme();
 	const comparison = useMemo(
@@ -29,7 +31,9 @@ export function SavedCombinationComparison({
 		: `보관한 다른 조합과 최대 ${comparison.maxOverlap}개 번호가 겹쳐요.`;
 	return (
 		<View style={s.root}>
-			<Text style={[s.body, { color: theme.muted }]}>{description}</Text>
+			{!compact || expanded ? (
+				<Text style={[s.body, { color: theme.muted }]}>{description}</Text>
+			) : null}
 			<Button
 				size="tiny"
 				style="weak"
@@ -44,7 +48,13 @@ export function SavedCombinationComparison({
 					});
 				}}
 			>
-				{expanded ? "보관한 조합 비교 접기" : "보관한 조합과 비교"}
+				{expanded
+					? "보관한 조합 비교 접기"
+					: compact
+						? comparison.identical
+							? `같은 조합 ${comparison.identical}개 보관 · 비교 ›`
+							: `보관 조합 비교 · ${comparison.maxOverlap}개 겹침 ›`
+						: "보관한 조합과 비교"}
 			</Button>
 			{expanded ? (
 				<View style={[s.detail, { borderColor: theme.line }]}>

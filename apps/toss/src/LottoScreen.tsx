@@ -84,6 +84,7 @@ import { unreadSavedRounds } from "./result-return";
 import { requestAppReview } from "./review-bridge";
 import { REVIEW_SAVED_MILESTONE, type ReviewSource } from "./review-request";
 import { SavedCombinationComparison } from "./SavedCombinationComparison";
+import { ShoppingRecommendation } from "./ShoppingRecommendation";
 import { SAVED_LIMIT } from "./saved-store";
 import { useTabShell } from "./TabShell";
 import { trackProduct } from "./telemetry";
@@ -665,14 +666,6 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 											}
 											onInsights={(round) => openInsights(round)}
 										/>
-										{model.current && model.savedReady ? (
-											<SavedCombinationComparison
-												key={`saved-comparison-${model.current.id}`}
-												generation={model.current}
-												saved={model.saved}
-												onExplore={(action) => accessFeature("report", action)}
-											/>
-										) : null}
 										<View style={[s.row, { minHeight: 44, marginBottom: 8 }]}>
 											<Pressable
 												accessibilityRole="button"
@@ -772,6 +765,19 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 												</Button>
 											)}
 										</AdCtaImpression>
+										{model.current && model.savedReady ? (
+											<View style={{ marginTop: 12 }}>
+												<SavedCombinationComparison
+													key={`saved-comparison-${model.current.id}`}
+													generation={model.current}
+													saved={model.saved}
+													compact
+													onExplore={(action) =>
+														accessFeature("report", action)
+													}
+												/>
+											</View>
+										) : null}
 										{model.generationAdRequired ? (
 											<Text style={[s.caption, muted, { marginTop: 8 }]}>
 												광고 한 번을 완료하면 다시 여러 번 번호를 만들 수
@@ -808,6 +814,12 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 											attendance={model.attendance}
 											onPress={() => setPanel("attendance")}
 										/>
+										{model.current ? (
+											<ShoppingRecommendation
+												placement="generator"
+												active={visible && !sheetOpen}
+											/>
+										) : null}
 									</View>
 									<View
 										style={[s.divider, { backgroundColor: theme.surface }]}
@@ -1243,6 +1255,7 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 					contentContainerStyle: s.sheetContent,
 					keyboardShouldPersistTaps: "handled",
 				}}
+				wrapper={panel === "generationResults" ? IOScrollView : undefined}
 				cta={
 					panel === "custom" ? (
 						<View>

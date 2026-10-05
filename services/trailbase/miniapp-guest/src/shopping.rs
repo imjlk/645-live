@@ -34,11 +34,12 @@ fn affiliate_url(raw: &str) -> bool {
                     .any(|(key, value)| key == "k" && !value.is_empty())
         }
         Some("toss.shopping") => {
-            url.path().starts_with("/t/")
-                && url.path().len() > 3
-                && url
-                    .query_pairs()
-                    .any(|(key, value)| key == "k" && !value.is_empty())
+            (url.path().starts_with("/_m/") && url.path().len() > 4)
+                || (url.path().starts_with("/t/")
+                    && url.path().len() > 3
+                    && url
+                        .query_pairs()
+                        .any(|(key, value)| key == "k" && !value.is_empty()))
         }
         _ => false,
     })
@@ -89,6 +90,7 @@ mod tests {
     #[test]
     fn only_issued_https_sharelinks_are_accepted() {
         assert!(affiliate_url("https://toss.im/_m/abcDEF"));
+        assert!(affiliate_url("https://toss.shopping/_m/abcDEF"));
         assert!(affiliate_url(
             "https://service.toss.im/shopping/s/?k=issued&referrer=sharelink"
         ));
