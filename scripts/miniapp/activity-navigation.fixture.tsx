@@ -155,6 +155,7 @@ for (const name of [
 	"FeatureAccessPrompt",
 	"ActivityPanel",
 	"GenerationInsightPreview",
+	"ShoppingRecommendation",
 ]) {
 	mock.module(`../../apps/toss/src/${name}`, () => ({ [name]: host(name) }));
 }

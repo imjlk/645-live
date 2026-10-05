@@ -1,5 +1,11 @@
 # Conversion and ad diagnostics
 
+## Optional shopping recommendations
+
+`lotto_shopping_viewed`, `lotto_shopping_clicked`, `lotto_shopping_opened`, and `lotto_shopping_open_failed` use bounded `placement` (`generator` or `previous_results`), `product_id`, and `app_version`. No affiliate URL, product title, user identity or purchase data enters event parameters. Local preview does not send production events.
+
+Viewed means at least half of the card was visible for 500 ms on the active, focused foreground screen, counted once per product and mounted placement. Mounted/offscreen cards are not impressions. Opened means the native URL-opening promise resolved; it does not prove the shopping destination loaded, a purchase occurred, or commission was earned. Measure confirmed purchases/commission separately in Sharelink, using registered placement-specific subTags when links are issued. These events never join the SDK ad completion denominator or the app's primary lottery conversion.
+
 Use the existing Apps in Toss event logger. Never reinitialize the SDK logger or mirror individual analytics events into the product database. Local preview prints sanitized events to the console without sending production events. The sandbox SDK also prints logs; production collection must be confirmed in the console after deployment.
 
 ## Product conversions

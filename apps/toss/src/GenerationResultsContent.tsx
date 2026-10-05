@@ -20,6 +20,7 @@ import {
 import { API_BASE } from "./api";
 import { Balls } from "./Balls";
 import { previousGenerationResults } from "./generation-result-view";
+import { ShoppingRecommendation } from "./ShoppingRecommendation";
 import { useTheme } from "./theme";
 
 export function GenerationResultsContent({
@@ -123,6 +124,9 @@ export function GenerationResultsContent({
 						다음
 					</Button>
 				</View>
+			) : null}
+			{!picker ? (
+				<ShoppingRecommendation placement="previous_results" active={active} />
 			) : null}
 			{history.error ? (
 				<View accessibilityRole="alert" style={s.notice}>

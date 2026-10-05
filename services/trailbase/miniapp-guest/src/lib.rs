@@ -13,6 +13,7 @@ mod generation_results;
 mod lotto;
 mod maintenance;
 mod promotion_test;
+mod shopping;
 mod web;
 
 use serde_json::Value as Json;
@@ -78,6 +79,7 @@ endpoint!(delete_generation, lotto::delete_generation);
 endpoint!(heartbeat, auth::heartbeat);
 endpoint!(disconnect, auth::disconnect);
 endpoint!(ad_config, ads::config);
+endpoint!(shopping_recommendations, shopping::get);
 endpoint!(ad_start, ads::start);
 endpoint!(ad_complete, ads::complete);
 endpoint!(dev_entitlements, dev::entitlements);
@@ -118,6 +120,10 @@ impl Guest for Miniapp {
             routing::post("/api/app/v1/lotto/generations", generate),
             routing::post("/api/app/v1/lotto/generations/delete", delete_generation),
             routing::get("/api/app/v1/ads/config", ad_config),
+            routing::get(
+                "/api/app/v1/shopping/recommendations",
+                shopping_recommendations,
+            ),
             routing::post("/api/app/v1/ads/start", ad_start),
             routing::post("/api/app/v1/ads/complete", ad_complete),
             routing::post("/api/app/v1/dev/entitlements", dev_entitlements),
