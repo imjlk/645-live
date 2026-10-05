@@ -1,5 +1,11 @@
 # @645/toss
 
+## 1.5.1 — 2026-10-05
+
+### Patch changes
+
+- [6e70257](https://github.com/imjlk/645-live/commit/6e70257d6efa6f40c6564dfdfd3d088e7f6e3920) Add opt-in, identity-free server bootstrap stage timing through `TRAILBASE_BOOTSTRAP_TIMING=true`, defaulting to off. Preserve the existing internal auth origin, verified-account reuse, previous-secret recovery, and miniapp response contract. The TrailBase server must be redeployed before collecting timings; turn diagnostics off after a bounded measurement window.
+
 ## 1.5.0 — 2026-10-03
 
 ### Minor changes
