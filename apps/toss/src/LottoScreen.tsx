@@ -65,7 +65,7 @@ import {
 import { GenerationInsightPreview } from "./GenerationInsightPreview";
 import { GeneratorAttendanceEntry } from "./GeneratorAttendanceEntry";
 import { generationOptionsError } from "./generation-options";
-import { LiveFeed, relativeTime } from "./LiveFeed";
+import { GenerationRow, LiveFeed, relativeTime } from "./LiveFeed";
 import { LocalResultPreview } from "./LocalResultPreview";
 import { LocalTestPanel } from "./LocalTestPanel";
 import { useLottoContext } from "./LottoProvider";
@@ -303,9 +303,29 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 		model.featureUsed();
 		action();
 	};
-	const openInsights = (round?: number, number?: number) => {
-		if (sheetOpen) return;
-		navigateToInsights(navigation, tab, visible, { round, number });
+	const openInsights = useCallback(
+		(round?: number) => {
+			if (sheetOpen) return;
+			navigateToInsights(navigation, tab, visibleRef.current, { round });
+		},
+		[navigation, tab, sheetOpen],
+	);
+	const openNumberInsights = (round: number, number: number) => {
+		if (sheetOpen || featureRequest || model.busy || !visibleRef.current)
+			return;
+		const open = () =>
+			navigateToInsights(navigation, tab, visibleRef.current, {
+				round,
+				number,
+			});
+		const adsEnabled = model.adConfig?.placements.some(
+			(p) => p.placement === "report" && p.enabled,
+		);
+		if (model.featureAdRequired && adsEnabled && model.user) {
+			setFeatureRequest({ feature: "report", action: open });
+			return;
+		}
+		if (open()) model.featureUsed();
 	};
 	const onSheetExited = () => {
 		if (!mounted.current) return;
@@ -498,6 +518,7 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 						refreshing={model.refreshing}
 						onRefresh={model.retry}
 						onInsights={() => openInsights()}
+						onNumberPress={openNumberInsights}
 						onResults={() =>
 							navigateToGenerationResults(navigation, tab, visible)
 						}
@@ -726,12 +747,10 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 											attendance={model.attendance}
 											onPress={() => setPanel("attendance")}
 										/>
-										{model.current ? (
-											<ShoppingRecommendation
-												placement="generator"
-												active={visible && !sheetOpen}
-											/>
-										) : null}
+										<ShoppingRecommendation
+											placement="generator"
+											active={visible && !sheetOpen}
+										/>
 									</View>
 									<View
 										style={[s.divider, { backgroundColor: theme.surface }]}
@@ -752,6 +771,26 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 												이번 회차에 쌓인 번호예요.
 											</Text>
 										</View>
+										{model.feed?.generations.length ? (
+											<View style={{ marginBottom: 12 }}>
+												<Text style={[s.caption, muted]}>
+													번호를 누르면 생성 통계를 볼 수 있어요.
+												</Text>
+												{model.feed.generations.slice(0, 2).map((item) => (
+													<GenerationRow
+														key={item.id}
+														item={item}
+														now={model.feed?.serverTime ?? Date.now()}
+														ballSize={28}
+														compact
+														mine={model.recent.some(
+															(own) => own.id === item.id,
+														)}
+														onNumberPress={openNumberInsights}
+													/>
+												))}
+											</View>
+										) : null}
 										<Button
 											display="full"
 											size="medium"

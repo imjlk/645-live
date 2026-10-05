@@ -19,6 +19,8 @@ const backEvent = {
 	removeEventListener: (fn: () => void) => back.delete(fn),
 };
 let returns = 0;
+let params: { round: number; number?: number } = { round: 1243 };
+const navigations: unknown[] = [];
 mock.module("@granite-js/native/@react-navigation/native", () => ({
 	useIsFocused: () => true,
 }));
@@ -43,8 +45,12 @@ mock.module("@granite-js/react-native", () => ({
 	),
 	useVisibility: () => visible,
 	useBackEvent: () => backEvent,
-	useNavigation: () => ({ canGoBack: () => true, goBack: () => returns++ }),
-	useParams: () => ({ round: 1243, number: 7 }),
+	useNavigation: () => ({
+		canGoBack: () => true,
+		goBack: () => returns++,
+		push: (path: string, query: object) => navigations.push([path, query]),
+	}),
+	useParams: () => params,
 }));
 const appState = new Set<(state: string) => void>();
 mock.module("react-native", () => ({
@@ -203,6 +209,12 @@ let root!: ReturnType<typeof create>;
 await act(async () => {
 	root = create(<GeneratedInsightsScreen />);
 });
+await act(async () => {
+	root.root
+		.findByProps({ accessibilityLabel: "7번 3회, 상세 분석" })
+		.props.onPress();
+});
+uses = 0;
 const text = () => JSON.stringify(root.toJSON());
 const button = (label: string) =>
 	root.root.findAllByType("button").find((n) => n.props.children === label);
@@ -310,6 +322,56 @@ await act(async () => {
 });
 expect(back.size).toBe(0);
 expect(appState.size).toBe(0);
+
+// A list entry opens a focused native number page. Switching its period or
+// round keeps the chosen number; related-number taps reuse the aggregate.
+params = { round: 1243, number: 7 };
+visible = true;
+hold = null;
+model.featureAdRequired = false;
+await act(async () => {
+	root = create(<GeneratedInsightsScreen />);
+});
+expect(text()).toContain("번호별 생성 통계");
+expect(text()).toContain("7번 생성 통계");
+expect(text()).not.toContain("많이 생성된 번호 Top 10");
+expect(button("조합 패턴 더 보기")).toBeUndefined();
+await act(async () => {
+	button("이전")?.props.onPress();
+});
+expect(text()).toContain("7번 생성 통계");
+expect(requests.at(-1)?.searchParams.get("round")).toBe("1242");
+await act(async () => {
+	button("최근 4회")?.props.onPress();
+});
+expect(text()).toContain("7번 생성 통계");
+const beforeRelated = requests.length;
+await act(async () => {
+	root.root
+		.findAllByType("balls")
+		.find((n) => n.props.onNumberPress)
+		?.props.onNumberPress(10);
+});
+expect(text()).toContain("10번 생성 통계");
+expect(requests).toHaveLength(beforeRelated);
+await act(async () => {
+	button("전체 생성 통계 보기")?.props.onPress();
+	button("전체 생성 통계 보기")?.props.onPress();
+});
+expect(navigations).toEqual([["/insights", { round: 1242 }]]);
+empty = true;
+await act(async () => {
+	button("다음")?.props.onPress();
+});
+expect(text()).toContain("10번 생성 통계");
+expect(text()).toContain("아직 순위 없음");
+expect(text()).not.toContain("NaN");
+await act(async () => {
+	root.unmount();
+});
+expect(intervals.size).toBe(0);
+expect(appState.size).toBe(0);
+empty = false;
 
 // The compact preview upgrades cached hints without issuing requests or cycling
 // the chosen number. Publication receipts do not depend on feed pagination.

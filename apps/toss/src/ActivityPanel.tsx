@@ -41,6 +41,7 @@ export function ActivityPanel({
 	adConfig,
 	savedNumbers = [],
 	onExplore = (action) => action(),
+	onOverview,
 }: {
 	active: boolean;
 	initialRound?: number;
@@ -52,8 +53,10 @@ export function ActivityPanel({
 		numbers: readonly number[];
 	}[];
 	onExplore?: (action: () => void) => void;
+	onOverview?: (round: number) => void;
 }) {
 	const theme = useTheme();
+	const numberOnly = initialNumber !== undefined;
 	const controller = useMemo(() => {
 		const measured = new Set<string>();
 		const performance = createPerformanceTracker(trackProduct);
@@ -170,21 +173,37 @@ export function ActivityPanel({
 	function changeRound(next: number) {
 		setPickedRound(next);
 		if (period === "day") setPeriod("round");
-		setSelected(null);
+		if (!numberOnly) setSelected(null);
 	}
 	const detailView = selectedData ? (
 		<View style={[s.inspector, { backgroundColor: theme.surface }]}>
 			<View style={s.row}>
-				{title(`${selected}번 자세히 보기`)}
-				<Button size="tiny" style="weak" onPress={() => setSelected(null)}>
-					닫기
-				</Button>
+				{title(`${selected}번 ${numberOnly ? "생성 통계" : "자세히 보기"}`)}
+				{!numberOnly ? (
+					<Button size="tiny" style="weak" onPress={() => setSelected(null)}>
+						닫기
+					</Button>
+				) : (
+					<Balls numbers={[selected as number]} size={40} reducedMotion />
+				)}
 			</View>
+			<Text style={[s.total, text]}>
+				{selectedData.number.count.toLocaleString()}
+				<Text style={s.unit}>회 생성</Text>
+			</Text>
 			<Text style={[s.body, text]}>
-				{selectedData.number.rank ?? "—"}위 · 등장 비중{" "}
-				{percent(selectedData.number.share)}
+				{selectedData.number.rank
+					? `${selectedData.number.rank}위`
+					: "아직 순위 없음"}{" "}
+				· 등장 비중 {percent(selectedData.number.share)}
+			</Text>
+			<Text style={[s.caption, muted]}>
+				비중은 선택 기간의 전체 번호 등장 횟수 기준이에요.
 			</Text>
 			<Text style={[s.caption, muted]}>최근 회차별 비중</Text>
+			{!selectedData.trend.length ? (
+				<Text style={muted}>회차별 집계가 모이면 표시돼요.</Text>
+			) : null}
 			{selectedData.trend.map((t) => (
 				<View key={t.round} style={s.row}>
 					<Text style={muted}>{t.round}회</Text>
@@ -205,6 +224,11 @@ export function ActivityPanel({
 							numbers={[p.a === selected ? p.b : p.a]}
 							size={30}
 							reducedMotion
+							onNumberPress={
+								numberOnly
+									? (number) => onExplore(() => setSelected(number))
+									: undefined
+							}
 						/>
 						<Text style={text}>{p.count.toLocaleString()}개 조합</Text>
 					</View>
@@ -271,7 +295,7 @@ export function ActivityPanel({
 						type={period === p.value ? "primary" : "dark"}
 						onPress={() => {
 							setPeriod(p.value);
-							setSelected(null);
+							if (!numberOnly) setSelected(null);
 						}}
 					>
 						{p.label}
@@ -298,20 +322,24 @@ export function ActivityPanel({
 			) : null}
 			{data && snapshot ? (
 				<>
-					<View style={[s.summary, { borderColor: theme.line }]}>
-						<Text style={[s.caption, muted]}>
-							{snapshot.round}회 기준 · 생성된 번호
-						</Text>
-						<Text style={[s.total, text]}>
-							{data.records.toLocaleString()}
-							<Text style={s.unit}>조합</Text>
-						</Text>
-						<Text style={[s.caption, muted]}>
-							번호 등장 {total.toLocaleString()}회 · 비중은 전체 번호 등장 횟수
-							기준
-						</Text>
-					</View>
-					{total === 0 ? (
+					{!numberOnly ? (
+						<View style={[s.summary, { borderColor: theme.line }]}>
+							<Text style={[s.caption, muted]}>
+								{snapshot.round}회 기준 · 생성된 번호
+							</Text>
+							<Text style={[s.total, text]}>
+								{data.records.toLocaleString()}
+								<Text style={s.unit}>조합</Text>
+							</Text>
+							<Text style={[s.caption, muted]}>
+								번호 등장 {total.toLocaleString()}회 · 비중은 전체 번호 등장
+								횟수 기준
+							</Text>
+						</View>
+					) : null}
+					{numberOnly ? (
+						detailView
+					) : total === 0 ? (
 						<View style={s.notice}>
 							<Text style={[s.heading, text]}>아직 모인 번호가 없어요</Text>
 							<Text style={[s.body, muted]}>
@@ -466,152 +494,167 @@ export function ActivityPanel({
 							groupId={adConfig?.bannerGroups?.card ?? adConfig?.bannerGroupId}
 						/>
 					) : null}
-					<Button
-						display="full"
-						style="weak"
-						disabled={!more && total === 0}
-						onPress={() =>
-							more
-								? setMore(false)
-								: onExplore(() => {
-										trackProduct("insights_patterns_viewed", period);
-										setMore(true);
-									})
-						}
-					>
-						{more ? "조합 패턴 접기" : "조합 패턴 더 보기"}
-					</Button>
-					{more ? (
+					{numberOnly && onOverview ? (
+						<Button
+							display="full"
+							size="medium"
+							style="weak"
+							onPress={() => onOverview(snapshot.round)}
+						>
+							전체 생성 통계 보기
+						</Button>
+					) : null}
+					{!numberOnly ? (
 						<>
-							<View style={s.block}>
-								{title("함께 등장한 번호 Top 10")}
-								{data.pairs.length ? (
-									data.pairs.slice(0, 10).map((p) => (
-										<View key={`${p.a}:${p.b}`} style={s.row}>
-											<Balls numbers={[p.a, p.b]} size={30} reducedMotion />
-											<Text style={text}>
-												{p.count.toLocaleString()}개 조합
-											</Text>
-										</View>
-									))
-								) : (
-									<Text style={[s.body, muted]}>
-										이 기간의 번호 쌍 집계가 아직 없어요.
-									</Text>
-								)}
-							</View>
-							<View style={s.block}>
-								{title("조합 패턴")}
-								<Text style={[s.caption, muted]}>
-									패턴 집계 대상 {data.patterns.combinations.toLocaleString()}
-									조합 · 과거 번호별 합계와 집계 범위가 다를 수 있어요.
-								</Text>
-								{data.patterns.combinations ? (
-									<>
-										{data.patterns.oddCounts
-											.map((count, odd) => ({ count, odd }))
-											.map(({ count, odd }) => (
-												<View key={odd} style={s.row}>
+							<Button
+								display="full"
+								style="weak"
+								disabled={!more && total === 0}
+								onPress={() =>
+									more
+										? setMore(false)
+										: onExplore(() => {
+												trackProduct("insights_patterns_viewed", period);
+												setMore(true);
+											})
+								}
+							>
+								{more ? "조합 패턴 접기" : "조합 패턴 더 보기"}
+							</Button>
+							{more ? (
+								<>
+									<View style={s.block}>
+										{title("함께 등장한 번호 Top 10")}
+										{data.pairs.length ? (
+											data.pairs.slice(0, 10).map((p) => (
+												<View key={`${p.a}:${p.b}`} style={s.row}>
+													<Balls numbers={[p.a, p.b]} size={30} reducedMotion />
 													<Text style={text}>
-														홀 {odd} : 짝 {6 - odd}
-													</Text>
-													<Text style={text}>
-														{percent(count / data.patterns.combinations)}
+														{p.count.toLocaleString()}개 조합
 													</Text>
 												</View>
-											))}
-										<View style={s.row}>
-											<Text style={text}>연속번호 포함</Text>
-											<Text style={text}>
-												{percent(
-													data.patterns.withConsecutive /
-														data.patterns.combinations,
-												)}
+											))
+										) : (
+											<Text style={[s.body, muted]}>
+												이 기간의 번호 쌍 집계가 아직 없어요.
 											</Text>
-										</View>
-										{title("번호 합계 분포")}
-										{data.patterns.sumCounts
-											.map((count, bin) => ({ count, from: bin * 20 }))
-											.map(({ count, from }) =>
-												count ? (
-													<View key={from} style={s.row}>
-														<Text style={muted}>
-															{from}~{from + 19}
-														</Text>
-														<Text style={text}>
-															{percent(count / data.patterns.combinations)}
-														</Text>
-													</View>
-												) : null,
-											)}
-									</>
-								) : (
-									<Text style={[s.body, muted]}>
-										{period === "day"
-											? "24시간 보기에서는 번호별 집계를 제공해요. 회차를 선택하면 패턴을 볼 수 있어요."
-											: "새 패턴 집계가 모이면 표시돼요."}
-									</Text>
-								)}
-							</View>
-							<View style={s.block}>
-								{title("번호 구간별 분포")}
-								{[
-									[1, 10],
-									[11, 20],
-									[21, 30],
-									[31, 40],
-									[41, 45],
-								].map(([a, b]) => (
-									<View key={a} style={s.row}>
-										<Text style={text}>
-											{a}~{b}번
-										</Text>
-										<Text style={text}>
-											{percent(
-												total
-													? sum(data.numberCounts.slice(a - 1, b)) / total
-													: 0,
-											)}
-										</Text>
+										)}
 									</View>
-								))}
-							</View>
-							{total > 0 ? (
-								<Banner
-									placement="insights_patterns"
-									groupId={
-										adConfig?.feedInlineGroupIds?.[0] ??
-										adConfig?.bannerGroups?.inline ??
-										adConfig?.bannerGroupId
-									}
-								/>
+									<View style={s.block}>
+										{title("조합 패턴")}
+										<Text style={[s.caption, muted]}>
+											패턴 집계 대상{" "}
+											{data.patterns.combinations.toLocaleString()}
+											조합 · 과거 번호별 합계와 집계 범위가 다를 수 있어요.
+										</Text>
+										{data.patterns.combinations ? (
+											<>
+												{data.patterns.oddCounts
+													.map((count, odd) => ({ count, odd }))
+													.map(({ count, odd }) => (
+														<View key={odd} style={s.row}>
+															<Text style={text}>
+																홀 {odd} : 짝 {6 - odd}
+															</Text>
+															<Text style={text}>
+																{percent(count / data.patterns.combinations)}
+															</Text>
+														</View>
+													))}
+												<View style={s.row}>
+													<Text style={text}>연속번호 포함</Text>
+													<Text style={text}>
+														{percent(
+															data.patterns.withConsecutive /
+																data.patterns.combinations,
+														)}
+													</Text>
+												</View>
+												{title("번호 합계 분포")}
+												{data.patterns.sumCounts
+													.map((count, bin) => ({ count, from: bin * 20 }))
+													.map(({ count, from }) =>
+														count ? (
+															<View key={from} style={s.row}>
+																<Text style={muted}>
+																	{from}~{from + 19}
+																</Text>
+																<Text style={text}>
+																	{percent(count / data.patterns.combinations)}
+																</Text>
+															</View>
+														) : null,
+													)}
+											</>
+										) : (
+											<Text style={[s.body, muted]}>
+												{period === "day"
+													? "24시간 보기에서는 번호별 집계를 제공해요. 회차를 선택하면 패턴을 볼 수 있어요."
+													: "새 패턴 집계가 모이면 표시돼요."}
+											</Text>
+										)}
+									</View>
+									<View style={s.block}>
+										{title("번호 구간별 분포")}
+										{[
+											[1, 10],
+											[11, 20],
+											[21, 30],
+											[31, 40],
+											[41, 45],
+										].map(([a, b]) => (
+											<View key={a} style={s.row}>
+												<Text style={text}>
+													{a}~{b}번
+												</Text>
+												<Text style={text}>
+													{percent(
+														total
+															? sum(data.numberCounts.slice(a - 1, b)) / total
+															: 0,
+													)}
+												</Text>
+											</View>
+										))}
+									</View>
+									{total > 0 ? (
+										<Banner
+											placement="insights_patterns"
+											groupId={
+												adConfig?.feedInlineGroupIds?.[0] ??
+												adConfig?.bannerGroups?.inline ??
+												adConfig?.bannerGroupId
+											}
+										/>
+									) : null}
+									<View style={s.block}>
+										{title("시간별 생성 활동")}
+										<Text style={[s.caption, muted]}>
+											최근 24시간 · 시간 단위로 새로 집계된 조합
+										</Text>
+										{data.hours.length ? (
+											data.hours.map((h) => (
+												<View key={h.hour} style={s.row}>
+													<Text style={muted}>
+														{new Date(h.hour + 9 * 3600000)
+															.toISOString()
+															.slice(5, 13)
+															.replace("T", " ")}
+														시
+													</Text>
+													<Text style={text}>
+														{h.combinations.toLocaleString()}조합
+													</Text>
+												</View>
+											))
+										) : (
+											<Text style={[s.body, muted]}>
+												최근 24시간에 집계된 조합이 없어요.
+											</Text>
+										)}
+									</View>
+								</>
 							) : null}
-							<View style={s.block}>
-								{title("시간별 생성 활동")}
-								<Text style={[s.caption, muted]}>
-									최근 24시간 · 시간 단위로 새로 집계된 조합
-								</Text>
-								{data.hours.length ? (
-									data.hours.map((h) => (
-										<View key={h.hour} style={s.row}>
-											<Text style={muted}>
-												{new Date(h.hour + 9 * 3600000)
-													.toISOString()
-													.slice(5, 13)
-													.replace("T", " ")}
-												시
-											</Text>
-											<Text style={text}>
-												{h.combinations.toLocaleString()}조합
-											</Text>
-										</View>
-									))
-								) : (
-									<Text style={[s.body, muted]}>
-										최근 24시간에 집계된 조합이 없어요.
-									</Text>
-								)}
-							</View>
 						</>
 					) : null}
 					<Text style={[s.caption, muted]}>

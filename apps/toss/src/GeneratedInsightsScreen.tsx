@@ -1,6 +1,7 @@
 import {
 	IOScrollView,
 	useBackEvent,
+	useNavigation,
 	useParams,
 	useVisibility,
 } from "@granite-js/react-native";
@@ -9,7 +10,7 @@ import {
 	HideAccessibilityProvider,
 	HideAccessibilityView,
 } from "@toss/tds-react-native/private";
-import { useEffect, useLayoutEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ActivityPanel } from "./ActivityPanel";
@@ -26,11 +27,16 @@ export function GeneratedInsightsScreen() {
 	const { model } = useLottoContext();
 	const params = useParams({ from: "/insights" });
 	const visible = useVisibility();
+	const navigation = useNavigation();
+	const openingOverview = useRef(false);
 	const backEvent = useBackEvent();
 	const theme = useTheme();
 	const insets = useSafeAreaInsets();
 	const { overlay, presentOverlay } = useOverlayStack();
 	const [request, setRequest] = useState<FeatureRequest | null>(null);
+	useEffect(() => {
+		if (visible) openingOverview.current = false;
+	}, [visible]);
 	useEffect(() => {
 		if (visible)
 			trackProduct(
@@ -73,10 +79,12 @@ export function GeneratedInsightsScreen() {
 										accessibilityRole="header"
 										style={[s.title, { color: theme.text }]}
 									>
-										생성 통계
+										{params.number ? "번호별 생성 통계" : "생성 통계"}
 									</Text>
 									<Text style={[s.description, { color: theme.muted }]}>
-										모두가 만든 번호의 순위와 조합 패턴을 살펴보세요.
+										{params.number
+											? "선택한 번호가 얼마나 생성됐는지 살펴보세요."
+											: "모두가 만든 번호의 순위와 조합 패턴을 살펴보세요."}
 									</Text>
 								</View>
 								<ActivityPanel
@@ -86,6 +94,18 @@ export function GeneratedInsightsScreen() {
 									savedNumbers={model.saved}
 									adConfig={model.adConfig}
 									onExplore={explore}
+									onOverview={(round) => {
+										if (
+											!visible ||
+											request ||
+											overlay ||
+											openingOverview.current
+										)
+											return;
+										openingOverview.current = true;
+										// A new route instance keeps the focused number when returning.
+										navigation.push("/insights", { round });
+									}}
 								/>
 								{model.actionError?.area === "feature" ? (
 									<Text

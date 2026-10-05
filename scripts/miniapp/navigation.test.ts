@@ -165,6 +165,12 @@ test("generation insights push onto Granite's parent stack and return to the sam
 	expect(stack.routes[stack.index].params).toEqual({ round: 1243, number: 7 });
 	expect(navigateToInsights(navigation, "saved", true)).toBe(false);
 	expect(stack.routes).toHaveLength(2);
+	const numberRoute = stack.routes[stack.index];
+	parent.push("/insights", { round: 1243 });
+	expect(stack.routes).toHaveLength(3);
+	expect(stack.routes[stack.index].params).toEqual({ round: 1243 });
+	stack = router.getStateForAction(stack, CommonActions.goBack(), config);
+	expect(stack.routes[stack.index]).toEqual(numberRoute);
 	stack = router.getStateForAction(stack, CommonActions.goBack(), config);
 	expect(stack.routes[stack.index].name).toBe("/");
 	expect(app.state).toBe(tabs);

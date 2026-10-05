@@ -175,6 +175,7 @@ mock.module("../../apps/toss/src/AdCtaImpression", () => ({
 }));
 mock.module("../../apps/toss/src/LiveFeed", () => ({
 	LiveFeed: host("liveFeed"),
+	GenerationRow: host("generationRow"),
 	relativeTime: () => "",
 }));
 const row = (round: number) => ({
@@ -284,6 +285,68 @@ await act(async () => {
 	lateExit();
 });
 expect(stack).toHaveLength(1);
+// A cold home opens shopping even before this session generates a number.
+currentTab = "make";
+visible = true;
+await act(async () => {
+	root = create(<LottoScreen tab="make" />);
+});
+expect(model.current).toBeNull();
+expect(root.root.findByType("ShoppingRecommendation").props.placement).toBe(
+	"generator",
+);
+Object.assign(model, {
+	feed: {
+		round: 1244,
+		serverTime: 100,
+		totalGenerations: 3,
+		generations: [1, 2, 3].map((id) => ({
+			id,
+			round: 1244,
+			numbers: [7, 10, 25, 29, 30, 43],
+			createdAt: id,
+			displayName: "참여자",
+		})),
+	},
+});
+await act(async () => {
+	root.update(<LottoScreen tab="make" />);
+});
+expect(root.root.findAllByType("generationRow")).toHaveLength(2);
+await act(async () => {
+	root.root.findAllByType("generationRow")[0].props.onNumberPress(1244, 7);
+	root.root.findAllByType("generationRow")[0].props.onNumberPress(1244, 7);
+});
+expect(stack).toEqual([
+	{ name: "/", params: {} },
+	{ name: "/insights", params: { round: 1244, number: 7 } },
+]);
+stack.pop();
+visible = true;
+Object.assign(model, {
+	user: {},
+	featureAdRequired: true,
+	adConfig: { placements: [{ placement: "report", enabled: true }] },
+});
+await act(async () => {
+	root.update(<LottoScreen tab="make" />);
+});
+await act(async () => {
+	root.root.findAllByType("generationRow")[0].props.onNumberPress(1244, 7);
+});
+expect(stack).toHaveLength(1);
+expect(root.root.findByType("FeatureAccessPrompt").props.request.feature).toBe(
+	"report",
+);
+await act(async () => {
+	root.root.findByType("FeatureAccessPrompt").props.onDone();
+});
+expect(stack).toHaveLength(1);
+Object.assign(model, { featureAdRequired: false, adConfig: null });
+model.feed = null;
+await act(async () => {
+	root.unmount();
+});
 const renderedText = () =>
 	root.root
 		.findAllByType("text")

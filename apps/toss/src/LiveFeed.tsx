@@ -32,30 +32,38 @@ export function relativeTime(at: number, now: number) {
 	return `${Math.floor(seconds / 3600)}시간 전`;
 }
 
-const GenerationRow = memo(function GenerationRow({
+export const GenerationRow = memo(function GenerationRow({
 	item,
 	now,
 	ballSize,
 	mine,
+	compact = false,
+	onNumberPress,
 }: {
 	mine: boolean;
 	item: Generation;
 	now: number;
 	ballSize: number;
+	compact?: boolean;
+	onNumberPress?: (round: number, number: number) => void;
 }) {
 	const theme = useTheme();
 	return (
 		<View
 			style={[
 				s.generation,
+				compact && s.compactGeneration,
 				{
 					borderColor: theme.line,
 					backgroundColor: mine ? theme.surface : undefined,
 				},
 			]}
 		>
-			<View style={[s.row, { marginBottom: 12 }]}>
-				<Text style={[s.body, { color: theme.text }]}>
+			<View style={[s.row, { marginBottom: compact ? 2 : 12 }]}>
+				<Text
+					numberOfLines={1}
+					style={[compact ? s.caption : s.body, { color: theme.text, flex: 1 }]}
+				>
 					{mine ? "내가 만든 번호" : item.displayName}
 				</Text>
 				<Text style={[s.caption, { color: theme.muted }]}>
@@ -66,6 +74,11 @@ const GenerationRow = memo(function GenerationRow({
 				numbers={item.numbers}
 				size={Math.min(36, ballSize)}
 				reducedMotion
+				onNumberPress={
+					onNumberPress
+						? (number) => onNumberPress(item.round, number)
+						: undefined
+				}
 			/>
 		</View>
 	);
@@ -86,6 +99,7 @@ export function LiveFeed({
 	onRefresh,
 	onResults,
 	onInsights,
+	onNumberPress,
 }: {
 	feed: Feed | null;
 	myGeneration: Generation | null;
@@ -101,6 +115,7 @@ export function LiveFeed({
 	onRefresh: () => void;
 	onResults: () => void;
 	onInsights: () => void;
+	onNumberPress?: (round: number, number: number) => void;
 }) {
 	const theme = useTheme();
 	const visible = useVisibility();
@@ -178,6 +193,7 @@ export function LiveFeed({
 							mine={item.generation.id === highlightId}
 							now={now}
 							ballSize={ballSize}
+							onNumberPress={onNumberPress}
 						/>
 					)
 				}
@@ -390,6 +406,7 @@ const s = StyleSheet.create({
 	live: { flexDirection: "row", alignItems: "center", gap: 6 },
 	dot: { width: 6, height: 6, borderRadius: 3 },
 	generation: { paddingVertical: 18, borderTopWidth: 1 },
+	compactGeneration: { paddingVertical: 8 },
 	detailActions: { gap: 8, paddingTop: 16, paddingBottom: 8 },
 	detailAction: { flex: 1 },
 	gridToolbar: { marginTop: 16, flexWrap: "wrap" },
