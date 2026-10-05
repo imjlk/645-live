@@ -11,10 +11,12 @@ export function LocalResultPreview({
 	draw,
 	ballSize,
 	reducedMotion,
+	onNumberPress,
 }: {
 	draw: Draw;
 	ballSize: number;
 	reducedMotion: boolean;
+	onNumberPress?: (round: number, number: number) => void;
 }) {
 	const theme = useTheme();
 	const [rank, setRank] = useState<number | null>(5);
@@ -74,6 +76,11 @@ export function LocalResultPreview({
 					size={Math.min(40, ballSize)}
 					matches={result.matches}
 					reducedMotion={reducedMotion}
+					onNumberPress={
+						onNumberPress
+							? (number) => onNumberPress(draw.round, number)
+							: undefined
+					}
 				/>
 				<Text
 					accessibilityLiveRegion="polite"
@@ -98,6 +105,11 @@ export function LocalResultPreview({
 					numbers={draw.numbers}
 					size={Math.min(36, ballSize)}
 					reducedMotion
+					onNumberPress={
+						onNumberPress
+							? (number) => onNumberPress(draw.round, number)
+							: undefined
+					}
 				/>
 			</View>
 			<Button

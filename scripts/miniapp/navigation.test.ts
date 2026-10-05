@@ -1,10 +1,14 @@
 import { expect, test } from "bun:test";
 import { createRequire } from "node:module";
-import { resultsParams } from "../../apps/toss/src/insights-route";
+import {
+	numberStatisticsParams,
+	resultsParams,
+} from "../../apps/toss/src/insights-route";
 import {
 	type LottoTab,
 	navigateToGenerationResults,
 	navigateToInsights,
+	navigateToNumberStatistics,
 	navigateToSavedRound,
 	navigateToTab,
 	TAB_BACK_BEHAVIOR,
@@ -137,7 +141,7 @@ test("generation insights push onto Granite's parent stack and return to the sam
 	const tabs = app.state;
 	const router = StackRouter({ initialRouteName: "/" });
 	const config = {
-		routeNames: ["/", "/insights"],
+		routeNames: ["/", "/insights", "/numbers"],
 		routeParamList: {},
 		routeGetIdList: {},
 	};
@@ -177,6 +181,32 @@ test("generation insights push onto Granite's parent stack and return to the sam
 	expect(app.current()).toBe("saved");
 	expect(app.back()).toBe(true);
 	expect(app.current()).toBe("live");
+	expect(
+		navigateToNumberStatistics(navigation, "live", true, {
+			round: 1243,
+			number: 7,
+			source: "draw",
+		}),
+	).toBe(true);
+	expect(stack.routes[stack.index].params).toEqual({
+		round: 1243,
+		number: 7,
+		source: "draw",
+	});
+	expect(
+		navigateToNumberStatistics(navigation, "live", true, { number: 8 }),
+	).toBe(false);
+});
+
+test("number detail routes require a real number and validate optional context", () => {
+	expect(
+		numberStatisticsParams({ number: 7, round: 1243, source: "generated" }),
+	).toEqual({ number: 7, round: 1243, source: "generated" });
+	expect(
+		numberStatisticsParams({ number: 7, round: -1, source: "unknown" }),
+	).toEqual({ number: 7 });
+	for (const number of [undefined, 0, 46, 1.5])
+		expect(() => numberStatisticsParams({ number })).toThrow();
 });
 
 test("result return targets the existing saved tab and Back returns to the generator", () => {

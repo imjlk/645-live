@@ -5,7 +5,7 @@ import {
 	useParams,
 	useVisibility,
 } from "@granite-js/react-native";
-import { TDSProvider } from "@toss/tds-react-native";
+import { SegmentedControl, TDSProvider } from "@toss/tds-react-native";
 import {
 	HideAccessibilityProvider,
 	HideAccessibilityView,
@@ -14,6 +14,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ActivityPanel } from "./ActivityPanel";
+import { DrawNumberPanel } from "./DrawNumberPanel";
 import {
 	FeatureAccessPrompt,
 	type FeatureRequest,
@@ -23,12 +24,21 @@ import { TabShellContext, useOverlayStack } from "./TabShell";
 import { trackProduct } from "./telemetry";
 import { useTheme } from "./theme";
 
-export function GeneratedInsightsScreen() {
+export function GeneratedInsightsScreen({
+	numberRoute = false,
+}: {
+	numberRoute?: boolean;
+}) {
 	const { model } = useLottoContext();
-	const params = useParams({ from: "/insights" });
+	const params = useParams({ from: numberRoute ? "/numbers" : "/insights" });
+	const [source, setSource] = useState<"draw" | "generated">(
+		"source" in params && params.source === "generated" ? "generated" : "draw",
+	);
 	const visible = useVisibility();
 	const navigation = useNavigation();
 	const openingOverview = useRef(false);
+	const visibleRef = useRef(visible);
+	visibleRef.current = visible;
 	const backEvent = useBackEvent();
 	const theme = useTheme();
 	const insets = useSafeAreaInsets();
@@ -62,6 +72,25 @@ export function GeneratedInsightsScreen() {
 		model.featureUsed();
 		action();
 	};
+	const openNumber = (
+		round: number,
+		number: number,
+		source: "draw" | "generated",
+	) => {
+		if (
+			!visibleRef.current ||
+			request ||
+			overlay ||
+			openingOverview.current ||
+			model.busy
+		)
+			return;
+		explore(() => {
+			if (!visibleRef.current || openingOverview.current) return;
+			openingOverview.current = true;
+			navigation.push("/numbers", { round, number, source });
+		});
+	};
 	return (
 		<TDSProvider colorPreference="light" fontScaleAvailable>
 			<HideAccessibilityProvider>
@@ -79,34 +108,72 @@ export function GeneratedInsightsScreen() {
 										accessibilityRole="header"
 										style={[s.title, { color: theme.text }]}
 									>
-										{params.number ? "번호별 생성 통계" : "생성 통계"}
+										{numberRoute
+											? `${params.number}번 번호 통계`
+											: params.number
+												? "번호별 생성 통계"
+												: "생성 통계"}
 									</Text>
 									<Text style={[s.description, { color: theme.muted }]}>
-										{params.number
-											? "선택한 번호가 얼마나 생성됐는지 살펴보세요."
-											: "모두가 만든 번호의 순위와 조합 패턴을 살펴보세요."}
+										{numberRoute
+											? "실제 추첨 이력과 이용자 생성 기록을 구분해 살펴보세요."
+											: params.number
+												? "선택한 번호가 얼마나 생성됐는지 살펴보세요."
+												: "모두가 만든 번호의 순위와 조합 패턴을 살펴보세요."}
 									</Text>
 								</View>
-								<ActivityPanel
-									active={visible}
-									initialRound={params.round}
-									initialNumber={params.number}
-									savedNumbers={model.saved}
-									adConfig={model.adConfig}
-									onExplore={explore}
-									onOverview={(round) => {
-										if (
-											!visible ||
-											request ||
-											overlay ||
-											openingOverview.current
-										)
-											return;
-										openingOverview.current = true;
-										// A new route instance keeps the focused number when returning.
-										navigation.push("/insights", { round });
-									}}
-								/>
+								{numberRoute ? (
+									<SegmentedControl.Root
+										name="number-statistics-source"
+										size="small"
+										value={source}
+										onChange={(value) => {
+											if (value === "draw" || value === "generated")
+												setSource(value);
+										}}
+									>
+										<SegmentedControl.Item value="draw">
+											추첨 통계
+										</SegmentedControl.Item>
+										<SegmentedControl.Item value="generated">
+											생성 통계
+										</SegmentedControl.Item>
+									</SegmentedControl.Root>
+								) : null}
+								{numberRoute && source === "draw" && params.number ? (
+									<DrawNumberPanel
+										number={params.number}
+										active={visible && model.foreground}
+										adConfig={model.adConfig}
+									/>
+								) : (
+									<ActivityPanel
+										active={visible}
+										initialRound={params.round}
+										initialNumber={params.number}
+										savedNumbers={model.saved}
+										adConfig={model.adConfig}
+										onExplore={explore}
+										onNumberPress={
+											params.number && !numberRoute
+												? undefined
+												: (round, number, source = "generated") =>
+														openNumber(round, number, source)
+										}
+										onOverview={(round) => {
+											if (
+												!visible ||
+												request ||
+												overlay ||
+												openingOverview.current
+											)
+												return;
+											openingOverview.current = true;
+											// A new route instance keeps the focused number when returning.
+											navigation.push("/insights", { round });
+										}}
+									/>
+								)}
 								{model.actionError?.area === "feature" ? (
 									<Text
 										accessibilityRole="alert"

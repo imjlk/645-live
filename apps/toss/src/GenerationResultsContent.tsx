@@ -33,10 +33,12 @@ export function GenerationResultsContent({
 	active,
 	onInsights,
 	initialRound,
+	onNumberPress,
 }: {
 	active: boolean;
 	onInsights?: (round: number) => void;
 	initialRound?: number;
+	onNumberPress?: (round: number, number: number) => void;
 }) {
 	const theme = useTheme();
 	const { width } = useWindowDimensions();
@@ -184,13 +186,27 @@ export function GenerationResultsContent({
 								numbers={selected.draw.numbers}
 								size={ballSize}
 								reducedMotion
+								onNumberPress={
+									onNumberPress
+										? (number) => onNumberPress(selected.round, number)
+										: undefined
+								}
 							/>
-							<Text style={{ color: theme.muted }}>+</Text>
-							<Balls
-								numbers={[selected.draw.bonus]}
-								size={ballSize}
-								reducedMotion
-							/>
+							<View
+								style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
+							>
+								<Text style={{ color: theme.muted }}>+</Text>
+								<Balls
+									numbers={[selected.draw.bonus]}
+									size={ballSize}
+									reducedMotion
+									onNumberPress={
+										onNumberPress
+											? (number) => onNumberPress(selected.round, number)
+											: undefined
+									}
+								/>
+							</View>
 						</View>
 					) : null}
 					{selected.totalGenerations === 0 ? (

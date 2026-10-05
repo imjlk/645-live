@@ -42,6 +42,7 @@ export function ActivityPanel({
 	savedNumbers = [],
 	onExplore = (action) => action(),
 	onOverview,
+	onNumberPress,
 }: {
 	active: boolean;
 	initialRound?: number;
@@ -54,6 +55,11 @@ export function ActivityPanel({
 	}[];
 	onExplore?: (action: () => void) => void;
 	onOverview?: (round: number) => void;
+	onNumberPress?: (
+		round: number,
+		number: number,
+		source?: "draw" | "generated",
+	) => void;
 }) {
 	const theme = useTheme();
 	const numberOnly = initialNumber !== undefined;
@@ -225,9 +231,11 @@ export function ActivityPanel({
 							size={30}
 							reducedMotion
 							onNumberPress={
-								numberOnly
-									? (number) => onExplore(() => setSelected(number))
-									: undefined
+								onNumberPress && snapshot
+									? (number) => onNumberPress(snapshot.round, number)
+									: numberOnly
+										? (number) => onExplore(() => setSelected(number))
+										: undefined
 							}
 						/>
 						<Text style={text}>{p.count.toLocaleString()}개 조합</Text>
@@ -402,13 +410,17 @@ export function ActivityPanel({
 										accessibilityRole="button"
 										accessibilityLabel={`${n.number}번 ${n.count}회, 상세 분석`}
 										onPress={() =>
-											selected === n.number
-												? setSelected(null)
-												: onExplore(() => {
-														setEntryDetail(false);
-														setDetailOrder(numbers.map((item) => item.number));
-														setSelected(n.number);
-													})
+											onNumberPress
+												? onNumberPress(snapshot.round, n.number)
+												: selected === n.number
+													? setSelected(null)
+													: onExplore(() => {
+															setEntryDetail(false);
+															setDetailOrder(
+																numbers.map((item) => item.number),
+															);
+															setSelected(n.number);
+														})
 										}
 										style={[s.rankRow, { borderColor: theme.line }]}
 									>
@@ -450,6 +462,12 @@ export function ActivityPanel({
 										numbers={snapshot.draw.numbers}
 										size={32}
 										reducedMotion
+										onNumberPress={
+											onNumberPress
+												? (number) =>
+														onNumberPress(snapshot.round, number, "draw")
+												: undefined
+										}
 									/>
 									<Text style={[s.body, text]}>
 										많이 등장한 Top 10에 추첨 번호{" "}
@@ -473,6 +491,11 @@ export function ActivityPanel({
 												numbers={[...item.numbers]}
 												size={30}
 												reducedMotion
+												onNumberPress={
+													onNumberPress
+														? (number) => onNumberPress(item.round, number)
+														: undefined
+												}
 											/>
 											<Text style={[s.caption, muted]}>
 												Top 10 번호{" "}
@@ -528,7 +551,17 @@ export function ActivityPanel({
 										{data.pairs.length ? (
 											data.pairs.slice(0, 10).map((p) => (
 												<View key={`${p.a}:${p.b}`} style={s.row}>
-													<Balls numbers={[p.a, p.b]} size={30} reducedMotion />
+													<Balls
+														numbers={[p.a, p.b]}
+														size={30}
+														reducedMotion
+														onNumberPress={
+															onNumberPress
+																? (number) =>
+																		onNumberPress(snapshot.round, number)
+																: undefined
+														}
+													/>
 													<Text style={text}>
 														{p.count.toLocaleString()}개 조합
 													</Text>

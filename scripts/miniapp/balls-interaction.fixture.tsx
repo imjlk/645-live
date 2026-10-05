@@ -32,7 +32,7 @@ await act(async () => {
 });
 const buttons = root.root.findAllByType("pressable");
 expect(buttons.map((n) => n.props.accessibilityLabel)).toEqual(
-	[7, 10, 25, 29, 30, 43].map((n) => `${n}번 생성 통계 보기`),
+	[7, 10, 25, 29, 30, 43].map((n) => `${n}번 번호 통계 보기`),
 );
 expect(
 	root.root.findAllByType("view").some((n) => n.props.accessible === true),

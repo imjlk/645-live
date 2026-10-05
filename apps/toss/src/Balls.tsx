@@ -47,7 +47,7 @@ export function Balls({
 			accessibilityLabel={
 				interactive ? undefined : `번호 ${numbers.join(", ")}`
 			}
-			style={[styles.row, interactive && { gap: 2 }]}
+			style={[styles.row, interactive && { gap: 0 }]}
 		>
 			{numbers.map((number, i) => {
 				const ball = (
@@ -110,7 +110,7 @@ export function Balls({
 						// biome-ignore lint/suspicious/noArrayIndexKey: Six fixed ball positions.
 						key={`${i}-${number}`}
 						accessibilityRole="button"
-						accessibilityLabel={`${number}번 생성 통계 보기`}
+						accessibilityLabel={`${number}번 번호 통계 보기`}
 						onPress={() => onNumberPress(number)}
 						style={({ pressed }) => [
 							styles.target,

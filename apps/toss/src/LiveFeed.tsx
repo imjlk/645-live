@@ -313,6 +313,7 @@ export function LiveFeed({
 							feed={feed}
 							reducedMotion={reducedMotion || !visible}
 							columns={columns}
+							onNumberPress={onNumberPress}
 						/>
 						<Text style={[s.caption, muted]}>
 							많이 생성된 번호와 당첨 확률은 관계가 없어요.

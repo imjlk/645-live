@@ -64,9 +64,11 @@ mock.module("@granite-js/react-native", () => ({
 	IOScrollView: "scroll",
 	ImpressionArea: "impression",
 	useVisibility: () => visible,
+	useBackEvent: () => ({ addEventListener() {}, removeEventListener() {} }),
 	useParams: () => stack.find((r) => r.name === "/results")?.params ?? {},
 	useNavigation: () => ({
 		navigate: (name: string, params: object) => nativeStack.push(name, params),
+		push: (name: string, params: object) => nativeStack.push(name, params),
 	}),
 }));
 mock.module("@toss/tds-react-native/private", () => ({
@@ -119,6 +121,8 @@ const presentOverlay = (close: () => void) => {
 	};
 };
 mock.module("../../apps/toss/src/TabShell", () => ({
+	TabShellContext: React.createContext(null),
+	useOverlayStack: () => ({ overlay: null, presentOverlay }),
 	useTabShell: () => ({ tabBarHeight: 60, presentOverlay, savedTarget }),
 }));
 const model = {
@@ -241,6 +245,28 @@ await act(async () => {
 	resultButton("이전")?.props.onPress();
 });
 expect(selected()).toBe(1242);
+const { GenerationResultsContent } = await import(
+	"../../apps/toss/src/GenerationResultsContent"
+);
+await act(async () => {
+	resultRoot.root
+		.findByType(GenerationResultsContent)
+		.props.onNumberPress(1242, 7);
+	resultRoot.update(<GenerationResultsScreen />);
+	resultRoot.root
+		.findByType(GenerationResultsContent)
+		.props.onNumberPress(1242, 7);
+});
+expect(stack.at(-1)).toEqual({
+	name: "/numbers",
+	params: { round: 1242, number: 7, source: "draw" },
+});
+await act(async () => {
+	stack.pop();
+	visible = true;
+	resultRoot.update(<GenerationResultsScreen />);
+});
+expect(selected()).toBe(1242);
 await act(async () => {
 	resultButton("1242회 생성 통계 보기")?.props.onPress();
 	resultButton("1242회 생성 통계 보기")?.props.onPress();
@@ -319,7 +345,7 @@ await act(async () => {
 });
 expect(stack).toEqual([
 	{ name: "/", params: {} },
-	{ name: "/insights", params: { round: 1244, number: 7 } },
+	{ name: "/numbers", params: { round: 1244, number: 7, source: "generated" } },
 ]);
 stack.pop();
 visible = true;
@@ -343,6 +369,54 @@ await act(async () => {
 });
 expect(stack).toHaveLength(1);
 Object.assign(model, { featureAdRequired: false, adConfig: null });
+const recent = {
+	id: 4,
+	round: 1244,
+	numbers: [7, 10, 25, 29, 30, 43],
+	createdAt: 1,
+	displayName: "나",
+};
+Object.assign(model, { recent: [recent] });
+await act(async () => {
+	root.update(<LottoScreen tab="make" />);
+});
+const openRecent = () =>
+	root.root
+		.findByProps({ accessibilityLabel: "최근 만든 번호 1개 보기" })
+		.props.onPress();
+await act(async () => {
+	openRecent();
+});
+await act(async () => {
+	root.root.findAllByType("Balls").at(-1)?.props.onNumberPress(7);
+});
+expect(sheet().props.open).toBe(false);
+expect(stack).toHaveLength(1);
+await act(async () => {
+	sheet().props.onExited();
+	sheet().props.onExited();
+});
+expect(stack.at(-1)).toEqual({
+	name: "/numbers",
+	params: { round: 1244, number: 7, source: "draw" },
+});
+await act(async () => {
+	stack.pop();
+	visible = true;
+	root.update(<LottoScreen tab="make" />);
+	openRecent();
+});
+await act(async () => {
+	root.root.findAllByType("Balls").at(-1)?.props.onNumberPress(7);
+});
+await act(async () => {
+	back?.();
+});
+await act(async () => {
+	sheet().props.onExited();
+});
+expect(stack).toHaveLength(1);
+Object.assign(model, { recent: [] });
 model.feed = null;
 await act(async () => {
 	root.unmount();

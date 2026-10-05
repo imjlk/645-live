@@ -1,5 +1,24 @@
 export type InsightsParams = { round?: number; number?: number };
 export type ResultsParams = Pick<InsightsParams, "round">;
+export type NumberStatisticsParams = {
+	round?: number;
+	number: number;
+	source?: "draw" | "generated";
+};
+
+export function numberStatisticsParams(
+	params: Readonly<object | undefined>,
+): NumberStatisticsParams {
+	const parsed = insightsParams(params);
+	if (parsed.number === undefined)
+		throw new Error("1~45 사이의 번호를 선택해 주세요.");
+	const source = (params as NumberStatisticsParams | undefined)?.source;
+	return {
+		...parsed,
+		number: parsed.number,
+		...(source === "draw" || source === "generated" ? { source } : {}),
+	};
+}
 
 export function resultsParams(
 	params: Readonly<object | undefined>,

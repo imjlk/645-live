@@ -59,11 +59,20 @@ export function navigateToGenerationResults(
 	return navigateToDetail(navigation, tab, visible, "/results", params);
 }
 
+export function navigateToNumberStatistics(
+	navigation: Pick<LottoTabNavigation, "getState" | "getParent">,
+	tab: LottoTab,
+	visible: boolean,
+	params: import("./insights-route").NumberStatisticsParams,
+) {
+	return navigateToDetail(navigation, tab, visible, "/numbers", params);
+}
+
 function navigateToDetail(
 	navigation: Pick<LottoTabNavigation, "getState" | "getParent">,
 	tab: LottoTab,
 	visible: boolean,
-	route: "/insights" | "/results",
+	route: "/insights" | "/results" | "/numbers",
 	params: InsightsParams,
 ) {
 	if (!visible) return false;
@@ -74,6 +83,7 @@ function navigateToDetail(
 			NativeStackNavigationProp<{
 				"/insights": InsightsParams;
 				"/results": ResultsParams;
+				"/numbers": import("./insights-route").NumberStatisticsParams;
 			}>
 		>();
 	if (!parent) return false;
@@ -84,7 +94,10 @@ function navigateToDetail(
 		!["/", "/live", "/saved"].includes(stack.routes[stack.index]?.name)
 	)
 		return false;
-	parent.push(route, params);
+	if (route === "/numbers") {
+		if (params.number === undefined) return false;
+		parent.push(route, { ...params, number: params.number });
+	} else parent.push(route, params);
 	return true;
 }
 

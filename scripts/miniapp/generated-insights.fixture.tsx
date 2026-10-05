@@ -19,7 +19,8 @@ const backEvent = {
 	removeEventListener: (fn: () => void) => back.delete(fn),
 };
 let returns = 0;
-let params: { round: number; number?: number } = { round: 1243 };
+let params: { round: number; number?: number; source?: "draw" | "generated" } =
+	{ round: 1243 };
 const navigations: unknown[] = [];
 mock.module("@granite-js/native/@react-navigation/native", () => ({
 	useIsFocused: () => true,
@@ -115,6 +116,7 @@ mock.module("../../apps/toss/src/theme", () => ({
 mock.module("../../apps/toss/src/Balls", () => ({ Balls: host("balls") }));
 let uses = 0;
 const model = {
+	foreground: true,
 	saved: [],
 	user: {},
 	busy: null,
@@ -171,6 +173,28 @@ globalThis.fetch = (async (
 	const url = new URL(String(input));
 	requests.push(url);
 	signals.push(init?.signal as AbortSignal);
+	if (url.pathname.endsWith("/lotto_number_stats"))
+		return Response.json({
+			records: Array.from({ length: 45 }, (_, i) => ({
+				number: i + 1,
+				draw_count: [7, 10, 25, 29, 30, 43].includes(i + 1) ? 1 : 0,
+				bonus_count: i + 1 === 8 ? 1 : 0,
+				last_draw_round: [7, 10, 25, 29, 30, 43].includes(i + 1) ? 1243 : null,
+			})),
+		});
+	if (url.pathname.endsWith("/lotto_draw_results")) {
+		const record = {
+			round: 1243,
+			draw_date: "2026-09-26",
+			...Object.fromEntries(
+				[7, 10, 25, 29, 30, 43].map((n, i) => [`draw_number_${i + 1}`, n]),
+			),
+			bonus_number: 8,
+		};
+		const bonus = url.searchParams.get("filter[bonus_number][$eq]");
+		const rows = bonus && Number(bonus) !== 8 ? [] : [record];
+		return Response.json({ total_count: rows.length, records: rows });
+	}
 	if (hold)
 		await new Promise<void>((resolve) => {
 			hold = resolve;
@@ -209,29 +233,23 @@ let root!: ReturnType<typeof create>;
 await act(async () => {
 	root = create(<GeneratedInsightsScreen />);
 });
-await act(async () => {
-	root.root
-		.findByProps({ accessibilityLabel: "7번 3회, 상세 분석" })
-		.props.onPress();
-});
-uses = 0;
 const text = () => JSON.stringify(root.toJSON());
 const button = (label: string) =>
 	root.root.findAllByType("button").find((n) => n.props.children === label);
 expect(productEvents.filter((e) => e === "insights_viewed")).toHaveLength(1);
 expect(
 	productEvents.filter((e) => e === "insights_detail_viewed"),
-).toHaveLength(1);
+).toHaveLength(0);
 await act(async () => {
 	root.update(<GeneratedInsightsScreen />);
 });
 expect(productEvents.filter((e) => e === "insights_viewed")).toHaveLength(1);
 expect(
 	productEvents.filter((e) => e === "insights_detail_viewed"),
-).toHaveLength(1);
+).toHaveLength(0);
 expect(requests).toHaveLength(1);
 expect(requests[0].searchParams.get("round")).toBe("1243");
-expect(text()).toContain("7번 자세히 보기");
+expect(text()).toContain("많이 생성된 번호 Top 10");
 expect(text()).not.toContain("QR 스캔");
 expect(text()).not.toContain("생성과 스캔");
 expect(back.size).toBe(0);
@@ -267,6 +285,7 @@ await act(async () => {
 });
 expect(button("조합 패턴 더 보기")?.props.disabled).toBe(true);
 empty = false;
+
 await act(async () => {
 	button("이전")?.props.onPress();
 });
@@ -372,6 +391,36 @@ await act(async () => {
 expect(intervals.size).toBe(0);
 expect(appState.size).toBe(0);
 empty = false;
+
+// Native number pages explicitly distinguish real draws from participation.
+params = { round: 1243, number: 7, source: "draw" };
+const beforeActual = requests.length;
+await act(async () => {
+	root = create(<GeneratedInsightsScreen numberRoute />);
+});
+expect(text()).toContain("7번 번호 통계");
+expect(text()).toContain("추첨 이력");
+expect(text()).toContain("회 본번호 출현");
+expect(text()).not.toContain("7번 생성 통계");
+expect(requests.length - beforeActual).toBe(2);
+const sourceControl = () =>
+	root.root.findByProps({ name: "number-statistics-source" });
+await act(async () => {
+	sourceControl().props.onChange("generated");
+});
+expect(text()).toContain("7번 생성 통계");
+expect(text()).not.toContain("회 본번호 출현");
+const beforeCached = requests.length;
+await act(async () => {
+	sourceControl().props.onChange("draw");
+});
+expect(text()).toContain("번 추첨 이력");
+expect(requests).toHaveLength(beforeCached);
+await act(async () => {
+	root.unmount();
+});
+expect(intervals.size).toBe(0);
+expect(appState.size).toBe(0);
 
 // The compact preview upgrades cached hints without issuing requests or cycling
 // the chosen number. Publication receipts do not depend on feed pagination.

@@ -12,11 +12,13 @@ export function SavedCombinationComparison({
 	saved,
 	onExplore,
 	compact = false,
+	onNumberPress,
 }: {
 	generation: Generation;
 	saved: readonly SavedCombination[];
 	onExplore: (action: () => void) => void;
 	compact?: boolean;
+	onNumberPress?: (round: number, number: number) => void;
 }) {
 	const theme = useTheme();
 	const comparison = useMemo(
@@ -67,7 +69,16 @@ export function SavedCombinationComparison({
 					</Text>
 					{comparison.closest.map(({ item, overlap }) => (
 						<View key={item.id} style={s.combination}>
-							<Balls numbers={item.numbers} size={30} reducedMotion />
+							<Balls
+								numbers={item.numbers}
+								size={30}
+								reducedMotion
+								onNumberPress={
+									onNumberPress
+										? (number) => onNumberPress(item.round, number)
+										: undefined
+								}
+							/>
 							<Text style={[s.caption, { color: theme.muted }]}>
 								{overlap}개 번호가 겹쳐요.
 							</Text>
@@ -79,7 +90,16 @@ export function SavedCombinationComparison({
 					<View style={s.numbers}>
 						{comparison.frequent.map(({ number, count }) => (
 							<View key={number} style={s.number}>
-								<Balls numbers={[number]} size={32} reducedMotion />
+								<Balls
+									numbers={[number]}
+									size={32}
+									reducedMotion
+									onNumberPress={
+										onNumberPress
+											? (number) => onNumberPress(generation.round, number)
+											: undefined
+									}
+								/>
 								<Text style={[s.caption, { color: theme.muted }]}>
 									{count}개 조합
 								</Text>

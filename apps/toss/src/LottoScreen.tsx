@@ -74,6 +74,7 @@ import {
 	type LottoTabNavigation,
 	navigateToGenerationResults,
 	navigateToInsights,
+	navigateToNumberStatistics,
 	navigateToSavedRound,
 	navigateToTab,
 } from "./navigation";
@@ -204,6 +205,11 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 	}>({ panel: null, open: false });
 	const mounted = useRef(false);
 	const visibleRef = useRef(visible);
+	const pendingNumber = useRef<{
+		round: number;
+		number: number;
+		source: "draw" | "generated";
+	} | null>(null);
 	visibleRef.current = visible;
 	const setPanel = useCallback((next: Panel) => {
 		setSheet((current) =>
@@ -216,12 +222,14 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 		return () => {
 			mounted.current = false;
 			visibleRef.current = false;
+			pendingNumber.current = null;
 		};
 	}, []);
 	const sheetScroll = useRef<ScrollView>(null);
 	useLayoutEffect(() => {
 		if (!visible || !panel) return;
 		return presentOverlay(() => {
+			pendingNumber.current = null;
 			if (sheetOpen) setPanel(parentPanel);
 		});
 	}, [panel, parentPanel, presentOverlay, setPanel, sheetOpen, visible]);
@@ -310,13 +318,18 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 		},
 		[navigation, tab, sheetOpen],
 	);
-	const openNumberInsights = (round: number, number: number) => {
-		if (sheetOpen || featureRequest || model.busy || !visibleRef.current)
+	const launchNumberInsights = (
+		round: number,
+		number: number,
+		source: "draw" | "generated",
+	) => {
+		if (featureRequest || model.busy || !mounted.current || !visibleRef.current)
 			return;
 		const open = () =>
-			navigateToInsights(navigation, tab, visibleRef.current, {
+			navigateToNumberStatistics(navigation, tab, visibleRef.current, {
 				round,
 				number,
+				source,
 			});
 		const adsEnabled = model.adConfig?.placements.some(
 			(p) => p.placement === "report" && p.enabled,
@@ -327,11 +340,34 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 		}
 		if (open()) model.featureUsed();
 	};
+	const openNumberInsights = (
+		round: number,
+		number: number,
+		source: "draw" | "generated" = "draw",
+	) => {
+		if (
+			featureRequest ||
+			model.busy ||
+			!visibleRef.current ||
+			pendingNumber.current
+		)
+			return;
+		if (sheetOpen) {
+			pendingNumber.current = { round, number, source };
+			setPanel(null);
+		} else launchNumberInsights(round, number, source);
+	};
+	const openGeneratedNumberInsights = (round: number, number: number) =>
+		openNumberInsights(round, number, "generated");
 	const onSheetExited = () => {
 		if (!mounted.current) return;
 		setSheet((current) =>
 			current.open ? current : { panel: null, open: false },
 		);
+		const pending = pendingNumber.current;
+		pendingNumber.current = null;
+		if (pending)
+			launchNumberInsights(pending.round, pending.number, pending.source);
 	};
 	const hasOptions =
 		options.fixed.length > 0 ||
@@ -518,7 +554,7 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 						refreshing={model.refreshing}
 						onRefresh={model.retry}
 						onInsights={() => openInsights()}
-						onNumberPress={openNumberInsights}
+						onNumberPress={openGeneratedNumberInsights}
 						onResults={() =>
 							navigateToGenerationResults(navigation, tab, visible)
 						}
@@ -570,6 +606,10 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 												size={ballSize}
 												animate
 												reducedMotion={model.reducedMotion}
+												onNumberPress={(number) => {
+													if (model.current)
+														openNumberInsights(model.current.round, number);
+												}}
 											/>
 										</View>
 										{recentLimitAtRisk ? (
@@ -774,7 +814,7 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 										{model.feed?.generations.length ? (
 											<View style={{ marginBottom: 12 }}>
 												<Text style={[s.caption, muted]}>
-													번호를 누르면 생성 통계를 볼 수 있어요.
+													번호를 누르면 통계를 볼 수 있어요.
 												</Text>
 												{model.feed.generations.slice(0, 2).map((item) => (
 													<GenerationRow
@@ -786,7 +826,7 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 														mine={model.recent.some(
 															(own) => own.id === item.id,
 														)}
-														onNumberPress={openNumberInsights}
+														onNumberPress={openGeneratedNumberInsights}
 													/>
 												))}
 											</View>
@@ -820,11 +860,31 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 												<Balls
 													numbers={model.context.latestDraw.numbers}
 													size={Math.min(40, ballSize)}
+													onNumberPress={(number) => {
+														if (model.context?.latestDraw)
+															openNumberInsights(
+																model.context.latestDraw.round,
+																number,
+															);
+													}}
 												/>
 											</View>
-											<Text style={[s.caption, muted, { marginTop: 12 }]}>
-												보너스 {model.context.latestDraw.bonus}
-											</Text>
+											<Pressable
+												accessibilityRole="button"
+												accessibilityLabel={`보너스 ${model.context.latestDraw.bonus}번 번호 통계 보기`}
+												style={{ minHeight: 44, justifyContent: "center" }}
+												onPress={() => {
+													if (model.context?.latestDraw)
+														openNumberInsights(
+															model.context.latestDraw.round,
+															model.context.latestDraw.bonus,
+														);
+												}}
+											>
+												<Text style={[s.caption, muted, { marginTop: 12 }]}>
+													보너스 {model.context.latestDraw.bonus}
+												</Text>
+											</Pressable>
 										</View>
 									) : null}
 								</>
@@ -1071,6 +1131,9 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 															numbers={item.numbers}
 															size={Math.min(42, ballSize)}
 															matches={result?.matches}
+															onNumberPress={(number) =>
+																openNumberInsights(item.round, number)
+															}
 														/>
 														<View style={[s.row, { marginTop: 14 }]}>
 															<Pressable
@@ -1194,7 +1257,10 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 			/>
 			<BottomSheet.Root
 				open={sheetOpen && visible}
-				onClose={() => setPanel(null)}
+				onClose={() => {
+					pendingNumber.current = null;
+					setPanel(null);
+				}}
 				onExited={onSheetExited}
 				header={
 					<BottomSheet.Header>
@@ -1283,6 +1349,9 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 										numbers={item.numbers}
 										size={Math.min(40, ballSize)}
 										reducedMotion
+										onNumberPress={(number) =>
+											openNumberInsights(item.round, number)
+										}
 									/>
 									{saveButton(item)}
 									{model.savedReady ? (
@@ -1291,6 +1360,7 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 											saved={model.saved}
 											compact
 											onExplore={(action) => accessFeature("report", action)}
+											onNumberPress={openNumberInsights}
 										/>
 									) : null}
 								</View>
@@ -1414,6 +1484,9 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 											<Balls
 												numbers={report.numbers}
 												size={Math.min(42, ballSize)}
+												onNumberPress={(number) =>
+													openNumberInsights(report.round, number)
+												}
 											/>
 											<View style={s.row}>
 												<Text style={[s.body, muted]}>홀수 : 짝수</Text>
@@ -1478,9 +1551,11 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 											</View>
 											<ReportHistory
 												state={model.reports[report.id]}
+												round={report.round}
 												retry={() => void model.loadReport(report)}
 												busy={!!model.busy}
 												ballSize={ballSize}
+												onNumberPress={openNumberInsights}
 											/>
 											<Text style={[s.caption, muted]}>
 												조합 통계 제공: 645.live
@@ -1616,6 +1691,7 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 							draw={model.context.latestDraw}
 							ballSize={ballSize}
 							reducedMotion={model.reducedMotion}
+							onNumberPress={openNumberInsights}
 						/>
 					) : null}
 					{panel === "support" ? (
