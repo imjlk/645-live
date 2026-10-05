@@ -48,48 +48,39 @@ export function GenerationInsightPreview({
 			: "많이 생성된 번호와 조합 흐름을 살펴보세요.");
 	return (
 		<View style={s.root}>
-			<View style={s.row}>
-				{generation && published ? (
-					<View
-						accessible
-						accessibilityLiveRegion="polite"
-						accessibilityLabel="실시간 생성 내역에 등록했어요"
-					>
-						<Badge size="tiny" type="green" badgeStyle="weak">
-							✓ 실시간 등록
-						</Badge>
-					</View>
-				) : (
-					<Text style={[s.caption, { color: theme.muted }]}>
-						{round ? `${round}회 생성 통계` : "생성 통계"}
-					</Text>
-				)}
-				<Pressable
-					accessibilityRole="button"
-					accessibilityLabel="생성 통계 보기"
-					onPress={() => onInsights(round)}
-					style={({ pressed }) => [s.link, { opacity: pressed ? 0.65 : 1 }]}
+			<Pressable
+				accessibilityRole="button"
+				accessibilityLabel="생성 통계 보기"
+				accessibilityHint={description}
+				onPress={() => onInsights(round)}
+				style={({ pressed }) => [s.link, { opacity: pressed ? 0.65 : 1 }]}
+			>
+				<Text style={[s.fact, { color: theme.muted }]}>{description}</Text>
+				<Text style={[s.linkText, { color: theme.blue }]}>생성 통계 ›</Text>
+			</Pressable>
+			{generation && published ? (
+				<View
+					accessible
+					accessibilityLiveRegion="polite"
+					accessibilityLabel="실시간 생성 내역에 등록했어요"
 				>
-					<Text style={[s.linkText, { color: theme.blue }]}>
-						생성 통계 보기 ›
-					</Text>
-				</Pressable>
-			</View>
-			<Text style={[s.fact, { color: theme.muted }]}>{description}</Text>
+					<Badge size="tiny" type="green" badgeStyle="weak">
+						✓ 실시간 등록
+					</Badge>
+				</View>
+			) : null}
 		</View>
 	);
 }
 const s = StyleSheet.create({
-	root: { marginBottom: 10 },
-	row: {
+	root: { marginTop: 4, marginBottom: 10, gap: 4, alignItems: "flex-start" },
+	link: {
+		width: "100%",
+		minHeight: 44,
 		flexDirection: "row",
 		alignItems: "center",
-		justifyContent: "space-between",
-		flexWrap: "wrap",
 		gap: 8,
 	},
-	link: { minHeight: 44, justifyContent: "center", paddingLeft: 8 },
-	linkText: { fontSize: 13, lineHeight: 20, fontWeight: "500" },
-	caption: { fontSize: 12, lineHeight: 18 },
-	fact: { fontSize: 14, lineHeight: 22 },
+	linkText: { fontSize: 12, lineHeight: 18, fontWeight: "500" },
+	fact: { flex: 1, fontSize: 13, lineHeight: 20 },
 });

@@ -271,7 +271,6 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 		52,
 		Math.floor((Math.min(width, 640) - 40 - 30) / 6),
 	);
-	const now = model.feed?.serverTime ?? model.context?.serverTime ?? Date.now();
 	const [featureRequest, setFeatureRequest] = useState<FeatureRequest | null>(
 		null,
 	);
@@ -500,37 +499,6 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 			Alert.alert("공유를 열지 못했어요", "잠시 후 다시 시도해 주세요.");
 		}
 	};
-	const feedRows = (limit: number, start = 0) => (
-		<View>
-			{model.feed?.generations.length ? (
-				model.feed.generations.slice(start, limit).map((item, i) => (
-					<View key={item.id} style={[s.feedRow, { borderColor: theme.line }]}>
-						<View style={[s.row, { marginBottom: 12 }]}>
-							<Text style={[s.body, text]}>{item.displayName}</Text>
-							<Text style={[s.caption, muted]}>
-								{relativeTime(item.createdAt, now)}
-							</Text>
-						</View>
-						<Balls
-							numbers={item.numbers}
-							size={Math.min(36, ballSize)}
-							animate={i === 0}
-							reducedMotion={model.reducedMotion}
-						/>
-					</View>
-				))
-			) : (
-				<View style={s.empty}>
-					<Text style={[s.body, text]}>
-						이번 회차의 첫 번호를 만들어 보세요
-					</Text>
-					<Text style={[s.description, muted]}>
-						번호를 만들면 여기에 바로 나타나요.
-					</Text>
-				</View>
-			)}
-		</View>
-	);
 
 	return (
 		<View
@@ -614,114 +582,14 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 												: "이번 주, 내 번호는?",
 											"번호를 만들고 마음에 드는 조합을 보관하세요.",
 										)}
-										{returnRound ? (
-											<View style={{ gap: 8, marginTop: 16 }}>
-												<Text style={[s.caption, muted]}>
-													{returnRound}회 · 새 결과
-												</Text>
-												<Text style={[s.body, text]}>
-													보관한 {returnCount}개 조합의 결과가 나왔어요.
-												</Text>
-												<Button
-													size="medium"
-													style="weak"
-													onPress={() => {
-														if (
-															navigateToSavedRound(
-																navigation,
-																tab,
-																returnRound,
-																visible,
-															)
-														)
-															trackProduct(
-																"results_return_opened",
-																"generator",
-															);
-													}}
-												>
-													보관한 번호 결과 보기
-												</Button>
-											</View>
-										) : null}
-										<View
-											style={{ paddingTop: 24, paddingBottom: 12, gap: 14 }}
-										>
+										<View style={{ paddingTop: 20, paddingBottom: 20 }}>
 											<Balls
 												numbers={model.current?.numbers ?? [0, 0, 0, 0, 0, 0]}
 												size={ballSize}
 												animate
 												reducedMotion={model.reducedMotion}
 											/>
-											{model.current ? saveButton(model.current) : null}
 										</View>
-										<GenerationInsightPreview
-											key={model.current?.id ?? "overview"}
-											generation={model.current}
-											feed={model.feed}
-											round={model.context?.targetRound}
-											published={
-												!!model.current &&
-												model.current.id === model.publishedGenerationId
-											}
-											onInsights={(round) => openInsights(round)}
-										/>
-										<View style={[s.row, { minHeight: 44, marginBottom: 8 }]}>
-											<Pressable
-												accessibilityRole="button"
-												onPress={() => {
-													model.clearError();
-													setDraft(options);
-													accessFeature("custom", () => setPanel("custom"));
-												}}
-												style={{ paddingVertical: 10 }}
-											>
-												<Text style={[s.body, { color: theme.blue }]}>
-													{hasOptions
-														? "다음 번호 맞춤 조건"
-														: "내 취향대로 만들기"}{" "}
-													›
-												</Text>
-											</Pressable>
-											{hasOptions ? (
-												<Pressable
-													accessibilityRole="button"
-													onPress={() => setOptions(EMPTY_OPTIONS)}
-												>
-													<Text style={[s.caption, muted]}>초기화</Text>
-												</Pressable>
-											) : null}
-										</View>
-										{hasOptions ? (
-											<Text style={[s.caption, muted, { marginBottom: 12 }]}>
-												다음 생성 ·{" "}
-												{[
-													options.fixed.length
-														? `고정 ${options.fixed.join("·")}`
-														: "",
-													options.excluded.length
-														? `제외 ${options.excluded.length}개`
-														: "",
-													options.oddCount !== null
-														? `홀수 ${options.oddCount}개`
-														: "",
-												]
-													.filter(Boolean)
-													.join(" / ")}
-											</Text>
-										) : null}
-										{LOCAL_PREVIEW ? (
-											<View style={{ marginBottom: 8 }}>
-												<Button
-													size="tiny"
-													style="weak"
-													disabled={!!model.busy || !model.user}
-													onPress={() => void model.prepareGenerationAd()}
-												>
-													테스트: 광고 시점 만들기
-												</Button>
-											</View>
-										) : null}
 										{recentLimitAtRisk ? (
 											<Pressable
 												accessibilityRole="button"
@@ -765,17 +633,9 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 												</Button>
 											)}
 										</AdCtaImpression>
-										{model.current && model.savedReady ? (
-											<View style={{ marginTop: 12 }}>
-												<SavedCombinationComparison
-													key={`saved-comparison-${model.current.id}`}
-													generation={model.current}
-													saved={model.saved}
-													compact
-													onExplore={(action) =>
-														accessFeature("report", action)
-													}
-												/>
+										{model.current ? (
+											<View style={{ marginTop: 10 }}>
+												{saveButton(model.current)}
 											</View>
 										) : null}
 										{model.generationAdRequired ? (
@@ -784,23 +644,114 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 												있어요.
 											</Text>
 										) : null}
-										{model.recent.some(
-											(item) => item.id !== model.current?.id,
-										) ? (
-											<View style={s.recentEntry}>
+										<View style={s.secondaryActions}>
+											<Pressable
+												accessibilityRole="button"
+												onPress={() => {
+													model.clearError();
+													setDraft(options);
+													accessFeature("custom", () => setPanel("custom"));
+												}}
+												style={s.secondaryLink}
+											>
+												<Text style={[s.body, { color: theme.blue }]}>
+													{hasOptions
+														? "다음 번호 맞춤 조건"
+														: "내 취향대로 만들기"}{" "}
+													›
+												</Text>
+											</Pressable>
+											{model.recent.length > 0 ? (
 												<Pressable
 													accessibilityRole="button"
 													accessibilityLabel={`최근 만든 번호 ${model.recent.length}개 보기`}
 													onPress={() => setPanel("recent")}
-													style={({ pressed }) => [
-														s.recentLink,
-														{ opacity: pressed ? 0.65 : 1 },
-													]}
+													style={s.secondaryLink}
 												>
-													<Text style={[s.caption, { color: theme.blue }]}>
-														최근 만든 번호 {model.recent.length}개 보기 ›
+													<Text style={[s.caption, muted]}>
+														최근 번호 {model.recent.length}개 ›
 													</Text>
 												</Pressable>
+											) : null}
+											{hasOptions ? (
+												<Pressable
+													accessibilityRole="button"
+													onPress={() => setOptions(EMPTY_OPTIONS)}
+													style={s.secondaryLink}
+												>
+													<Text style={[s.caption, muted]}>초기화</Text>
+												</Pressable>
+											) : null}
+										</View>
+										{hasOptions ? (
+											<Text style={[s.caption, muted, { marginBottom: 12 }]}>
+												다음 생성 ·{" "}
+												{[
+													options.fixed.length
+														? `고정 ${options.fixed.join("·")}`
+														: "",
+													options.excluded.length
+														? `제외 ${options.excluded.length}개`
+														: "",
+													options.oddCount !== null
+														? `홀수 ${options.oddCount}개`
+														: "",
+												]
+													.filter(Boolean)
+													.join(" / ")}
+											</Text>
+										) : null}
+										<GenerationInsightPreview
+											key={model.current?.id ?? "overview"}
+											generation={model.current}
+											feed={model.feed}
+											round={model.context?.targetRound}
+											published={
+												!!model.current &&
+												model.current.id === model.publishedGenerationId
+											}
+											onInsights={(round) => openInsights(round)}
+										/>
+										{LOCAL_PREVIEW ? (
+											<View style={{ marginBottom: 8 }}>
+												<Button
+													size="tiny"
+													style="weak"
+													disabled={!!model.busy || !model.user}
+													onPress={() => void model.prepareGenerationAd()}
+												>
+													테스트: 광고 시점 만들기
+												</Button>
+											</View>
+										) : null}
+										{returnRound ? (
+											<View style={{ gap: 8, marginTop: 16 }}>
+												<Text style={[s.caption, muted]}>
+													{returnRound}회 · 새 결과
+												</Text>
+												<Text style={[s.body, text]}>
+													보관한 {returnCount}개 조합의 결과가 나왔어요.
+												</Text>
+												<Button
+													size="medium"
+													style="weak"
+													onPress={() => {
+														if (
+															navigateToSavedRound(
+																navigation,
+																tab,
+																returnRound,
+																visible,
+															)
+														)
+															trackProduct(
+																"results_return_opened",
+																"generator",
+															);
+													}}
+												>
+													보관한 번호 결과 보기
+												</Button>
 											</View>
 										) : null}
 										<Banner
@@ -840,9 +791,9 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 												이번 회차에 쌓인 번호예요.
 											</Text>
 										</View>
-										{feedRows(3)}
 										<Button
 											display="full"
+											size="medium"
 											type="dark"
 											style="weak"
 											onPress={() => navigateTab("live")}
@@ -1335,6 +1286,14 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 										reducedMotion
 									/>
 									{saveButton(item)}
+									{model.savedReady ? (
+										<SavedCombinationComparison
+											generation={item}
+											saved={model.saved}
+											compact
+											onExplore={(action) => accessFeature("report", action)}
+										/>
+									) : null}
 								</View>
 							))}
 						</View>
@@ -1701,11 +1660,18 @@ const s = StyleSheet.create({
 	headingRow: { flexDirection: "row", alignItems: "center", gap: 12 },
 	headingTitle: { flex: 1 },
 	firstSection: { paddingTop: 16 },
-	recentEntry: { alignItems: "center", marginTop: 4 },
-	recentLink: {
+	secondaryActions: {
+		flexDirection: "row",
+		alignItems: "center",
+		justifyContent: "space-between",
+		flexWrap: "wrap",
+		columnGap: 12,
+		marginTop: 8,
+	},
+	secondaryLink: {
 		minHeight: 44,
 		justifyContent: "center",
-		paddingHorizontal: 12,
+		paddingVertical: 10,
 	},
 	section: { paddingHorizontal: 20, paddingTop: 28, paddingBottom: 26 },
 	heading: { marginTop: 16, gap: 10 },
@@ -1747,7 +1713,6 @@ const s = StyleSheet.create({
 		letterSpacing: -0.8,
 		fontVariant: ["tabular-nums"],
 	},
-	feedRow: { paddingVertical: 18, borderTopWidth: 1 },
 	empty: { paddingVertical: 40, gap: 8 },
 	savedRow: { borderTopWidth: 1, paddingVertical: 22 },
 	message: { paddingHorizontal: 20, paddingVertical: 12, gap: 10 },
