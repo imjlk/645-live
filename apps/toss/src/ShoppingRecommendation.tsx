@@ -130,11 +130,23 @@ export const ShoppingRecommendation = memo(function ShoppingRecommendation({
 			style={s.root}
 		>
 			<View style={[s.surface, { backgroundColor: theme.surface }]}>
-				<Text style={[s.disclosure, { color: theme.muted }]}>
-					{preview
-						? "로컬 미리보기 · 상품 추천"
-						: "광고 · 토스쇼핑 쉐어링크를 통한 구매 시 운영자가 수수료를 지급받습니다."}
-				</Text>
+				<View
+					accessible
+					accessibilityLabel="광고. 토스쇼핑 쉐어링크 활동으로, 링크 구매 시 수수료를 지급받습니다."
+					style={s.disclosureRow}
+				>
+					<View style={[s.adBadge, { backgroundColor: theme.line }]}>
+						<Text style={[s.adLabel, { color: theme.text }]}>광고</Text>
+					</View>
+					<Text
+						numberOfLines={1}
+						adjustsFontSizeToFit
+						minimumFontScale={0.85}
+						style={[s.disclosureCopy, { color: theme.muted }]}
+					>
+						토스쇼핑 쉐어링크 활동으로, 링크 구매 시 수수료를 지급받습니다.
+					</Text>
+				</View>
 				<Pressable
 					accessibilityRole="button"
 					accessibilityLabel={
@@ -185,6 +197,10 @@ export const ShoppingRecommendation = memo(function ShoppingRecommendation({
 const s = StyleSheet.create({
 	root: { marginTop: 16, marginBottom: 8 },
 	surface: { borderRadius: 16, padding: 16, gap: 8 },
+	disclosureRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+	adBadge: { borderRadius: 4, paddingHorizontal: 4, paddingVertical: 2 },
+	adLabel: { fontSize: 10, lineHeight: 14, fontWeight: "600" },
+	disclosureCopy: { flex: 1, fontSize: 10, lineHeight: 15 },
 	disclosure: { fontSize: 12, lineHeight: 19 },
 	product: {
 		flexDirection: "row",

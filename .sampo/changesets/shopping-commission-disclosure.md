@@ -2,4 +2,4 @@
 npm/@645/toss: patch
 ---
 
-Clarify that the operator receives commissions from purchases through shopping referral links.
+Use the standard short shopping commission disclosure with a separate ad badge and compact text above the product.
