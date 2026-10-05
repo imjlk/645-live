@@ -4,6 +4,7 @@ mod activity;
 mod ads;
 mod attendance;
 mod auth;
+mod bootstrap_timing;
 mod dev;
 mod engagement;
 mod generation_ads;

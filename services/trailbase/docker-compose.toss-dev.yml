@@ -10,6 +10,8 @@ services:
     volumes:
       - ../../.cache/toss-trailbase:/app/traildepot
     environment:
+      TRAILBASE_AUTH_BASE_URL: "${TRAILBASE_AUTH_BASE_URL:-http://127.0.0.1:4000}"
+      TRAILBASE_BOOTSTRAP_TIMING: "${TRAILBASE_BOOTSTRAP_TIMING:-false}"
       AIT_ENABLED: "true"
       AIT_ALLOW_DEV_IDENTITY: "true"
       AIT_LOCAL_PREVIEW: "true"
