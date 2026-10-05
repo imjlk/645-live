@@ -570,6 +570,7 @@ dependencies = [
  "trailbase-guest-common",
  "trailbase-toss-identity",
  "trailbase-wasm",
+ "url",
 ]
 
 [[package]]
