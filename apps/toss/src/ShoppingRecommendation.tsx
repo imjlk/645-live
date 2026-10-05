@@ -133,7 +133,7 @@ export const ShoppingRecommendation = memo(function ShoppingRecommendation({
 				<Text style={[s.disclosure, { color: theme.muted }]}>
 					{preview
 						? "로컬 미리보기 · 상품 추천"
-						: "광고 · 이 링크로 구매하면 수수료를 받아요."}
+						: "광고 · 토스쇼핑 쉐어링크를 통한 구매 시 운영자가 수수료를 지급받습니다."}
 				</Text>
 				<Pressable
 					accessibilityRole="button"
