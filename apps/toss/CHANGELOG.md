@@ -1,5 +1,16 @@
 # @645/toss
 
+## 1.5.2 — 2026-10-05
+
+### Patch changes
+
+- [fe8b9e2](https://github.com/imjlk/645-live/commit/fe8b9e2bb1d52620cc634220dc987436b1732ed7) Keep shopping recommendations visible when reopening the generator, restore a compact live preview, and open focused number statistics from recent generation entries.
+- [69d9953](https://github.com/imjlk/645-live/commit/69d99538601af64b507c4dfa49704822cf73cf43) Keep number creation and saving next to the number board, condense statistics and secondary actions, and move personal comparisons into recent history.
+- [e8f0a4d](https://github.com/imjlk/645-live/commit/e8f0a4d08068adf69240f591dff3a56fecd6800b) Open previous draw comparisons as a native detail page, preserve the selected round when returning from statistics, and condense live-screen navigation controls.
+- [ffe8586](https://github.com/imjlk/645-live/commit/ffe858665802ddb1e8efb1bbabaf44e90a21db9b) Open number statistics consistently across generation, saved entries, live counts, and draw results. Separate lifetime actual draw totals from round-specific community generation counts and share cached public totals across all numbers.
+- [ab00896](https://github.com/imjlk/645-live/commit/ab0089660e0b6a228a0263a7cf37e025f8e41346) Use the standard short shopping commission disclosure with a separate ad badge and compact text above the product.
+- [8d5f43d](https://github.com/imjlk/645-live/commit/8d5f43dc0f7b83d2d209d960bed59875c801d488) Keep the generation action ahead of optional saved-combination details. Add optional, disclosed shopping recommendations after the existing home attendance area and near the top of previous-round results. Reuse an expiring catalog across screens, measure visible product cards separately from SDK ads, and isolate navigation failures from lottery features. Recommendations remain operator-controlled and disabled until the approved channel and valid issued links are configured.
+
 ## 1.5.1 — 2026-10-05
 
 ### Patch changes
