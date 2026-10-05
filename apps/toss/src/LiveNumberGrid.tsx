@@ -2,6 +2,7 @@ import { ballColor, type Feed } from "@645/lotto-core";
 import { memo, useMemo, useState } from "react";
 import {
 	Animated,
+	Pressable,
 	StyleSheet,
 	Text,
 	useWindowDimensions,
@@ -18,12 +19,14 @@ const NumberCell = memo(function NumberCell({
 	reducedMotion,
 	columns,
 	size,
+	onNumberPress,
 }: {
 	number: number;
 	count: number;
 	reducedMotion: boolean;
 	columns: 5 | 9;
 	size: number;
+	onNumberPress?: (number: number) => void;
 }) {
 	const theme = useTheme();
 	const change = useLiveCount(count, reducedMotion);
@@ -91,7 +94,7 @@ const NumberCell = memo(function NumberCell({
 		},
 	];
 	return (
-		<View
+		<Pressable
 			style={[
 				s.cell,
 				{
@@ -100,7 +103,10 @@ const NumberCell = memo(function NumberCell({
 				},
 			]}
 			accessible
-			accessibilityLabel={`${number}번 ${count}회 생성`}
+			accessibilityRole={onNumberPress ? "button" : "text"}
+			accessibilityLabel={`${number}번 ${count}회 생성${onNumberPress ? ", 번호 통계 보기" : ""}`}
+			disabled={!onNumberPress}
+			onPress={() => onNumberPress?.(number)}
 		>
 			<View style={ballStyle}>
 				<Animated.View
@@ -143,7 +149,7 @@ const NumberCell = memo(function NumberCell({
 				</Animated.View>
 			</View>
 			<LiveCount change={change} style={countStyle} />
-		</View>
+		</Pressable>
 	);
 });
 
@@ -151,10 +157,12 @@ export function LiveNumberGrid({
 	feed,
 	reducedMotion,
 	columns,
+	onNumberPress,
 }: {
 	feed: Pick<Feed, "round" | "numberCounts"> | null;
 	reducedMotion: boolean;
 	columns: 5 | 9;
+	onNumberPress?: (round: number, number: number) => void;
 }) {
 	const { width } = useWindowDimensions();
 	const [gridWidth, setGridWidth] = useState(
@@ -182,6 +190,11 @@ export function LiveNumberGrid({
 					reducedMotion={reducedMotion}
 					columns={columns}
 					size={size}
+					onNumberPress={
+						feed && onNumberPress
+							? (number) => onNumberPress(feed.round, number)
+							: undefined
+					}
 				/>
 			))}
 		</View>

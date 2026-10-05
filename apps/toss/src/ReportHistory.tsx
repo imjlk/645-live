@@ -1,6 +1,6 @@
 import type { CombinationReport } from "@645/lotto-core";
 import { Button } from "@toss/tds-react-native";
-import { ActivityIndicator, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, Text, View } from "react-native";
 import { LOCAL_PREVIEW } from "./api";
 import { Balls } from "./Balls";
 import { useTheme } from "./theme";
@@ -13,11 +13,15 @@ export function ReportHistory({
 	retry,
 	busy,
 	ballSize,
+	onNumberPress,
+	round,
 }: {
 	state?: ReportState;
 	retry: () => void;
 	busy: boolean;
 	ballSize: number;
+	round?: number;
+	onNumberPress?: (round: number, number: number) => void;
 }) {
 	const theme = useTheme();
 	if (!state) return <ActivityIndicator color={theme.blue} />;
@@ -65,7 +69,15 @@ export function ReportHistory({
 								{draw.matches}개 일치
 							</Text>
 						</View>
-						<Balls numbers={draw.numbers} size={Math.min(36, ballSize)} />
+						<Balls
+							numbers={draw.numbers}
+							size={Math.min(36, ballSize)}
+							onNumberPress={
+								onNumberPress
+									? (number) => onNumberPress(draw.round, number)
+									: undefined
+							}
+						/>
 					</View>
 				))
 			) : (
@@ -77,9 +89,21 @@ export function ReportHistory({
 				{LOCAL_PREVIEW ? "가져온 회차의 출현 횟수" : "내 번호의 역대 출현 횟수"}
 			</Text>
 			{data.frequencies.map((item) => (
-				<View
+				<Pressable
 					key={item.number}
-					style={{ flexDirection: "row", justifyContent: "space-between" }}
+					style={{
+						flexDirection: "row",
+						alignItems: "center",
+						justifyContent: "space-between",
+						minHeight: 44,
+					}}
+					accessibilityRole={onNumberPress ? "button" : "text"}
+					accessibilityLabel={`${item.number}번 실제 추첨 ${item.drawCount}회, 번호 통계 보기`}
+					disabled={!onNumberPress || !(round ?? item.lastRound)}
+					onPress={() => {
+						const target = round ?? item.lastRound;
+						if (target) onNumberPress?.(target, item.number);
+					}}
 				>
 					<Text style={{ color: theme.text, fontSize: 14 }}>
 						{item.number}번
@@ -88,7 +112,7 @@ export function ReportHistory({
 						{item.drawCount}회 ·{" "}
 						{item.lastRound ? `최근 ${item.lastRound}회` : "출현 전"}
 					</Text>
-				</View>
+				</Pressable>
 			))}
 		</View>
 	);

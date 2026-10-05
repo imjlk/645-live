@@ -64,12 +64,19 @@ mock.module("@granite-js/react-native", () => ({
 	IOScrollView: "scroll",
 	ImpressionArea: "impression",
 	useVisibility: () => visible,
+	useBackEvent: () => ({ addEventListener() {}, removeEventListener() {} }),
+	useParams: () => stack.find((r) => r.name === "/results")?.params ?? {},
+	useNavigation: () => ({
+		navigate: (name: string, params: object) => nativeStack.push(name, params),
+		push: (name: string, params: object) => nativeStack.push(name, params),
+	}),
 }));
 mock.module("@toss/tds-react-native/private", () => ({
 	HideAccessibilityProvider: host("accessible"),
 	HideAccessibilityView: "hiddenView",
 }));
 mock.module("@toss/tds-react-native", () => ({
+	TDSProvider: host("tds"),
 	Button: "button",
 	IconButton: "iconButton",
 	Switch: "switch",
@@ -114,6 +121,8 @@ const presentOverlay = (close: () => void) => {
 	};
 };
 mock.module("../../apps/toss/src/TabShell", () => ({
+	TabShellContext: React.createContext(null),
+	useOverlayStack: () => ({ overlay: null, presentOverlay }),
 	useTabShell: () => ({ tabBarHeight: 60, presentOverlay, savedTarget }),
 }));
 const model = {
@@ -170,6 +179,7 @@ mock.module("../../apps/toss/src/AdCtaImpression", () => ({
 }));
 mock.module("../../apps/toss/src/LiveFeed", () => ({
 	LiveFeed: host("liveFeed"),
+	GenerationRow: host("generationRow"),
 	relativeTime: () => "",
 }));
 const row = (round: number) => ({
@@ -198,128 +208,219 @@ await act(async () => {
 });
 const live = () => root.root.findByType("liveFeed");
 const sheet = () => root.root.findAllByType("sheet")[0];
+// Previous results now belong to the native stack. A hidden tab cannot push
+// another detail, and returning from analysis retains the chosen round.
+await act(async () => {
+	live().props.onResults();
+	live().props.onResults();
+	root.update(<LottoScreen tab="live" />);
+});
+expect(stack).toHaveLength(2);
+expect(stack[1]).toEqual({ name: "/results", params: {} });
+expect(sheet().props.open).toBe(false);
+expect(back).toBeNull();
+// Include a deep-link initial round: it must not override a later manual choice.
+stack[1].params = { round: 1243 };
+visible = true;
+const { GenerationResultsScreen } = await import(
+	"../../apps/toss/src/GenerationResultsScreen"
+);
+let resultRoot!: ReturnType<typeof create>;
+await act(async () => {
+	resultRoot = create(<GenerationResultsScreen />);
+});
 const selected = () => {
-	const label = root.root
+	const label = resultRoot.root
 		.findAllByType("button")
 		.map((node) => node.props.children)
 		.find((text) => typeof text === "string" && /^\d+회 선택/.test(text));
 	return label ? Number(label.match(/^\d+/)[0]) : undefined;
 };
-await act(async () => {
-	live().props.onResults();
-});
+const resultButton = (label: string) =>
+	resultRoot.root
+		.findAllByType("button")
+		.find((node) => [node.props.children].flat().join("") === label);
 expect(selected()).toBe(1243);
 await act(async () => {
-	root.root
-		.findAllByType("button")
-		.find((node) => String(node.props.children).includes("회 생성 통계 보기"))
-		?.props.onPress();
+	resultButton("이전")?.props.onPress();
 });
-expect(stack).toHaveLength(1);
+expect(selected()).toBe(1242);
+const { GenerationResultsContent } = await import(
+	"../../apps/toss/src/GenerationResultsContent"
+);
+await act(async () => {
+	resultRoot.root
+		.findByType(GenerationResultsContent)
+		.props.onNumberPress(1242, 7);
+	resultRoot.update(<GenerationResultsScreen />);
+	resultRoot.root
+		.findByType(GenerationResultsContent)
+		.props.onNumberPress(1242, 7);
+});
+expect(stack.at(-1)).toEqual({
+	name: "/numbers",
+	params: { round: 1242, number: 7, source: "draw" },
+});
+await act(async () => {
+	stack.pop();
+	visible = true;
+	resultRoot.update(<GenerationResultsScreen />);
+});
+expect(selected()).toBe(1242);
+await act(async () => {
+	resultButton("1242회 생성 통계 보기")?.props.onPress();
+	resultButton("1242회 생성 통계 보기")?.props.onPress();
+	resultRoot.update(<GenerationResultsScreen />);
+});
+expect(stack).toHaveLength(3);
+expect(stack[2]).toEqual({ name: "/insights", params: { round: 1242 } });
+await act(async () => {
+	stack.pop();
+	visible = true;
+	resultRoot.update(<GenerationResultsScreen />);
+});
+expect(selected()).toBe(1242);
+// A second visit to statistics is allowed after returning, without extra sheets.
+await act(async () => {
+	resultButton("1242회 생성 통계 보기")?.props.onPress();
+});
+expect(stack).toHaveLength(3);
+await act(async () => {
+	stack.pop();
+	stack.pop();
+	resultRoot.unmount();
+	visible = true;
+	root.update(<LottoScreen tab="live" />);
+});
 expect(sheet().props.open).toBe(false);
 await act(async () => {
-	sheet().props.onExited();
-	sheet().props.onExited();
-	root.update(<LottoScreen tab="live" />);
+	live().props.onResults();
 });
-expect(stack).toHaveLength(2);
-expect(stack[1]).toEqual({
-	name: "/insights",
-	params: { round: 1243, number: undefined },
-});
-expect(back).toBeNull();
+visible = true;
 await act(async () => {
+	resultRoot = create(<GenerationResultsScreen />);
+});
+expect(selected()).toBe(1243);
+await act(async () => {
+	resultRoot.unmount();
 	stack.pop();
-	visible = true;
-	root.update(<LottoScreen tab="live" />);
-});
-expect(sheet().props.open).toBe(true);
-expect(selected()).toBe(1243);
-// Reopen before the exit animation has cleared the old result component.
-await act(async () => {
-	sheet().props.onClose();
-	live().props.onResults();
-});
-expect(selected()).toBe(1243);
-await act(async () => {
-	root.root
-		.findAllByType("button")
-		.find((node) => String(node.props.children).includes("이전"))
-		?.props.onPress();
-});
-expect(selected()).toBe(1242);
-await act(async () => {
-	root.root
-		.findAllByType("button")
-		.find((node) => String(node.props.children).includes("회 생성 통계 보기"))
-		?.props.onPress();
-});
-expect(stack).toHaveLength(1);
-await act(async () => {
-	sheet().props.onExited();
-	root.update(<LottoScreen tab="live" />);
-});
-expect(stack[1].params).toEqual({ round: 1242, number: undefined });
-await act(async () => {
-	stack.pop();
-	visible = true;
-	root.update(<LottoScreen tab="live" />);
-});
-expect(selected()).toBe(1242);
-await act(async () => {
-	sheet().props.onClose();
-	live().props.onResults();
-});
-expect(selected()).toBe(1243);
-// Native Back during dismissal cancels the queued push, rather than opening a stale screen.
-await act(async () => {
-	root.root
-		.findAllByType("button")
-		.find((node) => String(node.props.children).includes("회 생성 통계 보기"))
-		?.props.onPress();
-});
-await act(async () => {
-	back?.();
-	sheet().props.onExited();
-});
-expect(stack).toHaveLength(1);
-await act(async () => {
-	live().props.onResults();
-});
-expect(selected()).toBe(1243);
-// Reopening before onExited also invalidates the pending navigation.
-await act(async () => {
-	root.root
-		.findAllByType("button")
-		.find((node) => String(node.props.children).includes("회 생성 통계 보기"))
-		?.props.onPress();
-});
-await act(async () => {
-	live().props.onResults();
-	sheet().props.onExited();
-});
-expect(stack).toHaveLength(1);
-expect(sheet().props.open).toBe(true);
-await act(async () => {
-	sheet().props.onClose();
-	sheet().props.onExited();
-	live().props.onResults();
-});
-expect(selected()).toBe(1243);
-await act(async () => {
-	root.root
-		.findAllByType("button")
-		.find((node) => String(node.props.children).includes("회 생성 통계 보기"))
-		?.props.onPress();
 });
 const lateExit = sheet().props.onExited;
 await act(async () => {
 	root.unmount();
-});
-await act(async () => {
 	lateExit();
 });
 expect(stack).toHaveLength(1);
+// A cold home opens shopping even before this session generates a number.
+currentTab = "make";
+visible = true;
+await act(async () => {
+	root = create(<LottoScreen tab="make" />);
+});
+expect(model.current).toBeNull();
+expect(root.root.findByType("ShoppingRecommendation").props.placement).toBe(
+	"generator",
+);
+Object.assign(model, {
+	feed: {
+		round: 1244,
+		serverTime: 100,
+		totalGenerations: 3,
+		generations: [1, 2, 3].map((id) => ({
+			id,
+			round: 1244,
+			numbers: [7, 10, 25, 29, 30, 43],
+			createdAt: id,
+			displayName: "참여자",
+		})),
+	},
+});
+await act(async () => {
+	root.update(<LottoScreen tab="make" />);
+});
+expect(root.root.findAllByType("generationRow")).toHaveLength(2);
+await act(async () => {
+	root.root.findAllByType("generationRow")[0].props.onNumberPress(1244, 7);
+	root.root.findAllByType("generationRow")[0].props.onNumberPress(1244, 7);
+});
+expect(stack).toEqual([
+	{ name: "/", params: {} },
+	{ name: "/numbers", params: { round: 1244, number: 7, source: "generated" } },
+]);
+stack.pop();
+visible = true;
+Object.assign(model, {
+	user: {},
+	featureAdRequired: true,
+	adConfig: { placements: [{ placement: "report", enabled: true }] },
+});
+await act(async () => {
+	root.update(<LottoScreen tab="make" />);
+});
+await act(async () => {
+	root.root.findAllByType("generationRow")[0].props.onNumberPress(1244, 7);
+});
+expect(stack).toHaveLength(1);
+expect(root.root.findByType("FeatureAccessPrompt").props.request.feature).toBe(
+	"report",
+);
+await act(async () => {
+	root.root.findByType("FeatureAccessPrompt").props.onDone();
+});
+expect(stack).toHaveLength(1);
+Object.assign(model, { featureAdRequired: false, adConfig: null });
+const recent = {
+	id: 4,
+	round: 1244,
+	numbers: [7, 10, 25, 29, 30, 43],
+	createdAt: 1,
+	displayName: "나",
+};
+Object.assign(model, { recent: [recent] });
+await act(async () => {
+	root.update(<LottoScreen tab="make" />);
+});
+const openRecent = () =>
+	root.root
+		.findByProps({ accessibilityLabel: "최근 만든 번호 1개 보기" })
+		.props.onPress();
+await act(async () => {
+	openRecent();
+});
+await act(async () => {
+	root.root.findAllByType("Balls").at(-1)?.props.onNumberPress(7);
+});
+expect(sheet().props.open).toBe(false);
+expect(stack).toHaveLength(1);
+await act(async () => {
+	sheet().props.onExited();
+	sheet().props.onExited();
+});
+expect(stack.at(-1)).toEqual({
+	name: "/numbers",
+	params: { round: 1244, number: 7, source: "draw" },
+});
+await act(async () => {
+	stack.pop();
+	visible = true;
+	root.update(<LottoScreen tab="make" />);
+	openRecent();
+});
+await act(async () => {
+	root.root.findAllByType("Balls").at(-1)?.props.onNumberPress(7);
+});
+await act(async () => {
+	back?.();
+});
+await act(async () => {
+	sheet().props.onExited();
+});
+expect(stack).toHaveLength(1);
+Object.assign(model, { recent: [] });
+model.feed = null;
+await act(async () => {
+	root.unmount();
+});
 const renderedText = () =>
 	root.root
 		.findAllByType("text")
@@ -591,6 +692,4 @@ await act(async () => {
 });
 expect(reviewSources).toEqual(["save", "results"]);
 await act(async () => root.unmount());
-console.log(
-	"analysis return and direct result reopen preserve the intended round",
-);
+console.log("native result pages preserve selection and tab returns");

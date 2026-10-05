@@ -5,11 +5,15 @@ declare module "@granite-js/react-native" {
 		"/live": undefined;
 		"/saved": import("./result-return").SavedParams;
 		"/insights": import("./insights-route").InsightsParams;
+		"/results": import("./insights-route").ResultsParams;
+		"/numbers": import("./insights-route").NumberStatisticsParams;
 	}
 	interface RegisterScreen {
 		"/": undefined;
 		"/live": undefined;
 		"/saved": import("./result-return").SavedParams;
 		"/insights": import("./insights-route").InsightsParams;
+		"/results": import("./insights-route").ResultsParams;
+		"/numbers": import("./insights-route").NumberStatisticsParams;
 	}
 }
