@@ -21,8 +21,6 @@ const links = [
 </script>
 <footer class="site-footer">
  <div class="footer-inner">
-  <div><a class="footer-brand" href={resolve("/")}>645.live</a><p>공식 추첨 결과와 이용자 스캔을 구분하는 로또 정보 서비스</p><small>© {new Date().getFullYear()} 645.live</small></div>
-  <nav aria-label="서비스 안내">{#each links as [href, label] (href)}<a href={resolve(href)}>{label}</a>{/each}</nav>
   <div class="footer-miniapp" {@attach (element) => observeMiniappEntry(element, "footer")}>
    <p><strong>{MINIAPP_NAME}</strong>를 토스 미니앱으로 만나보세요.</p>
    <a href={MINIAPP_SHARE_URL} aria-label="토스에서 645 번호 생성기 사용하기" data-sveltekit-reload rel="external" onclick={() => recordMiniappEntry("miniapp_entry_clicked", "footer", "launch")}>
@@ -30,6 +28,8 @@ const links = [
     <img src="/assets/marketing/toss-miniapp-badge-black.png" width="125" height="40" alt="토스 미니앱으로 설치 없이 바로 사용 가능" loading="lazy" />
    </a>
   </div>
+  <div><a class="footer-brand" href={resolve("/")}>645.live</a><p>공식 추첨 결과와 이용자 스캔을 구분하는 로또 정보 서비스</p><small>© {new Date().getFullYear()} 645.live</small></div>
+  <nav aria-label="서비스 안내">{#each links as [href, label] (href)}<a href={resolve(href)}>{label}</a>{/each}</nav>
  </div>
 </footer>
 <style>
@@ -41,7 +41,7 @@ const links = [
  nav { display: flex; flex-wrap: wrap; align-content: start; justify-content: end; gap: 0.25rem 1.25rem; }
  nav a { color: var(--text-muted); font-size: 0.8125rem; display: inline-flex; align-items: center; min-height: 44px; padding-block: 0.5rem; }
  nav a:hover { text-decoration: underline; }
- .footer-miniapp { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .5rem 1rem; padding-top: 1rem; border-top: 1px solid var(--color-base-300); }
+ .footer-miniapp { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .5rem 1rem; padding-bottom: 1rem; border-bottom: 1px solid var(--color-base-300); }
  .footer-miniapp p { margin: 0; }
  .footer-miniapp strong { font-weight: 600; color: var(--color-base-content); }
  .footer-miniapp a { display: inline-flex; align-items: center; min-height: 44px; }
