@@ -6,6 +6,7 @@ import { resolve } from "$app/paths";
 import { page } from "$app/state";
 import AdSlot from "$lib/components/ads/AdSlot.svelte";
 import StructuredAgentPage from "$lib/components/agent/StructuredAgentPage.svelte";
+import MiniappEntryBanner from "$lib/components/MiniappEntryBanner.svelte";
 import SimpleBall from "$lib/components/SimpleBall.svelte";
 import HomeGenerationPreview from "$lib/generator/HomeGenerationPreview.svelte";
 import ScanStatusGrid from "$lib/modules/lotto/components/ScanStatusGrid.svelte";
@@ -253,6 +254,7 @@ const faq = [
     </section>
     <AdSlot placement="home-inline" format="horizontal" />
     <section class="home-section" aria-label="생성기 실시간 현황"><HomeGenerationPreview initial={data.generationPreview} /></section>
+    <MiniappEntryBanner placement="home" />
     <section class="home-section" aria-labelledby="explore-heading">
      <div class="section-heading"><h2 id="explore-heading">숫자로 보는 로또</h2><a href={resolve("/stats")} class="text-link">전체 통계 ↗</a></div>
      <div class="explore-links">

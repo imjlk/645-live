@@ -8,6 +8,7 @@ import { JsonLd, MetaTags } from "svelte-meta-tags";
 import { initClient } from "trailbase";
 import { resolve } from "$app/paths";
 import AdSlot from "$lib/components/ads/AdSlot.svelte";
+import MiniappEntryBanner from "$lib/components/MiniappEntryBanner.svelte";
 import SimpleBall from "$lib/components/SimpleBall.svelte";
 import {
 	absoluteUrl,
@@ -357,6 +358,7 @@ const ogImage = getGenericOgImage({
 			<p class="sr-only" role="status">{generator.notice}</p>
 			<a class="live-shortcut" href={resolve("/generator/live")}>지금 함께 만드는 번호 <strong>{generator.live.feed?.totalGenerations.toLocaleString() ?? "—"}게임 <span aria-hidden="true">→</span></strong></a>
 			<p class="probability-note">조건을 적용해도 각 조합의 당첨 확률은 같아요. 생성 결과는 예측이 아닌 무작위 조합입니다.</p>
+			<MiniappEntryBanner placement="generator" />
 		</section>
 		<section class="conditions-area" aria-labelledby="conditions-heading">
 			<div class="conditions-title"><h2 id="conditions-heading">원하는 조건 설정</h2><button class="btn btn-ghost btn-sm" onclick={resetConditions} disabled={isLoading}>초기화</button></div>
