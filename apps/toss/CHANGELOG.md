@@ -1,5 +1,11 @@
 # @645/toss
 
+## 1.5.3 — 2026-10-29
+
+### Patch changes
+
+- [27093e4](https://github.com/imjlk/645-live/commit/27093e4c5aa21aabfa83b51824bbafd3a79b258b) Update Apps in Toss SDK to 2.10.13 and the shared TrailBase kit to ae94308. Validate client types, tests, the RN bundle and Rust guest compatibility before rollout.
+
 ## 1.5.2 — 2026-10-05
 
 ### Patch changes
