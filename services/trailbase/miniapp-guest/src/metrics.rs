@@ -78,6 +78,9 @@ fn attach(tx: &mut Transaction) -> ApiResult<()> {
 }
 // Validate cohort and shape, not cadence: ranges are client-owned tuning values.
 fn valid_policy(policy: &str, expected: &str) -> bool {
+    if policy.len() > 96 {
+        return false;
+    }
     let prefix = format!("generation-cadence-v2/{expected}:device:");
     let Some(ranges) = policy.strip_prefix(&prefix) else {
         return false;
@@ -231,6 +234,11 @@ mod tests {
         ] {
             assert!(!valid_policy(value, "short"));
         }
+    }
+    #[test]
+    fn policy_rejects_oversized_zero_padded_ranges() {
+        let policy = format!("generation-cadence-v2/short:device:{}1:2-8", "0".repeat(96));
+        assert!(!valid_policy(&policy, "short"));
     }
     #[test]
     fn cohort_is_stable_and_balanced() {

@@ -46,3 +46,5 @@ Saved editor queries are maintained in `services/trailbase/sql/11-generation-ab-
 `collectServerMetrics: false` disables the optional TrailBase mirror only; SDK logging and generation work normally. The server validates experiment/cohort and bounded numeric ranges rather than enforcing the current intervals, so later bundle-only tuning does not require another server range update. Continue comparing metrics within the same app version.
 
 The funnel starts its five-minute window at the first viewport impression **or explicit ad request**. A quick tap may precede the one-second impression event and must not disappear from reporting. Requests and impressions for one flow are counted once.
+
+The payout query attributes successful ledger entries by `requested_at` after observed enrollment. Provider-supplied `granted_at` may be absent for successful three-step payouts; this is a request-cohort cost view, not a payment-date reconciliation report.

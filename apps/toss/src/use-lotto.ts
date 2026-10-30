@@ -386,16 +386,18 @@ export function useLotto() {
 		attendance,
 		generationAds.continuedDay,
 	);
-	const generationReady =
+	const experimentReady =
 		!!user &&
 		!!context &&
 		!!adConfig &&
-		(!requiresAttendanceForGeneration(adConfig.generationAdPolicy) ||
-			!!attendance) &&
 		(adConfig.generationAdPolicy?.counter !== "device" || generationAds.ready);
+	const generationReady =
+		experimentReady &&
+		(!requiresAttendanceForGeneration(adConfig?.generationAdPolicy) ||
+			!!attendance);
 	useEffect(() => {
 		if (
-			generationReady &&
+			experimentReady &&
 			foreground &&
 			adConfig?.generationAdPolicy?.experiment &&
 			!exposedPolicies.current.has(exposureKey)
@@ -407,7 +409,7 @@ export function useLotto() {
 			});
 		}
 	}, [
-		generationReady,
+		experimentReady,
 		foreground,
 		adConfig?.generationAdPolicy?.experiment,
 		generationPolicyLabel,
