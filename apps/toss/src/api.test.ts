@@ -166,10 +166,15 @@ test("delayed ad completion survives the opening deadline without a failed event
 			...args,
 		)) as typeof setTimeout);
 	let callbacks: AdCallbacks | null = null;
+	let markShown!: () => void;
+	const shown = new Promise<void>((resolve) => {
+		markShown = resolve;
+	});
 	showGate = (value) => {
 		callbacks = value;
 		value.onEvent({ type: "show" });
 		value.onEvent({ type: "impression" });
+		markShown();
 	};
 	const completions: string[][] = [];
 	const metrics: Parameters<AdMetricSink>[0][] = [];
@@ -196,6 +201,7 @@ test("delayed ad completion survives the opening deadline without a failed event
 			createAdFlow(telemetry, { placement: "generation_continue" }),
 		);
 		void attempt.catch(() => {});
+		await shown;
 		await new Promise((resolve) => realSetTimeout(resolve, 20));
 		expect(completions).toEqual([]);
 		const active = callbacks as AdCallbacks | null;
