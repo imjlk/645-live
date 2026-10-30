@@ -1,5 +1,11 @@
 # @645/toss
 
+## 1.6.1 — 2026-10-30
+
+### Patch changes
+
+- [43ed82f](https://github.com/imjlk/645-live/commit/43ed82f919b3608f3e1185d77422c775336bcafe) Add bundle-local continuation and optional telemetry controls while retaining the current defaults. Include immediate ad requests in reporting and accept bounded client policy updates in private metrics. Keep exposure eligibility consistent across cohorts and include successful rewards without provider payment timestamps in reporting.
+
 ## 1.6.0 — 2026-10-30
 
 ### Minor changes
