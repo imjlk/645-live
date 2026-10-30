@@ -121,7 +121,7 @@ test("private metrics mirror is bounded to experiment events and retains IDs acr
 		});
 		telemetry.track("experiment_exposed", {
 			placement: "generation_continue",
-			policy: "generation-cadence-v2/control:device:3-3:3-12",
+			policy: "generation-cadence-v3/control:device:3-3:3-12",
 		});
 		telemetry.track("banner_rendered", { placement: "saved" });
 		await telemetry.flush();
@@ -148,7 +148,7 @@ test("disabling the server mirror keeps SDK analytics independent and sends no s
 		});
 		telemetry.track("generation_succeeded", {
 			placement: "generation_continue",
-			policy: "generation-cadence-v2/control:device:3-3:3-12",
+			policy: "generation-cadence-v3/control:device:3-3:3-12",
 		});
 		await telemetry.flush();
 		await mirror.flush();

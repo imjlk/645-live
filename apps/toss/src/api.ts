@@ -19,13 +19,17 @@ import {
 	toTrailBaseSdkTokens,
 } from "@trailbase-apps-in-toss-kit/trailbase-client";
 import { initClient } from "trailbase";
+import type { AttendanceProgress } from "./attendance-progress";
 import { connectionStep, connectionSync } from "./connection-error";
 import { createFeatureAdCounter } from "./feature-ad-counter";
 import {
 	createGenerationAdCounter,
 	type GenerationAdPolicy,
 } from "./generation-ad-counter";
-import { generationExperimentPolicy } from "./generation-ad-experiment";
+import {
+	GENERATION_AD_EXPERIMENT,
+	generationExperimentPolicy,
+} from "./generation-ad-experiment";
 import type { GenerationResponse } from "./generation-request";
 import { resolveLottoRuntime } from "./runtime-config";
 import { createSavedStore } from "./saved-store";
@@ -77,7 +81,7 @@ export type Promotion = {
 	available: boolean;
 	status: string | null;
 };
-export type Attendance = {
+export type Attendance = Partial<AttendanceProgress> & {
 	day: number;
 	checkedIn: boolean;
 	generatedToday: boolean;
@@ -346,6 +350,18 @@ export function createApi() {
 			throw error;
 		}
 	}
+	let attendanceRead: Promise<Attendance> | null = null;
+	function readAttendance() {
+		const pending =
+			attendanceRead ??
+			request<Attendance>("/api/app/v1/attendance/status", {
+				experiment: GENERATION_AD_EXPERIMENT,
+			});
+		attendanceRead = pending;
+		return pending.finally(() => {
+			if (attendanceRead === pending) attendanceRead = null;
+		});
+	}
 	return {
 		ensure,
 		request,
@@ -400,13 +416,28 @@ export function createApi() {
 			}),
 		ads: async () => {
 			const principal = await ensure();
-			const config = await request<AdConfig>("/api/app/v1/ads/config");
+			const [config, attendance] = await Promise.all([
+				request<AdConfig>("/api/app/v1/ads/config"),
+				readAttendance(),
+			]);
+			if (
+				attendance.attendanceExperiment !== GENERATION_AD_EXPERIMENT ||
+				!Number.isInteger(attendance.requiredGenerations) ||
+				!Number.isInteger(attendance.generatedCount)
+			) {
+				throw new Error(
+					"출석 정보를 준비 중이에요. 잠시 후 다시 시도해 주세요.",
+				);
+			}
 			generationPrincipal = principal.id;
 			return {
 				...config,
 				generationAdPolicy: generationExperimentPolicy(
 					config.generationAdPolicy,
 					principal.id,
+					undefined,
+					attendance.requiredGenerations,
+					attendance.generatedCount,
 				),
 			};
 		},
@@ -421,7 +452,7 @@ export function createApi() {
 				expiresAt?: number;
 				continuedWithoutAd?: boolean;
 			}>("/api/app/v1/ads/complete", { id, events }),
-		attendance: () => request<Attendance>("/api/app/v1/attendance/status"),
+		attendance: readAttendance,
 		checkIn: () =>
 			request<{ streak: number; replayed: boolean }>(
 				"/api/app/v1/attendance/check-in",

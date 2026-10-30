@@ -88,6 +88,21 @@ globalThis.fetch = (async (
 			);
 		return Response.json({ user: user(id) });
 	}
+	if (path.endsWith("/attendance/status")) {
+		expect(options?.method).toBe("POST");
+		expect(JSON.parse(String(options?.body))).toEqual({
+			experiment: "generation-cadence-v3",
+		});
+		return Response.json({
+			attendanceExperiment: "generation-cadence-v3",
+			requiredGenerations: 3,
+			generatedCount: 0,
+			day: 100,
+			serverTime: 1,
+			generatedToday: false,
+			checkedIn: false,
+		});
+	}
 	if (path.endsWith("/ads/config"))
 		return Response.json({
 			generationAdPolicy: {

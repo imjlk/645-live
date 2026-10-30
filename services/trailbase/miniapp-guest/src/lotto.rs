@@ -245,9 +245,10 @@ pub(crate) async fn generate(req: &mut Request) -> ApiResult<Json> {
         let generation = generation_json(row)?;
         let generation_ad_required =
             !input.client_managed_counter && generation_ads::required(&mut tx, &user.id, now)?;
+        let attendance_progress = crate::attendance::status(&mut tx, &user.id, now)?;
         db::tx_commit(&mut tx)?;
         return Ok(
-            json!({"generation":generation,"replayed":true,"generationAdRequired":generation_ad_required}),
+            json!({"generation":generation,"replayed":true,"generationAdRequired":generation_ad_required,"attendanceProgress":attendance_progress}),
         );
     }
     if input.round != target_round(now) {
@@ -299,9 +300,10 @@ pub(crate) async fn generate(req: &mut Request) -> ApiResult<Json> {
     // rate limits and attendance eligibility remain server-owned.
     let generation_ad_required =
         !input.client_managed_counter && generation_ads::generated(&mut tx, &user.id, now)?;
+    let attendance_progress = crate::attendance::status(&mut tx, &user.id, now)?;
     db::tx_commit(&mut tx)?;
     Ok(
-        json!({"generation":generation,"replayed":false,"generationAdRequired":generation_ad_required}),
+        json!({"generation":generation,"replayed":false,"generationAdRequired":generation_ad_required,"attendanceProgress":attendance_progress}),
     )
 }
 

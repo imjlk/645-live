@@ -1,9 +1,77 @@
-use crate::{db, engagement::kst_day};
+use crate::{db, engagement::kst_day, metrics};
+use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
 use serde_json::{Value as Json, json};
 use trailbase_guest_common::responses::*;
 use trailbase_wasm::db::{Transaction, Value};
 
 pub const DAYS: i64 = 7;
+pub const EXPERIMENT: &str = "generation-cadence-v3";
+
+// A reproducible daily draw: reopening the app cannot reroll the target.
+// The ad counter and its independent M draw remain client-owned.
+fn daily_target(principal: &str, day: i64) -> i64 {
+    let mut hash = 2166136261u32;
+    for c in format!("{EXPERIMENT}:attendance:{principal}:{day}").encode_utf16() {
+        hash = (hash ^ c as u32).wrapping_mul(16777619);
+    }
+    3 + i64::from(hash % 3)
+}
+pub fn enroll(tx: &mut Transaction, user: &[u8], now: i64) -> ApiResult<()> {
+    db::tx_execute(
+        tx,
+        "INSERT OR IGNORE INTO ait_lotto_attendance_experiments(user_id,experiment,enrolled_at) VALUES (?1,?2,?3)",
+        &[
+            Value::Blob(user.to_vec()),
+            Value::Text(EXPERIMENT.into()),
+            Value::Integer(now),
+        ],
+    )?;
+    Ok(())
+}
+fn requirement(tx: &mut Transaction, user: &[u8], day: i64) -> ApiResult<(i64, bool)> {
+    let enrolled = !db::tx_query(
+        tx,
+        "SELECT 1 FROM ait_lotto_attendance_experiments WHERE user_id=?1 AND experiment=?2",
+        &[Value::Blob(user.to_vec()), Value::Text(EXPERIMENT.into())],
+    )?
+    .is_empty();
+    let principal = URL_SAFE_NO_PAD.encode(user);
+    Ok((
+        if enrolled && metrics::variant(&principal) == "control" {
+            daily_target(&principal, day)
+        } else {
+            1
+        },
+        enrolled,
+    ))
+}
+pub fn generated_count(tx: &mut Transaction, user: &[u8], today: i64) -> ApiResult<i64> {
+    let start = today * 86_400_000 - 32_400_000;
+    let rows = db::tx_query(
+        tx,
+        "SELECT count(*) FROM ait_lotto_generation_requests WHERE user_id=?1 AND created_at>=?2 AND created_at<?3",
+        &[
+            Value::Blob(user.to_vec()),
+            Value::Integer(start),
+            Value::Integer(start + 86_400_000),
+        ],
+    )?;
+    db::integer(&rows[0][0], "generated count")
+}
+pub fn require_check_in(tx: &mut Transaction, user: &[u8], now: i64) -> ApiResult<()> {
+    let day = kst_day(now);
+    if checked(tx, user, day)? {
+        return Ok(());
+    }
+    let (required, _) = requirement(tx, user, day)?;
+    if generated_count(tx, user, day)? < required {
+        return Err(forbidden(
+            "GENERATION_REQUIRED",
+            format!("오늘 번호를 {required}회 만든 뒤 출석해 주세요."),
+        ));
+    }
+    Ok(())
+}
 #[derive(Clone, Copy, Debug, PartialEq)]
 struct Day {
     day: i64,
@@ -142,7 +210,10 @@ pub fn status(tx: &mut Transaction, user: &[u8], now: i64) -> ApiResult<Json> {
     let last = latest_end(tx, user)?;
     let days = days_after(tx, user, last, today)?;
     let state = sequences(&days);
-    let generated = generated_today(tx, user, today)?;
+    let generated_count = generated_count(tx, user, today)?;
+    let generated = generated_count > 0;
+    let (required, enrolled) = requirement(tx, user, today)?;
+    let checked_in = checked(tx, user, today)?;
     let restore_available = restorable(&days, today);
     let count = if last == today {
         DAYS
@@ -152,7 +223,7 @@ pub fn status(tx: &mut Transaction, user: &[u8], now: i64) -> ApiResult<Json> {
         0
     };
     Ok(
-        json!({"day":today,"checkedIn":checked(tx,user,today)?,"generatedToday":generated,"streak":count,"cycleLength":DAYS,"canRestore":generated && restore_available,"restoreAfterGeneration":!generated && restore_available,"restoreLimit":1,"serverTime":now}),
+        json!({"day":today,"checkedIn":checked_in,"generatedToday":generated,"generatedCount":generated_count,"requiredGenerations":required,"canCheckIn":checked_in || generated_count>=required,"attendanceExperiment":if enrolled{Some(EXPERIMENT)}else{None},"streak":count,"cycleLength":DAYS,"canRestore":generated && restore_available,"restoreAfterGeneration":!generated && restore_available,"restoreLimit":1,"serverTime":now}),
     )
 }
 pub fn weekly_period(tx: &mut Transaction, user: &[u8], today: i64) -> ApiResult<Option<i64>> {
@@ -170,6 +241,17 @@ pub fn weekly_period(tx: &mut Transaction, user: &[u8], today: i64) -> ApiResult
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn daily_draw_is_stable_bounded_and_varies_over_days() {
+        let values: Vec<_> = (100..1000)
+            .map(|day| daily_target("fixture", day))
+            .collect();
+        assert!(values.iter().all(|n| (3..=5).contains(n)));
+        for n in 3..=5 {
+            assert!(values.contains(&n));
+        }
+        assert_eq!(daily_target("fixture", 123), daily_target("fixture", 123));
+    }
     fn days(range: std::ops::RangeInclusive<i64>) -> Vec<Day> {
         range
             .map(|day| Day {

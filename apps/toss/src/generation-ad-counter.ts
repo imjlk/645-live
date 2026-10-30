@@ -6,6 +6,8 @@ export type GenerationAdPolicy = {
 	firstGenerations: number;
 	firstMaxGenerations?: number;
 	experiment?: string;
+	storageExperiment?: string;
+	initialGenerated?: number;
 	variant?: "control" | "short";
 	minGenerations: number;
 	maxGenerations: number;
@@ -40,14 +42,17 @@ export function createGenerationAdCounter(
 			key: storageKey,
 			// Each experimental principal starts a fresh, persisted first gate.
 			fallback: () => ({
-				remaining:
+				remaining: Math.max(
+					0,
 					policy.firstGenerations +
-					Math.floor(
-						random() *
-							((policy.firstMaxGenerations ?? policy.firstGenerations) -
-								policy.firstGenerations +
-								1),
-					),
+						Math.floor(
+							random() *
+								((policy.firstMaxGenerations ?? policy.firstGenerations) -
+									policy.firstGenerations +
+									1),
+						) -
+						(policy.initialGenerated ?? 0),
+				),
 				lastGenerationId: null,
 			}),
 			normalize(value) {
@@ -109,7 +114,7 @@ export function createGenerationAdCounter(
 			)
 				policy = next;
 			const nextKey = policy.experiment
-				? `${key}.${policy.experiment}.${policy.variant}.${principalScope()}`
+				? `${key}.${policy.storageExperiment ?? policy.experiment}.${policy.variant}.${principalScope()}`
 				: key;
 			if (nextKey !== loadedKey) {
 				loadedKey = nextKey;

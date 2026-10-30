@@ -201,7 +201,25 @@ const api = {
 		};
 		records.set(id, generation);
 		if (requests === failRequest) throw new Error("lost response");
-		return { generation, replayed: !!existing };
+		return {
+			generation,
+			replayed: !!existing,
+			attendanceProgress: {
+				day,
+				serverTime: at + records.size,
+				generatedToday: true,
+				checkedIn: false,
+				generatedCount: records.size,
+				requiredGenerations: 4,
+				canCheckIn: records.size >= 4,
+				attendanceExperiment: "generation-cadence-v3",
+				streak: 0,
+				cycleLength: 7,
+				canRestore: false,
+				restoreAfterGeneration: false,
+				restoreLimit: 1,
+			},
+		};
 	},
 };
 let requestId = 0;
@@ -275,6 +293,8 @@ await act(async () => {
 expect(identities.at(-1)).toBe(pendingIdentity);
 expect(model.publishedGenerationId).toBe(2);
 expect(records.size).toBe(2);
+expect(model.attendance?.generatedCount).toBe(2);
+expect(model.attendance?.canCheckIn).toBe(false);
 for (let i = 0; i < 3; i++) {
 	await advance();
 	await act(async () => {
@@ -284,6 +304,8 @@ for (let i = 0; i < 3; i++) {
 expect(ads).toBe(0);
 expect(model.generationAdRequired).toBe(true);
 expect(model.publishedGenerationId).toBe(5);
+expect(model.attendance?.generatedCount).toBe(5);
+expect(model.attendance?.canCheckIn).toBe(true);
 expect(attendanceReads - beforeAttendance).toBe(1);
 expect(feedReads).toBe(beforeFeed);
 

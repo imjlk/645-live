@@ -164,7 +164,7 @@ export function bindAdMetrics(
 			events.filter(
 				(e) =>
 					e.eventPayload.placement === "generation_continue" &&
-					e.eventPayload.policy.startsWith("generation-cadence-v2/"),
+					e.eventPayload.policy.startsWith("generation-cadence-v3/"),
 			),
 			{ sink: "detail" },
 		);

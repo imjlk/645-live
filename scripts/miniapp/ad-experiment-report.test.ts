@@ -65,3 +65,20 @@ test("immediate taps count without viewport events and do not double count a lat
 		0,
 	);
 });
+
+test("new phase reports separately and rejects mixed phases within one version", () => {
+	const old = event("experiment_exposed", 0);
+	const next = {
+		...old,
+		params: {
+			...old.params,
+			policy: "generation-cadence-v3/short:device:1-3:2-8",
+		},
+	};
+	expect(summarizeExperiment([next], "test", 400000)[1].experiment).toBe(
+		"generation-cadence-v3",
+	);
+	expect(() => summarizeExperiment([old, next], "test", 400000)).toThrow(
+		"Separate experiment phases",
+	);
+});

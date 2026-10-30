@@ -1,4 +1,19 @@
-# Generation continuation update
+# Attendance and generation comparison
+
+The current bundle uses `generation-cadence-v3`. Assignment still uses the original v2 50:50 hash, so users do not switch arms when upgrading.
+
+- Control: each KST day has a stable N in 3–5. Attendance becomes available after N successful generation requests that day. The server validates the existing generation-request ledger; deleting a public generation or replaying a request cannot change this count.
+- The control's first and subsequent local ad intervals use that day's N plus an independent M in 2–5. The ad is offered before the next generation after the drawn interval is consumed. A pending interval survives midnight, restarts and daily target changes. Consequently tomorrow's attendance does not necessarily require an ad. On first enrollment, already completed generations that day count toward the initial interval.
+- Treatment keeps first 1–3, recurring 2–8 and its existing returning-user daily continuation rule. Its v2 counter storage and completed-day marker are retained.
+- Completed attendance and monetary claim eligibility stay valid. Restore behavior and no-fill/error continuation remain unchanged. An ad completion is not an attendance prerequisite.
+
+New clients enroll idempotently through `POST /api/app/v1/attendance/status` with `experiment: generation-cadence-v3`. The additive migration stores enrollment, not an ad counter. Older clients that have not enrolled retain their existing GET/status and one-generation check-in contract. After enrollment, all check-in requests for that principal are checked against the daily requirement; an older client cannot bypass it by omitting enrollment. A successful generation response includes fresh attendance progress, including replays, without another progress-fetch request per generation. Deploy the migration and WASM before submitting the bundle.
+
+The attendance screen displays today's target and confirmed progress. Invalid or stale responses do not unlock attendance. Day rollover refreshes server state; the ad counter remains local. Changing the optional telemetry switch does not affect either eligibility or counters. Attendance target changes require a server update; `mode: relaxed` only changes client ad cadence.
+
+Saved queries 11–13 now separate v2/v3 data. Query 14 compares v3 daily attendance conversion, excluding users who had already checked in before their first observed exposure that day; the current KST day is explicitly marked provisional. Cost attribution ends when the next experiment is first observed, so a payment cannot be counted in both phases. Compare the same version and experiment. Latest-version traffic and test bundles must not be pooled blindly. Actual ad revenue still requires settlement data.
+
+## Previous experiment reference
 
 The new bundle uses `generation-cadence-v2` with stable 50:50 assignment by the authenticated internal principal. No raw principal or Toss identity is included in analytics.
 

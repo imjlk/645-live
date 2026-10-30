@@ -69,5 +69,37 @@ test("saved metrics SQL separates mature conversion windows and counts each paid
 	expect(immediate.오분내_생성미완료율).toBe(0);
 	db.exec("UPDATE analytics.events SET client_at=unixepoch('now')*1000");
 	expect(query("11-generation-ab-funnel.sql")[0].평가가능_CTA수).toBe(0);
+	// Preserve legacy cohorts, but stop cost attribution at the next phase.
+	db.exec(`UPDATE analytics.events SET client_at=${at}`);
+	const nextProps = JSON.stringify({
+		...JSON.parse(props),
+		policy: "generation-cadence-v3/short:device:1-3:2-8",
+		app_version: "1.7.0",
+	});
+	insert.run("experiment_exposed", at + 3000, at + 3000, nextProps);
+	db.exec(
+		`INSERT INTO promotion_reward_ledger VALUES(x'01','success',2,${at + 4000},NULL)`,
+	);
+	const phased = query("13-generation-ab-cost.sql");
+	expect(phased.map((row) => [row.실험, row.지급성공금액])).toEqual([
+		["generation-cadence-v2", 4],
+		["generation-cadence-v3", 2],
+	]);
+	expect(
+		query("11-generation-ab-funnel.sql").find(
+			(row) => row.실험 === "generation-cadence-v3",
+		)?.평가가능_CTA수,
+	).toBe(0);
+	db.exec(
+		"CREATE TABLE ait_lotto_attendance(user_id BLOB,day INTEGER,created_at INTEGER)",
+	);
+	const day = Math.floor((at + 3000 + 32400000) / 86400000);
+	db.exec(`INSERT INTO ait_lotto_attendance VALUES(x'01',${day},${at + 4000})`);
+	expect(query("14-attendance-ab-conversion.sql")[0].관측_출석완료율).toBe(100);
+	db.exec(`UPDATE ait_lotto_attendance SET created_at=${at + 1000}`);
+	const preexisting = query("14-attendance-ab-conversion.sql")[0];
+	expect(preexisting.참여전_출석완료자).toBe(1);
+	expect(preexisting.평가가능_이용자).toBe(0);
+	expect(preexisting.관측_출석완료율).toBeNull();
 	db.close();
 });
