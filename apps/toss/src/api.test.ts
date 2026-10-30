@@ -1,4 +1,4 @@
-import { afterEach, expect, mock, test } from "bun:test";
+import { afterEach, expect, mock, spyOn, test } from "bun:test";
 import {
 	type AdMetricSink,
 	createAdFlow,
@@ -13,6 +13,7 @@ let bootstrapCount = 0;
 let adEnvironment = "toss";
 let adLoadFails = false;
 let adShowCount = 0;
+let showGate: ((callbacks: AdCallbacks) => void) | null = null;
 const adLoads: string[] = [];
 let loadGate: (() => void) | null = null;
 let sessionFailure: Error | null = null;
@@ -54,8 +55,13 @@ mock.module("@apps-in-toss/framework", () => ({
 		{ isSupported: () => true },
 	),
 	showFullScreenAd: Object.assign(
-		({ onEvent }: AdCallbacks) => {
+		(callbacks: AdCallbacks) => {
+			const { onEvent } = callbacks;
 			adShowCount += 1;
+			if (showGate) {
+				showGate(callbacks);
+				return () => {};
+			}
 			queueMicrotask(() => {
 				for (const type of adEvents) onEvent({ type });
 			});
@@ -111,6 +117,7 @@ afterEach(() => {
 	adEnvironment = "toss";
 	adLoadFails = false;
 	adShowCount = 0;
+	showGate = null;
 	adLoads.length = 0;
 	loadGate = null;
 	sessionFailure = null;
@@ -142,6 +149,118 @@ test("full-screen requests are lazy and load only the server-selected group afte
 		expect(adLoads).toEqual(["chosen-group"]);
 		expect(adShowCount).toBe(1);
 	} finally {
+		controller.dispose();
+	}
+});
+
+test("delayed ad completion survives the opening deadline without a failed event", async () => {
+	const realSetTimeout = globalThis.setTimeout;
+	const timers = spyOn(globalThis, "setTimeout").mockImplementation(((
+		handler,
+		delay,
+		...args
+	) =>
+		realSetTimeout(
+			handler,
+			delay === 120_000 ? 5 : delay,
+			...args,
+		)) as typeof setTimeout);
+	let callbacks: AdCallbacks | null = null;
+	let markShown!: () => void;
+	const shown = new Promise<void>((resolve) => {
+		markShown = resolve;
+	});
+	showGate = (value) => {
+		callbacks = value;
+		value.onEvent({ type: "show" });
+		value.onEvent({ type: "impression" });
+		markShown();
+	};
+	const completions: string[][] = [];
+	const metrics: Parameters<AdMetricSink>[0][] = [];
+	const telemetry = createAdTelemetry((events) => {
+		metrics.push(events);
+	});
+	const controller = createAdController({
+		startAd: async () => ({
+			alreadyGranted: false,
+			id: "long",
+			format: "rewarded",
+			groupId: "long-group",
+			expiresAt: Date.now() + 300000,
+		}),
+		completeAd: async (_id, events) => {
+			completions.push(events);
+			return { feature: "generation_continue" };
+		},
+	});
+	try {
+		const attempt = controller.unlock(
+			"generation_continue",
+			true,
+			createAdFlow(telemetry, { placement: "generation_continue" }),
+		);
+		void attempt.catch(() => {});
+		await shown;
+		await new Promise((resolve) => realSetTimeout(resolve, 20));
+		expect(completions).toEqual([]);
+		const active = callbacks as AdCallbacks | null;
+		expect(active).not.toBeNull();
+		active?.onEvent({ type: "userEarnedReward" });
+		active?.onEvent({ type: "dismissed" });
+		await expect(attempt).resolves.toMatchObject({
+			resolution: "ad_completed",
+		});
+		expect(completions).toEqual([
+			["show", "impression", "userEarnedReward", "dismissed"],
+		]);
+		await telemetry.flush();
+		expect(metrics.some((event) => event.log_name === "lotto_ad_failed")).toBe(
+			false,
+		);
+		expect(
+			metrics.some((event) => event.log_name === "lotto_ad_completed"),
+		).toBe(true);
+	} finally {
+		timers.mockRestore();
+		controller.dispose();
+	}
+});
+
+test("an ad that never opens reports a readable message and cancels without a reward", async () => {
+	const realSetTimeout = globalThis.setTimeout;
+	const timers = spyOn(globalThis, "setTimeout").mockImplementation(((
+		handler,
+		delay,
+		...args
+	) =>
+		realSetTimeout(
+			handler,
+			delay === 120_000 ? 5 : delay,
+			...args,
+		)) as typeof setTimeout);
+	showGate = ({ onEvent }) => onEvent({ type: "requested" });
+	const completions: string[][] = [];
+	const controller = createAdController({
+		startAd: async () => ({
+			alreadyGranted: false,
+			id: "stuck",
+			format: "rewarded",
+			groupId: "stuck-group",
+			expiresAt: Date.now() + 300000,
+		}),
+		completeAd: async (_id, events) => {
+			completions.push(events);
+			return { feature: "generation_continue" };
+		},
+	});
+	try {
+		await expect(
+			controller.unlock("generation_continue", true),
+		).rejects.toThrow("광고 응답이 늦어지고 있어요");
+		expect(completions).toEqual([["cancelled"]]);
+	} finally {
+		timers.mockRestore();
 		controller.dispose();
 	}
 });

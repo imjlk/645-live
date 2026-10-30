@@ -62,6 +62,7 @@ export function createAdController(api: Pick<Api, "startAd" | "completeAd">) {
 	const bridge = createAppsInTossFullScreenAdBridge({
 		loadFullScreenAd,
 		showFullScreenAd: observedShow,
+		// Bounds opening only; the kit clears this once the SDK reports visibility.
 		showTimeoutMs: 120_000,
 	});
 	let busy = false;
@@ -264,6 +265,14 @@ export function createAdController(api: Pick<Api, "startAd" | "completeAd">) {
 						bridge.clear(session.groupId);
 						pendingCancellation = session.id;
 						await flushCancellation().catch(() => {});
+					}
+					if (error instanceof AppsInTossAdBridgeError) {
+						throw new Error(
+							error.code === "AD_SHOW_TIMEOUT"
+								? "광고 응답이 늦어지고 있어요. 잠시 후 다시 시도해 주세요."
+								: "광고를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.",
+							{ cause: error },
+						);
 					}
 					throw error;
 				}
