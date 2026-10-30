@@ -1,5 +1,11 @@
 # @645/toss
 
+## 1.7.1 — 2026-10-30
+
+### Patch changes
+
+- [9f1467d](https://github.com/imjlk/645-live/commit/9f1467d7d093614db1fc38d4e644af27b216f938) Improve ad completion handling during long viewing sessions and delayed returns, and clarify messages when an ad cannot open.
+
 ## 1.7.0 — 2026-10-30
 
 ### Minor changes
