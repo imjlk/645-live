@@ -1,6 +1,7 @@
 -- analytics 데이터베이스를 Attached에서 선택한 뒤 실행합니다. 신규 수집 이후만 집계합니다.
 -- 전송된 클라이언트 관측 이벤트이며 광고 정산 수익/부정행위 증빙이 아닙니다.
--- CTA 노출 후 5분이 지난 시도만 전환율 분모에 포함합니다.
+-- CTA 노출 또는 즉시 클릭(요청) 후 5분이 지난 시도만 전환율 분모에 포함합니다.
+-- 빠른 클릭은 1초 노출 이벤트 없이 요청될 수 있으므로 요청을 노출 근거로 포함합니다.
 WITH e AS (
  SELECT *,json_extract(props_json,'$.session_id') AS session,
  json_extract(props_json,'$.flow_id') AS flow,json_extract(props_json,'$.app_version') AS version
@@ -8,7 +9,7 @@ WITH e AS (
  AND json_extract(props_json,'$.policy') LIKE 'generation-cadence-v2/%'
 ), flows AS (
  SELECT source,version,user_id,session,flow,
- min(CASE WHEN name='cta_viewed' THEN client_at END) AS viewed,
+ min(CASE WHEN name IN ('cta_viewed','requested') THEN client_at END) AS viewed,
  min(CASE WHEN name='requested' THEN client_at END) AS requested,
  min(CASE WHEN name='shown' THEN client_at END) AS shown,
  min(CASE WHEN name='completed' THEN client_at END) AS completed,

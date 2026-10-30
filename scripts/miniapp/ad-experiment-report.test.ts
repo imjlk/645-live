@@ -43,3 +43,25 @@ test("matures windows, deduplicates CTA views, excludes other sessions, and sepa
 		summarizeExperiment(events, "different", 400000)[1].ctaNonContinuationRate,
 	).toBeNull();
 });
+
+test("immediate taps count without viewport events and do not double count a later view", () => {
+	const events = [
+		event("experiment_exposed", 0),
+		event("requested", 10),
+		event("cta_viewed", 20),
+		event("generation_completed", 30),
+	];
+	const result = summarizeExperiment(events, "test", 400000)[1];
+	expect(result.matureCtaAttempts).toBe(1);
+	expect(result.resumedAttempts).toBe(1);
+	expect(
+		summarizeExperiment(
+			events.filter((e) => e.log_name !== "lotto_ad_cta_viewed"),
+			"test",
+			400000,
+		)[1].resumedAttempts,
+	).toBe(1);
+	expect(summarizeExperiment(events, "test", 200000)[1].matureCtaAttempts).toBe(
+		0,
+	);
+});

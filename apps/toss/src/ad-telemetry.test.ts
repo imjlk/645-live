@@ -135,3 +135,26 @@ test("private metrics mirror is bounded to experiment events and retains IDs acr
 		mirror.dispose();
 	}
 });
+
+test("disabling the server mirror keeps SDK analytics independent and sends no server batch", async () => {
+	let server = 0;
+	const sdk: string[] = [];
+	const mirror = bindAdMetrics(async () => {
+		server++;
+	}, false);
+	try {
+		const telemetry = createAdTelemetry((e) => {
+			sdk.push(e.log_name);
+		});
+		telemetry.track("generation_succeeded", {
+			placement: "generation_continue",
+			policy: "generation-cadence-v2/control:device:3-3:3-12",
+		});
+		await telemetry.flush();
+		await mirror.flush();
+		expect(server).toBe(0);
+		expect(sdk).toEqual(["lotto_ad_generation_succeeded"]);
+	} finally {
+		mirror.dispose();
+	}
+});

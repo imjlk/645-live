@@ -38,7 +38,8 @@ export function summarizeExperiment(
 					),
 				);
 			if (
-				e.log_name === "lotto_ad_cta_viewed" &&
+				(e.log_name === "lotto_ad_cta_viewed" ||
+					e.log_name === "lotto_ad_requested") &&
 				e.params.flow_id &&
 				e.params.session_id
 			) {

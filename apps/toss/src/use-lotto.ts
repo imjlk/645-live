@@ -45,7 +45,10 @@ import {
 	type User,
 } from "./api";
 import { createFeedHistory, deletedGenerationId } from "./feed-history";
-import { dailyGenerationAdRequired } from "./generation-ad-experiment";
+import {
+	dailyGenerationAdRequired,
+	requiresAttendanceForGeneration,
+} from "./generation-ad-experiment";
 import { createGenerationCooldown } from "./generation-cooldown";
 import { createGenerationRequest } from "./generation-request";
 import { createPerformanceTracker } from "./performance";
@@ -383,15 +386,18 @@ export function useLotto() {
 		attendance,
 		generationAds.continuedDay,
 	);
-	const generationReady =
+	const experimentReady =
 		!!user &&
 		!!context &&
 		!!adConfig &&
-		(!adConfig.generationAdPolicy?.experiment || !!attendance) &&
 		(adConfig.generationAdPolicy?.counter !== "device" || generationAds.ready);
+	const generationReady =
+		experimentReady &&
+		(!requiresAttendanceForGeneration(adConfig?.generationAdPolicy) ||
+			!!attendance);
 	useEffect(() => {
 		if (
-			generationReady &&
+			experimentReady &&
 			foreground &&
 			adConfig?.generationAdPolicy?.experiment &&
 			!exposedPolicies.current.has(exposureKey)
@@ -403,7 +409,7 @@ export function useLotto() {
 			});
 		}
 	}, [
-		generationReady,
+		experimentReady,
 		foreground,
 		adConfig?.generationAdPolicy?.experiment,
 		generationPolicyLabel,

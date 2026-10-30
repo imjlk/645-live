@@ -1,4 +1,9 @@
 import type { GenerationAdPolicy } from "./generation-ad-counter";
+import {
+	GENERATION_AD_INTERVALS,
+	GENERATION_AD_SETTINGS,
+	type GenerationAdSettings,
+} from "./generation-ad-settings";
 
 export const GENERATION_AD_EXPERIMENT = "generation-cadence-v2";
 
@@ -17,6 +22,7 @@ export function generationAdVariant(principal: string): "control" | "short" {
 export function generationExperimentPolicy(
 	base: GenerationAdPolicy | undefined,
 	principal: string,
+	settings: GenerationAdSettings = GENERATION_AD_SETTINGS,
 ): GenerationAdPolicy | undefined {
 	// A server policy change is also a kill switch; never override other policies.
 	if (
@@ -32,20 +38,22 @@ export function generationExperimentPolicy(
 		...base,
 		experiment: GENERATION_AD_EXPERIMENT,
 		variant,
-		...(variant === "short"
-			? {
-					firstGenerations: 1,
-					firstMaxGenerations: 3,
-					minGenerations: 2,
-					maxGenerations: 8,
-				}
-			: {
-					firstGenerations: 3,
-					firstMaxGenerations: 3,
-					minGenerations: 3,
-					maxGenerations: 12,
-				}),
+		...GENERATION_AD_INTERVALS[
+			settings.mode === "relaxed" ? "relaxed" : variant
+		],
 	};
+}
+
+export function requiresAttendanceForGeneration(
+	policy: GenerationAdPolicy | undefined,
+	settings: GenerationAdSettings = GENERATION_AD_SETTINGS,
+) {
+	return (
+		settings.mode === "experiment" &&
+		settings.returningDailyAd &&
+		policy?.experiment === GENERATION_AD_EXPERIMENT &&
+		policy.variant === "short"
+	);
 }
 
 /** One explicit daily ad opportunity before repeat-attendance users generate. */
@@ -58,10 +66,10 @@ export function dailyGenerationAdRequired(
 		checkedIn: boolean;
 	} | null,
 	continuedDay: number | undefined,
+	settings: GenerationAdSettings = GENERATION_AD_SETTINGS,
 ) {
 	return (
-		policy?.experiment === GENERATION_AD_EXPERIMENT &&
-		policy.variant === "short" &&
+		requiresAttendanceForGeneration(policy, settings) &&
 		!!attendance &&
 		attendance.streak >= 1 &&
 		!attendance.generatedToday &&
