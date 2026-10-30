@@ -1,6 +1,9 @@
 import { createAnalyticsRouter } from "@trailbase-apps-in-toss-kit/ait-rn/analytics";
 
 export type AdMetric =
+	| "experiment_exposed"
+	| "generation_attempted"
+	| "generation_succeeded"
 	| "session_started"
 	| "cta_viewed"
 	| "requested"
@@ -35,6 +38,7 @@ export type AdMetricPayload = {
 	outcome: string;
 	entry_point: string;
 	app_version: string;
+	session_id: string;
 };
 export type AdMetricSink = (event: {
 	log_name: string;
@@ -44,6 +48,7 @@ export type AdMetricSink = (event: {
 
 /** No identities, generated numbers, server tokens, or raw error payloads. */
 export function createAdTelemetry(send: AdMetricSink, appVersion = "unknown") {
+	const sessionId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 	const router = createAnalyticsRouter<AdMetric, AdMetricPayload>({
 		appsInToss: {
 			enabled: true,
@@ -72,6 +77,7 @@ export function createAdTelemetry(send: AdMetricSink, appVersion = "unknown") {
 				outcome: outcome.slice(0, 64),
 				entry_point: (context.entryPoint ?? "continuation").slice(0, 32),
 				app_version: appVersion.slice(0, 24),
+				session_id: sessionId,
 			});
 		},
 		flush: router.flush,
@@ -102,11 +108,14 @@ export type AdFlow = ReturnType<typeof createAdFlow>;
 export function adPolicyLabel(policy?: {
 	counter?: string;
 	firstGenerations?: number;
+	firstMaxGenerations?: number;
+	experiment?: string;
+	variant?: string;
 	minGenerations?: number;
 	maxGenerations?: number;
 }) {
 	return policy
-		? `${policy.counter ?? "server"}:${policy.firstGenerations ?? "legacy"}:${policy.minGenerations ?? "?"}-${policy.maxGenerations ?? "?"}`
+		? `${policy.experiment ? `${policy.experiment}/${policy.variant}:` : ""}${policy.counter ?? "server"}:${policy.firstGenerations ?? "legacy"}${policy.firstMaxGenerations ? `-${policy.firstMaxGenerations}` : ""}:${policy.minGenerations ?? "?"}-${policy.maxGenerations ?? "?"}`
 		: "server:legacy";
 }
 

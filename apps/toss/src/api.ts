@@ -25,6 +25,7 @@ import {
 	createGenerationAdCounter,
 	type GenerationAdPolicy,
 } from "./generation-ad-counter";
+import { generationExperimentPolicy } from "./generation-ad-experiment";
 import type { GenerationResponse } from "./generation-request";
 import { resolveLottoRuntime } from "./runtime-config";
 import { createSavedStore } from "./saved-store";
@@ -364,6 +365,8 @@ export function createApi() {
 		generationAds: createGenerationAdCounter(
 			storage.storage,
 			`${runtime.storageKey}.generationAds.v1`,
+			Math.random,
+			() => currentUser?.id ?? "",
 		),
 		saved: (user: User) =>
 			createSavedStore(
@@ -393,7 +396,16 @@ export function createApi() {
 			request<{ deleted: boolean }>("/api/app/v1/lotto/generations/delete", {
 				id,
 			}),
-		ads: () => request<AdConfig>("/api/app/v1/ads/config"),
+		ads: async () => {
+			const config = await request<AdConfig>("/api/app/v1/ads/config");
+			return {
+				...config,
+				generationAdPolicy: generationExperimentPolicy(
+					config.generationAdPolicy,
+					currentUser?.id ?? "",
+				),
+			};
+		},
 		startAd: (placement: AdPlacement, clientManagedCounter = false) =>
 			request<AdSession>("/api/app/v1/ads/start", {
 				placement,

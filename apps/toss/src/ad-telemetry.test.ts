@@ -76,3 +76,33 @@ test("policy reflects server configuration rather than hardcoded release default
 	).toBe("device:5:5-30");
 	expect(adPolicyLabel()).toBe("server:legacy");
 });
+
+test("experiment events share only an ephemeral session and preserve cohort labels", async () => {
+	const events: Parameters<AdMetricSink>[0][] = [];
+	const telemetry = createAdTelemetry((event) => {
+		events.push(event);
+	}, "1.6.0");
+	const policy = adPolicyLabel({
+		counter: "device",
+		firstGenerations: 2,
+		firstMaxGenerations: 5,
+		minGenerations: 2,
+		maxGenerations: 5,
+		experiment: "generation-cadence-v1",
+		variant: "short",
+	});
+	telemetry.track("experiment_exposed", {
+		placement: "generation_continue",
+		policy,
+	});
+	telemetry.track("generation_succeeded", {
+		placement: "generation_continue",
+		policy,
+	});
+	await telemetry.flush();
+	expect(events[0].params.session_id).toBeTruthy();
+	expect(events[0].params.session_id).toBe(events[1].params.session_id);
+	expect(events[0].params.policy).toBe(
+		"generation-cadence-v1/short:device:2-5:2-5",
+	);
+});

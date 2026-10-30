@@ -350,11 +350,32 @@ export function useLotto() {
 		};
 	}, [api, revision, refreshPrivate, performance]);
 
+	const exposedPolicies = useRef(new Set<string>());
+	const generationPolicyLabel = adPolicyLabel(adConfig?.generationAdPolicy);
 	const generationReady =
 		!!user &&
 		!!context &&
 		!!adConfig &&
 		(adConfig.generationAdPolicy?.counter !== "device" || generationAds.ready);
+	useEffect(() => {
+		if (
+			generationReady &&
+			foreground &&
+			adConfig?.generationAdPolicy?.experiment &&
+			!exposedPolicies.current.has(generationPolicyLabel)
+		) {
+			exposedPolicies.current.add(generationPolicyLabel);
+			adTelemetry.track("experiment_exposed", {
+				placement: "generation_continue",
+				policy: generationPolicyLabel,
+			});
+		}
+	}, [
+		generationReady,
+		foreground,
+		adConfig?.generationAdPolicy?.experiment,
+		generationPolicyLabel,
+	]);
 	useEffect(() => {
 		if (generationReady && foreground && !initialReady.current) {
 			initialReady.current = true;
@@ -697,6 +718,10 @@ export function useLotto() {
 			setPublishedGenerationId(response.generation.id);
 			setRecent((items) => rememberGeneration(items, response.generation));
 			trackProduct("generation_succeeded");
+			adTelemetry.track("generation_succeeded", {
+				placement: "generation_continue",
+				policy: generationPolicyLabel,
+			});
 			if (deviceCounter) api.generationAds.generated(response.generation.id);
 			setAdConfig((previous) =>
 				previous
@@ -837,6 +862,10 @@ export function useLotto() {
 			// Enforce one second from the tap; actionLock covers slow requests and ads.
 			generationCooldown.start();
 			trackProduct("generation_started");
+			adTelemetry.track("generation_attempted", {
+				placement: "generation_continue",
+				policy: generationPolicyLabel,
+			});
 			const adFlow = watchAd
 				? (impressionFlow ??
 					createAdFlow(adTelemetry, {
