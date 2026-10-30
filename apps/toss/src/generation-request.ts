@@ -4,7 +4,10 @@ import type {
 	RoundContext,
 } from "@645/lotto-core";
 
+import type { AttendanceProgress } from "./attendance-progress";
+
 export type GenerationResponse = {
+	attendanceProgress?: AttendanceProgress;
 	generation: Generation;
 	replayed: boolean;
 	generationAdRequired?: boolean;

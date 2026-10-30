@@ -10,11 +10,12 @@ export const GENERATION_AD_SETTINGS: GenerationAdSettings = {
 	returningDailyAd: true,
 };
 export const GENERATION_AD_INTERVALS = {
+	// N comes from today's attendance target; M is drawn locally within 2..5.
 	control: {
-		firstGenerations: 3,
-		firstMaxGenerations: 3,
-		minGenerations: 3,
-		maxGenerations: 12,
+		firstGenerations: 5,
+		firstMaxGenerations: 10,
+		minGenerations: 5,
+		maxGenerations: 10,
 	},
 	short: {
 		firstGenerations: 1,

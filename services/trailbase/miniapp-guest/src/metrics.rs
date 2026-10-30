@@ -36,7 +36,7 @@ struct Props {
     session_id: String,
     event_id: String,
 }
-fn variant(principal: &str) -> &'static str {
+pub(crate) fn variant(principal: &str) -> &'static str {
     let mut hash = 2166136261u32;
     for c in format!("generation-cadence-v2:{principal}").encode_utf16() {
         hash = (hash ^ c as u32).wrapping_mul(16777619);
@@ -81,8 +81,11 @@ fn valid_policy(policy: &str, expected: &str) -> bool {
     if policy.len() > 96 {
         return false;
     }
-    let prefix = format!("generation-cadence-v2/{expected}:device:");
-    let Some(ranges) = policy.strip_prefix(&prefix) else {
+    let prefixes = ["generation-cadence-v2", "generation-cadence-v3"];
+    let Some(ranges) = prefixes
+        .iter()
+        .find_map(|experiment| policy.strip_prefix(&format!("{experiment}/{expected}:device:")))
+    else {
         return false;
     };
     let Some((first, recurring)) = ranges.split_once(':') else {
@@ -221,6 +224,14 @@ mod tests {
     use super::*;
     #[test]
     fn client_tuning_does_not_require_server_range_updates() {
+        assert!(valid_policy(
+            "generation-cadence-v3/control:device:5-8:5-8",
+            "control"
+        ));
+        assert!(!valid_policy(
+            "generation-cadence-v4/control:device:5-8:5-8",
+            "control"
+        ));
         assert!(valid_policy(
             "generation-cadence-v2/short:device:5-5:5-30",
             "short"

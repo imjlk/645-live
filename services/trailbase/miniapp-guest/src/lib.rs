@@ -87,6 +87,7 @@ endpoint!(ad_complete, ads::complete);
 endpoint!(dev_entitlements, dev::entitlements);
 endpoint!(dev_attendance, dev::attendance_fixture);
 endpoint!(attendance_status, engagement::attendance_status);
+endpoint!(attendance_enroll, engagement::attendance_enroll);
 endpoint!(check_in, engagement::check_in);
 endpoint!(agreement, engagement::agreement);
 endpoint!(watch_result, engagement::watch_result);
@@ -132,6 +133,7 @@ impl Guest for Miniapp {
             routing::post("/api/app/v1/dev/entitlements", dev_entitlements),
             routing::post("/api/app/v1/dev/attendance", dev_attendance),
             routing::get("/api/app/v1/attendance/status", attendance_status),
+            routing::post("/api/app/v1/attendance/status", attendance_enroll),
             routing::post("/api/app/v1/attendance/check-in", check_in),
             routing::post("/api/app/v1/attendance/promotion/claim", claim_promotion),
             routing::post("/api/app/v1/attendance/promotion/test", test_promotion),

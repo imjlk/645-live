@@ -2,6 +2,7 @@ import { Button } from "@toss/tds-react-native";
 import { useEffect, useRef } from "react";
 import { Alert, StyleSheet, Text, View } from "react-native";
 import { LOCAL_PREVIEW, type Promotion } from "./api";
+import { attendanceInstruction, attendanceReady } from "./attendance-progress";
 import { createPromotionRefresh } from "./promotion-refresh";
 import { useTheme } from "./theme";
 import type { LottoModel } from "./use-lotto";
@@ -114,8 +115,8 @@ export function AttendancePanel({
 					{count === 7 ? "7일을 모두 채웠어요!" : "번호 만들고, 출석 도장 꾹"}
 				</Text>
 				<Text style={[s.body, { color: theme.muted }]}>
-					오늘 번호를 한 번 만들면 출석할 수 있어요. 7일을 채우면 다음 날 새로운
-					주기가 시작돼요.
+					{attendanceInstruction(state)} 7일을 채우면 다음 날 새로운 주기가
+					시작돼요.
 				</Text>
 			</View>
 			<View accessibilityLabel={`7일 중 ${count}일 출석`} style={s.stamps}>
@@ -194,7 +195,7 @@ export function AttendancePanel({
 					) : null}
 				</View>
 			) : null}
-			{state?.generatedToday || state?.checkedIn ? (
+			{state && attendanceReady(state) ? (
 				<Button
 					display="full"
 					loading={model.busy === "checkIn"}

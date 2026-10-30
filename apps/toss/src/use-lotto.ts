@@ -44,6 +44,7 @@ import {
 	type Promotion,
 	type User,
 } from "./api";
+import { mergeAttendanceProgress } from "./attendance-progress";
 import { createFeedHistory, deletedGenerationId } from "./feed-history";
 import {
 	dailyGenerationAdRequired,
@@ -774,10 +775,18 @@ export function useLotto() {
 			const generatedDay = Math.floor(
 				(response.generation.createdAt + 32_400_000) / 86_400_000,
 			);
-			if (attendance) receiveAttendance(attendance);
-			// First-generation eligibility may change restore availability. Recheck once
-			// in the background; later generations do not query attendance again.
+			if (response.attendanceProgress) {
+				const progress = response.attendanceProgress;
+				setAttendance((previous) =>
+					mergeAttendanceProgress(previous, progress),
+				);
+				if (!attendance || attendance.day !== progress.day) {
+					void refreshPrivate(true).catch(() => {});
+				}
+			} else if (attendance) receiveAttendance(attendance);
+			// Older servers omit progress; refresh once for their first-generation restore state.
 			if (
+				!response.attendanceProgress &&
 				(!attendance?.generatedToday || attendance.day !== generatedDay) &&
 				!attendanceRefresh.current &&
 				attendanceRefreshDay.current !== generatedDay

@@ -22,6 +22,26 @@ pub(crate) fn notification_template() -> Option<String> {
     }
     settings::string("AIT_RESULT_TEMPLATE_CODE")
 }
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct AttendanceEnrollment {
+    experiment: String,
+}
+pub(crate) async fn attendance_enroll(req: &mut Request) -> ApiResult<Json> {
+    let input: AttendanceEnrollment = body(req).await?;
+    if input.experiment != attendance::EXPERIMENT {
+        return Err(bad_request(
+            "INVALID_EXPERIMENT",
+            "출석 정보를 다시 확인해 주세요.",
+        ));
+    }
+    let mut tx = db::tx()?;
+    let user = auth::user(req, &mut tx)?;
+    let now = db::now_ms_tx(&mut tx)?;
+    attendance::enroll(&mut tx, &user.id, now)?;
+    db::tx_commit(&mut tx)?;
+    attendance_status(req).await
+}
 pub(crate) async fn attendance_status(req: &mut Request) -> ApiResult<Json> {
     let mut tx = db::tx()?;
     let user = auth::user(req, &mut tx)?;
@@ -104,14 +124,7 @@ pub(crate) async fn check_in(req: &mut Request) -> ApiResult<Json> {
     let user = auth::user(req, &mut tx)?;
     let now = db::now_ms_tx(&mut tx)?;
     let day = kst_day(now);
-    if !attendance::checked(&mut tx, &user.id, day)?
-        && !attendance::generated_today(&mut tx, &user.id, day)?
-    {
-        return Err(forbidden(
-            "GENERATION_REQUIRED",
-            "오늘 번호를 한 번 만든 뒤 출석해 주세요.",
-        ));
-    }
+    attendance::require_check_in(&mut tx, &user.id, now)?;
     let inserted = db::tx_execute(
         &mut tx,
         "INSERT OR IGNORE INTO ait_lotto_attendance(user_id,day,created_at) VALUES (?1,?2,?3)",

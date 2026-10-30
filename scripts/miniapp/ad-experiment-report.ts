@@ -10,7 +10,7 @@ export type ExperimentEvent = {
 		app_version: string;
 	};
 };
-const PREFIX = "generation-cadence-v2/";
+const EXPERIMENTS = ["generation-cadence-v2", "generation-cadence-v3"];
 /** An export must include complete event coverage through asOf, including the follow-up window. */
 export function summarizeExperiment(
 	events: ExperimentEvent[],
@@ -18,11 +18,22 @@ export function summarizeExperiment(
 	asOf: number,
 	windowMs = 300_000,
 ) {
+	const phases = [
+		...new Set(
+			events
+				.filter((e) => e.params.app_version === version)
+				.map((e) => e.params.policy.split("/")[0])
+				.filter((p) => EXPERIMENTS.includes(p)),
+		),
+	];
+	if (phases.length > 1)
+		throw Error("Separate experiment phases before comparing this app version");
+	const experiment = phases[0] ?? "generation-cadence-v3";
 	return ["control", "short"].map((variant) => {
 		const rows = events.filter(
 			(e) =>
 				e.params.app_version === version &&
-				e.params.policy.startsWith(`${PREFIX}${variant}:`) &&
+				e.params.policy.startsWith(`${experiment}/${variant}:`) &&
 				Number.isFinite(e.timestampMs) &&
 				e.timestampMs <= asOf,
 		);
@@ -78,6 +89,7 @@ export function summarizeExperiment(
 			0,
 		);
 		return {
+			experiment,
 			variant,
 			version,
 			windowMinutes: windowMs / 60000,
