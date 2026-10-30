@@ -1,4 +1,8 @@
-import { createAnalyticsRouter } from "@trailbase-apps-in-toss-kit/ait-rn/analytics";
+import {
+	type AnalyticsEvent,
+	createAnalyticsRouter,
+	createBufferedAnalyticsSink,
+} from "@trailbase-apps-in-toss-kit/ait-rn/analytics";
 
 export type AdMetric =
 	| "experiment_exposed"
@@ -39,6 +43,7 @@ export type AdMetricPayload = {
 	entry_point: string;
 	app_version: string;
 	session_id: string;
+	event_id: string;
 };
 export type AdMetricSink = (event: {
 	log_name: string;
@@ -49,7 +54,9 @@ export type AdMetricSink = (event: {
 /** No identities, generated numbers, server tokens, or raw error payloads. */
 export function createAdTelemetry(send: AdMetricSink, appVersion = "unknown") {
 	const sessionId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+	let sequence = 0;
 	const router = createAnalyticsRouter<AdMetric, AdMetricPayload>({
+		detail: { enabled: true, enqueueBatch: (events) => detailSink?.(events) },
 		appsInToss: {
 			enabled: true,
 			// AppsInToss.registerApp owns Analytics.init; never replace its logger.
@@ -78,6 +85,7 @@ export function createAdTelemetry(send: AdMetricSink, appVersion = "unknown") {
 				entry_point: (context.entryPoint ?? "continuation").slice(0, 32),
 				app_version: appVersion.slice(0, 24),
 				session_id: sessionId,
+				event_id: `${sessionId}-${++sequence}`,
 			});
 		},
 		flush: router.flush,
@@ -128,4 +136,41 @@ function logType(event: AdMetric): "click" | "impression" | "event" {
 	)
 		return "impression";
 	return "event";
+}
+
+let detailSink:
+	| ((
+			events: Array<AnalyticsEvent<AdMetric, AdMetricPayload>>,
+	  ) => void | Promise<void>)
+	| undefined;
+export function bindAdMetrics(
+	send: (
+		events: Array<AnalyticsEvent<AdMetric, AdMetricPayload>>,
+	) => Promise<unknown>,
+) {
+	const sink = createBufferedAnalyticsSink<AdMetric, AdMetricPayload>({
+		maxBatchSize: 20,
+		maxQueueSize: 100,
+		flushIntervalMs: 2000,
+		enqueueBatch: async (events) => {
+			await send(events);
+		},
+	});
+	const forward = (events: Array<AnalyticsEvent<AdMetric, AdMetricPayload>>) =>
+		sink.enqueueBatch(
+			events.filter(
+				(e) =>
+					e.eventPayload.placement === "generation_continue" &&
+					e.eventPayload.policy.startsWith("generation-cadence-v2/"),
+			),
+			{ sink: "detail" },
+		);
+	detailSink = forward;
+	return {
+		flush: () => sink.flush().catch(() => {}),
+		dispose: () => {
+			if (detailSink === forward) detailSink = undefined;
+			sink.clear();
+		},
+	};
 }

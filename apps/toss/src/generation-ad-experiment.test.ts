@@ -85,7 +85,7 @@ for (const [random, expected, recurring] of [
 		);
 	});
 }
-test("control keeps 5 then 5..30; old progress and another user never contaminate enrollment", async () => {
+test("control uses 3 then 3..12; old progress and another user never contaminate enrollment", async () => {
 	const db = storage();
 	await db.setItem(
 		"cadence",
@@ -99,9 +99,9 @@ test("control keeps 5 then 5..30; old progress and another user never contaminat
 		() => id,
 	);
 	await counter.load(generationExperimentPolicy(base, id));
-	expect(counter.getSnapshot().remaining).toBe(5);
+	expect(counter.getSnapshot().remaining).toBe(3);
 	counter.continued();
-	expect(counter.getSnapshot().remaining).toBe(30);
+	expect(counter.getSnapshot().remaining).toBe(12);
 	id = principal("short");
 	await counter.load(generationExperimentPolicy(base, id));
 	expect(counter.getSnapshot().remaining).toBe(3);
@@ -146,4 +146,26 @@ test("daily continuation applies only to repeat attendance in treatment and rese
 			undefined,
 		),
 	).toBe(false);
+});
+
+test("control lower boundary is three generations before first and subsequent ads", async () => {
+	const id = principal("control");
+	const policy = generationExperimentPolicy(base, id);
+	const counter = createGenerationAdCounter(
+		storage(),
+		"cadence",
+		() => 0,
+		() => id,
+	);
+	await counter.load(policy);
+	expect(counter.getSnapshot().remaining).toBe(3);
+	counter.generated(1);
+	counter.generated(2);
+	counter.generated(3);
+	expect(counter.getSnapshot().remaining).toBe(0);
+	counter.continued();
+	expect(counter.getSnapshot().remaining).toBe(3);
+	expect(adPolicyLabel(policy)).toBe(
+		"generation-cadence-v2/control:device:3-3:3-12",
+	);
 });

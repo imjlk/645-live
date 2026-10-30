@@ -203,6 +203,7 @@ pub(crate) async fn withdraw(req: &mut Request) -> ApiResult<Json> {
         "DELETE FROM lotto_public_generations WHERE id IN (SELECT generation_id FROM ait_lotto_generation_requests WHERE user_id = ?1)",
         &[Value::Blob(user.id.clone())],
     )?;
+    crate::metrics::delete_user(&mut tx, &user.id)?;
     // Personal ledgers cascade. Campaign budget totals and campaign-scoped anti-replay
     // HMACs are independent; withdrawal must not replenish a monetary campaign.
     db::tx_execute(

@@ -12,6 +12,7 @@ mod generation_archive;
 mod generation_results;
 mod lotto;
 mod maintenance;
+mod metrics;
 mod promotion_test;
 mod shopping;
 mod web;
@@ -79,6 +80,7 @@ endpoint!(delete_generation, lotto::delete_generation);
 endpoint!(heartbeat, auth::heartbeat);
 endpoint!(disconnect, auth::disconnect);
 endpoint!(ad_config, ads::config);
+endpoint!(metric_ingest, metrics::ingest);
 endpoint!(shopping_recommendations, shopping::get);
 endpoint!(ad_start, ads::start);
 endpoint!(ad_complete, ads::complete);
@@ -106,6 +108,7 @@ impl Guest for Miniapp {
             routing::post("/api/web/v1/lotto/withdraw", web_withdraw),
             routing::post("/api/web/v1/lotto/heartbeat", web_heartbeat),
             routing::post("/api/app/v1/session/bootstrap", bootstrap),
+            routing::post("/api/app/v1/metrics", metric_ingest),
             routing::get("/api/app/v1/session/me", session),
             routing::post("/api/app/v1/session/me", session),
             routing::post("/api/app/v1/session/withdraw", withdraw),

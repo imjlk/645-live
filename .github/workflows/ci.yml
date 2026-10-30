@@ -129,6 +129,7 @@ jobs:
           python3 scripts/miniapp/generation-ad-smoke.py
           python3 scripts/miniapp/generation-archive-smoke.py
           python3 scripts/miniapp/generation-results-smoke.py
+          python3 scripts/miniapp/metrics-smoke.py
       - uses: actions/upload-artifact@v4
         with:
           name: 645-live-miniapp

@@ -25,7 +25,12 @@ import {
 	createAdController,
 	setResultNotification,
 } from "./ad-bridge";
-import { type AdFlow, adPolicyLabel, createAdFlow } from "./ad-telemetry";
+import {
+	type AdFlow,
+	adPolicyLabel,
+	bindAdMetrics,
+	createAdFlow,
+} from "./ad-telemetry";
 import {
 	type AdConfig,
 	type AdPlacement,
@@ -59,6 +64,25 @@ const message = (value: unknown) =>
 
 export function useLotto() {
 	const api = useMemo(createApi, []);
+	useEffect(() => {
+		if (LOCAL_PREVIEW) return;
+		const metrics = bindAdMetrics((events) =>
+			api.request("/api/app/v1/metrics", {
+				events: events.map((e) => ({
+					eventName: e.eventName,
+					eventPayload: e.eventPayload,
+					clientCreatedAt: e.clientCreatedAt,
+				})),
+			}),
+		);
+		const subscription = AppState.addEventListener("change", (state) => {
+			if (state !== "active") void metrics.flush();
+		});
+		return () => {
+			subscription.remove();
+			metrics.dispose();
+		};
+	}, [api]);
 	const performance = useMemo(() => createPerformanceTracker(trackProduct), []);
 	const generatorTime = useRef<ReturnType<typeof performance.start> | null>(
 		null,
@@ -353,6 +377,7 @@ export function useLotto() {
 
 	const exposedPolicies = useRef(new Set<string>());
 	const generationPolicyLabel = adPolicyLabel(adConfig?.generationAdPolicy);
+	const exposureKey = `${generationPolicyLabel}:${attendance?.day ?? "unknown"}`;
 	const dailyGenerationAd = dailyGenerationAdRequired(
 		adConfig?.generationAdPolicy,
 		attendance,
@@ -369,9 +394,9 @@ export function useLotto() {
 			generationReady &&
 			foreground &&
 			adConfig?.generationAdPolicy?.experiment &&
-			!exposedPolicies.current.has(generationPolicyLabel)
+			!exposedPolicies.current.has(exposureKey)
 		) {
-			exposedPolicies.current.add(generationPolicyLabel);
+			exposedPolicies.current.add(exposureKey);
 			adTelemetry.track("experiment_exposed", {
 				placement: "generation_continue",
 				policy: generationPolicyLabel,
@@ -382,6 +407,7 @@ export function useLotto() {
 		foreground,
 		adConfig?.generationAdPolicy?.experiment,
 		generationPolicyLabel,
+		exposureKey,
 	]);
 	useEffect(() => {
 		if (generationReady && foreground && !initialReady.current) {

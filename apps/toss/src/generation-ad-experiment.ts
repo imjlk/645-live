@@ -39,7 +39,12 @@ export function generationExperimentPolicy(
 					minGenerations: 2,
 					maxGenerations: 8,
 				}
-			: {}),
+			: {
+					firstGenerations: 3,
+					firstMaxGenerations: 3,
+					minGenerations: 3,
+					maxGenerations: 12,
+				}),
 	};
 }
 
