@@ -1,6 +1,6 @@
 import type { GenerationAdPolicy } from "./generation-ad-counter";
 
-export const GENERATION_AD_EXPERIMENT = "generation-cadence-v1";
+export const GENERATION_AD_EXPERIMENT = "generation-cadence-v2";
 
 /** Stable 50:50 allocation; the internal principal is never sent to analytics. */
 export function generationAdVariant(principal: string): "control" | "short" {
@@ -34,11 +34,33 @@ export function generationExperimentPolicy(
 		variant,
 		...(variant === "short"
 			? {
-					firstGenerations: 2,
-					firstMaxGenerations: 5,
+					firstGenerations: 1,
+					firstMaxGenerations: 3,
 					minGenerations: 2,
-					maxGenerations: 5,
+					maxGenerations: 8,
 				}
 			: {}),
 	};
+}
+
+/** One explicit daily ad opportunity before repeat-attendance users generate. */
+export function dailyGenerationAdRequired(
+	policy: GenerationAdPolicy | undefined,
+	attendance: {
+		day: number;
+		streak: number;
+		generatedToday: boolean;
+		checkedIn: boolean;
+	} | null,
+	continuedDay: number | undefined,
+) {
+	return (
+		policy?.experiment === GENERATION_AD_EXPERIMENT &&
+		policy.variant === "short" &&
+		!!attendance &&
+		attendance.streak >= 1 &&
+		!attendance.generatedToday &&
+		!attendance.checkedIn &&
+		continuedDay !== attendance.day
+	);
 }

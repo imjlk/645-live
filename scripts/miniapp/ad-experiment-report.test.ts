@@ -14,7 +14,7 @@ const event = (
 	timestampMs: time,
 	log_name: `lotto_ad_${name}`,
 	params: {
-		policy: `generation-cadence-v1/${variant}:device:2-5:2-5`,
+		policy: `generation-cadence-v2/${variant}:device:1-3:2-8`,
 		session_id: session,
 		flow_id: flow,
 		app_version: "test",

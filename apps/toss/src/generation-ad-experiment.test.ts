@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { adPolicyLabel } from "./ad-telemetry";
 import { createGenerationAdCounter } from "./generation-ad-counter";
 import {
+	dailyGenerationAdRequired,
 	generationAdVariant,
 	generationExperimentPolicy,
 } from "./generation-ad-experiment";
@@ -40,11 +41,11 @@ test("stable balanced assignment does not override changed server policy", () =>
 	expect(generationExperimentPolicy(rollback, "any")).toBe(rollback);
 	expect(generationExperimentPolicy(undefined, "any")).toBeUndefined();
 });
-for (const [random, expected] of [
-	[0, 2],
-	[0.25, 3],
-	[0.5, 4],
-	[0.999999, 5],
+for (const [random, expected, recurring] of [
+	[0, 1, 2],
+	[0.25, 1, 3],
+	[0.5, 2, 5],
+	[0.999999, 3, 8],
 ]) {
 	test(`short arm first and recurring gates draw ${expected}, persist, and ignore replay`, async () => {
 		const db = storage();
@@ -64,11 +65,11 @@ for (const [random, expected] of [
 			counter.generated(n);
 		}
 		expect(counter.getSnapshot().remaining).toBe(0);
-		counter.continued();
-		expect(counter.getSnapshot().remaining).toBe(expected);
+		counter.continued(123);
+		expect(counter.getSnapshot().remaining).toBe(recurring);
 		// The generation performed by the ad CTA is the first in the new cycle.
 		counter.generated(100);
-		expect(counter.getSnapshot().remaining).toBe(expected - 1);
+		expect(counter.getSnapshot().remaining).toBe(recurring - 1);
 		await Bun.sleep(1);
 		const reopened = createGenerationAdCounter(
 			db,
@@ -77,9 +78,10 @@ for (const [random, expected] of [
 			() => id,
 		);
 		await reopened.load(policy);
-		expect(reopened.getSnapshot().remaining).toBe(expected - 1);
+		expect(reopened.getSnapshot().continuedDay).toBe(123);
+		expect(reopened.getSnapshot().remaining).toBe(recurring - 1);
 		expect(adPolicyLabel(policy)).toBe(
-			"generation-cadence-v1/short:device:2-5:2-5",
+			"generation-cadence-v2/short:device:1-3:2-8",
 		);
 	});
 }
@@ -102,7 +104,46 @@ test("control keeps 5 then 5..30; old progress and another user never contaminat
 	expect(counter.getSnapshot().remaining).toBe(30);
 	id = principal("short");
 	await counter.load(generationExperimentPolicy(base, id));
-	expect(counter.getSnapshot().remaining).toBe(5);
+	expect(counter.getSnapshot().remaining).toBe(3);
 	await counter.load({ ...base, maxGenerations: 29 });
 	expect(counter.getSnapshot().remaining).toBe(29);
+});
+
+test("daily continuation applies only to repeat attendance in treatment and resets next day", () => {
+	const policy = generationExperimentPolicy(base, principal("short"));
+	const attendance = {
+		day: 100,
+		streak: 1,
+		generatedToday: false,
+		checkedIn: false,
+	};
+	expect(dailyGenerationAdRequired(policy, attendance, undefined)).toBe(true);
+	expect(dailyGenerationAdRequired(policy, attendance, 100)).toBe(false);
+	expect(
+		dailyGenerationAdRequired(policy, { ...attendance, day: 101 }, 100),
+	).toBe(true);
+	expect(
+		dailyGenerationAdRequired(policy, { ...attendance, streak: 0 }, undefined),
+	).toBe(false);
+	expect(
+		dailyGenerationAdRequired(
+			policy,
+			{ ...attendance, generatedToday: true },
+			undefined,
+		),
+	).toBe(false);
+	expect(
+		dailyGenerationAdRequired(
+			policy,
+			{ ...attendance, checkedIn: true },
+			undefined,
+		),
+	).toBe(false);
+	expect(
+		dailyGenerationAdRequired(
+			generationExperimentPolicy(base, principal("control")),
+			attendance,
+			undefined,
+		),
+	).toBe(false);
 });

@@ -1,42 +1,32 @@
-# Generation ad cadence experiment
+# Generation continuation update
 
-Experiment: `generation-cadence-v1`. Activated only by releasing the new miniapp bundle; 1.5.3 and earlier are not enrolled. No backend migration or production database write is needed.
+The new bundle uses `generation-cadence-v2` with stable 50:50 assignment by the authenticated internal principal. No raw principal or Toss identity is included in analytics.
 
-## Allocation and behavior
+- Control: first 5 generations, recurring random 5–30.
+- Short: first random 1–3, recurring random 2–8.
+- In the short arm, a returning user with server-reported streak >= 1, no generation today, and no check-in today receives an explicit ad CTA before the day's first generation. Completed daily continuation is persisted by server day so failed generation retries and app restarts do not require another daily ad. A new server day can trigger it again.
+- The generation performed after the ad counts toward the new cycle. Existing no-fill/error continuation and ad limits remain in effect. This is a client interaction update, not a new server-side promotion entitlement or a guarantee of filled ads.
+- Counter state is scoped to user/experiment/variant. Both arms start fresh experimental progress; legacy progress is preserved. Token renewal retains the same principal scope.
+- Only baseline server policy `device / first=5 / min=5 / max=30` enables allocation. Other policies bypass it. A replacement bundle can disable allocation for exact baseline rollback.
 
-- 50% control: first 5 generations, then uniformly random 5–30 per cycle.
-- 50% short: uniformly random 2–5 for both the first and subsequent cycles. A draw of 2 means two successful generations, then the next generation requires the explicit ad CTA.
-- Allocation is a deterministic hash of experiment ID and the existing internal authenticated principal. Allocation is stable across sessions/devices for that principal; small samples will not be exactly 50:50. Account recreation/linking that changes the principal can change assignment.
-- Progress is device storage scoped by principal, experiment and arm. Both arms start a fresh counter on first experiment enrollment; legacy progress remains available for rollback. Restarting restores progress; reinstalling/clearing storage starts a new first gate without changing the arm.
-- The generation automatically performed after ad completion counts as the first generation of the new cycle. Failed generation requests and replayed generation IDs do not consume another slot.
-- Existing ad availability, error handling, explicit CTA, server quotas and rewards remain unchanged. No-fill continuation must be reported separately from successful ad completion.
-- Only the server's baseline `device / first=5 / min=5 / max=30` enables this experiment. Any other server policy bypasses allocation and retains server behavior. For an operational stop, change the server policy (for example max 29) through the existing approved administration flow; refreshed clients leave the experiment. Releasing a bundle without allocation is the exact baseline rollback. Do not change the experiment's hash/salt or cadence mid-analysis; create a new experiment ID instead.
+## Event report
 
-## Metrics
+Existing ad events retain `flow_id`, `policy`, `app_version` and an ephemeral `session_id`. Exposure and successful-generation events support matured five-minute CTA continuation and per-session counts. These are attempt/session diagnostics, not unique-user D1/D7 retention.
 
-Events use the existing Apps in Toss logging path. `policy` carries experiment/arm and actual cadence; `app_version` separates releases. An ephemeral `session_id` joins events within one app JavaScript lifetime, and `flow_id` joins one CTA attempt. No user ID, raw Toss identity, generated numbers or auth values are added to telemetry.
-
-- `lotto_ad_experiment_exposed`: ready, foreground session enrollment, once per policy in this app lifetime.
-- `lotto_ad_generation_attempted` / `lotto_ad_generation_succeeded`: all generation attempts/successes, including those without ads.
-- Existing `lotto_ad_cta_viewed` → `lotto_ad_requested` → `lotto_ad_shown` → `lotto_ad_completed` → `lotto_ad_generation_completed` is the ad continuation funnel.
-- `lotto_ad_unavailable` and `lotto_ad_failed` distinguish inventory/technical problems. Completion is **not** inferred merely from a closed ad.
-
-Primary diagnostic: percentage of matured CTA attempts without a matching successful generation within 5 minutes. Secondary: successful generations in the first 5 minutes per exposed session, ad completion/no-fill/error rates. These are session/attempt continuation proxies, **not unique-user churn or D1/D7 retention**. Multiple attempts from the same user are correlated; do not claim statistical significance using attempts as independent users. For true user retention, use an authorized platform user-cohort export with repeat-user joins; this implementation deliberately does not invent a persistent analytics identifier.
-
-Compare both arms concurrently on the same app version, date range and platform, excluding local preview and test accounts. Keep enrollment open for at least a complete weekly cycle, define minimum sample size and acceptable deterioration before reading results, and inspect sample imbalance and error/no-fill rates before interpreting abandonment. Do not stop at the first favorable daily result. Report numerator, denominator, uncertainty and revenue per exposed user/session alongside continuation; more ads alone is not a win.
-
-## Export report
-
-The report accepts normalized JSONL, not an assumed native console export format. Map an authorized export to:
-
-```json
-{"timestampMs":1793250000000,"log_name":"lotto_ad_cta_viewed","params":{"policy":"generation-cadence-v1/short:device:2-5:2-5","session_id":"ephemeral-session","flow_id":"attempt","app_version":"1.6.0"}}
-```
-
-Include complete events from exposure through the follow-up window and normalize timestamps to UTC milliseconds. Do not commit real exports. The cutoff is the time through which the export is complete (not the current clock). Recent incomplete 5-minute windows are excluded. Duplicate CTA views are deduplicated by session/flow. No denominator yields `null`, never a manufactured 0%.
+Normalize authorized exports into JSONL with `timestampMs`, `log_name`, and `params` containing these fields. Include the entire exposure and follow-up period; use the export coverage cutoff, not the wall clock. Do not commit actual exports.
 
 ```sh
 bun scripts/miniapp/ad-experiment-report.ts /private/events.jsonl 1.6.0 2026-11-10T00:00:00Z
 ```
 
-Before release, verify both arms on device using synthetic test principals in local tests and check console delivery of the new event parameters. This repository implementation does not create a hosted analytics dashboard or assert that a console export API is available.
+## Aggregate comparison
+
+`ad-value-report.ts` accepts two aggregate rows (one per arm), each containing `variant`, matching ISO `periodStart`/`periodEnd`, `currency`, `exposedUsers`, `adRevenue`, and `promotionCost`. Input amounts must be settled totals with a common attribution window. Promotion retries must not count a payment twice. Do not treat ad SDK completion counts as settled revenue or allocate totals 50:50 without cohort evidence.
+
+```sh
+bun scripts/miniapp/ad-value-report.ts /private/aggregates.json
+```
+
+The report returns contribution after promotion cost per exposed user and the treatment-minus-control difference. Zero users yields null. If cohort-level revenue/cost attribution is unavailable, leave this analysis pending rather than fabricate arm totals. The scripts do not collect billing data or create a console dashboard.
+
+Before rollout verify both arms, daily boundaries, unavailable ads and native event delivery. Compare on the same release and full weekly window; evaluate continuation, errors, fill rate and repeat-user retention alongside aggregate value. Establish sample size and decision criteria before selecting a winner; multiple attempts from one user are not independent observations.

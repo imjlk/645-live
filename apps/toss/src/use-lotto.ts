@@ -40,6 +40,7 @@ import {
 	type User,
 } from "./api";
 import { createFeedHistory, deletedGenerationId } from "./feed-history";
+import { dailyGenerationAdRequired } from "./generation-ad-experiment";
 import { createGenerationCooldown } from "./generation-cooldown";
 import { createGenerationRequest } from "./generation-request";
 import { createPerformanceTracker } from "./performance";
@@ -352,10 +353,16 @@ export function useLotto() {
 
 	const exposedPolicies = useRef(new Set<string>());
 	const generationPolicyLabel = adPolicyLabel(adConfig?.generationAdPolicy);
+	const dailyGenerationAd = dailyGenerationAdRequired(
+		adConfig?.generationAdPolicy,
+		attendance,
+		generationAds.continuedDay,
+	);
 	const generationReady =
 		!!user &&
 		!!context &&
 		!!adConfig &&
+		(!adConfig.generationAdPolicy?.experiment || !!attendance) &&
 		(adConfig.generationAdPolicy?.counter !== "device" || generationAds.ready);
 	useEffect(() => {
 		if (
@@ -806,7 +813,7 @@ export function useLotto() {
 		generationAdRequired:
 			adConfig?.generationAdPolicy?.counter === "device"
 				? generationAds.ready &&
-					generationAds.remaining === 0 &&
+					(generationAds.remaining === 0 || dailyGenerationAd) &&
 					adConfig.placements.some(
 						(p) => p.placement === "generation_continue" && p.enabled,
 					)
@@ -886,7 +893,10 @@ export function useLotto() {
 						adFlow,
 						canShow,
 					);
-					if (deviceCounter) api.generationAds.continued();
+					if (deviceCounter)
+						api.generationAds.continued(
+							dailyGenerationAd ? attendance?.day : undefined,
+						);
 					if (result?.continuedWithoutAd)
 						setNotice("광고를 불러오지 못해 바로 이어서 만들어요.");
 				}

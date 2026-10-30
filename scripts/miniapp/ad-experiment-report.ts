@@ -10,7 +10,7 @@ export type ExperimentEvent = {
 		app_version: string;
 	};
 };
-const PREFIX = "generation-cadence-v1/";
+const PREFIX = "generation-cadence-v2/";
 /** An export must include complete event coverage through asOf, including the follow-up window. */
 export function summarizeExperiment(
 	events: ExperimentEvent[],

@@ -10,7 +10,11 @@ export type GenerationAdPolicy = {
 	minGenerations: number;
 	maxGenerations: number;
 };
-type Progress = { remaining: number; lastGenerationId: number | null };
+type Progress = {
+	remaining: number;
+	lastGenerationId: number | null;
+	continuedDay?: number;
+};
 const MAX_INTERVAL = 200;
 const DEFAULT_POLICY: GenerationAdPolicy = {
 	counter: "device",
@@ -55,7 +59,13 @@ export function createGenerationAdCounter(
 					(p.lastGenerationId === null ||
 						(Number.isSafeInteger(p.lastGenerationId) &&
 							p.lastGenerationId > 0))
-					? { remaining: p.remaining, lastGenerationId: p.lastGenerationId }
+					? {
+							remaining: p.remaining,
+							lastGenerationId: p.lastGenerationId,
+							...(Number.isSafeInteger(p.continuedDay)
+								? { continuedDay: p.continuedDay }
+								: {}),
+						}
 					: null;
 			},
 		});
@@ -120,18 +130,21 @@ export function createGenerationAdCounter(
 		generated(id: number) {
 			if (!snapshot.ready || snapshot.lastGenerationId === id) return;
 			publish({
+				...snapshot,
 				remaining: Math.max(0, snapshot.remaining - 1),
 				lastGenerationId: id,
 			});
 		},
-		continued() {
+		continued(day?: number) {
 			publish({
+				...snapshot,
+				...(Number.isSafeInteger(day) ? { continuedDay: day } : {}),
 				remaining: interval(),
 				lastGenerationId: snapshot.lastGenerationId,
 			});
 		},
 		prepare() {
-			publish({ remaining: 0, lastGenerationId: snapshot.lastGenerationId });
+			publish({ ...snapshot, remaining: 0 });
 		},
 	};
 }
