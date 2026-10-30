@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import {
 	type AdMetricSink,
 	adPolicyLabel,
+	bindAdMetrics,
 	createAdFlow,
 	createAdTelemetry,
 } from "./ad-telemetry";
@@ -75,4 +76,62 @@ test("policy reflects server configuration rather than hardcoded release default
 		}),
 	).toBe("device:5:5-30");
 	expect(adPolicyLabel()).toBe("server:legacy");
+});
+
+test("experiment events share only an ephemeral session and preserve cohort labels", async () => {
+	const events: Parameters<AdMetricSink>[0][] = [];
+	const telemetry = createAdTelemetry((event) => {
+		events.push(event);
+	}, "1.6.0");
+	const policy = adPolicyLabel({
+		counter: "device",
+		firstGenerations: 2,
+		firstMaxGenerations: 5,
+		minGenerations: 2,
+		maxGenerations: 5,
+		experiment: "generation-cadence-v1",
+		variant: "short",
+	});
+	telemetry.track("experiment_exposed", {
+		placement: "generation_continue",
+		policy,
+	});
+	telemetry.track("generation_succeeded", {
+		placement: "generation_continue",
+		policy,
+	});
+	await telemetry.flush();
+	expect(events[0].params.session_id).toBeTruthy();
+	expect(events[0].params.session_id).toBe(events[1].params.session_id);
+	expect(events[0].params.policy).toBe(
+		"generation-cadence-v1/short:device:2-5:2-5",
+	);
+});
+
+test("private metrics mirror is bounded to experiment events and retains IDs across retries", async () => {
+	const batches: string[][] = [];
+	let fail = true;
+	const mirror = bindAdMetrics(async (events) => {
+		batches.push(events.map((e) => e.eventPayload.event_id));
+		if (fail) throw Error("offline");
+	});
+	try {
+		const telemetry = createAdTelemetry(() => {
+			throw Error("SDK unavailable");
+		});
+		telemetry.track("experiment_exposed", {
+			placement: "generation_continue",
+			policy: "generation-cadence-v2/control:device:3-3:3-12",
+		});
+		telemetry.track("banner_rendered", { placement: "saved" });
+		await telemetry.flush();
+		await mirror.flush();
+		fail = false;
+		await mirror.flush();
+		expect(batches).toHaveLength(2);
+		expect(batches[0]).toHaveLength(1);
+		expect(batches[1]).toEqual(batches[0]);
+	} finally {
+		mirror.dispose();
+	}
 });

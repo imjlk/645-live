@@ -154,3 +154,6 @@ record_apis {
   acl_world: [READ]
   enable_subscriptions: true
 }
+
+# Private telemetry; no Record API exposes this database.
+databases: [{ name: "analytics" }]

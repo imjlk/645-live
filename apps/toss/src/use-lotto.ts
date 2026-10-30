@@ -25,7 +25,12 @@ import {
 	createAdController,
 	setResultNotification,
 } from "./ad-bridge";
-import { type AdFlow, adPolicyLabel, createAdFlow } from "./ad-telemetry";
+import {
+	type AdFlow,
+	adPolicyLabel,
+	bindAdMetrics,
+	createAdFlow,
+} from "./ad-telemetry";
 import {
 	type AdConfig,
 	type AdPlacement,
@@ -40,6 +45,7 @@ import {
 	type User,
 } from "./api";
 import { createFeedHistory, deletedGenerationId } from "./feed-history";
+import { dailyGenerationAdRequired } from "./generation-ad-experiment";
 import { createGenerationCooldown } from "./generation-cooldown";
 import { createGenerationRequest } from "./generation-request";
 import { createPerformanceTracker } from "./performance";
@@ -58,6 +64,25 @@ const message = (value: unknown) =>
 
 export function useLotto() {
 	const api = useMemo(createApi, []);
+	useEffect(() => {
+		if (LOCAL_PREVIEW) return;
+		const metrics = bindAdMetrics((events) =>
+			api.request("/api/app/v1/metrics", {
+				events: events.map((e) => ({
+					eventName: e.eventName,
+					eventPayload: e.eventPayload,
+					clientCreatedAt: e.clientCreatedAt,
+				})),
+			}),
+		);
+		const subscription = AppState.addEventListener("change", (state) => {
+			if (state !== "active") void metrics.flush();
+		});
+		return () => {
+			subscription.remove();
+			metrics.dispose();
+		};
+	}, [api]);
 	const performance = useMemo(() => createPerformanceTracker(trackProduct), []);
 	const generatorTime = useRef<ReturnType<typeof performance.start> | null>(
 		null,
@@ -350,11 +375,40 @@ export function useLotto() {
 		};
 	}, [api, revision, refreshPrivate, performance]);
 
+	const exposedPolicies = useRef(new Set<string>());
+	const generationPolicyLabel = adPolicyLabel(adConfig?.generationAdPolicy);
+	const exposureKey = `${generationPolicyLabel}:${attendance?.day ?? "unknown"}`;
+	const dailyGenerationAd = dailyGenerationAdRequired(
+		adConfig?.generationAdPolicy,
+		attendance,
+		generationAds.continuedDay,
+	);
 	const generationReady =
 		!!user &&
 		!!context &&
 		!!adConfig &&
+		(!adConfig.generationAdPolicy?.experiment || !!attendance) &&
 		(adConfig.generationAdPolicy?.counter !== "device" || generationAds.ready);
+	useEffect(() => {
+		if (
+			generationReady &&
+			foreground &&
+			adConfig?.generationAdPolicy?.experiment &&
+			!exposedPolicies.current.has(exposureKey)
+		) {
+			exposedPolicies.current.add(exposureKey);
+			adTelemetry.track("experiment_exposed", {
+				placement: "generation_continue",
+				policy: generationPolicyLabel,
+			});
+		}
+	}, [
+		generationReady,
+		foreground,
+		adConfig?.generationAdPolicy?.experiment,
+		generationPolicyLabel,
+		exposureKey,
+	]);
 	useEffect(() => {
 		if (generationReady && foreground && !initialReady.current) {
 			initialReady.current = true;
@@ -697,6 +751,10 @@ export function useLotto() {
 			setPublishedGenerationId(response.generation.id);
 			setRecent((items) => rememberGeneration(items, response.generation));
 			trackProduct("generation_succeeded");
+			adTelemetry.track("generation_succeeded", {
+				placement: "generation_continue",
+				policy: generationPolicyLabel,
+			});
 			if (deviceCounter) api.generationAds.generated(response.generation.id);
 			setAdConfig((previous) =>
 				previous
@@ -781,7 +839,7 @@ export function useLotto() {
 		generationAdRequired:
 			adConfig?.generationAdPolicy?.counter === "device"
 				? generationAds.ready &&
-					generationAds.remaining === 0 &&
+					(generationAds.remaining === 0 || dailyGenerationAd) &&
 					adConfig.placements.some(
 						(p) => p.placement === "generation_continue" && p.enabled,
 					)
@@ -837,6 +895,10 @@ export function useLotto() {
 			// Enforce one second from the tap; actionLock covers slow requests and ads.
 			generationCooldown.start();
 			trackProduct("generation_started");
+			adTelemetry.track("generation_attempted", {
+				placement: "generation_continue",
+				policy: generationPolicyLabel,
+			});
 			const adFlow = watchAd
 				? (impressionFlow ??
 					createAdFlow(adTelemetry, {
@@ -857,7 +919,10 @@ export function useLotto() {
 						adFlow,
 						canShow,
 					);
-					if (deviceCounter) api.generationAds.continued();
+					if (deviceCounter)
+						api.generationAds.continued(
+							dailyGenerationAd ? attendance?.day : undefined,
+						);
 					if (result?.continuedWithoutAd)
 						setNotice("광고를 불러오지 못해 바로 이어서 만들어요.");
 				}

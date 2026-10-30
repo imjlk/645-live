@@ -25,6 +25,7 @@ import {
 	createGenerationAdCounter,
 	type GenerationAdPolicy,
 } from "./generation-ad-counter";
+import { generationExperimentPolicy } from "./generation-ad-experiment";
 import type { GenerationResponse } from "./generation-request";
 import { resolveLottoRuntime } from "./runtime-config";
 import { createSavedStore } from "./saved-store";
@@ -170,6 +171,8 @@ export function newRequestId() {
 }
 
 export function createApi() {
+	// Bind progress to the principal whose config was loaded, not transient tokens.
+	let generationPrincipal = "";
 	const storage = createAppsInTossSessionStorage({
 		appKey: runtime.storageKey,
 		storage: {
@@ -364,6 +367,8 @@ export function createApi() {
 		generationAds: createGenerationAdCounter(
 			storage.storage,
 			`${runtime.storageKey}.generationAds.v1`,
+			Math.random,
+			() => generationPrincipal,
 		),
 		saved: (user: User) =>
 			createSavedStore(
@@ -393,7 +398,18 @@ export function createApi() {
 			request<{ deleted: boolean }>("/api/app/v1/lotto/generations/delete", {
 				id,
 			}),
-		ads: () => request<AdConfig>("/api/app/v1/ads/config"),
+		ads: async () => {
+			const principal = await ensure();
+			const config = await request<AdConfig>("/api/app/v1/ads/config");
+			generationPrincipal = principal.id;
+			return {
+				...config,
+				generationAdPolicy: generationExperimentPolicy(
+					config.generationAdPolicy,
+					principal.id,
+				),
+			};
+		},
 		startAd: (placement: AdPlacement, clientManagedCounter = false) =>
 			request<AdSession>("/api/app/v1/ads/start", {
 				placement,

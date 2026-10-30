@@ -43,6 +43,7 @@ let bootstraps = 0;
 let refreshes = 0;
 let dataFailure = 0;
 let refreshFailure = 0;
+let refreshWait: Promise<void> | undefined;
 let rejectProbe = false;
 const probeAttempts: { id: string; body: unknown }[] = [];
 let bootstrapWait: Promise<void> | undefined;
@@ -64,6 +65,7 @@ globalThis.fetch = (async (
 	}
 	if (path === "/api/auth/v1/refresh") {
 		refreshes++;
+		await refreshWait;
 		if (refreshFailure)
 			return Response.json(
 				{ message: "refresh unavailable" },
@@ -86,6 +88,15 @@ globalThis.fetch = (async (
 			);
 		return Response.json({ user: user(id) });
 	}
+	if (path.endsWith("/ads/config"))
+		return Response.json({
+			generationAdPolicy: {
+				counter: "device",
+				firstGenerations: 5,
+				minGenerations: 5,
+				maxGenerations: 30,
+			},
+		});
 	probeAttempts.push({
 		id,
 		body: options?.body ? JSON.parse(String(options.body)) : null,
@@ -135,6 +146,31 @@ rejectProbe = true;
 expect(await api.request("/probe")).toEqual({ id: "user-a" });
 expect(refreshes).toBe(2);
 expect(bootstraps).toBe(1);
+const config = await api.ads();
+await api.generationAds.load(config.generationAdPolicy);
+const remaining = api.generationAds.getSnapshot().remaining;
+let releaseRefresh!: () => void;
+refreshWait = new Promise<void>((resolve) => {
+	releaseRefresh = resolve;
+});
+rejectProbe = true;
+const renewing = api.request("/probe");
+for (let i = 0; i < 50 && refreshes < 3; i++) await Bun.sleep(1);
+expect(refreshes).toBe(3);
+await api.generationAds.load(config.generationAdPolicy);
+api.generationAds.generated(101);
+expect(api.generationAds.getSnapshot().remaining).toBe(remaining - 1);
+releaseRefresh();
+await renewing;
+refreshWait = undefined;
+await api.generationAds.load((await api.ads()).generationAdPolicy);
+expect(api.generationAds.getSnapshot().remaining).toBe(remaining - 1);
+expect(
+	[...stored.keys()].some(
+		(key) => key.includes("generationAds") && key.endsWith("."),
+	),
+).toBe(false);
+
 api.dispose();
 
 dataFailure = 503;
