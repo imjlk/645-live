@@ -3,6 +3,7 @@ import {
 	createAnalyticsRouter,
 	createBufferedAnalyticsSink,
 } from "@trailbase-apps-in-toss-kit/ait-rn/analytics";
+import { GENERATION_AD_SETTINGS } from "./generation-ad-settings";
 
 export type AdMetric =
 	| "experiment_exposed"
@@ -147,7 +148,9 @@ export function bindAdMetrics(
 	send: (
 		events: Array<AnalyticsEvent<AdMetric, AdMetricPayload>>,
 	) => Promise<unknown>,
+	enabled = GENERATION_AD_SETTINGS.collectServerMetrics,
 ) {
+	if (!enabled) return { flush: async () => {}, dispose: () => {} };
 	const sink = createBufferedAnalyticsSink<AdMetric, AdMetricPayload>({
 		maxBatchSize: 20,
 		maxQueueSize: 100,

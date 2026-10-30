@@ -38,3 +38,11 @@ Deploy the backend before the new bundle (main triggers the existing Coolify dep
 The new analytics migration and `databases` config are copied by the existing container entrypoint. On the currently deployed TrailBase 0.33.15, the WASM attachment fallback uses `/app/traildepot/data/analytics.db`; review this path when upgrading to 0.34+. No analytics Record API is public. Events are retained for 45 days with bounded cleanup during intake and removed on account withdrawal.
 
 Saved editor queries are maintained in `services/trailbase/sql/11-generation-ab-funnel.sql`, `12-generation-ab-retention.sql`, and `13-generation-ab-cost.sql`. Select `analytics` under Attached before running. The retention query uses authenticated internal principals and KST day boundaries; completed D1/D7 follow-up dates are required. Its first day is first **observed** exposure within retained history, not necessarily registration day. Queries include zero-denominator null handling and never fabricate revenue totals. Exposure is emitted once per foreground server day so an app retained in memory can still record a return on a later day.
+
+## Client-side controls
+
+`apps/toss/src/generation-ad-settings.ts` owns the bundle-local switches and interval presets. Defaults preserve the active experiment. `mode: "relaxed"` uses first 5 / recurring 5–30 for both arms and disables the returning-user daily gate. Existing counters keep their remaining generations and use the softer interval on their next continuation; new counters start at 5. Assignment and counter storage keys remain stable. No server counter or analytics event is consulted to decrement or refill progress.
+
+`collectServerMetrics: false` disables the optional TrailBase mirror only; SDK logging and generation work normally. The server validates experiment/cohort and bounded numeric ranges rather than enforcing the current intervals, so later bundle-only tuning does not require another server range update. Continue comparing metrics within the same app version.
+
+The funnel starts its five-minute window at the first viewport impression **or explicit ad request**. A quick tap may precede the one-second impression event and must not disappear from reporting. Requests and impressions for one flow are counted once.

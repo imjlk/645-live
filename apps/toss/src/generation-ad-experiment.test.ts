@@ -169,3 +169,43 @@ test("control lower boundary is three generations before first and subsequent ad
 		"generation-cadence-v2/control:device:3-3:3-12",
 	);
 });
+
+test("relaxed mode keeps local progress but draws softer future cycles without daily gating", async () => {
+	const id = principal("short");
+	const counter = createGenerationAdCounter(
+		storage(),
+		"cadence",
+		() => 0,
+		() => id,
+	);
+	await counter.load(generationExperimentPolicy(base, id));
+	counter.generated(1);
+	const settings = {
+		mode: "relaxed" as const,
+		collectServerMetrics: true,
+		returningDailyAd: true,
+	};
+	const policy = generationExperimentPolicy(base, id, settings);
+	await counter.load(policy);
+	expect(counter.getSnapshot().remaining).toBe(0);
+	expect(
+		dailyGenerationAdRequired(
+			policy,
+			{ day: 100, streak: 7, generatedToday: false, checkedIn: false },
+			undefined,
+			settings,
+		),
+	).toBe(false);
+	counter.continued();
+	expect(counter.getSnapshot().remaining).toBe(5);
+	const fresh = createGenerationAdCounter(
+		storage(),
+		"new",
+		() => 0.999999,
+		() => id,
+	);
+	await fresh.load(policy);
+	expect(fresh.getSnapshot().remaining).toBe(5);
+	fresh.continued();
+	expect(fresh.getSnapshot().remaining).toBe(30);
+});

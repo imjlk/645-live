@@ -45,7 +45,10 @@ import {
 	type User,
 } from "./api";
 import { createFeedHistory, deletedGenerationId } from "./feed-history";
-import { dailyGenerationAdRequired } from "./generation-ad-experiment";
+import {
+	dailyGenerationAdRequired,
+	requiresAttendanceForGeneration,
+} from "./generation-ad-experiment";
 import { createGenerationCooldown } from "./generation-cooldown";
 import { createGenerationRequest } from "./generation-request";
 import { createPerformanceTracker } from "./performance";
@@ -387,7 +390,8 @@ export function useLotto() {
 		!!user &&
 		!!context &&
 		!!adConfig &&
-		(!adConfig.generationAdPolicy?.experiment || !!attendance) &&
+		(!requiresAttendanceForGeneration(adConfig.generationAdPolicy) ||
+			!!attendance) &&
 		(adConfig.generationAdPolicy?.counter !== "device" || generationAds.ready);
 	useEffect(() => {
 		if (

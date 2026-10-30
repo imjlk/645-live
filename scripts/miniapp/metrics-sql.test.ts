@@ -56,5 +56,14 @@ test("saved metrics SQL separates mature conversion windows and counts each paid
 	expect(funnel.표시대비_완료율).toBe(100);
 	expect(query("12-generation-ab-retention.sql")[0].D1_재방문율).toBeNull();
 	expect(query("13-generation-ab-cost.sql")[0].지급성공금액).toBe(3);
+
+	// A quick tap can occur before the viewport's one-second impression fires.
+	db.exec("DELETE FROM analytics.events WHERE name='cta_viewed'");
+	const immediate = query("11-generation-ab-funnel.sql")[0];
+	expect(immediate.평가가능_CTA수).toBe(1);
+	expect(immediate.광고완료수).toBe(1);
+	expect(immediate.오분내_생성미완료율).toBe(0);
+	db.exec("UPDATE analytics.events SET client_at=unixepoch('now')*1000");
+	expect(query("11-generation-ab-funnel.sql")[0].평가가능_CTA수).toBe(0);
 	db.close();
 });

@@ -76,6 +76,25 @@ fn attach(tx: &mut Transaction) -> ApiResult<()> {
     }
     Ok(())
 }
+// Validate cohort and shape, not cadence: ranges are client-owned tuning values.
+fn valid_policy(policy: &str, expected: &str) -> bool {
+    let prefix = format!("generation-cadence-v2/{expected}:device:");
+    let Some(ranges) = policy.strip_prefix(&prefix) else {
+        return false;
+    };
+    let Some((first, recurring)) = ranges.split_once(':') else {
+        return false;
+    };
+    fn valid_range(value: &str) -> bool {
+        let (min, max) = value.split_once('-').unwrap_or((value, value));
+        let (Ok(min), Ok(max)) = (min.parse::<u16>(), max.parse::<u16>()) else {
+            return false;
+        };
+        min >= 1 && min <= max && max <= 200
+    }
+    valid_range(first) && valid_range(recurring)
+}
+
 fn validate(event: &Event, expected: &str) -> ApiResult<()> {
     let valid_name = matches!(
         event.event_name.as_str(),
@@ -95,11 +114,6 @@ fn validate(event: &Event, expected: &str) -> ApiResult<()> {
             | "generation_completed"
     );
     let p = &event.event_payload;
-    let policy = if expected == "control" {
-        "generation-cadence-v2/control:device:3-3:3-12"
-    } else {
-        "generation-cadence-v2/short:device:1-3:2-8"
-    };
     let bounded = [
         (&p.flow_id, 64),
         (&p.session_id, 64),
@@ -119,7 +133,7 @@ fn validate(event: &Event, expected: &str) -> ApiResult<()> {
         || !bounded
         || p.session_id.is_empty()
         || p.event_id.is_empty()
-        || p.policy != policy
+        || !valid_policy(&p.policy, expected)
         || p.placement != "generation_continue"
     {
         return Err(bad_request("INVALID_METRIC", "지표 형식을 확인해 주세요."));
@@ -202,6 +216,22 @@ pub(crate) fn delete_user(tx: &mut Transaction, user_id: &[u8]) -> ApiResult<()>
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn client_tuning_does_not_require_server_range_updates() {
+        assert!(valid_policy(
+            "generation-cadence-v2/short:device:5-5:5-30",
+            "short"
+        ));
+        for value in [
+            "generation-cadence-v2/control:device:5:5-30",
+            "generation-cadence-v2/short:device:0:5-30",
+            "generation-cadence-v2/short:device:5:30-5",
+            "generation-cadence-v2/short:device:5:5-201",
+            "generation-cadence-v2/short:device:5:5-30:extra",
+        ] {
+            assert!(!valid_policy(value, "short"));
+        }
+    }
     #[test]
     fn cohort_is_stable_and_balanced() {
         let count = (0..1000)
