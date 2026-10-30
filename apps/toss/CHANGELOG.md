@@ -1,5 +1,13 @@
 # @645/toss
 
+## 1.6.0 — 2026-10-30
+
+### Minor changes
+
+- [2b77b97](https://github.com/imjlk/645-live/commit/2b77b977728b262bcf7cc14f15d7acaf78a25410) Update generation continuation intervals and returning-user daily behavior. Add scoped progress tracking, event reporting, and aggregate comparison tools.
+  
+  Add private TrailBase event collection and saved-query templates. Deploy the backend analytics migration and WASM before releasing the updated bundle.
+
 ## 1.5.3 — 2026-10-29
 
 ### Patch changes
