@@ -1,5 +1,11 @@
 # @645/toss
 
+## 1.7.0 — 2026-10-30
+
+### Minor changes
+
+- [7edb57d](https://github.com/imjlk/645-live/commit/7edb57daf998bcbc876373e0766da4df9d7592cb) Add daily generation progress to attendance and preserve continuation progress across days. Keep existing attendance completions and support older clients during rollout. Separate reporting for the updated experience.
+
 ## 1.6.1 — 2026-10-30
 
 ### Patch changes
