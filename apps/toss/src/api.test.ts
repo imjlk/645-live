@@ -616,3 +616,56 @@ test("result notifications require native consent, deduplicate rounds, and never
 	).toBe(false);
 	expect(calls).toHaveLength(1);
 });
+
+test("attendance after check-in never reuses a pending pre-mutation snapshot", async () => {
+	globalThis.fetch = (async () =>
+		json({
+			user: { id: "fixture-user", displayName: "fixture" },
+			authTokens: {
+				authToken: "fixture",
+				refreshToken: "refresh",
+				csrfToken: "csrf",
+			},
+		})) as typeof fetch;
+	let reads = 0;
+	let entered!: () => void;
+	let release!: (response: Response) => void;
+	const started = new Promise<void>((resolve) => {
+		entered = resolve;
+	});
+	fetchPath = async (path) => {
+		if (path.endsWith("/attendance/status")) {
+			reads++;
+			if (reads === 1) {
+				entered();
+				return new Promise<Response>((resolve) => {
+					release = resolve;
+				});
+			}
+			return json({
+				checkedIn: true,
+				promotions: [{ kind: "daily", eligible: true }],
+			});
+		}
+		return json({ streak: 1, replayed: false });
+	};
+	const api = createApi();
+	try {
+		const before = api.attendance();
+		await started;
+		await api.checkIn();
+		const after = api.attendance();
+		for (let i = 0; i < 50 && reads < 2; i++) await Bun.sleep(1);
+		release(
+			json({
+				checkedIn: false,
+				promotions: [{ kind: "daily", eligible: false }],
+			}),
+		);
+		expect((await after).checkedIn).toBe(true);
+		expect((await before).checkedIn).toBe(false);
+		expect(reads).toBe(2);
+	} finally {
+		api.dispose();
+	}
+});

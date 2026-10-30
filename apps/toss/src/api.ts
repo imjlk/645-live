@@ -351,9 +351,9 @@ export function createApi() {
 		}
 	}
 	let attendanceRead: Promise<Attendance> | null = null;
-	function readAttendance() {
+	function readAttendance(fresh = false) {
 		const pending =
-			attendanceRead ??
+			(fresh ? null : attendanceRead) ??
 			request<Attendance>("/api/app/v1/attendance/status", {
 				experiment: GENERATION_AD_EXPERIMENT,
 			});
@@ -452,7 +452,8 @@ export function createApi() {
 				expiresAt?: number;
 				continuedWithoutAd?: boolean;
 			}>("/api/app/v1/ads/complete", { id, events }),
-		attendance: readAttendance,
+		// Follow-up reads after check-in, promotion, or restore must not reuse a pre-mutation snapshot.
+		attendance: () => readAttendance(true),
 		checkIn: () =>
 			request<{ streak: number; replayed: boolean }>(
 				"/api/app/v1/attendance/check-in",
