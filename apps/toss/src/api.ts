@@ -171,6 +171,8 @@ export function newRequestId() {
 }
 
 export function createApi() {
+	// Bind progress to the principal whose config was loaded, not transient tokens.
+	let generationPrincipal = "";
 	const storage = createAppsInTossSessionStorage({
 		appKey: runtime.storageKey,
 		storage: {
@@ -366,7 +368,7 @@ export function createApi() {
 			storage.storage,
 			`${runtime.storageKey}.generationAds.v1`,
 			Math.random,
-			() => currentUser?.id ?? "",
+			() => generationPrincipal,
 		),
 		saved: (user: User) =>
 			createSavedStore(
@@ -397,12 +399,14 @@ export function createApi() {
 				id,
 			}),
 		ads: async () => {
+			const principal = await ensure();
 			const config = await request<AdConfig>("/api/app/v1/ads/config");
+			generationPrincipal = principal.id;
 			return {
 				...config,
 				generationAdPolicy: generationExperimentPolicy(
 					config.generationAdPolicy,
-					currentUser?.id ?? "",
+					principal.id,
 				),
 			};
 		},
