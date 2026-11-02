@@ -25,8 +25,20 @@ export function GeneratorAttendanceEntry({
 				: `7일 완성까지 ${7 - attendance.streak}일 남았어요.`;
 		action = "혜택 보기 ›";
 	} else if (attendanceReady(attendance)) {
-		caption = daily
-			? `오늘 출석하면 ${daily.amount}P를 받을 수 있어요.`
+		const tickets = attendance?.adSkips?.active
+			? `광고 스킵권 ${attendance.adSkips.dailyTickets}장`
+			: null;
+		const points = daily?.amount != null ? `${daily.amount}P` : null;
+		const reward =
+			tickets && points
+				? `${tickets}과 ${points}를`
+				: tickets
+					? `${tickets}을`
+					: points
+						? `${points}를`
+						: null;
+		caption = reward
+			? `오늘 출석하면 ${reward} 받을 수 있어요.`
 			: "오늘 만든 번호로 출석할 수 있어요.";
 		action = "출석하기 ›";
 	}

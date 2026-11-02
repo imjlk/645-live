@@ -1,5 +1,6 @@
 import { expect, mock } from "bun:test";
 import type { Generation, SavedCombination } from "@645/lotto-core";
+import { createAdSkipRedemptionController } from "@trailbase-apps-in-toss-kit/ait-rn/ad-skip";
 import * as React from "react";
 import { act, create, type ReactTestRenderer } from "react-test-renderer";
 
@@ -63,6 +64,14 @@ const api = {
 		load: async () => {},
 	},
 	generationAds: { getSnapshot: () => progress, subscribe: () => () => {} },
+	adSkips: () =>
+		createAdSkipRedemptionController({
+			redeem: async () => {
+				throw new Error("not used");
+			},
+			storage: { getItem: async () => null, setItem: async () => {} },
+			storageKey: "fixture.adSkips",
+		}),
 	context: async () => ({ targetRound: 101, serverTime: 1, latestDraw: null }),
 	feed: async () => ({
 		round: 101,

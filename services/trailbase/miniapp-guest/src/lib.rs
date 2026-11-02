@@ -1,8 +1,10 @@
 #![forbid(unsafe_code)]
 
 mod activity;
+mod ad_skips;
 mod ads;
 mod attendance;
+mod attendance_rewards;
 mod auth;
 mod bootstrap_timing;
 mod dev;
@@ -84,6 +86,7 @@ endpoint!(metric_ingest, metrics::ingest);
 endpoint!(shopping_recommendations, shopping::get);
 endpoint!(ad_start, ads::start);
 endpoint!(ad_complete, ads::complete);
+endpoint!(ad_skip_redeem, ad_skips::redeem);
 endpoint!(dev_entitlements, dev::entitlements);
 endpoint!(dev_attendance, dev::attendance_fixture);
 endpoint!(attendance_status, engagement::attendance_status);
@@ -130,6 +133,7 @@ impl Guest for Miniapp {
             ),
             routing::post("/api/app/v1/ads/start", ad_start),
             routing::post("/api/app/v1/ads/complete", ad_complete),
+            routing::post("/api/app/v1/ad-skips/redeem", ad_skip_redeem),
             routing::post("/api/app/v1/dev/entitlements", dev_entitlements),
             routing::post("/api/app/v1/dev/attendance", dev_attendance),
             routing::get("/api/app/v1/attendance/status", attendance_status),

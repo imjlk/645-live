@@ -141,6 +141,43 @@ pub fn generated_today(tx: &mut Transaction, user: &[u8], today: i64) -> ApiResu
         "SELECT 1 FROM ait_lotto_generation_requests WHERE user_id=?1 AND created_at>=?2 AND created_at<?3 LIMIT 1",
         &[Value::Blob(user.to_vec()),Value::Integer(start),Value::Integer(start+86_400_000)])?.is_empty())
 }
+/// Commit time of an own check-in, the moment its rewards were earned.
+pub fn checked_at(tx: &mut Transaction, user: &[u8], day: i64) -> ApiResult<Option<i64>> {
+    db::tx_query(
+        tx,
+        "SELECT created_at FROM ait_lotto_attendance WHERE user_id=?1 AND day=?2",
+        &[Value::Blob(user.to_vec()), Value::Integer(day)],
+    )?
+    .first()
+    .map(|r| db::integer(&r[0], "created"))
+    .transpose()
+}
+/// Cycles that ended within the last two weeks with their completion commit time.
+/// A cycle row is written by the check-in or restore that completed it.
+pub fn recent_cycles(
+    tx: &mut Transaction,
+    user: &[u8],
+    today: i64,
+) -> ApiResult<Vec<(i64, i64, i64)>> {
+    db::tx_query(
+        tx,
+        "SELECT start_day,end_day,created_at FROM ait_lotto_attendance_cycles WHERE user_id=?1 AND end_day>=?2 AND end_day<=?3 ORDER BY end_day",
+        &[
+            Value::Blob(user.to_vec()),
+            Value::Integer(today - 2 * DAYS + 1),
+            Value::Integer(today),
+        ],
+    )?
+    .iter()
+    .map(|r| {
+        Ok((
+            db::integer(&r[0], "start")?,
+            db::integer(&r[1], "end")?,
+            db::integer(&r[2], "created")?,
+        ))
+    })
+    .collect()
+}
 pub fn checked(tx: &mut Transaction, user: &[u8], today: i64) -> ApiResult<bool> {
     Ok(!db::tx_query(
         tx,

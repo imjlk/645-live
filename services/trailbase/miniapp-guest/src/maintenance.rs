@@ -194,6 +194,10 @@ fn retention() -> ApiResult<Json> {
         "DELETE FROM anonymous_bootstrap_attempts WHERE last_attempt_at < ?1-86400000 AND bucket_key LIKE 'web-lotto-%'",
         "DELETE FROM anonymous_bootstrap_attempts WHERE last_attempt_at < ?1-86400000 AND bucket_key LIKE 'ait-%'",
         "DELETE FROM ait_lotto_ad_sessions WHERE created_at < ?1-2592000000",
+        // Receipts and settled prompts only protect retries and late ad callbacks.
+        // Balances and once-only grant history are kept.
+        "DELETE FROM ad_skip_ticket_redemptions WHERE created_at < ?1-7776000000",
+        "DELETE FROM ad_skip_opportunities WHERE resolved_at < ?1-7776000000",
         "DELETE FROM ait_lotto_result_watches WHERE created_at < ?1-1209600000",
         "DELETE FROM ait_lotto_entitlements WHERE expires_at < ?1-86400000",
         "DELETE FROM message_outbox WHERE created_at < ?1-7776000000 AND status IN ('SENT','FAILED','SKIPPED','CANCELLED')",

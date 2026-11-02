@@ -7,6 +7,11 @@ import type {
 import { parseNumbers } from "@645/lotto-core";
 import { getAnonymousKey, Storage } from "@apps-in-toss/framework";
 import {
+	type AdSkipRedemptionRequest,
+	createAdSkipRedemptionController,
+	normalizeAdSkipRedemptionReceipt,
+} from "@trailbase-apps-in-toss-kit/ait-rn/ad-skip";
+import {
 	createAppsInTossSessionStorage,
 	createPersistentJsonAtom,
 } from "@trailbase-apps-in-toss-kit/ait-rn/storage";
@@ -76,10 +81,38 @@ export type Promotion = {
 	periodDay: number | null;
 	campaignId: string | null;
 	claimId: string | null;
-	amount: number;
+	/** The campaign's own amount; null when no campaign is running. */
+	amount: number | null;
 	eligible: boolean;
 	available: boolean;
 	status: string | null;
+	/** Exclusive end of the first claim for a stored eligibility. */
+	claimDeadlineAt?: number | null;
+};
+/** Placements where a ticket can replace one full-screen ad. */
+export type AdSkipPlacement = "generation_continue" | "custom" | "report";
+export type AdSkipStatus = {
+	balance: number;
+	active: boolean;
+	startsAt: number | null;
+	dailyTickets: number;
+	streakBonusTickets: number;
+	todayGranted: number;
+	lastStreakBonusEndDay: number | null;
+	placements: AdSkipPlacement[];
+};
+export type PointWindow = {
+	status: "LEGACY_GRACE" | "WELCOME" | "ENDED";
+	cohort: "LEGACY" | "WELCOME";
+	endsAt: number;
+};
+export type RewardPolicy = {
+	version: string;
+	noticeStartsAt: number | null;
+	noticeActive: boolean;
+	legacyPointsEndsAt: number;
+	welcomePointDays: number;
+	pointWindow: PointWindow;
 };
 export type Attendance = Partial<AttendanceProgress> & {
 	day: number;
@@ -96,6 +129,10 @@ export type Attendance = Partial<AttendanceProgress> & {
 	promotions: Promotion[];
 	promotionHistory: Promotion[];
 	promotionTestEnabled?: boolean;
+	/** Omitted by older servers. */
+	adSkips?: AdSkipStatus;
+	/** Null until every operational instant of the point policy is configured. */
+	rewardPolicy?: RewardPolicy | null;
 };
 export type AdSession =
 	| { alreadyGranted: true }
@@ -386,6 +423,17 @@ export function createApi() {
 			Math.random,
 			() => generationPrincipal,
 		),
+		// Pending redemptions belong to one principal and survive restarts.
+		adSkips: (user: User) =>
+			createAdSkipRedemptionController({
+				redeem: async (body: AdSkipRedemptionRequest) =>
+					normalizeAdSkipRedemptionReceipt(
+						await request("/api/app/v1/ad-skips/redeem", body),
+						body,
+					),
+				storage: storage.storage,
+				storageKey: `${runtime.storageKey}.adSkips.v1.${user.id}`,
+			}),
 		saved: (user: User) =>
 			createSavedStore(
 				storage.storage,
@@ -441,10 +489,15 @@ export function createApi() {
 				),
 			};
 		},
-		startAd: (placement: AdPlacement, clientManagedCounter = false) =>
+		startAd: (
+			placement: AdPlacement,
+			clientManagedCounter = false,
+			opportunityKey?: string | null,
+		) =>
 			request<AdSession>("/api/app/v1/ads/start", {
 				placement,
 				...(clientManagedCounter ? { clientManagedCounter: true } : {}),
+				...(opportunityKey ? { opportunityKey } : {}),
 			}),
 		completeAd: (id: string, events: string[]) =>
 			request<{
@@ -455,7 +508,7 @@ export function createApi() {
 		// Follow-up reads after check-in, promotion, or restore must not reuse a pre-mutation snapshot.
 		attendance: () => readAttendance(true),
 		checkIn: () =>
-			request<{ streak: number; replayed: boolean }>(
+			request<{ streak: number; replayed: boolean; adSkips?: AdSkipStatus }>(
 				"/api/app/v1/attendance/check-in",
 				{},
 			),

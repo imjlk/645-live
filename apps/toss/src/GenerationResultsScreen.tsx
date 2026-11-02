@@ -119,6 +119,12 @@ export function GenerationResultsScreen() {
 								if (ok) model.featureUsed();
 								return ok;
 							}}
+							continueWithTicket={async (feature) => {
+								const ok = await model.continueFeatureWithTicket(feature);
+								if (ok) model.featureUsed();
+								return ok;
+							}}
+							ticketChoice={model.adSkipChoice}
 							onDone={() => setRequest(null)}
 						/>
 					</View>

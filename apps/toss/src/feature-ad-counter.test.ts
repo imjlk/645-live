@@ -67,4 +67,35 @@ describe("optional detail ad cadence", () => {
 		counter.used();
 		expect(counter.getSnapshot().remaining).toBe(2);
 	});
+	test("a due prompt keeps one key until it is continued", async () => {
+		const store = storage("0");
+		let n = 0;
+		const counter = createFeatureAdCounter(
+			store,
+			"details",
+			() => 0,
+			() => `f-${++n}`,
+		);
+		expect(counter.opportunityKey()).toBeNull();
+		await counter.load();
+		const key = counter.opportunityKey();
+		expect(key).toBe("f-1");
+		expect(counter.opportunityKey()).toBe("f-1");
+		await Bun.sleep(1);
+		// A restart keeps the open prompt, and the original number format still loads.
+		const reloaded = createFeatureAdCounter(
+			store,
+			"details",
+			() => 0,
+			() => "f-x",
+		);
+		await reloaded.load();
+		expect(reloaded.getSnapshot()).toMatchObject({
+			remaining: 0,
+			prompt: "f-1",
+		});
+		reloaded.continued();
+		expect(reloaded.getSnapshot().prompt).toBeNull();
+		expect(reloaded.opportunityKey()).toBe("f-x");
+	});
 });

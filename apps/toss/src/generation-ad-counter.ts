@@ -1,3 +1,4 @@
+import { createAdSkipRequestId } from "@trailbase-apps-in-toss-kit/ait-rn/ad-skip";
 import { createPersistentJsonAtom } from "@trailbase-apps-in-toss-kit/ait-rn/storage";
 import type { Storage } from "./saved-store";
 
@@ -16,7 +17,10 @@ type Progress = {
 	remaining: number;
 	lastGenerationId: number | null;
 	continuedDay?: number;
+	/** Opaque key of the open ad prompt; an ad or a ticket settles it once. */
+	prompt?: string;
 };
+const PROMPT = /^[A-Za-z0-9._:-]{1,128}$/;
 const MAX_INTERVAL = 200;
 const DEFAULT_POLICY: GenerationAdPolicy = {
 	counter: "device",
@@ -31,6 +35,7 @@ export function createGenerationAdCounter(
 	key: string,
 	random = Math.random,
 	principalScope: () => string = () => "",
+	newPrompt = () => `g-${createAdSkipRequestId()}`,
 ) {
 	let policy = DEFAULT_POLICY;
 	const interval = () =>
@@ -69,6 +74,9 @@ export function createGenerationAdCounter(
 							lastGenerationId: p.lastGenerationId,
 							...(Number.isSafeInteger(p.continuedDay)
 								? { continuedDay: p.continuedDay }
+								: {}),
+							...(typeof p.prompt === "string" && PROMPT.test(p.prompt)
+								? { prompt: p.prompt }
 								: {}),
 						}
 					: null;
@@ -141,12 +149,22 @@ export function createGenerationAdCounter(
 			});
 		},
 		continued(day?: number) {
+			const { ready: _, prompt: __, ...progress } = snapshot;
 			publish({
-				...snapshot,
+				...progress,
 				...(Number.isSafeInteger(day) ? { continuedDay: day } : {}),
 				remaining: interval(),
 				lastGenerationId: snapshot.lastGenerationId,
 			});
+		},
+		/** The current prompt's key, created once and kept until it is continued. */
+		opportunityKey() {
+			if (!snapshot.ready) return null;
+			if (!snapshot.prompt) {
+				const { ready: _, ...progress } = snapshot;
+				publish({ ...progress, prompt: newPrompt() });
+			}
+			return snapshot.prompt ?? null;
 		},
 		prepare() {
 			publish({ ...snapshot, remaining: 0 });

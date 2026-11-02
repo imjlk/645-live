@@ -28,6 +28,10 @@ Banners: `lotto_ad_banner_slot_viewed` → `lotto_ad_banner_requested` → `lott
 
 Compare versions with the same window and traffic mix. Confirm delivery before interpreting missing events as zero conversions. Measure ad opportunity among visitors, completion among shown ads, successful generation after settlement, save conversion, and return visits together.
 
+## Ad skip tickets
+
+A ticket replaces one full-screen ad. It creates no ad session, SDK event, impression, completion or revenue, and never counts toward the ad daily cap or cooldown. A feature prompt settled with a ticket records `lotto_ad_settled` with `outcome=ad_skip_ticket` and no `requested`/`shown`/`completed`; exclude that outcome from ad completion and revenue denominators and use it only for the ad-versus-ticket choice ratio. `lotto_ad_skip_redeemed` (source = placement: `generation_continue`, `custom` or `report`) is sent once per charged ticket; free or already-resolved receipts and retries of the same request are not counted. Grant volume, balance distribution and redemption totals come from the private server tables (`ad_skip_ticket_grants`, `ad_skip_ticket_wallets`, `ad_skip_ticket_redemptions`), never from client events. No identities, request IDs, receipts or balances enter event parameters.
+
 ## Validation
 
 1. In local preview, generate, save and open statistics. Inspect `[lotto analytics]` entries and their version/source.

@@ -11,6 +11,10 @@ import {
 	resultFingerprint,
 	type SavedCombination,
 } from "@645/lotto-core";
+import type {
+	AdSkipControllerSnapshot,
+	AdSkipRedemptionReceipt,
+} from "@trailbase-apps-in-toss-kit/ait-rn/ad-skip";
 import {
 	useCallback,
 	useEffect,
@@ -26,6 +30,13 @@ import {
 	setResultNotification,
 } from "./ad-bridge";
 import {
+	AD_SKIP_UNKNOWN,
+	adSkipChoice,
+	adSkipNotice,
+	adSkipRejection,
+	attendanceTicketNotice,
+} from "./ad-skip";
+import {
 	type AdFlow,
 	adPolicyLabel,
 	bindAdMetrics,
@@ -34,6 +45,7 @@ import {
 import {
 	type AdConfig,
 	type AdPlacement,
+	type AdSkipPlacement,
 	API_BASE,
 	type Attendance,
 	apiErrorCode,
@@ -61,6 +73,13 @@ import { loadLottoStartup } from "./startup";
 import { adTelemetry, trackProduct } from "./telemetry";
 import { actionArea, rememberGeneration } from "./ux-state";
 
+const NO_AD_SKIPS: AdSkipControllerSnapshot = {
+	balance: null,
+	inFlight: [],
+	pending: [],
+	ready: false,
+};
+const noSubscription = () => () => {};
 const message = (value: unknown) =>
 	value instanceof Error
 		? value.message
@@ -169,6 +188,16 @@ export function useLotto() {
 	const [resultsLoading, setResultsLoading] = useState(false);
 	const [adConfig, setAdConfig] = useState<AdConfig | null>(null);
 	const [attendance, setAttendance] = useState<Attendance | null>(null);
+	const adSkips = useMemo(() => (user ? api.adSkips(user) : null), [api, user]);
+	const adSkipState = useSyncExternalStore(
+		adSkips?.subscribe ?? noSubscription,
+		adSkips?.getSnapshot ?? (() => NO_AD_SKIPS),
+	);
+	const serverAdSkipBalance = attendance?.adSkips?.balance;
+	useEffect(() => {
+		if (adSkips && serverAdSkipBalance !== undefined)
+			adSkips.setBalance(serverAdSkipBalance);
+	}, [adSkips, serverAdSkipBalance]);
 	const [busy, setBusy] = useState<string | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	const [notice, setNotice] = useState<string | null>(null);
@@ -387,6 +416,68 @@ export function useLotto() {
 		attendance,
 		generationAds.continuedDay,
 	);
+	const counterDay = useRef<number | undefined>(undefined);
+	counterDay.current = dailyGenerationAd ? attendance?.day : undefined;
+	const adCounter = useCallback(
+		(placement: AdPlacement) =>
+			placement === "generation_continue" ? api.generationAds : api.featureAds,
+		[api],
+	);
+	// A receipt advances only the prompt the counter still holds, at most once, so a
+	// retried response or restart never draws another ad interval.
+	const applyAdSkip = useCallback(
+		async (receipt: AdSkipRedemptionReceipt) => {
+			const placement = receipt.placement as AdSkipPlacement;
+			if (
+				!adSkips ||
+				adCounter(placement).getSnapshot().prompt !== receipt.opportunityKey
+			)
+				return;
+			await adSkips.applyEffectOnce(receipt, () => {
+				if (placement === "generation_continue")
+					api.generationAds.continued(counterDay.current);
+				else api.featureAds.continued();
+			});
+		},
+		[adSkips, adCounter, api],
+	);
+	useEffect(() => {
+		if (!adSkips) return;
+		let closed = false;
+		// Recover requests whose result was unknown when the app last closed.
+		void adSkips
+			.load()
+			.then(() => adSkips.retryPending())
+			.then(async (outcomes) => {
+				for (const outcome of outcomes)
+					if (!closed && outcome.status === "resolved")
+						await applyAdSkip(outcome.receipt);
+			})
+			.catch(() => {});
+		return () => {
+			closed = true;
+		};
+	}, [adSkips, applyAdSkip]);
+	const redeemAdSkip = async (placement: AdSkipPlacement) => {
+		if (!adSkips) throw new Error("연결을 먼저 확인해 주세요.");
+		await adSkips.load();
+		const opportunityKey = adCounter(placement).opportunityKey();
+		if (!opportunityKey) throw new Error("잠시 후 다시 시도해 주세요.");
+		const outcome = await adSkips.redeem({ placement, opportunityKey });
+		if (outcome.status === "unknown") throw new Error(AD_SKIP_UNKNOWN);
+		if (outcome.status === "rejected")
+			throw new Error(adSkipRejection(outcome.code, outcome.error));
+		await applyAdSkip(outcome.receipt);
+		if (outcome.receipt.consumed === 1)
+			trackProduct("ad_skip_redeemed", placement);
+		const balance = outcome.receipt.balance;
+		setAttendance((previous) =>
+			previous?.adSkips
+				? { ...previous, adSkips: { ...previous.adSkips, balance } }
+				: previous,
+		);
+		return outcome.receipt;
+	};
 	const experimentReady =
 		!!user &&
 		!!context &&
@@ -861,9 +952,30 @@ export function useLotto() {
 				: adConfig?.generationAdRequired === true,
 		featureAdRequired: featureAds.ready && featureAds.remaining === 0,
 		featureUsed: api.featureAds.used,
+		adSkipBalance: adSkipState.balance ?? attendance?.adSkips?.balance ?? null,
+		adSkipChoice: (placement: AdPlacement) => {
+			const key = adCounter(placement).getSnapshot().prompt;
+			return adSkipChoice({
+				status: attendance?.adSkips,
+				balance: adSkipState.balance,
+				blocked: !!key && !!adSkips?.isBlocked(placement, key),
+				busy: !!busy,
+				placement,
+			});
+		},
+		continueFeatureWithTicket: (feature: "custom" | "report") =>
+			run("feature-ad", async () => {
+				setNotice(adSkipNotice(await redeemAdSkip(feature)));
+			}),
 		continueFeature: (feature: "custom" | "report", flow?: AdFlow) =>
 			run("feature-ad", async () => {
-				const outcome = await adsController.unlock(feature, false, flow);
+				const outcome = await adsController.unlock(
+					feature,
+					false,
+					flow,
+					undefined,
+					api.featureAds.opportunityKey(),
+				);
 				if (outcome.continuedWithoutAd && active.current)
 					setNotice("지금은 광고를 이용할 수 없어 바로 이어서 이용해요.");
 				api.featureAds.continued();
@@ -900,6 +1012,8 @@ export function useLotto() {
 			watchAd = false,
 			impressionFlow?: AdFlow,
 			canShow?: () => boolean,
+			// A ticket chosen first never calls the ad SDK or preloads an ad.
+			useTicket = false,
 		) => {
 			if (
 				!generationReady ||
@@ -914,25 +1028,33 @@ export function useLotto() {
 				placement: "generation_continue",
 				policy: generationPolicyLabel,
 			});
-			const adFlow = watchAd
-				? (impressionFlow ??
-					createAdFlow(adTelemetry, {
-						placement: "generation_continue",
-						policy: adPolicyLabel(adConfig?.generationAdPolicy),
-					}))
-				: undefined;
+			const adFlow =
+				watchAd && !useTicket
+					? (impressionFlow ??
+						createAdFlow(adTelemetry, {
+							placement: "generation_continue",
+							policy: adPolicyLabel(adConfig?.generationAdPolicy),
+						}))
+					: undefined;
 			return await run("generate", async () => {
 				const deviceCounter =
 					adConfig?.generationAdPolicy?.counter === "device";
 				if (deviceCounter)
 					await api.generationAds.load(adConfig.generationAdPolicy);
-				// Only the explicitly labelled ad CTA may open a full-screen ad.
-				if (watchAd) {
+				if (useTicket) {
+					if (!deviceCounter)
+						throw new Error("앱을 업데이트한 뒤 스킵권을 사용할 수 있어요.");
+					// The prompt is settled before generating; a failed generation is
+					// retried without charging again.
+					setNotice(adSkipNotice(await redeemAdSkip("generation_continue")));
+				} else if (watchAd) {
+					// Only the explicitly labelled ad CTA may open a full-screen ad.
 					const result = await adsController.unlock(
 						"generation_continue",
 						deviceCounter,
 						adFlow,
 						canShow,
+						deviceCounter ? api.generationAds.opportunityKey() : null,
 					);
 					if (deviceCounter)
 						api.generationAds.continued(
@@ -975,8 +1097,9 @@ export function useLotto() {
 				const daily = state.promotions.find(
 					(p) => p.kind === "daily" && p.eligible,
 				);
+				const tickets = attendanceTicketNotice(state);
 				if (!daily) {
-					setNotice("오늘 출석했어요. 내일도 만나요!");
+					setNotice(tickets ?? "오늘 출석했어요. 내일도 만나요!");
 					return;
 				}
 				try {
@@ -988,10 +1111,13 @@ export function useLotto() {
 							campaignId: daily.campaignId,
 						},
 					);
-					setNotice(promotionFeedback(result, true));
+					const points = promotionFeedback(result, !tickets);
+					setNotice(tickets ? `${tickets} ${points}` : points);
 				} catch {
 					setNotice(
-						"출석은 완료했어요. 아래에서 일일 혜택을 다시 확인해 주세요.",
+						tickets
+							? `${tickets} 포인트 혜택은 아래에서 다시 확인해 주세요.`
+							: "출석은 완료했어요. 아래에서 일일 혜택을 다시 확인해 주세요.",
 					);
 				} finally {
 					await refreshPrivate(true);
