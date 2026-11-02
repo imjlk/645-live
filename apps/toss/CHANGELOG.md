@@ -1,5 +1,11 @@
 # @645/toss
 
+## 1.8.0 — 2026-11-02
+
+### Minor changes
+
+- [a8c6ca7](https://github.com/imjlk/645-live/commit/a8c6ca71f42103bf364a625da2e755c464d1a742) Add ad skip tickets earned from attendance and limit point rewards by user start period.
+
 ## 1.7.1 — 2026-10-30
 
 ### Patch changes
