@@ -1,5 +1,5 @@
-use crate::{db, engagement, lotto, settings};
-use trailbase_guest_common::responses::*;
+use crate::{db, lotto, settings};
+use trailbase_guest_common::{ad_skip_tickets::AdSkipEligibility, responses::*};
 use trailbase_wasm::db::{Transaction, Value};
 
 pub(crate) const PLACEMENT: &str = "generation_continue";
@@ -82,17 +82,8 @@ pub(crate) fn required(tx: &mut Transaction, user: &[u8], now: i64) -> ApiResult
     if db::integer(&generations[0][0], "count")? >= lotto::DAILY_GENERATION_LIMIT {
         return Ok(false);
     }
-    let usage = db::tx_query(
-        tx,
-        "SELECT count(*),coalesce(max(created_at),0) FROM ait_lotto_ad_sessions WHERE user_id=?1 AND created_at>=?2",
-        &[
-            Value::Blob(user.to_vec()),
-            Value::Integer(engagement::kst_day(now) * 86_400_000 - 32_400_000),
-        ],
-    )?;
     // Ad availability and the shared pressure limits must never lock basic generation.
-    Ok(db::integer(&usage[0][0], "count")? < cap
-        && now - db::integer(&usage[0][1], "last")? >= cooldown)
+    Ok(!crate::ads::pressure_limited(tx, user, now, cooldown, cap)?)
 }
 
 pub(crate) fn generated(tx: &mut Transaction, user: &[u8], now: i64) -> ApiResult<bool> {
@@ -124,18 +115,20 @@ pub(crate) fn generated(tx: &mut Transaction, user: &[u8], now: i64) -> ApiResul
     required(tx, user, now)
 }
 
+/// Advances a due cycle. Returns whether this call changed it: a late callback from
+/// an earlier cycle cannot reset a newer random interval, and a ticket must never be
+/// charged for a cycle that another resolution already advanced.
 pub(crate) fn continued(
     tx: &mut Transaction,
     user: &[u8],
     cycle: Option<i64>,
     now: i64,
-) -> ApiResult<()> {
+) -> ApiResult<bool> {
     let Some(cycle) = cycle else {
         return Err(conflict("AD_EXPIRED", "번호 생성 광고를 다시 열어 주세요."));
     };
-    // Late callbacks from an earlier cycle cannot reset a newer random interval.
     let remaining = interval(tx)?;
-    db::tx_execute(
+    let updated = db::tx_execute(
         tx,
         "UPDATE ait_lotto_generation_ad_progress SET remaining=?3,cycle=cycle+1,updated_at=?4 WHERE user_id=?1 AND cycle=?2 AND remaining=0",
         &[
@@ -145,7 +138,45 @@ pub(crate) fn continued(
             Value::Integer(now),
         ],
     )?;
-    Ok(())
+    Ok(updated == 1)
+}
+
+/// Whether skipping the next generation ad needs a ticket now. Ad availability and
+/// the shared pressure limits continue for free, exactly like the ad path; a
+/// rate-limited generation fails before anything is charged.
+pub(crate) fn ticket_eligibility(
+    tx: &mut Transaction,
+    user: &[u8],
+    now: i64,
+) -> ApiResult<AdSkipEligibility> {
+    let Some((cooldown, cap)) = configured(tx)? else {
+        return Ok(AdSkipEligibility::Free);
+    };
+    let generations = db::tx_query(
+        tx,
+        "SELECT count(*) FROM ait_lotto_generation_requests WHERE user_id=?1 AND created_at>?2",
+        &[Value::Blob(user.to_vec()), Value::Integer(now - 86_400_000)],
+    )?;
+    if db::integer(&generations[0][0], "count")? >= lotto::DAILY_GENERATION_LIMIT {
+        return Err(too_many_requests(
+            "GENERATION_LIMIT",
+            "오늘은 번호를 충분히 만들었어요. 내일 다시 만들어 주세요.",
+        ));
+    }
+    Ok(
+        if crate::ads::pressure_limited(tx, user, now, cooldown, cap)? {
+            AdSkipEligibility::Free
+        } else {
+            AdSkipEligibility::Due
+        },
+    )
+}
+
+/// Settles the current cycle with a ticket inside the redemption transaction.
+pub(crate) fn resolve_with_ticket(tx: &mut Transaction, user: &[u8], now: i64) -> ApiResult<bool> {
+    prepare(tx, user, now)?;
+    let cycle = due_cycle(tx, user)?;
+    continued(tx, user, cycle, now)
 }
 
 // A device asks for an ad only when its local interval is due. Reserve the legacy

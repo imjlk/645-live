@@ -11,6 +11,7 @@ export type ProductEvent =
 	| "notification_enabled"
 	| "notification_disabled"
 	| "attendance_completed"
+	| "ad_skip_redeemed"
 	| "insights_viewed"
 	| "insights_detail_viewed"
 	| "insights_patterns_viewed"

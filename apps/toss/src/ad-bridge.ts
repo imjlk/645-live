@@ -109,6 +109,9 @@ export function createAdController(api: Pick<Api, "startAd" | "completeAd">) {
 			clientManagedCounter = false,
 			providedFlow?: AdFlow,
 			canShow: () => boolean = () => true,
+			// The prompt this ad answers; the server refuses to show an ad for a
+			// prompt that a skip ticket already settled.
+			opportunityKey?: string | null,
 		): Promise<AdUnlockResult> {
 			if (disposed) throw new Error("광고 요청을 중단했어요.");
 			if (busy) throw new Error("진행 중인 광고를 먼저 완료해 주세요.");
@@ -148,7 +151,7 @@ export function createAdController(api: Pick<Api, "startAd" | "completeAd">) {
 					pendingCompletion = null;
 				}
 				const session = await api
-					.startAd(placement, clientManagedCounter)
+					.startAd(placement, clientManagedCounter, opportunityKey)
 					.catch((error) => {
 						if (
 							continuation(placement) &&

@@ -1,4 +1,5 @@
 // Exercise the real model with an empty feed and a lost POST response.
+
 // Native mocks stay isolated from the bridge and navigation fixtures.
 import { expect, mock } from "bun:test";
 import {
@@ -6,6 +7,10 @@ import {
 	type Generation,
 	type GenerationOptions,
 } from "@645/lotto-core";
+import {
+	type AdSkipRedemptionRequest,
+	createAdSkipRedemptionController,
+} from "@trailbase-apps-in-toss-kit/ait-rn/ad-skip";
 import * as React from "react";
 import { act, create } from "react-test-renderer";
 
@@ -97,7 +102,16 @@ mock.module("../../apps/toss/src/realtime", () => ({
 	subscribeRealtime: () => () => {},
 }));
 const listeners = new Set<() => void>();
-let progress = { ready: true, remaining: 5 };
+let progress: { ready: boolean; remaining: number; prompt?: string } = {
+	ready: true,
+	remaining: 5,
+};
+const redemptions: {
+	requestId: string;
+	placement: string;
+	opportunityKey: string;
+}[] = [];
+let loseRedeem = false;
 const day = 100;
 const at = day * 86_400_000;
 const api = {
@@ -117,6 +131,10 @@ const api = {
 		continued() {
 			progress = { ready: true, remaining: 15 };
 			for (const listener of listeners) listener();
+		},
+		opportunityKey() {
+			progress = { ...progress, prompt: progress.prompt ?? "g-fixture" };
+			return progress.prompt;
 		},
 		generated() {
 			progress = { ...progress, remaining: progress.remaining - 1 };
@@ -179,6 +197,30 @@ const api = {
 			promotions: [],
 		};
 	},
+	adSkips: () =>
+		createAdSkipRedemptionController({
+			redeem: async (request: AdSkipRedemptionRequest) => {
+				redemptions.push({ ...request });
+				if (loseRedeem) {
+					loseRedeem = false;
+					throw new Error("lost response");
+				}
+				return {
+					...request,
+					context: "",
+					receiptId: "r".repeat(48),
+					resolution: "TICKET" as const,
+					consumed: 1 as const,
+					balance: 1,
+					replayed: redemptions.length > 1,
+					opportunity: null,
+					createdAt: at,
+				};
+			},
+			retryDelayMs: 1,
+			storage: { getItem: async () => null, setItem: async () => {} },
+			storageKey: "fixture.adSkips",
+		}),
 	heartbeat: async () => {},
 	reconnect() {},
 	dispose() {},
@@ -327,6 +369,28 @@ expect(ads).toBe(2);
 expect(requests).toBe(before + 1);
 expect(model.publishedGenerationId).toBe(6);
 expect(progress.remaining).toBe(14);
+
+// A ticket replaces the due ad: no ad SDK call, one counter advance, and a lost
+// response is retried with the same request ID before generating once.
+progress = { ready: true, remaining: 0 };
+for (const listener of listeners) listener();
+await advance();
+loseRedeem = true;
+const beforeTicket = requests;
+await act(async () => {
+	expect(
+		await model.generate(EMPTY_OPTIONS, false, undefined, undefined, true),
+	).toBe(true);
+});
+expect(ads).toBe(2);
+expect(redemptions).toHaveLength(2);
+expect(new Set(redemptions.map((r) => r.requestId)).size).toBe(1);
+expect(redemptions[0]).toMatchObject({
+	placement: "generation_continue",
+	opportunityKey: "g-fixture",
+});
+expect(progress).toEqual({ ready: true, remaining: 14 });
+expect(requests).toBe(beforeTicket + 1);
 
 await act(async () => {
 	expect(await model.withdraw()).toBe(true);

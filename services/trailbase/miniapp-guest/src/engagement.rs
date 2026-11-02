@@ -1,9 +1,11 @@
-use crate::{attendance, auth, body, db, lotto, settings};
+use crate::{attendance, attendance_rewards, auth, body, db, lotto, settings};
 use serde::Deserialize;
 use serde_json::{Value as Json, json};
 use trailbase_guest_common::{
     apps_in_toss_messages as messages, apps_in_toss_proxy as proxy, promotion_rewards as rewards,
-    responses::*, session::hmac_hex,
+    responses::*,
+    reward_cohorts::{self as cohorts, PointEligibility, PointWindowStatus},
+    session::hmac_hex,
 };
 use trailbase_wasm::{
     db::{Transaction, Value},
@@ -47,6 +49,10 @@ pub(crate) async fn attendance_status(req: &mut Request) -> ApiResult<Json> {
     let user = auth::user(req, &mut tx)?;
     let now = db::now_ms_tx(&mut tx)?;
     let mut state = attendance::status(&mut tx, &user.id, now)?;
+    let config = attendance_rewards::current();
+    // Reconcile today's check-in and recently completed cycles once (idempotent).
+    attendance_rewards::sync_attendance(&mut tx, &user.id, &config, now)?;
+    let rewards = attendance_rewards::status(&mut tx, &user.id, &config, now)?;
     let test_enabled = crate::promotion_test::enabled_for(&user.id, now);
     let template = notification_template();
     let opted = if let Some(code) = &template {
@@ -54,29 +60,58 @@ pub(crate) async fn attendance_status(req: &mut Request) -> ApiResult<Json> {
     } else {
         false
     };
+    let window_ended =
+        rewards["rewardPolicy"]["pointWindow"]["status"] == json!(PointWindowStatus::Ended);
     let mut promotions = vec![];
     for kind in [Kind::Daily, Kind::Weekly] {
         let period = period_for(&mut tx, &user.id, kind, kst_day(now))?;
-        let campaign = active_campaign(&mut tx, now, kind)?;
         let existing = if let Some(period) = period {
             existing_claim(&mut tx, &user.id, kind, period)?
         } else {
             None
         };
-        let mut eligible = false;
-        let mut already = false;
-        if existing.is_none() {
-            if let (Some(c), Some(period)) = (&campaign, period) {
-                already = reserved_period(&mut tx, &user.id, kind, period)?;
-                eligible = c.available && !already;
-            }
+        if let Some(r) = existing {
+            promotions.push(claim_view(&r, kind.as_str(), period, now)?);
+            continue;
         }
-        let value = if let Some(r) = existing {
-            claim_view(&r, kind.as_str(), period, now)?
-        } else {
-            json!({"kind":kind.as_str(),"periodDay":period,"campaignId":campaign.as_ref().map(|c|c.id.clone()),"claimId":null,"amount":campaign.as_ref().map(|c|c.amount).unwrap_or(if kind==Kind::Daily{1}else{50}),"eligible":eligible,"status":if already{Some("already_claimed")}else{None},"available":campaign.as_ref().is_some_and(|c|c.available)})
+        let snapshot = match (&config.cohort, period) {
+            (Some(_), Some(period)) => attendance_rewards::eligibility_for(
+                &mut tx,
+                &user.id,
+                kind.reward_kind(),
+                kind.start(period),
+                period,
+            )?,
+            _ => None,
         };
-        promotions.push(value);
+        // With a cohort policy only a stored snapshot is claimable, at its own amount;
+        // otherwise the current campaign is shown. Without any campaign there is no
+        // promised amount, so it is null rather than a fixed fallback.
+        let campaign = match &snapshot {
+            Some(e) => Some(snapshot_campaign(&mut tx, e, now)?),
+            None => active_campaign(&mut tx, now, kind)?,
+        };
+        let claimable = config.cohort.is_none() || snapshot.is_some();
+        let ended = config.cohort.is_some() && snapshot.is_none() && window_ended;
+        let mut already = false;
+        if let (Some(_), Some(period), true) = (&campaign, period, claimable) {
+            already = reserved_period(&mut tx, &user.id, kind, period)?;
+        }
+        let expired = snapshot
+            .as_ref()
+            .is_some_and(|e| !e.first_claim_open_at(now));
+        let available = campaign.as_ref().is_some_and(|c| c.available) && !ended;
+        let eligible = claimable && period.is_some() && available && !already && !expired;
+        let status = if already {
+            Some("already_claimed")
+        } else if expired {
+            Some("claim_expired")
+        } else if ended {
+            Some("window_ended")
+        } else {
+            None
+        };
+        promotions.push(json!({"kind":kind.as_str(),"periodDay":period,"campaignId":campaign.as_ref().map(|c|c.id.clone()),"claimId":null,"amount":campaign.as_ref().map(|c|c.amount),"eligible":eligible,"status":status,"available":available,"claimDeadlineAt":snapshot.as_ref().map(|e|e.claim_deadline_at)}));
     }
     // Keep older and legacy claims discoverable after midnight, budget exhaustion or deletion of a campaign.
     let rows = db::tx_query(
@@ -116,6 +151,8 @@ pub(crate) async fn attendance_status(req: &mut Request) -> ApiResult<Json> {
     state["promotions"] = json!(promotions);
     state["promotionHistory"] = json!(history);
     state["promotionTestEnabled"] = json!(test_enabled);
+    state["adSkips"] = rewards["adSkips"].clone();
+    state["rewardPolicy"] = rewards["rewardPolicy"].clone();
     db::tx_commit(&mut tx)?;
     Ok(state)
 }
@@ -135,7 +172,13 @@ pub(crate) async fn check_in(req: &mut Request) -> ApiResult<Json> {
         ],
     )?;
     let mut state = attendance::status(&mut tx, &user.id, now)?;
+    // Tickets are granted with the accepted check-in, independent of any Toss
+    // promotion call; the point condition is only snapshotted here.
+    let config = attendance_rewards::current();
+    attendance_rewards::sync_attendance(&mut tx, &user.id, &config, now)?;
+    let rewards = attendance_rewards::status(&mut tx, &user.id, &config, now)?;
     state["replayed"] = json!(inserted == 0);
+    state["adSkips"] = rewards["adSkips"].clone();
     db::tx_commit(&mut tx)?;
     Ok(state)
 }
@@ -222,7 +265,7 @@ pub(crate) async fn watch_result(req: &mut Request) -> ApiResult<Json> {
 
 #[derive(Clone, Copy, Deserialize, PartialEq)]
 #[serde(rename_all = "lowercase")]
-enum Kind {
+pub(crate) enum Kind {
     Daily,
     Weekly,
 }
@@ -231,6 +274,12 @@ impl Kind {
         match self {
             Self::Daily => "daily",
             Self::Weekly => "weekly",
+        }
+    }
+    pub(crate) fn reward_kind(self) -> &'static str {
+        match self {
+            Self::Daily => attendance_rewards::DAILY_KIND,
+            Self::Weekly => attendance_rewards::WEEKLY_KIND,
         }
     }
     fn source(self) -> &'static str {
@@ -243,13 +292,13 @@ impl Kind {
         if self == Self::Daily { end } else { end - 6 }
     }
 }
-struct Campaign {
-    id: String,
+pub(crate) struct Campaign {
+    pub id: String,
     code: String,
-    amount: i64,
-    available: bool,
+    pub amount: i64,
+    pub available: bool,
 }
-fn identity(tx: &mut Transaction, user: &[u8], scope: &str) -> ApiResult<String> {
+pub(crate) fn identity(tx: &mut Transaction, user: &[u8], scope: &str) -> ApiResult<String> {
     let rows = db::tx_query(
         tx,
         "SELECT anonymous_hash_hmac FROM ait_lotto_profiles WHERE user_id=?1",
@@ -263,10 +312,16 @@ fn identity(tx: &mut Transaction, user: &[u8], scope: &str) -> ApiResult<String>
         &format!("{scope}:{}", db::text(&row[0], "identity")?),
     )
 }
-fn active_campaign(tx: &mut Transaction, now: i64, kind: Kind) -> ApiResult<Option<Campaign>> {
-    if settings::string_or("AIT_PROMOTIONS_ENABLED", "false") != "true"
-        || settings::string("MTLS_PROXY_URL").is_none()
-    {
+fn promotions_configured() -> bool {
+    settings::string_or("AIT_PROMOTIONS_ENABLED", "false") == "true"
+        && settings::string("MTLS_PROXY_URL").is_some()
+}
+pub(crate) fn active_campaign(
+    tx: &mut Transaction,
+    now: i64,
+    kind: Kind,
+) -> ApiResult<Option<Campaign>> {
+    if !promotions_configured() {
         return Ok(None);
     }
     let rows = db::tx_query(
@@ -284,6 +339,89 @@ fn active_campaign(tx: &mut Transaction, now: i64, kind: Kind) -> ApiResult<Opti
             })
         })
         .transpose()
+}
+/// The campaign a stored eligibility snapshot refers to, with its current operating
+/// state. The snapshot's provider code and amount are never replaced by a newer one.
+fn snapshot_campaign(
+    tx: &mut Transaction,
+    eligibility: &PointEligibility,
+    now: i64,
+) -> ApiResult<Campaign> {
+    let available = promotions_configured()
+        && !db::tx_query(
+            tx,
+            "SELECT 1 FROM promotion_campaigns c WHERE id=?2 AND status='ACTIVE' AND starts_at<=?1 AND ends_at>?1 AND budget_limit_amount >= ?3 + coalesce((SELECT reserved_amount FROM ait_lotto_promotion_usage WHERE campaign_id=c.id),0) AND (max_grant_count IS NULL OR max_grant_count > coalesce((SELECT grant_count FROM ait_lotto_promotion_usage WHERE campaign_id=c.id),0))",
+            &[
+                Value::Integer(now),
+                Value::Text(eligibility.campaign_id.clone()),
+                Value::Integer(eligibility.reward_amount),
+            ],
+        )?
+        .is_empty();
+    Ok(Campaign {
+        id: eligibility.campaign_id.clone(),
+        code: eligibility.provider_promotion_code.clone(),
+        amount: eligibility.reward_amount,
+        available,
+    })
+}
+/// The campaign a first claim pays from. Under a cohort policy only a snapshot taken
+/// inside the subject's window can start a claim, and it keeps its own campaign.
+fn claim_campaign(
+    tx: &mut Transaction,
+    user: &[u8],
+    kind: Kind,
+    period: i64,
+    now: i64,
+) -> ApiResult<(Campaign, Option<String>)> {
+    let config = attendance_rewards::current();
+    let Some(policy) = &config.cohort else {
+        let campaign = active_campaign(tx, now, kind)?
+            .filter(|c| c.available)
+            .ok_or_else(|| {
+                conflict("PROMOTION_UNAVAILABLE", "진행 중인 출석 프로모션이 없어요.")
+            })?;
+        return Ok((campaign, None));
+    };
+    attendance_rewards::sync_attendance(tx, user, &config, now)?;
+    let Some(eligibility) = attendance_rewards::eligibility_for(
+        tx,
+        user,
+        kind.reward_kind(),
+        kind.start(period),
+        period,
+    )?
+    else {
+        let window = attendance_rewards::subject(tx, user, policy, now)?.point_window(policy, now);
+        return Err(if window.status == PointWindowStatus::Ended {
+            forbidden(
+                "POINT_WINDOW_ENDED",
+                "토스 포인트 출석 혜택 기간이 끝났어요. 광고 스킵권은 계속 받을 수 있어요.",
+            )
+        } else {
+            conflict("PROMOTION_UNAVAILABLE", "진행 중인 출석 프로모션이 없어요.")
+        });
+    };
+    if eligibility.claim_ledger_id.is_some() {
+        return Err(conflict(
+            "PROMOTION_ALREADY_CLAIMED",
+            "이미 신청한 출석 혜택이에요.",
+        ));
+    }
+    if !eligibility.first_claim_open_at(now) {
+        return Err(forbidden(
+            "POINT_ELIGIBILITY_CLAIM_EXPIRED",
+            "혜택 신청 기간이 지났어요.",
+        ));
+    }
+    let campaign = snapshot_campaign(tx, &eligibility, now)?;
+    if !campaign.available {
+        return Err(conflict(
+            "PROMOTION_UNAVAILABLE",
+            "프로모션 지급을 잠시 쉬고 있어요. 출석 혜택 내역에서 상태를 확인해 주세요.",
+        ));
+    }
+    Ok((campaign, Some(eligibility.id)))
 }
 fn period_for(tx: &mut Transaction, user: &[u8], kind: Kind, today: i64) -> ApiResult<Option<i64>> {
     match kind {
@@ -367,9 +505,7 @@ pub(crate) async fn claim_promotion(req: &mut Request) -> ApiResult<Json> {
     if period_for(&mut tx, &user.id, kind, kst_day(now))? != Some(period) {
         return Err(forbidden("NOT_ELIGIBLE", "출석 현황을 다시 확인해 주세요."));
     }
-    let campaign = active_campaign(&mut tx, now, kind)?
-        .filter(|c| c.available)
-        .ok_or_else(|| conflict("PROMOTION_UNAVAILABLE", "진행 중인 출석 프로모션이 없어요."))?;
+    let (campaign, _) = claim_campaign(&mut tx, &user.id, kind, period, now)?;
     if input.campaign_id.as_deref() != Some(&campaign.id) {
         return Err(conflict(
             "CAMPAIGN_CHANGED",
@@ -390,6 +526,7 @@ pub(crate) async fn claim_promotion(req: &mut Request) -> ApiResult<Json> {
     let sealed = db::nullable_text(&rows[0][0])?
         .ok_or_else(|| conflict("RECIPIENT_UNAVAILABLE", "앱을 다시 열고 시도해 주세요."))?;
     let anon_key = unseal(&sealed)?;
+    // Commit the snapshot and tickets reconciled above before the provider call.
     db::tx_commit(&mut tx)?;
     let verified = proxy_post(
         "/internal/apps-in-toss/anonymous-key/verify",
@@ -423,9 +560,7 @@ pub(crate) async fn claim_promotion(req: &mut Request) -> ApiResult<Json> {
             "출석 현황이 바뀌었어요. 다시 확인해 주세요.",
         ));
     }
-    let current = active_campaign(&mut tx, now, kind)?
-        .filter(|c| c.available)
-        .ok_or_else(|| conflict("PROMOTION_UNAVAILABLE", "프로모션 지급을 잠시 쉬고 있어요."))?;
+    let (current, eligibility) = claim_campaign(&mut tx, &user.id, kind, period, now)?;
     if current.id != campaign.id
         || current.amount != campaign.amount
         || current.code != campaign.code
@@ -475,6 +610,10 @@ pub(crate) async fn claim_promotion(req: &mut Request) -> ApiResult<Json> {
             now,
         },
     )?;
+    if let (Some(id), true) = (&eligibility, ledger.inserted) {
+        // Links the snapshot's first claim; an expired or reused snapshot rolls back.
+        cohorts::mark_point_eligibility_claimed_tx(&mut tx, &user.id, id, &ledger.record.id, now)?;
+    }
     db::tx_commit(&mut tx)?;
     if !ledger.inserted {
         return reconcile_claim(&user.id, &ledger.record.id).await;

@@ -53,6 +53,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AdCtaImpression } from "./AdCtaImpression";
 import { AttendancePanel } from "./AttendancePanel";
+import { adSkipLabel } from "./ad-skip";
 import { adPolicyLabel } from "./ad-telemetry";
 import { LOCAL_PREVIEW } from "./api";
 import { Balls } from "./Balls";
@@ -148,6 +149,7 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 		navigateToTab(navigation, tab, value, visible);
 	};
 	const generationLabel = model.current ? "새 번호 만들기" : "번호 만들기";
+	const generationTicket = model.adSkipChoice("generation_continue");
 	const viewingPreviousRound =
 		!!model.current &&
 		!!model.context &&
@@ -636,7 +638,9 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 														!!model.busy ||
 														model.generationCooling ||
 														!model.user ||
-														!model.generationReady
+														!model.generationReady ||
+														(model.generationAdRequired &&
+															!generationTicket.adEnabled)
 													}
 													onPress={() => {
 														void runAttempt((adFlow) =>
@@ -655,6 +659,33 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 												</Button>
 											)}
 										</AdCtaImpression>
+										{model.generationAdRequired &&
+										generationTicket.showTicket ? (
+											<View style={{ marginTop: 10 }}>
+												<Button
+													display="full"
+													style="weak"
+													disabled={
+														!!model.busy ||
+														model.generationCooling ||
+														!model.user ||
+														!model.generationReady ||
+														!generationTicket.ticketEnabled
+													}
+													onPress={() =>
+														void model.generate(
+															hasOptions ? options : EMPTY_OPTIONS,
+															false,
+															undefined,
+															() => visibleRef.current,
+															true,
+														)
+													}
+												>
+													{adSkipLabel(generationTicket, "만들기")}
+												</Button>
+											</View>
+										) : null}
 										{model.current ? (
 											<View style={{ marginTop: 10 }}>
 												{saveButton(model.current)}
@@ -662,8 +693,9 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 										) : null}
 										{model.generationAdRequired ? (
 											<Text style={[s.caption, muted, { marginTop: 8 }]}>
-												광고 한 번을 완료하면 다시 여러 번 번호를 만들 수
-												있어요.
+												{generationTicket.showTicket
+													? "광고 한 번을 보거나 스킵권 1장을 사용하면 다시 여러 번 번호를 만들 수 있어요."
+													: "광고 한 번을 완료하면 다시 여러 번 번호를 만들 수 있어요."}
 											</Text>
 										) : null}
 										<View style={s.secondaryActions}>
@@ -1253,6 +1285,12 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 					if (ok) model.featureUsed();
 					return ok;
 				}}
+				continueWithTicket={async (feature) => {
+					const ok = await model.continueFeatureWithTicket(feature);
+					if (ok) model.featureUsed();
+					return ok;
+				}}
+				ticketChoice={model.adSkipChoice}
 				onDone={() => setFeatureRequest(null)}
 			/>
 			<BottomSheet.Root

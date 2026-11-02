@@ -1,16 +1,23 @@
-import { ConfirmDialog } from "@toss/tds-react-native";
+import { Button, ConfirmDialog } from "@toss/tds-react-native";
+import type { AdSkipChoice } from "@trailbase-apps-in-toss-kit/ait-rn/ad-skip";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Text, View } from "react-native";
+import { adSkipLabel } from "./ad-skip";
 import { type AdFlow, createAdFlow } from "./ad-telemetry";
 import { FEATURE_AD_POLICY } from "./feature-ad-counter";
 import { useTabShell } from "./TabShell";
 import { adTelemetry } from "./telemetry";
+import { useTheme } from "./theme";
 export type FeatureRequest = {
 	feature: "custom" | "report";
 	action: () => void;
 };
+type Choice = "ad" | "ticket" | null;
 export function FeatureAccessPrompt({
 	request,
 	continueFeature,
+	continueWithTicket,
+	ticketChoice,
 	onDone,
 	entryPoint = "feature",
 }: {
@@ -19,13 +26,17 @@ export function FeatureAccessPrompt({
 		feature: "custom" | "report",
 		flow?: AdFlow,
 	) => Promise<boolean>;
+	/** Uses one ad skip ticket instead of the ad; never calls the ad SDK. */
+	continueWithTicket?: (feature: "custom" | "report") => Promise<boolean>;
+	ticketChoice?: (feature: "custom" | "report") => AdSkipChoice;
 	entryPoint?: string;
 	onDone: () => void;
 }) {
 	const { presentOverlay } = useTabShell();
+	const theme = useTheme();
 	const [open, setOpen] = useState(false);
 	const [mounted, setMounted] = useState(false);
-	const accepted = useRef(false);
+	const accepted = useRef<Choice>(null);
 	const current = useRef(request);
 	const processing = useRef(false);
 	const flow = useMemo(
@@ -52,7 +63,7 @@ export function FeatureAccessPrompt({
 			return;
 		}
 		setMounted(true);
-		accepted.current = false;
+		accepted.current = null;
 		processing.current = false;
 		setOpen(true);
 		return () => {
@@ -63,12 +74,14 @@ export function FeatureAccessPrompt({
 		if (!request) return;
 		return presentOverlay(() => {
 			if (!processing.current) {
-				accepted.current = false;
+				accepted.current = null;
 				setOpen(false);
 			}
 		});
 	}, [request, presentOverlay]);
 	if (!request || !mounted) return null;
+	const ticket =
+		continueWithTicket && ticketChoice ? ticketChoice(request.feature) : null;
 	return (
 		<ConfirmDialog
 			open={open}
@@ -86,12 +99,36 @@ export function FeatureAccessPrompt({
 					? "광고 한 번을 완료하면 고정·제외 번호와 홀짝 조건을 다시 여러 번 설정할 수 있어요. 기본 번호 생성은 그대로 이용할 수 있어요."
 					: "광고 한 번을 완료하면 번호별 흐름과 조합 패턴을 다시 여러 번 살펴볼 수 있어요. 기본 생성 통계는 그대로 볼 수 있어요."
 			}
+			content={
+				ticket?.showTicket ? (
+					<View style={{ gap: 6, paddingHorizontal: 20, paddingBottom: 8 }}>
+						<Button
+							display="full"
+							style="weak"
+							disabled={!ticket.ticketEnabled}
+							onPress={() => {
+								accepted.current = "ticket";
+								setOpen(false);
+							}}
+						>
+							{adSkipLabel(ticket, "바로 이용하기")}
+						</Button>
+						{ticket.reason === "empty" ? (
+							<Text
+								style={{ fontSize: 12, lineHeight: 18, color: theme.muted }}
+							>
+								출석하면 광고 스킵권을 받을 수 있어요.
+							</Text>
+						) : null}
+					</View>
+				) : undefined
+			}
 			leftButton={
 				<ConfirmDialog.Button
 					style="weak"
 					type="dark"
 					onPress={() => {
-						accepted.current = false;
+						accepted.current = null;
 						setOpen(false);
 					}}
 				>
@@ -100,8 +137,9 @@ export function FeatureAccessPrompt({
 			}
 			rightButton={
 				<ConfirmDialog.Button
+					disabled={ticket ? !ticket.adEnabled : false}
 					onPress={() => {
-						accepted.current = true;
+						accepted.current = "ad";
 						setOpen(false);
 					}}
 				>
@@ -116,14 +154,28 @@ export function FeatureAccessPrompt({
 				processing.current = true;
 				setMounted(false);
 				const pending = current.current;
-				if (!accepted.current || !pending) {
+				const choice = accepted.current;
+				if (!choice || !pending) {
 					flow?.track("settled", "declined");
 					onDone();
 					return;
 				}
-				void continueFeature(pending.feature, flow ?? undefined).then(
+				// A ticket replaces the ad: it records no ad request, impression or
+				// completion, only how the prompt was settled.
+				const run =
+					choice === "ticket" && continueWithTicket
+						? continueWithTicket(pending.feature)
+						: continueFeature(pending.feature, flow ?? undefined);
+				void run.then(
 					(ok) => {
-						flow?.track("settled", ok ? "feature_continued" : "feature_failed");
+						flow?.track(
+							"settled",
+							!ok
+								? "feature_failed"
+								: choice === "ticket"
+									? "ad_skip_ticket"
+									: "feature_continued",
+						);
 						if (current.current !== pending) {
 							flow?.track("feature_outcome", "feature_canceled");
 							return;

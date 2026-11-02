@@ -4,6 +4,13 @@ import { Alert, StyleSheet, Text, View } from "react-native";
 import { LOCAL_PREVIEW, type Promotion } from "./api";
 import { attendanceInstruction, attendanceReady } from "./attendance-progress";
 import { createPromotionRefresh } from "./promotion-refresh";
+import {
+	checkInLabel,
+	kstEndLabel,
+	pointWindowNotice,
+	promotionButton,
+	visiblePointRewards,
+} from "./reward-policy";
 import { useTheme } from "./theme";
 import type { LottoModel } from "./use-lotto";
 
@@ -16,20 +23,29 @@ function Reward({ reward, model }: { reward: Promotion; model: LottoModel }) {
 		weekly: "7일 연속 출석",
 		legacy: "이전 출석",
 	}[reward.kind];
-	let button = `${reward.amount}P 받기`;
-	if (reward.claimId) button = "지급 상태 확인";
-	else if (!reward.available) button = "프로모션 준비 중";
-	else if (!reward.eligible) button = "출석 조건을 채워 주세요";
+	const button = promotionButton(reward);
+	// A met condition is not a credit: budget and provider state still apply.
+	const met =
+		reward.eligible && reward.claimDeadlineAt
+			? `수령 조건을 충족했어요 · ${kstEndLabel(reward.claimDeadlineAt)} 신청할 수 있어요.`
+			: null;
 	return (
 		<View style={[s.reward, { borderColor: theme.line }]}>
 			<View style={s.rewardHeading}>
-				<Text style={[s.rewardTitle, { color: theme.text }]}>{label}</Text>
-				<Text style={[s.amount, { color: theme.blue }]}>{reward.amount}P</Text>
+				<Text style={[s.rewardTitle, { color: theme.text }]}>
+					{label} · 토스 포인트
+				</Text>
+				{reward.amount !== null ? (
+					<Text style={[s.amount, { color: theme.blue }]}>
+						{reward.amount}P
+					</Text>
+				) : null}
 			</View>
 			<Text style={[s.body, { color: theme.muted }]}>
-				{reward.kind === "daily"
-					? "오늘 번호를 만들고 출석하면 받을 수 있어요."
-					: "7일을 채우면 추가로 받아요. 완성한 혜택은 7일 안에 신청해 주세요."}
+				{met ??
+					(reward.kind === "daily"
+						? "오늘 번호를 만들고 출석하면 받을 수 있어요."
+						: "7일을 채우면 추가로 받아요. 완성한 혜택은 7일 안에 신청해 주세요.")}
 			</Text>
 			{paid || claimed ? (
 				<Text style={[s.body, { color: theme.muted }]}>
@@ -90,7 +106,9 @@ export function AttendancePanel({
 	}, [pendingKey, refreshPromotionClaims, busy]);
 
 	const count = state?.streak ?? 0;
-	const daily = state?.promotions.find((p) => p.kind === "daily");
+	const skips = state?.adSkips;
+	const showTickets = !!skips && (skips.active || skips.balance > 0);
+	const pointNotice = pointWindowNotice(state);
 	const restoreAd = model.adConfig?.placements.find(
 		(p) => p.placement === "attendance_restore",
 	)?.enabled;
@@ -119,6 +137,35 @@ export function AttendancePanel({
 					시작돼요.
 				</Text>
 			</View>
+			{showTickets && skips ? (
+				<View style={[s.restore, { backgroundColor: theme.surface }]}>
+					<View style={s.rewardHeading}>
+						<Text style={[s.rewardTitle, { color: theme.text }]}>
+							출석하고 광고 스킵권 받기
+						</Text>
+						<Text
+							accessibilityLabel={`광고 스킵권 ${skips.balance}장 보유`}
+							style={[s.rewardTitle, { color: theme.blue }]}
+						>
+							{skips.balance}장
+						</Text>
+					</View>
+					<Text style={[s.body, { color: theme.muted }]}>
+						매일 출석하면 스킵권 {skips.dailyTickets}장, 7일 연속 출석을
+						완성하면 추가 {skips.streakBonusTickets}장을 받아요.
+						{count === 6 && !state?.checkedIn
+							? ` 오늘은 일일 보상과 연속 보상을 합쳐 ${skips.dailyTickets + skips.streakBonusTickets}장을 받아요.`
+							: ""}
+					</Text>
+					<Text style={[s.caption, { color: theme.muted }]}>
+						스킵권 1장으로 번호 생성·맞춤 설정·상세 분석의 전면 광고 1회를
+						건너뛸 수 있어요. 양도·현금·토스 포인트로 바꿀 수 없어요.
+					</Text>
+				</View>
+			) : null}
+			{pointNotice ? (
+				<Text style={[s.body, { color: theme.muted }]}>{pointNotice}</Text>
+			) : null}
 			<View accessibilityLabel={`7일 중 ${count}일 출석`} style={s.stamps}>
 				{Array.from({ length: 7 }, (_, i) => i + 1).map((day) => (
 					<View
@@ -151,7 +198,7 @@ export function AttendancePanel({
 					</Text>
 					<Text style={[s.body, { color: theme.muted }]}>
 						{state.canRestore
-							? "보상형 광고를 완료하면 어제 출석을 복구해요. 오늘 출석을 먼저 완료하면 복구할 수 없어요. 어제의 일일 포인트는 지급하지 않아요."
+							? `보상형 광고를 완료하면 어제 출석을 복구해요. 오늘 출석을 먼저 완료하면 복구할 수 없어요. 어제의 일일 포인트${showTickets ? "와 스킵권" : ""}은 지급하지 않아요.${showTickets ? " 연속 출석 복구에는 광고 스킵권을 사용할 수 없어요." : ""}`
 							: "오늘 번호를 한 번 만들면 어제 출석을 복구할 수 있어요. 복구를 원하면 오늘 출석보다 먼저 진행해 주세요."}
 					</Text>
 					{state.restoreAfterGeneration ? (
@@ -202,11 +249,7 @@ export function AttendancePanel({
 					disabled={!!model.busy || !model.user || state.checkedIn}
 					onPress={checkIn}
 				>
-					{state.checkedIn
-						? "오늘 출석 완료"
-						: daily?.available
-							? `출석하고 ${daily.amount}P 받기`
-							: "오늘 출석하기"}
+					{checkInLabel(state)}
 				</Button>
 			) : !state?.restoreAfterGeneration ? (
 				<Button
@@ -217,7 +260,7 @@ export function AttendancePanel({
 					오늘 번호 만들기
 				</Button>
 			) : null}
-			{state?.promotions.map((reward) => (
+			{visiblePointRewards(state?.promotions ?? []).map((reward) => (
 				<Reward key={reward.kind} reward={reward} model={model} />
 			))}
 			{state?.promotionHistory.length ? (
@@ -229,7 +272,7 @@ export function AttendancePanel({
 						<View key={reward.claimId} style={s.rewardHeading}>
 							<Text style={[s.body, { color: theme.muted }]}>
 								{reward.kind === "daily" ? "일일" : "연속"} 출석 ·{" "}
-								{reward.amount}P
+								{reward.amount ?? 0}P
 							</Text>
 							{reward.status === "success" ||
 							reward.status === "recorded" ||

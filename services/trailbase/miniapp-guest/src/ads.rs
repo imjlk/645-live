@@ -1,7 +1,12 @@
 use crate::{attendance, auth, body, db, generation_ads, lotto, settings};
 use serde::Deserialize;
 use serde_json::{Value as Json, json};
-use trailbase_guest_common::responses::*;
+use trailbase_guest_common::{
+    ad_skip_tickets::{
+        self as tickets, AdOpportunityClaim, AdOpportunityResolution, AdSkipEligibility,
+    },
+    responses::*,
+};
 use trailbase_wasm::{
     db::{Transaction, Value},
     http::Request,
@@ -80,6 +85,78 @@ pub(crate) async fn config(req: &mut Request) -> ApiResult<Json> {
         json!({"featureAccess":"basic","featureAdPolicy":{"minUses":3,"maxUses":15},"placements":placements,"passes":passes,"testMode":test,"bannerGroupId":inline_banner,"bannerGroups":{"inline":inline_banner,"card":card_banner},"feedInlineGroupIds":feed_inline_groups,"generationAdRequired":generation_ad_required,"generationAdPolicy":generation_ad_policy,"serverTime":now}),
     )
 }
+/// The global usage cap and cooldown span placements to limit full-screen ad pressure.
+pub(crate) fn pressure_limited(
+    tx: &mut Transaction,
+    user: &[u8],
+    now: i64,
+    cooldown: i64,
+    cap: i64,
+) -> ApiResult<bool> {
+    let usage = db::tx_query(
+        tx,
+        "SELECT count(*), coalesce(max(created_at),0) FROM ait_lotto_ad_sessions WHERE user_id = ?1 AND created_at >= ?2",
+        &[
+            Value::Blob(user.to_vec()),
+            Value::Integer(crate::engagement::kst_day(now) * 86_400_000 - 32_400_000),
+        ],
+    )?;
+    Ok(db::integer(&usage[0][0], "count")? >= cap
+        || now - db::integer(&usage[0][1], "last")? < cooldown)
+}
+/// Read-only ticket check for custom/report prompts, whose cadence is device-owned.
+/// A disabled placement or a pressure limit means the ad path would continue for
+/// free, so a ticket is not charged either.
+pub(crate) fn feature_ticket_eligibility(
+    tx: &mut Transaction,
+    user: &[u8],
+    placement: &str,
+    now: i64,
+) -> ApiResult<AdSkipEligibility> {
+    let rows = db::tx_query(
+        tx,
+        "SELECT placement, enabled, rewarded_group_id, interstitial_group_id, cooldown_ms, daily_cap FROM ait_lotto_ad_placements WHERE placement = ?1",
+        &[Value::Text(placement.into())],
+    )?;
+    let Some(row) = rows.first() else {
+        return Ok(AdSkipEligibility::Free);
+    };
+    let test = settings::string_or("AIT_TEST_ADS", "false") == "true";
+    let (rewarded, interstitial) = groups(row, test)?;
+    if (!test && db::integer(&row[1], "enabled")? != 1)
+        || (rewarded.is_none() && interstitial.is_none())
+        || pressure_limited(
+            tx,
+            user,
+            now,
+            db::integer(&row[4], "cooldown")?,
+            db::integer(&row[5], "cap")?,
+        )?
+    {
+        return Ok(AdSkipEligibility::Free);
+    }
+    Ok(AdSkipEligibility::Due)
+}
+/// An unexpired ad for the same prompt must settle before a ticket can decide it.
+pub(crate) fn ad_in_progress(
+    tx: &mut Transaction,
+    user: &[u8],
+    placement: &str,
+    opportunity_key: &str,
+    now: i64,
+) -> ApiResult<bool> {
+    Ok(!db::tx_query(
+        tx,
+        "SELECT 1 FROM ait_lotto_ad_sessions WHERE user_id=?1 AND status='pending' AND expires_at>?4 AND placement=?2 AND (ad_skip_opportunity_key IS NULL OR ad_skip_opportunity_key=?3)",
+        &[
+            Value::Blob(user.to_vec()),
+            Value::Text(placement.into()),
+            Value::Text(opportunity_key.into()),
+            Value::Integer(now),
+        ],
+    )?
+    .is_empty())
+}
 fn groups(row: &[Value], test: bool) -> ApiResult<(Option<String>, Option<String>)> {
     if test {
         return Ok((
@@ -98,6 +175,9 @@ struct Start {
     placement: String,
     #[serde(default)]
     client_managed_counter: bool,
+    /// The client prompt this ad answers; a ticket may resolve the same prompt.
+    #[serde(default)]
+    opportunity_key: Option<String>,
 }
 pub(crate) async fn start(req: &mut Request) -> ApiResult<Json> {
     let input: Start = body(req).await?;
@@ -115,6 +195,23 @@ pub(crate) async fn start(req: &mut Request) -> ApiResult<Json> {
     let test = settings::string_or("AIT_TEST_ADS", "false") == "true";
     let (rewarded, interstitial) = groups(row, test)?;
     let restore = input.placement == "attendance_restore";
+    // Restores never take a ticket, so they never carry an opportunity.
+    let opportunity = input
+        .opportunity_key
+        .filter(|_| continuation(&input.placement));
+    if let Some(key) = &opportunity {
+        if !crate::ad_skips::valid_key(key) {
+            return Err(bad_request(
+                "INVALID_OPPORTUNITY",
+                "광고 요청을 확인해 주세요.",
+            ));
+        }
+        if tickets::find_ad_opportunity_tx(&mut tx, &user.id, &input.placement, key)?.is_some() {
+            // A ticket or an earlier ad already settled this prompt: never show another.
+            db::tx_commit(&mut tx)?;
+            return Ok(json!({"alreadyGranted":true}));
+        }
+    }
     let available = if restore {
         rewarded.is_some()
     } else {
@@ -169,18 +266,13 @@ pub(crate) async fn start(req: &mut Request) -> ApiResult<Json> {
         ));
     }
     let day = crate::engagement::kst_day(now);
-    // The global usage cap intentionally spans placements to limit full-screen ad pressure.
-    let usage = db::tx_query(
+    if pressure_limited(
         &mut tx,
-        "SELECT count(*), coalesce(max(created_at),0) FROM ait_lotto_ad_sessions WHERE user_id = ?1 AND created_at >= ?2",
-        &[
-            Value::Blob(user.id.clone()),
-            Value::Integer(day * 86_400_000 - 32_400_000),
-        ],
-    )?;
-    if db::integer(&usage[0][0], "count")? >= db::integer(&row[7], "cap")?
-        || now - db::integer(&usage[0][1], "last")? < db::integer(&row[6], "cooldown")?
-    {
+        &user.id,
+        now,
+        db::integer(&row[6], "cooldown")?,
+        db::integer(&row[7], "cap")?,
+    )? {
         return Err(too_many_requests(
             "AD_COOLDOWN",
             "광고는 잠시 후 다시 볼 수 있어요.",
@@ -199,7 +291,7 @@ pub(crate) async fn start(req: &mut Request) -> ApiResult<Json> {
     let expires = now + 300_000;
     db::tx_execute(
         &mut tx,
-        "INSERT INTO ait_lotto_ad_sessions(id,user_id,placement,format,group_id,created_at,expires_at,pass_duration_ms,attendance_day,generation_ad_cycle) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)",
+        "INSERT INTO ait_lotto_ad_sessions(id,user_id,placement,format,group_id,created_at,expires_at,pass_duration_ms,attendance_day,generation_ad_cycle,ad_skip_opportunity_key) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11)",
         &[
             Value::Text(id.clone()),
             Value::Blob(user.id),
@@ -221,6 +313,7 @@ pub(crate) async fn start(req: &mut Request) -> ApiResult<Json> {
                 Value::Null
             },
             generation_cycle.map(Value::Integer).unwrap_or(Value::Null),
+            opportunity.map(Value::Text).unwrap_or(Value::Null),
         ],
     )?;
     db::tx_commit(&mut tx)?;
@@ -278,7 +371,7 @@ pub(crate) async fn complete(req: &mut Request) -> ApiResult<Json> {
     let now = db::now_ms_tx(&mut tx)?;
     let rows = db::tx_query(
         &mut tx,
-        "SELECT placement,format,created_at,completed_at,expires_at,pass_duration_ms,status,attendance_day,generation_ad_cycle FROM ait_lotto_ad_sessions WHERE id = ?1 AND user_id = ?2",
+        "SELECT placement,format,created_at,completed_at,expires_at,pass_duration_ms,status,attendance_day,generation_ad_cycle,ad_skip_opportunity_key FROM ait_lotto_ad_sessions WHERE id = ?1 AND user_id = ?2",
         &[Value::Text(input.id.clone()), Value::Blob(user.id.clone())],
     )?;
     let r = rows
@@ -298,10 +391,20 @@ pub(crate) async fn complete(req: &mut Request) -> ApiResult<Json> {
     if now >= db::integer(&r[4], "expires")? {
         return Err(conflict("AD_EXPIRED", "광고 요청이 만료됐어요."));
     }
+    let opportunity = db::nullable_text(&r[9])?;
     if continuation(&feature) && input.events == ["failedToShow"] {
         // A no-fill/unsupported SDK allows basic features and stays a cancelled
         // ad, never a fabricated impression, reward, or feature pass.
-        if feature == generation_ads::PLACEMENT {
+        let first = settle_opportunity(
+            &mut tx,
+            &user.id,
+            &feature,
+            opportunity.as_deref(),
+            AdOpportunityResolution::Free,
+            &input.id,
+            now,
+        )?;
+        if first && feature == generation_ads::PLACEMENT {
             generation_ads::continued(&mut tx, &user.id, db::nullable_integer(&r[8])?, now)?;
         }
         db::tx_execute(
@@ -334,8 +437,22 @@ pub(crate) async fn complete(req: &mut Request) -> ApiResult<Json> {
         ));
     }
     let expires = now + db::integer(&r[5], "duration")?;
+    // A ticket that already settled this prompt keeps its effect; the late ad is
+    // recorded as watched but never opens another generation interval.
+    let first = !continuation(&feature)
+        || settle_opportunity(
+            &mut tx,
+            &user.id,
+            &feature,
+            opportunity.as_deref(),
+            AdOpportunityResolution::Ad,
+            &input.id,
+            now,
+        )?;
     if feature == generation_ads::PLACEMENT {
-        generation_ads::continued(&mut tx, &user.id, db::nullable_integer(&r[8])?, now)?;
+        if first {
+            generation_ads::continued(&mut tx, &user.id, db::nullable_integer(&r[8])?, now)?;
+        }
     } else if feature == "attendance_restore" {
         attendance::restore(
             &mut tx,
@@ -344,6 +461,9 @@ pub(crate) async fn complete(req: &mut Request) -> ApiResult<Json> {
             &input.id,
             db::nullable_integer(&r[7])?,
         )?;
+        // A restore can complete a streak; a restored day itself earns no ticket.
+        let config = crate::attendance_rewards::current();
+        crate::attendance_rewards::sync_attendance(&mut tx, &user.id, &config, now)?;
     }
     db::tx_execute(
         &mut tx,
@@ -355,7 +475,26 @@ pub(crate) async fn complete(req: &mut Request) -> ApiResult<Json> {
         ],
     )?;
     db::tx_commit(&mut tx)?;
-    Ok(json!({"feature":feature,"expiresAt":expires,"replayed":false}))
+    Ok(json!({"feature":feature,"expiresAt":expires,"replayed":false,"opportunityResolved":!first}))
+}
+/// Records how a keyed prompt was settled. Returns false when a ticket (or another
+/// ad) resolved it first, so this path must skip its effect.
+fn settle_opportunity(
+    tx: &mut Transaction,
+    user: &[u8],
+    placement: &str,
+    key: Option<&str>,
+    resolution: AdOpportunityResolution,
+    session: &str,
+    now: i64,
+) -> ApiResult<bool> {
+    let Some(key) = key else {
+        return Ok(true);
+    };
+    Ok(matches!(
+        tickets::claim_ad_opportunity_tx(tx, user, placement, key, resolution, session, now)?,
+        AdOpportunityClaim::Claimed(_)
+    ))
 }
 #[cfg(test)]
 mod tests {

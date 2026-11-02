@@ -139,4 +139,31 @@ describe("device generation ad cadence", () => {
 			5, 4, 3,
 		]);
 	});
+	test("an ad prompt key survives restarts and clears when continued", async () => {
+		const { storage } = fixture(
+			JSON.stringify({ remaining: 0, lastGenerationId: 4 }),
+		);
+		let n = 0;
+		const counter = createGenerationAdCounter(
+			storage,
+			"cadence",
+			() => 0,
+			() => "",
+			() => `g-${++n}`,
+		);
+		await counter.load();
+		expect(counter.opportunityKey()).toBe("g-1");
+		counter.generated(5);
+		expect(counter.opportunityKey()).toBe("g-1");
+		await Bun.sleep(1);
+		const reloaded = createGenerationAdCounter(storage, "cadence", () => 0);
+		await reloaded.load();
+		expect(reloaded.getSnapshot().prompt).toBe("g-1");
+		reloaded.continued(10);
+		expect(reloaded.getSnapshot()).toMatchObject({
+			remaining: 5,
+			continuedDay: 10,
+		});
+		expect(reloaded.getSnapshot().prompt).toBeUndefined();
+	});
 });

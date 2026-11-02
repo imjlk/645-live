@@ -127,6 +127,15 @@ mock.module("../../apps/toss/src/TabShell", () => ({
 }));
 const model = {
 	foreground: true,
+	adSkipBalance: null,
+	adSkipChoice: () => ({
+		adEnabled: true,
+		balance: null,
+		reason: "not_allowed",
+		showTicket: false,
+		ticketEnabled: false,
+	}),
+	continueFeatureWithTicket: async () => true,
 	saved: [] as SavedCombination[],
 	savedReady: true,
 	markResultsViewed: async (_: number) => {},

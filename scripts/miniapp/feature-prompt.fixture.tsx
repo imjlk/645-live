@@ -9,10 +9,18 @@ mock.module(
 	() => React,
 );
 const Dialog = Object.assign(
-	(props: Record<string, unknown>) => React.createElement("dialog", props),
+	(props: Record<string, unknown>) =>
+		React.createElement("dialog", props, props.content as React.ReactNode),
 	{ Button: "button" },
 );
-mock.module("@toss/tds-react-native", () => ({ ConfirmDialog: Dialog }));
+mock.module("@toss/tds-react-native", () => ({
+	ConfirmDialog: Dialog,
+	Button: "ticket",
+}));
+mock.module("react-native", () => ({ View: "view", Text: "text" }));
+mock.module("../../apps/toss/src/theme", () => ({
+	useTheme: () => ({ muted: "#999" }),
+}));
 let back: (() => void) | null = null,
 	releases = 0;
 const presentOverlay = (close: () => void) => {
@@ -203,6 +211,68 @@ expect(metrics.slice(beforeFailed).map((m) => [m.event, m.outcome])).toEqual([
 	["feature_outcome", "feature_failed"],
 ]);
 expect(action).toHaveBeenCalledTimes(1);
+await act(async () => {
+	root.unmount();
+});
+// A ticket replaces the ad entirely and is never offered without a balance.
+const choice = (balance: number | null) => () => ({
+	adEnabled: true,
+	balance,
+	reason: balance ? null : ("empty" as const),
+	showTicket: true,
+	ticketEnabled: !!balance,
+});
+const ticket = mock(async () => true);
+const beforeTicket = metrics.length;
+await act(async () => {
+	root = create(
+		<FeatureAccessPrompt
+			request={request}
+			continueFeature={watch}
+			continueWithTicket={ticket}
+			ticketChoice={choice(2)}
+			onDone={onDone}
+		/>,
+	);
+});
+dialog = root.root.findByType("dialog");
+const option = root.root.findByType("ticket");
+expect(option.props.disabled).toBe(false);
+await act(async () => {
+	option.props.onPress();
+	dialog.props.onClose();
+});
+expect(ticket).not.toHaveBeenCalled();
+await act(async () => {
+	dialog.props.onExited();
+	dialog.props.onExited();
+});
+expect(ticket).toHaveBeenCalledTimes(1);
+expect(watch).toHaveBeenCalledTimes(1);
+expect(action).toHaveBeenCalledTimes(2);
+expect(
+	metrics
+		.slice(beforeTicket)
+		.filter((m) => m.event === "requested" || m.event === "shown"),
+).toEqual([]);
+expect(
+	metrics.slice(beforeTicket).find((m) => m.event === "settled")?.outcome,
+).toBe("ad_skip_ticket");
+await act(async () => {
+	root.unmount();
+});
+await act(async () => {
+	root = create(
+		<FeatureAccessPrompt
+			request={request}
+			continueFeature={watch}
+			continueWithTicket={ticket}
+			ticketChoice={choice(0)}
+			onDone={onDone}
+		/>,
+	);
+});
+expect(root.root.findByType("ticket").props.disabled).toBe(true);
 await act(async () => {
 	root.unmount();
 });
