@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import type { Attendance } from "./api";
 import { attendanceInstruction, attendanceReady } from "./attendance-progress";
+import { pointWindowHeadline } from "./reward-policy";
 import { useTheme } from "./theme";
 
 export function GeneratorAttendanceEntry({
@@ -42,6 +43,7 @@ export function GeneratorAttendanceEntry({
 			: "오늘 만든 번호로 출석할 수 있어요.";
 		action = "출석하기 ›";
 	}
+	const notice = pointWindowHeadline(attendance);
 	return (
 		<Pressable
 			accessibilityRole="button"
@@ -55,6 +57,9 @@ export function GeneratorAttendanceEntry({
 			<View style={s.copy}>
 				<Text style={[s.title, { color: theme.text }]}>{title}</Text>
 				<Text style={[s.caption, { color: theme.muted }]}>{caption}</Text>
+				{notice ? (
+					<Text style={[s.caption, { color: theme.blue }]}>{notice}</Text>
+				) : null}
 			</View>
 			<Text style={[s.action, { color: theme.blue }]}>{action}</Text>
 		</Pressable>

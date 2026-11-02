@@ -3,6 +3,8 @@ import type { Attendance, Promotion } from "./api";
 import {
 	checkInLabel,
 	kstEndLabel,
+	kstStartLabel,
+	pointWindowHeadline,
 	pointWindowNotice,
 	promotionButton,
 	visiblePointRewards,
@@ -32,6 +34,8 @@ const attendance = (overrides: Partial<Attendance> = {}) =>
 describe("reward policy copy", () => {
 	test("exclusive KST ends show the last included day", () => {
 		expect(kstEndLabel(DAY_EIGHT)).toBe("12월 7일까지");
+		expect(kstStartLabel(DAY_EIGHT)).toBe("12월 8일부터");
+		expect(kstStartLabel(DAY_EIGHT + 9 * 3_600_000)).toBe("12월 8일 09:00부터");
 		expect(kstEndLabel(DAY_EIGHT + 12 * 3_600_000)).toBe(
 			"12월 8일 12:00 전까지",
 		);
@@ -59,6 +63,27 @@ describe("reward policy copy", () => {
 		expect(
 			pointWindowNotice(attendance({ rewardPolicy: policy("ENDED") })),
 		).toContain("출석 스킵권은 계속");
+		const grace = pointWindowNotice(
+			attendance({
+				rewardPolicy: policy("LEGACY_GRACE"),
+				adSkips: {
+					active: false,
+					startsAt: DAY_EIGHT - 7 * 86_400_000,
+					dailyTickets: 1,
+					streakBonusTickets: 3,
+				},
+			} as Partial<Attendance>),
+		);
+		expect(grace).toContain("12월 1일부터 출석하면 광고 스킵권 1장");
+		expect(grace).toContain("추가 3장");
+		expect(grace).toContain("신청 기한까지");
+		expect(grace).toContain("이전 혜택 내역");
+		expect(
+			pointWindowHeadline(attendance({ rewardPolicy: policy("LEGACY_GRACE") })),
+		).toBe("토스 포인트 출석 혜택은 12월 7일까지 제공돼요.");
+		expect(
+			pointWindowHeadline(attendance({ rewardPolicy: policy("ENDED") })),
+		).toBeNull();
 		expect(pointWindowNotice(attendance({ rewardPolicy: null }))).toBeNull();
 		for (const status of ["LEGACY_GRACE", "WELCOME", "ENDED"] as const)
 			expect(
@@ -74,6 +99,13 @@ describe("reward policy copy", () => {
 			promotionButton(reward({ status: "claim_expired", eligible: false })),
 		).toBe("신청 기간이 지났어요");
 		expect(promotionButton(reward({ claimId: "c" }))).toBe("지급 상태 확인");
+		const blocked = (unavailableReason: Promotion["unavailableReason"]) =>
+			promotionButton(
+				reward({ available: false, eligible: false, unavailableReason }),
+			);
+		expect(blocked("budget_exhausted")).toBe("프로모션 예산이 소진됐어요");
+		expect(blocked("ended")).toBe("프로모션이 종료됐어요");
+		expect(blocked("paused")).toBe("지급을 잠시 쉬고 있어요");
 	});
 	test("ended windows hide new point cards but keep existing claims", () => {
 		const ended = reward({ status: "window_ended", eligible: false });

@@ -1,7 +1,10 @@
-use crate::{auth, db, engagement, lotto, settings};
+use crate::{attendance_rewards, auth, db, engagement, lotto, settings};
 use serde_json::{Value as Json, json};
 use trailbase_guest_common::{apps_in_toss_messages as messages, responses::*};
-use trailbase_wasm::{db::Value, http::Json as JobJson};
+use trailbase_wasm::{
+    db::{Transaction, Value},
+    http::Json as JobJson,
+};
 
 fn job_result(result: ApiResult<Json>) -> JobJson<Json> {
     match result {
@@ -205,8 +208,43 @@ fn retention() -> ApiResult<Json> {
     ] {
         db::tx_execute(&mut tx, sql, &[Value::Integer(now)])?;
     }
+    prune_reward_history(&mut tx, now)?;
     db::tx_commit(&mut tx)?;
     Ok(json!({"ok":true}))
+}
+
+pub(crate) const REWARD_HISTORY_MS: i64 = 365 * 86_400_000;
+
+/// Once-only reward history outlives withdrawal to stop re-earning, but only for a
+/// year after the period or window it protects. A pending claim is never pruned.
+/// ?1 is the cutoff KST day.
+pub(crate) const PRUNE_TICKET_GRANTS: &str =
+    "DELETE FROM ad_skip_ticket_grants WHERE period_end < ?1";
+/// ?1 is the cutoff instant.
+pub(crate) const PRUNE_POINT_ELIGIBILITIES: &str = "DELETE FROM promotion_reward_eligibilities WHERE claim_deadline_at < ?1 AND (claim_ledger_id IS NULL OR NOT EXISTS (SELECT 1 FROM promotion_reward_ledger l WHERE l.id=claim_ledger_id AND l.status='pending'))";
+/// ?1 is the cutoff instant and ?2 the configured legacy point end (or NULL). A pruned
+/// legacy subject re-registers with its original profile time.
+pub(crate) const PRUNE_REWARD_SUBJECTS: &str = "DELETE FROM reward_subject_cohorts WHERE (cohort='WELCOME' AND welcome_points_ends_at < ?1) OR (cohort='LEGACY' AND ?2 < ?1)";
+
+fn prune_reward_history(tx: &mut Transaction, now: i64) -> ApiResult<()> {
+    let cutoff = now - REWARD_HISTORY_MS;
+    let legacy_end = attendance_rewards::current()
+        .cohort
+        .map_or(Value::Null, |p| {
+            Value::Integer(p.legacy_points_earn_ends_at)
+        });
+    db::tx_execute(
+        tx,
+        PRUNE_TICKET_GRANTS,
+        &[Value::Integer(engagement::kst_day(cutoff))],
+    )?;
+    db::tx_execute(tx, PRUNE_POINT_ELIGIBILITIES, &[Value::Integer(cutoff)])?;
+    db::tx_execute(
+        tx,
+        PRUNE_REWARD_SUBJECTS,
+        &[Value::Integer(cutoff), legacy_end],
+    )?;
+    Ok(())
 }
 
 pub async fn promotion_job() -> JobJson<Json> {

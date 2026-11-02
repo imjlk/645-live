@@ -111,7 +111,7 @@ pub(crate) async fn attendance_status(req: &mut Request) -> ApiResult<Json> {
         } else {
             None
         };
-        promotions.push(json!({"kind":kind.as_str(),"periodDay":period,"campaignId":campaign.as_ref().map(|c|c.id.clone()),"claimId":null,"amount":campaign.as_ref().map(|c|c.amount),"eligible":eligible,"status":status,"available":available,"claimDeadlineAt":snapshot.as_ref().map(|e|e.claim_deadline_at)}));
+        promotions.push(json!({"kind":kind.as_str(),"periodDay":period,"campaignId":campaign.as_ref().map(|c|c.id.clone()),"claimId":null,"amount":campaign.as_ref().map(|c|c.amount),"eligible":eligible,"status":status,"available":available,"unavailableReason":campaign.as_ref().and_then(|c|c.unavailable).filter(|_|!ended),"claimDeadlineAt":snapshot.as_ref().map(|e|e.claim_deadline_at)}));
     }
     // Keep older and legacy claims discoverable after midnight, budget exhaustion or deletion of a campaign.
     let rows = db::tx_query(
@@ -297,6 +297,8 @@ pub(crate) struct Campaign {
     code: String,
     pub amount: i64,
     pub available: bool,
+    /// Why an existing campaign cannot pay now: budget_exhausted, ended or paused.
+    pub unavailable: Option<&'static str>,
 }
 pub(crate) fn identity(tx: &mut Transaction, user: &[u8], scope: &str) -> ApiResult<String> {
     let rows = db::tx_query(
@@ -331,11 +333,13 @@ pub(crate) fn active_campaign(
     )?;
     rows.first()
         .map(|r| {
+            let available = db::integer(&r[3], "available")? == 1;
             Ok(Campaign {
                 id: db::text(&r[0], "id")?,
                 code: db::text(&r[1], "code")?,
                 amount: db::integer(&r[2], "amount")?,
-                available: db::integer(&r[3], "available")? == 1,
+                available,
+                unavailable: (!available).then_some("budget_exhausted"),
             })
         })
         .transpose()
@@ -347,23 +351,49 @@ fn snapshot_campaign(
     eligibility: &PointEligibility,
     now: i64,
 ) -> ApiResult<Campaign> {
-    let available = promotions_configured()
-        && !db::tx_query(
-            tx,
-            "SELECT 1 FROM promotion_campaigns c WHERE id=?2 AND status='ACTIVE' AND starts_at<=?1 AND ends_at>?1 AND budget_limit_amount >= ?3 + coalesce((SELECT reserved_amount FROM ait_lotto_promotion_usage WHERE campaign_id=c.id),0) AND (max_grant_count IS NULL OR max_grant_count > coalesce((SELECT grant_count FROM ait_lotto_promotion_usage WHERE campaign_id=c.id),0))",
-            &[
-                Value::Integer(now),
-                Value::Text(eligibility.campaign_id.clone()),
-                Value::Integer(eligibility.reward_amount),
-            ],
-        )?
-        .is_empty();
+    let rows = db::tx_query(
+        tx,
+        "SELECT status,coalesce(starts_at<=?1,0),coalesce(ends_at<=?1,0),(budget_limit_amount >= ?3 + coalesce((SELECT reserved_amount FROM ait_lotto_promotion_usage WHERE campaign_id=c.id),0) AND (max_grant_count IS NULL OR max_grant_count > coalesce((SELECT grant_count FROM ait_lotto_promotion_usage WHERE campaign_id=c.id),0))) FROM promotion_campaigns c WHERE id=?2",
+        &[
+            Value::Integer(now),
+            Value::Text(eligibility.campaign_id.clone()),
+            Value::Integer(eligibility.reward_amount),
+        ],
+    )?;
+    let unavailable = match rows.first() {
+        _ if !promotions_configured() => Some("paused"),
+        None => Some("ended"),
+        Some(r) => campaign_unavailable(
+            &db::text(&r[0], "status")?,
+            db::integer(&r[1], "started")? == 1,
+            db::integer(&r[2], "ended")? == 1,
+            db::integer(&r[3], "budget")? == 1,
+        ),
+    };
+    let available = unavailable.is_none();
     Ok(Campaign {
         id: eligibility.campaign_id.clone(),
         code: eligibility.provider_promotion_code.clone(),
         amount: eligibility.reward_amount,
         available,
+        unavailable,
     })
+}
+/// A stored claim can only be paid from an active, started, funded campaign.
+pub(crate) fn campaign_unavailable(
+    status: &str,
+    started: bool,
+    ended: bool,
+    budget: bool,
+) -> Option<&'static str> {
+    match status {
+        "ENDED" => Some("ended"),
+        _ if ended => Some("ended"),
+        "EXHAUSTED" => Some("budget_exhausted"),
+        "ACTIVE" if started && !budget => Some("budget_exhausted"),
+        "ACTIVE" if started => None,
+        _ => Some("paused"),
+    }
 }
 /// The campaign a first claim pays from. Under a cohort policy only a snapshot taken
 /// inside the subject's window can start a claim, and it keeps its own campaign.
@@ -415,10 +445,14 @@ fn claim_campaign(
         ));
     }
     let campaign = snapshot_campaign(tx, &eligibility, now)?;
-    if !campaign.available {
+    if let Some(reason) = campaign.unavailable {
         return Err(conflict(
             "PROMOTION_UNAVAILABLE",
-            "프로모션 지급을 잠시 쉬고 있어요. 출석 혜택 내역에서 상태를 확인해 주세요.",
+            match reason {
+                "budget_exhausted" => "프로모션 예산이 모두 소진되어 지급할 수 없어요.",
+                "ended" => "프로모션이 종료되어 지급할 수 없어요.",
+                _ => "프로모션 지급을 잠시 쉬고 있어요. 출석 혜택 내역에서 상태를 확인해 주세요.",
+            },
         ));
     }
     Ok((campaign, Some(eligibility.id)))
@@ -866,5 +900,33 @@ mod tests {
     fn kst_boundary() {
         assert_eq!(kst_day(53_999_999), 0);
         assert_eq!(kst_day(54_000_000), 1);
+    }
+    #[test]
+    fn stored_claims_report_why_a_campaign_cannot_pay() {
+        assert_eq!(campaign_unavailable("ACTIVE", true, false, true), None);
+        assert_eq!(
+            campaign_unavailable("ACTIVE", true, false, false),
+            Some("budget_exhausted")
+        );
+        assert_eq!(
+            campaign_unavailable("EXHAUSTED", true, false, true),
+            Some("budget_exhausted")
+        );
+        assert_eq!(
+            campaign_unavailable("ACTIVE", true, true, true),
+            Some("ended")
+        );
+        assert_eq!(
+            campaign_unavailable("ENDED", true, false, true),
+            Some("ended")
+        );
+        assert_eq!(
+            campaign_unavailable("PAUSED", true, false, true),
+            Some("paused")
+        );
+        assert_eq!(
+            campaign_unavailable("ACTIVE", false, false, true),
+            Some("paused")
+        );
     }
 }
