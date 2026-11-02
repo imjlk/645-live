@@ -88,6 +88,8 @@ export type Promotion = {
 	status: string | null;
 	/** Exclusive end of the first claim for a stored eligibility. */
 	claimDeadlineAt?: number | null;
+	/** Why the campaign cannot pay now. Omitted by older servers. */
+	unavailableReason?: "budget_exhausted" | "ended" | "paused" | null;
 };
 /** Placements where a ticket can replace one full-screen ad. */
 export type AdSkipPlacement = "generation_continue" | "custom" | "report";

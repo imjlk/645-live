@@ -1694,7 +1694,7 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 								onPress={() =>
 									Alert.alert(
 										"미니앱 데이터를 삭제할까요?",
-										"공개 생성 내역, 출석 및 알림 설정, 이 기기의 보관 번호를 삭제해요.",
+										"공개 생성 내역, 출석 및 알림 설정, 이 기기의 보관 번호를 삭제해요. 남은 광고 스킵권도 함께 사라져요.",
 										[
 											{ text: "취소", style: "cancel" },
 											{

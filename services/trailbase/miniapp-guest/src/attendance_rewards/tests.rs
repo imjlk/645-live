@@ -159,3 +159,92 @@ fn migrations_keep_tickets_private_to_the_account_and_subjects_beyond_it() {
         .unwrap();
     assert_eq!(owner, None);
 }
+
+#[test]
+fn reward_history_is_pruned_a_year_after_its_period() {
+    use crate::maintenance::{
+        PRUNE_POINT_ELIGIBILITIES, PRUNE_REWARD_SUBJECTS, PRUNE_TICKET_GRANTS, REWARD_HISTORY_MS,
+    };
+    let conn = crate::generation_archive::tests::fixture(false);
+    for sql in [
+        include_str!("../../../traildepot/migrations/U1794000000__ad_skip_tickets.sql"),
+        include_str!("../../../traildepot/migrations/U1794000100__reward_subject_cohorts.sql"),
+        include_str!(
+            "../../../traildepot/migrations/U1794000200__promotion_reward_eligibilities.sql"
+        ),
+    ] {
+        conn.execute_batch(sql).unwrap();
+    }
+    let cutoff = CUTOVER + 400 * 86_400_000 - REWARD_HISTORY_MS;
+    let day = engagement::kst_day(cutoff);
+    let subject = |c: char| c.to_string().repeat(64);
+    let id = |c: char| c.to_string().repeat(48);
+    conn.execute_batch(
+        "INSERT INTO promotion_campaigns(id,feature_key,provider_promotion_code,reward_amount,status,created_at,updated_at)
+           VALUES ('c1','ait_lotto_attendance_weekly','CODE',50,'ENDED',1,1);
+         INSERT INTO promotion_reward_ledger(id,user_id,campaign_id,source_type,reward_amount,status,provider_request_id,requested_at,created_at,updated_at)
+           VALUES ('pending',x'01','c1','ait_lotto_attendance_weekly',50,'pending','p1',1,1,1),
+                  ('paid',x'01','c1','ait_lotto_attendance_weekly',50,'success','p2',1,1,1);",
+    )
+    .unwrap();
+    for (c, end) in [('a', day - 1), ('b', day)] {
+        conn.execute(
+            "INSERT INTO ad_skip_ticket_grants(user_id,subject_hash,cause,period_start,period_end,quantity,policy_version,created_at)
+               VALUES (NULL,?1,'daily_attendance',?2,?2,1,'v1',1)",
+            rusqlite::params![subject(c), end],
+        )
+        .unwrap();
+    }
+    for (c, deadline, ledger) in [
+        ('a', cutoff - 1, None),
+        ('b', cutoff - 1, Some("pending")),
+        ('c', cutoff - 1, Some("paid")),
+        ('d', cutoff, None),
+    ] {
+        conn.execute(
+            "INSERT INTO promotion_reward_eligibilities VALUES (?1,NULL,?2,'attendance_weekly',1,7,'c1','CODE',50,'LEGACY_GRACE','v1',0,?3,?4,?5,0)",
+            rusqlite::params![id(c), subject(c), deadline, ledger, ledger.map(|_| 1)],
+        )
+        .unwrap();
+    }
+    for (c, cohort, ends) in [
+        ('a', "WELCOME", Some(cutoff - 1)),
+        ('b', "WELCOME", Some(cutoff)),
+        ('c', "LEGACY", None),
+    ] {
+        conn.execute(
+            "INSERT INTO reward_subject_cohorts VALUES (?1,?2,0,?3,'v1',0)",
+            rusqlite::params![subject(c), cohort, ends],
+        )
+        .unwrap();
+    }
+    let kept = |table: &str, column: &str| -> Vec<String> {
+        let mut stmt = conn
+            .prepare(&format!(
+                "SELECT substr({column},1,1) FROM {table} ORDER BY 1"
+            ))
+            .unwrap();
+        stmt.query_map([], |r| r.get(0))
+            .unwrap()
+            .map(Result::unwrap)
+            .collect()
+    };
+    conn.execute(PRUNE_TICKET_GRANTS, [day]).unwrap();
+    conn.execute(PRUNE_POINT_ELIGIBILITIES, [cutoff]).unwrap();
+    // Without a configured legacy end, legacy subjects stay.
+    conn.execute(
+        PRUNE_REWARD_SUBJECTS,
+        rusqlite::params![cutoff, None::<i64>],
+    )
+    .unwrap();
+    assert_eq!(kept("ad_skip_ticket_grants", "subject_hash"), ["b"]);
+    // A pending claim keeps its snapshot; a settled or unclaimed old one goes.
+    assert_eq!(kept("promotion_reward_eligibilities", "id"), ["b", "d"]);
+    assert_eq!(kept("reward_subject_cohorts", "subject_hash"), ["b", "c"]);
+    conn.execute(PRUNE_REWARD_SUBJECTS, [cutoff, cutoff])
+        .unwrap();
+    assert_eq!(kept("reward_subject_cohorts", "subject_hash"), ["b", "c"]);
+    conn.execute(PRUNE_REWARD_SUBJECTS, [cutoff, cutoff - 1])
+        .unwrap();
+    assert_eq!(kept("reward_subject_cohorts", "subject_hash"), ["b"]);
+}
