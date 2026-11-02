@@ -1,5 +1,11 @@
 # @645/toss
 
+## 1.8.1 — 2026-11-02
+
+### Patch changes
+
+- [b58edd7](https://github.com/imjlk/645-live/commit/b58edd7881f808a0c5123d696378801ed747bdc5) Clarify the attendance reward change notice, show why a point reward cannot be paid, and explain ad skip tickets on data deletion and in the privacy notice.
+
 ## 1.8.0 — 2026-11-02
 
 ### Minor changes
