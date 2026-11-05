@@ -1,5 +1,11 @@
 # @645/toss
 
+## 1.9.1 — 2026-11-05
+
+### Patch changes
+
+- [e1b0976](https://github.com/imjlk/645-live/commit/e1b0976f3c5ba7017d6933517e844e6a15971649) Fix ad skip ticket requests and preserve compatibility with previously installed app versions. Keep retries idempotent without charging an additional ticket.
+
 ## 1.9.0 — 2026-11-05
 
 ### Minor changes
