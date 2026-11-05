@@ -4,6 +4,7 @@ import concurrent.futures
 import json
 import os
 import sqlite3
+import subprocess
 import tempfile
 import time
 import uuid
@@ -11,6 +12,18 @@ import uuid
 from smoke import SOURCE, cleanup_case, command, expect, request
 
 IMAGE = os.environ.get("MINIAPP_TEST_IMAGE", "645-trailbase:miniapp")
+
+
+def fixture_sql(name, statement, params=()):
+    # The running server also writes this disposable DB. Wait for short writer
+    # locks instead of failing the fixture immediately with SQLITE_BUSY.
+    script = "import{Database}from'bun:sqlite';const db=new Database('/app/traildepot/data/main.db');db.exec('PRAGMA busy_timeout=5000');const [q,p]=JSON.parse(process.argv[1]);const r=db.query(q).all(...p.map(v=>Array.isArray(v)?Buffer.from(v):v));console.log(JSON.stringify(r));db.close()"
+    result = subprocess.run(('docker', 'exec', name, 'bun', '-e', script, json.dumps([statement, params])),
+                            text=True, capture_output=True, timeout=60)
+    if result.returncode:
+        # Only this synthetic fixture's SQL process is diagnosed; never log auth requests.
+        raise RuntimeError(f'Fixture SQL failed (exit {result.returncode}): {result.stderr[-2000:]}')
+    return json.loads(result.stdout)
 
 
 def migration_check():
@@ -89,8 +102,7 @@ def run():
             round = request(base, '/api/app/v1/lotto/round-context')[1]['targetRound']
 
             def sql(statement, params=()):
-                script = "import{Database}from'bun:sqlite';const db=new Database('/app/traildepot/data/main.db');const [q,p]=JSON.parse(process.argv[1]);const r=db.query(q).all(...p.map(v=>Array.isArray(v)?Buffer.from(v):v));console.log(JSON.stringify(r));db.close()"
-                return json.loads(command('docker', 'exec', name, 'bun', '-e', script, json.dumps([statement, params])))
+                return fixture_sql(name, statement, params)
 
             def account():
                 status, result = request(base, '/api/app/v1/session/bootstrap', {'anonymousHash': 'dev-anon-' + uuid.uuid4().hex})
