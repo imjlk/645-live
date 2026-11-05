@@ -16,7 +16,7 @@ def run():
     name='645-attendance-'+uuid.uuid4().hex[:8]
     with tempfile.TemporaryDirectory(prefix='645-attendance-') as folder:
         try:
-            command('docker','run','-d','--name',name,'-p','127.0.0.1::4000','-v',f'{folder}:/app/traildepot','-e','BACKFILL_ON_STARTUP=false','-e','AIT_ENABLED=true','-e','AIT_ALLOW_DEV_IDENTITY=true','-e','AIT_BOTS_ENABLED=false','-e','AIT_TEST_ADS=false','-e','AIT_PROMOTIONS_ENABLED=false',image)
+            command('docker','run','-d','--name',name,'-p','127.0.0.1::4000','-v',f'{folder}:/app/traildepot','-e','BACKFILL_ON_STARTUP=false','-e','AIT_ENABLED=true','-e','AIT_ALLOW_DEV_IDENTITY=true','-e','AIT_BOTS_ENABLED=false','-e','AIT_TEST_ADS=false','-e','AIT_PROMOTIONS_ENABLED=false','-e','AIT_AD_SKIP_REWARDS_STARTS_AT=1',image)
             base='http://127.0.0.1:'+command('docker','port',name,'4000/tcp').rsplit(':',1)[1]
             for _ in range(100):
                 try:
@@ -88,7 +88,9 @@ def run():
                 # Routing uses the authenticated arm. No SDK or provider calls occur.
                 def configure(weight):
                     sql=f"UPDATE ait_lotto_ad_placements SET enabled=1,rewarded_group_id='fixture-shared-r',interstitial_group_id='fixture-shared-i',cooldown_ms=30000,daily_cap=20,rewarded_weight={weight} WHERE placement='generation_continue'; UPDATE ait_lotto_ad_sessions SET created_at=created_at-60000"
-                    command('docker','exec',name,'bun','-e',"import{Database}from'bun:sqlite';const db=new Database('/app/traildepot/data/main.db');db.exec("+json.dumps(sql)+");db.close()")
+                    command('docker','exec',name,'bun','-e',"import{Database}from'bun:sqlite';const db=new Database('/app/traildepot/data/main.db');db.exec('PRAGMA busy_timeout=5000');db.exec("+json.dumps(sql)+");db.close()")
+                configure(100)
+                command('bun',str(Path(__file__).with_name('ad-skip-redemption.fixture.ts')),base,json.dumps(auth))
                 expected={'control':('ait.v2.live.7700cddda6e84a37','ait.v2.live.74d57d445b6d4fd9'),'short':('ait.v2.live.af3e69b0e59d48d8','ait.v2.live.14e80579edd44ee2')}
                 for index,weight in enumerate([100,0]):
                     configure(weight)
