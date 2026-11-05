@@ -125,5 +125,14 @@ test("cohort queries keep receipt-time observations and stop costs at the next p
 	expect(
 		costs.reduce((sum, row) => sum + Number(row.출석포인트_지급성공액), 0),
 	).toBe(1);
+	event.run("experiment_exposed", next + 20, props);
+	db.exec(
+		`INSERT INTO promotion_reward_ledger VALUES(x'01','success','ait_lotto_attendance_daily',2,${next + 30});`,
+	);
+	const returned = db.query(query).all() as Record<string, unknown>[];
+	expect(
+		returned.reduce((sum, row) => sum + Number(row.출석포인트_지급성공액), 0),
+	).toBe(3);
+
 	db.close();
 });

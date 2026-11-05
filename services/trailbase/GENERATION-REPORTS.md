@@ -38,7 +38,9 @@ To update revenue:
    is shown separately. Do not manufacture missing zero rows.
 
 The reports use estimated KRW, not settled revenue. The difference subtracts successful
-attendance payouts requested after enrollment and before the next observed phase.
+attendance payouts requested after enrollment while the latest observed phase is v4,
+including returns to v4. Without a later observation, enrollment is the fallback;
+missing telemetry can therefore affect cost attribution.
 It is not net profit: shared revenue, operating costs, and unclaimed future benefits
 are excluded. Weekly payout timing can reflect earlier attendance. Keep reward policy
 and observation periods aligned when comparing arms. Metrics are retained for 45 days;
