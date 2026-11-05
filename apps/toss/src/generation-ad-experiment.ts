@@ -5,7 +5,7 @@ import {
 	type GenerationAdSettings,
 } from "./generation-ad-settings";
 
-export const GENERATION_AD_EXPERIMENT = "generation-cadence-v3";
+export const GENERATION_AD_EXPERIMENT = "generation-cadence-v4";
 const ASSIGNMENT_EXPERIMENT = "generation-cadence-v2";
 
 /** Stable 50:50 allocation; the internal principal is never sent to analytics. */
@@ -24,8 +24,6 @@ export function generationExperimentPolicy(
 	base: GenerationAdPolicy | undefined,
 	principal: string,
 	settings: GenerationAdSettings = GENERATION_AD_SETTINGS,
-	attendanceTarget = 3,
-	generatedToday = 0,
 ): GenerationAdPolicy | undefined {
 	// A server policy change is also a kill switch; never override other policies.
 	if (
@@ -41,21 +39,14 @@ export function generationExperimentPolicy(
 		...base,
 		experiment: GENERATION_AD_EXPERIMENT,
 		variant,
-		// Treatment preserves its existing local progress, including daily continuation.
-		storageExperiment:
-			variant === "short" ? ASSIGNMENT_EXPERIMENT : GENERATION_AD_EXPERIMENT,
+		// Each arm starts this phase with the same persisted first-gate distribution.
+		// Later app updates keep this key, so restarting cannot reroll the gate.
+		storageExperiment: GENERATION_AD_EXPERIMENT,
+		previousStorageExperiment:
+			variant === "short" ? ASSIGNMENT_EXPERIMENT : "generation-cadence-v3",
 		...GENERATION_AD_INTERVALS[
 			settings.mode === "relaxed" ? "relaxed" : variant
 		],
-		...(variant === "control" && settings.mode === "experiment"
-			? {
-					firstGenerations: Math.max(3, Math.min(5, attendanceTarget)) + 2,
-					firstMaxGenerations: Math.max(3, Math.min(5, attendanceTarget)) + 5,
-					minGenerations: Math.max(3, Math.min(5, attendanceTarget)) + 2,
-					maxGenerations: Math.max(3, Math.min(5, attendanceTarget)) + 5,
-					initialGenerated: Math.max(0, generatedToday),
-				}
-			: {}),
 	};
 }
 
@@ -66,7 +57,7 @@ export function requiresAttendanceForGeneration(
 	return (
 		settings.mode === "experiment" &&
 		policy?.experiment === GENERATION_AD_EXPERIMENT &&
-		(policy.variant === "control" || settings.returningDailyAd)
+		settings.returningDailyAd
 	);
 }
 
@@ -84,7 +75,6 @@ export function dailyGenerationAdRequired(
 ) {
 	return (
 		requiresAttendanceForGeneration(policy, settings) &&
-		policy?.variant === "short" &&
 		!!attendance &&
 		attendance.streak >= 1 &&
 		!attendance.generatedToday &&

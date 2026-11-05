@@ -1,4 +1,5 @@
 use crate::{attendance, auth, body, db, generation_ads, lotto, settings};
+use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
 use serde::Deserialize;
 use serde_json::{Value as Json, json};
 use trailbase_guest_common::{
@@ -174,6 +175,8 @@ fn groups(row: &[Value], test: bool) -> ApiResult<(Option<String>, Option<String
 struct Start {
     placement: String,
     #[serde(default)]
+    experiment: Option<String>,
+    #[serde(default)]
     client_managed_counter: bool,
     /// The client prompt this ad answers; a ticket may resolve the same prompt.
     #[serde(default)]
@@ -184,6 +187,16 @@ pub(crate) async fn start(req: &mut Request) -> ApiResult<Json> {
     let mut tx = db::tx()?;
     let user = auth::user(req, &mut tx)?;
     let now = db::now_ms_tx(&mut tx)?;
+    if input.experiment.as_deref().is_some_and(|experiment| {
+        experiment != attendance::CURRENT_EXPERIMENT
+            || input.placement != generation_ads::PLACEMENT
+            || !input.client_managed_counter
+    }) {
+        return Err(bad_request(
+            "INVALID_EXPERIMENT",
+            "광고 정보를 다시 확인해 주세요.",
+        ));
+    }
     let rows = db::tx_query(
         &mut tx,
         "SELECT placement, enabled, rewarded_group_id, interstitial_group_id, rewarded_weight, pass_duration_ms, cooldown_ms, daily_cap FROM ait_lotto_ad_placements WHERE placement = ?1",
@@ -193,7 +206,11 @@ pub(crate) async fn start(req: &mut Request) -> ApiResult<Json> {
         .first()
         .ok_or_else(|| bad_request("INVALID_PLACEMENT", "광고 종류를 확인해 주세요."))?;
     let test = settings::string_or("AIT_TEST_ADS", "false") == "true";
-    let (rewarded, interstitial) = groups(row, test)?;
+    let (rewarded, interstitial) = if input.experiment.is_some() && !test {
+        experiment_groups(&mut tx, &user.id)?
+    } else {
+        groups(row, test)?
+    };
     let restore = input.placement == "attendance_restore";
     // Restores never take a ticket, so they never carry an opportunity.
     let opportunity = input
@@ -318,6 +335,35 @@ pub(crate) async fn start(req: &mut Request) -> ApiResult<Json> {
     )?;
     db::tx_commit(&mut tx)?;
     Ok(json!({"alreadyGranted":false,"id":id,"format":format,"groupId":group,"expiresAt":expires}))
+}
+fn experiment_groups(
+    tx: &mut Transaction,
+    user: &[u8],
+) -> ApiResult<(Option<String>, Option<String>)> {
+    let arm = crate::metrics::variant(&URL_SAFE_NO_PAD.encode(user));
+    let rows = db::tx_query(
+        tx,
+        "SELECT format,group_id FROM ait_lotto_generation_ad_groups WHERE experiment=?1 AND variant=?2",
+        &[
+            Value::Text(attendance::CURRENT_EXPERIMENT.into()),
+            Value::Text(arm.into()),
+        ],
+    )?;
+    let mut rewarded = None;
+    let mut interstitial = None;
+    for row in rows {
+        let group = Some(db::text(&row[1], "group")?);
+        match db::text(&row[0], "format")?.as_str() {
+            "rewarded" => rewarded = group,
+            "interstitial" => interstitial = group,
+            _ => return Err(internal("invalid experiment format")),
+        }
+    }
+    // Never contaminate a cohort report by silently falling back to shared groups.
+    if rewarded.is_none() || interstitial.is_none() {
+        return Err(conflict("AD_UNAVAILABLE", "지금은 광고를 준비 중이에요."));
+    }
+    Ok((rewarded, interstitial))
 }
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]

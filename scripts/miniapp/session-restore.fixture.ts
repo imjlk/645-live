@@ -91,11 +91,11 @@ globalThis.fetch = (async (
 	if (path.endsWith("/attendance/status")) {
 		expect(options?.method).toBe("POST");
 		expect(JSON.parse(String(options?.body))).toEqual({
-			experiment: "generation-cadence-v3",
+			experiment: "generation-cadence-v4",
 		});
 		return Response.json({
-			attendanceExperiment: "generation-cadence-v3",
-			requiredGenerations: 3,
+			attendanceExperiment: "generation-cadence-v4",
+			requiredGenerations: 1,
 			generatedCount: 0,
 			day: 100,
 			serverTime: 1,

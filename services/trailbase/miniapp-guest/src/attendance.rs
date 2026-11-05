@@ -6,6 +6,7 @@ use trailbase_wasm::db::{Transaction, Value};
 
 pub const DAYS: i64 = 7;
 pub const EXPERIMENT: &str = "generation-cadence-v3";
+pub const CURRENT_EXPERIMENT: &str = "generation-cadence-v4";
 
 // A reproducible daily draw: reopening the app cannot reroll the target.
 // The ad counter and its independent M draw remain client-owned.
@@ -28,7 +29,30 @@ pub fn enroll(tx: &mut Transaction, user: &[u8], now: i64) -> ApiResult<()> {
     )?;
     Ok(())
 }
-fn requirement(tx: &mut Transaction, user: &[u8], day: i64) -> ApiResult<(i64, bool)> {
+pub fn enroll_current(tx: &mut Transaction, user: &[u8], now: i64) -> ApiResult<()> {
+    db::tx_execute(
+        tx,
+        "INSERT OR IGNORE INTO ait_lotto_generation_experiment_enrollments(user_id,experiment,variant,enrolled_at) VALUES (?1,?2,?3,?4)",
+        &[
+            Value::Blob(user.to_vec()),
+            Value::Text(CURRENT_EXPERIMENT.into()),
+            Value::Text(metrics::variant(&URL_SAFE_NO_PAD.encode(user)).into()),
+            Value::Integer(now),
+        ],
+    )?;
+    Ok(())
+}
+fn requirement(
+    tx: &mut Transaction,
+    user: &[u8],
+    day: i64,
+) -> ApiResult<(i64, Option<&'static str>)> {
+    if !db::tx_query(tx,
+        "SELECT 1 FROM ait_lotto_generation_experiment_enrollments WHERE user_id=?1 AND experiment=?2",
+        &[Value::Blob(user.to_vec()), Value::Text(CURRENT_EXPERIMENT.into())],
+    )?.is_empty() {
+        return Ok((1, Some(CURRENT_EXPERIMENT)));
+    }
     let enrolled = !db::tx_query(
         tx,
         "SELECT 1 FROM ait_lotto_attendance_experiments WHERE user_id=?1 AND experiment=?2",
@@ -42,7 +66,7 @@ fn requirement(tx: &mut Transaction, user: &[u8], day: i64) -> ApiResult<(i64, b
         } else {
             1
         },
-        enrolled,
+        enrolled.then_some(EXPERIMENT),
     ))
 }
 pub fn generated_count(tx: &mut Transaction, user: &[u8], today: i64) -> ApiResult<i64> {
@@ -249,7 +273,7 @@ pub fn status(tx: &mut Transaction, user: &[u8], now: i64) -> ApiResult<Json> {
     let state = sequences(&days);
     let generated_count = generated_count(tx, user, today)?;
     let generated = generated_count > 0;
-    let (required, enrolled) = requirement(tx, user, today)?;
+    let (required, experiment) = requirement(tx, user, today)?;
     let checked_in = checked(tx, user, today)?;
     let restore_available = restorable(&days, today);
     let count = if last == today {
@@ -260,7 +284,7 @@ pub fn status(tx: &mut Transaction, user: &[u8], now: i64) -> ApiResult<Json> {
         0
     };
     Ok(
-        json!({"day":today,"checkedIn":checked_in,"generatedToday":generated,"generatedCount":generated_count,"requiredGenerations":required,"canCheckIn":checked_in || generated_count>=required,"attendanceExperiment":if enrolled{Some(EXPERIMENT)}else{None},"streak":count,"cycleLength":DAYS,"canRestore":generated && restore_available,"restoreAfterGeneration":!generated && restore_available,"restoreLimit":1,"serverTime":now}),
+        json!({"day":today,"checkedIn":checked_in,"generatedToday":generated,"generatedCount":generated_count,"requiredGenerations":required,"canCheckIn":checked_in || generated_count>=required,"attendanceExperiment":experiment,"streak":count,"cycleLength":DAYS,"canRestore":generated && restore_available,"restoreAfterGeneration":!generated && restore_available,"restoreLimit":1,"serverTime":now}),
     )
 }
 pub fn weekly_period(tx: &mut Transaction, user: &[u8], today: i64) -> ApiResult<Option<i64>> {
