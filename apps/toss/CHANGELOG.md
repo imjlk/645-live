@@ -1,5 +1,11 @@
 # @645/toss
 
+## 1.9.0 — 2026-11-05
+
+### Minor changes
+
+- [0d40bf4](https://github.com/imjlk/645-live/commit/0d40bf46fc9e262e794034e6601a28facca86a45) Simplify attendance progress and update generation continuation behavior. Improve advertising report attribution and retain compatibility with earlier app versions.
+
 ## 1.8.1 — 2026-11-02
 
 ### Patch changes
