@@ -71,6 +71,39 @@ def run():
                 assert json.loads(command('docker','exec',name,'bun','-e',probe))['total']==0
                 if len(seen)==2: break
             assert seen=={'control','short'}
+            # V4: one successful generation in either arm; v3 reopen cannot raise it again.
+            v4_seen=set()
+            for _ in range(32):
+                principal,auth=account();arm=variant(principal)
+                if arm in v4_seen: continue
+                v4_seen.add(arm)
+                state=request(base,route,{'experiment':'generation-cadence-v4'},auth)[1]
+                assert state['requiredGenerations']==1 and state['attendanceExperiment']=='generation-cadence-v4'
+                expect(request(base,'/api/app/v1/attendance/check-in',{},auth)[0],403,'v4 requires generation')
+                _,data=generate(auth)
+                assert data['attendanceProgress']['canCheckIn'] and data['attendanceProgress']['generatedCount']==1
+                older=request(base,route,enroll,auth)[1]
+                assert older['attendanceExperiment']=='generation-cadence-v3' and older['requiredGenerations']==1
+                expect(request(base,'/api/app/v1/attendance/check-in',{},auth)[0],200,'v4 one generation check in')
+                # Routing uses the authenticated arm. No SDK or provider calls occur.
+                def configure(weight):
+                    sql=f"UPDATE ait_lotto_ad_placements SET enabled=1,rewarded_group_id='fixture-shared-r',interstitial_group_id='fixture-shared-i',cooldown_ms=30000,daily_cap=20,rewarded_weight={weight} WHERE placement='generation_continue'; UPDATE ait_lotto_ad_sessions SET created_at=created_at-60000"
+                    command('docker','exec',name,'bun','-e',"import{Database}from'bun:sqlite';const db=new Database('/app/traildepot/data/main.db');db.exec("+json.dumps(sql)+");db.close()")
+                expected={'control':('ait.v2.live.7700cddda6e84a37','ait.v2.live.74d57d445b6d4fd9'),'short':('ait.v2.live.af3e69b0e59d48d8','ait.v2.live.14e80579edd44ee2')}
+                for index,weight in enumerate([100,0]):
+                    configure(weight)
+                    body={'placement':'generation_continue','clientManagedCounter':True,'experiment':'generation-cadence-v4'}
+                    code,ad=request(base,'/api/app/v1/ads/start',body,auth);expect(code,200,'v4 group start')
+                    assert ad['groupId']==expected[arm][index],ad
+                    expect(request(base,'/api/app/v1/ads/complete',{'id':ad['id'],'events':['failedToShow']},auth)[0],200,'fixture free continuation')
+                configure(100)
+                code,ad=request(base,'/api/app/v1/ads/start',{'placement':'generation_continue','clientManagedCounter':True},auth)
+                expect(code,200,'legacy group start');assert ad['groupId']=='fixture-shared-r'
+                request(base,'/api/app/v1/ads/complete',{'id':ad['id'],'events':['failedToShow']},auth)
+                expect(request(base,'/api/app/v1/ads/start',{'placement':'generation_continue','clientManagedCounter':True,'experiment':'wrong'},auth)[0],400,'unknown phase')
+                expect(request(base,'/api/app/v1/session/withdraw',{},auth)[0],200,'v4 withdrawal')
+                if len(v4_seen)==2: break
+            assert v4_seen=={'control','short'}
             # Existing completed attendance survives later enrollment.
             principal,auth=account();generate(auth)
             expect(request(base,'/api/app/v1/attendance/check-in',{},auth)[0],200,'legacy check in')
@@ -80,6 +113,6 @@ def run():
             code,public=request(base,'/api/records/v1/ait_lotto_attendance_experiments',headers=auth)
             assert code in (400,401,403,404) or public is None, (code, type(public).__name__)
             assert 'ait_lotto_attendance_experiments' not in (SOURCE/'config.textproto').read_text()
-            print('attendance enrollment, both cohorts, N-gating, replay, deletion, legacy compatibility and completed attendance passed')
+            print('attendance enrollment, both cohorts, legacy N-gating, v4 single generation and ad group routing, replay, deletion, legacy compatibility and completed attendance passed')
         finally: cleanup_case(name,folder,image)
 if __name__=='__main__': run()

@@ -41,106 +41,96 @@ test("stable balanced assignment does not override changed server policy", () =>
 	expect(generationExperimentPolicy(rollback, "any")).toBe(rollback);
 	expect(generationExperimentPolicy(undefined, "any")).toBeUndefined();
 });
-for (const [random, expected, recurring] of [
-	[0, 1, 2],
-	[0.25, 1, 3],
-	[0.5, 2, 5],
-	[0.999999, 3, 8],
-]) {
-	test(`short arm first and recurring gates draw ${expected}, persist, and ignore replay`, async () => {
-		const db = storage();
-		const id = principal("short");
-		const policy = generationExperimentPolicy(base, id);
-		if (!policy) throw Error("Missing fixture policy");
-		const counter = createGenerationAdCounter(
-			db,
-			"cadence",
-			() => random,
-			() => id,
-		);
-		await counter.load(policy);
-		expect(counter.getSnapshot().remaining).toBe(expected);
-		for (let n = 1; n <= expected; n++) {
-			counter.generated(n);
-			counter.generated(n);
-		}
-		expect(counter.getSnapshot().remaining).toBe(0);
-		counter.continued(123);
-		expect(counter.getSnapshot().remaining).toBe(recurring);
-		// The generation performed by the ad CTA is the first in the new cycle.
-		counter.generated(100);
-		expect(counter.getSnapshot().remaining).toBe(recurring - 1);
-		await Bun.sleep(1);
-		const reopened = createGenerationAdCounter(
-			db,
-			"cadence",
-			() => 0.9,
-			() => id,
-		);
-		await reopened.load(policy);
-		expect(reopened.getSnapshot().continuedDay).toBe(123);
-		expect(reopened.getSnapshot().remaining).toBe(recurring - 1);
-		expect(adPolicyLabel(policy)).toBe(
-			"generation-cadence-v3/short:device:1-3:2-8",
-		);
+for (const arm of ["control", "short"] as const) {
+	for (const random of [0, 0.25, 0.5, 0.999999]) {
+		test(`${arm} first 1..3 and recurring bounds persist across reopen and replay`, async () => {
+			const db = storage();
+			const id = principal(arm);
+			const policy = generationExperimentPolicy(base, id);
+			if (!policy) throw new Error("Missing fixture policy");
+			const counter = createGenerationAdCounter(
+				db,
+				"cadence",
+				() => random,
+				() => id,
+			);
+			await counter.load(policy);
+			const first = 1 + Math.floor(random * 3);
+			const recurring = 2 + Math.floor(random * (arm === "control" ? 7 : 4));
+			expect(counter.getSnapshot().remaining).toBe(first);
+			for (let n = 1; n <= first; n++) {
+				counter.generated(n);
+				counter.generated(n);
+			}
+			expect(counter.getSnapshot().remaining).toBe(0);
+			counter.continued(100);
+			expect(counter.getSnapshot().remaining).toBe(recurring);
+			counter.generated(100);
+			await Bun.sleep(1);
+			const reopened = createGenerationAdCounter(
+				db,
+				"cadence",
+				() => 0.8,
+				() => id,
+			);
+			await reopened.load(policy);
+			expect(reopened.getSnapshot()).toMatchObject({
+				remaining: recurring - 1,
+				continuedDay: 100,
+				lastGenerationId: 100,
+			});
+			expect(adPolicyLabel(policy)).toBe(
+				`generation-cadence-v4/${arm}:device:1-3:2-${arm === "control" ? 8 : 5}`,
+			);
+		});
+	}
+	test(`${arm} daily continuation uses the same repeat-attendance conditions`, () => {
+		const policy = generationExperimentPolicy(base, principal(arm));
+		const attendance = {
+			day: 100,
+			streak: 1,
+			generatedToday: false,
+			checkedIn: false,
+		};
+		expect(dailyGenerationAdRequired(policy, attendance, undefined)).toBe(true);
+		expect(dailyGenerationAdRequired(policy, attendance, 100)).toBe(false);
+		expect(
+			dailyGenerationAdRequired(policy, { ...attendance, day: 101 }, 100),
+		).toBe(true);
+		expect(
+			dailyGenerationAdRequired(
+				policy,
+				{ ...attendance, streak: 0 },
+				undefined,
+			),
+		).toBe(false);
+		expect(
+			dailyGenerationAdRequired(
+				policy,
+				{ ...attendance, generatedToday: true },
+				undefined,
+			),
+		).toBe(false);
+		expect(
+			dailyGenerationAdRequired(
+				policy,
+				{ ...attendance, checkedIn: true },
+				undefined,
+			),
+		).toBe(false);
+		expect(dailyGenerationAdRequired(policy, null, undefined)).toBe(false);
+		expect(
+			dailyGenerationAdRequired(policy, attendance, undefined, {
+				mode: "experiment",
+				collectServerMetrics: true,
+				returningDailyAd: false,
+			}),
+		).toBe(false);
 	});
 }
-test("control uses daily N plus local M, preserves the remaining count across days and accounts", async () => {
+test("v4 starts a separate phase, retains stable arm assignment and isolates principals", async () => {
 	const db = storage();
-	let id = principal("control");
-	await db.setItem(
-		"cadence",
-		JSON.stringify({ remaining: 29, lastGenerationId: 10 }),
-	);
-	const counter = createGenerationAdCounter(
-		db,
-		"cadence",
-		() => 0.999999,
-		() => id,
-	);
-	await counter.load(generationExperimentPolicy(base, id, undefined, 3));
-	expect(counter.getSnapshot().remaining).toBe(8);
-	for (let n = 1; n <= 3; n++) counter.generated(n);
-	expect(counter.getSnapshot().remaining).toBe(5);
-	// The next day's larger attendance target does not reset the five remaining generations.
-	await counter.load(generationExperimentPolicy(base, id, undefined, 5));
-	expect(counter.getSnapshot().remaining).toBe(5);
-	counter.continued();
-	expect(counter.getSnapshot().remaining).toBe(10);
-	id = principal("short");
-	await counter.load(generationExperimentPolicy(base, id));
-	expect(counter.getSnapshot().remaining).toBe(3);
-	await counter.load({ ...base, maxGenerations: 29 });
-	expect(counter.getSnapshot().remaining).toBe(29);
-});
-test("control can finish tomorrow's attendance without an ad and draws after N plus M", async () => {
-	const id = principal("control");
-	const db = storage();
-	const counter = createGenerationAdCounter(
-		db,
-		"cadence",
-		() => 0.999999,
-		() => id,
-	);
-	await counter.load(generationExperimentPolicy(base, id, undefined, 3));
-	for (let n = 1; n <= 3; n++) counter.generated(n);
-	await Bun.sleep(1);
-	const reopened = createGenerationAdCounter(
-		db,
-		"cadence",
-		() => 0,
-		() => id,
-	);
-	await reopened.load(generationExperimentPolicy(base, id, undefined, 3, 0));
-	for (let n = 4; n <= 6; n++) reopened.generated(n);
-	expect(reopened.getSnapshot().remaining).toBe(2);
-	reopened.generated(7);
-	reopened.generated(8);
-	expect(reopened.getSnapshot().remaining).toBe(0);
-});
-test("treatment preserves v2 progress while control gets its own v3 progress", async () => {
-	const db = storage();
-	const id = principal("short");
+	let id = principal("short");
 	await db.setItem(
 		`cadence.generation-cadence-v2.short.${id}`,
 		JSON.stringify({ remaining: 6, lastGenerationId: 9, continuedDay: 100 }),
@@ -152,70 +142,21 @@ test("treatment preserves v2 progress while control gets its own v3 progress", a
 		() => id,
 	);
 	await counter.load(generationExperimentPolicy(base, id));
+	expect(counter.getSnapshot().remaining).toBe(1);
+	counter.generated(10);
+	counter.continued(101);
+	await Bun.sleep(1);
+	id = principal("control");
+	await counter.load(generationExperimentPolicy(base, id));
+	expect(counter.getSnapshot().remaining).toBe(1);
+	expect(counter.getSnapshot().continuedDay).toBeUndefined();
+	id = principal("short");
+	await counter.load(generationExperimentPolicy(base, id));
 	expect(counter.getSnapshot()).toMatchObject({
-		remaining: 6,
-		lastGenerationId: 9,
-		continuedDay: 100,
+		remaining: 2,
+		continuedDay: 101,
+		lastGenerationId: 10,
 	});
-});
-
-test("daily continuation applies only to repeat attendance in treatment and resets next day", () => {
-	const policy = generationExperimentPolicy(base, principal("short"));
-	const attendance = {
-		day: 100,
-		streak: 1,
-		generatedToday: false,
-		checkedIn: false,
-	};
-	expect(dailyGenerationAdRequired(policy, attendance, undefined)).toBe(true);
-	expect(dailyGenerationAdRequired(policy, attendance, 100)).toBe(false);
-	expect(
-		dailyGenerationAdRequired(policy, { ...attendance, day: 101 }, 100),
-	).toBe(true);
-	expect(
-		dailyGenerationAdRequired(policy, { ...attendance, streak: 0 }, undefined),
-	).toBe(false);
-	expect(
-		dailyGenerationAdRequired(
-			policy,
-			{ ...attendance, generatedToday: true },
-			undefined,
-		),
-	).toBe(false);
-	expect(
-		dailyGenerationAdRequired(
-			policy,
-			{ ...attendance, checkedIn: true },
-			undefined,
-		),
-	).toBe(false);
-	expect(
-		dailyGenerationAdRequired(
-			generationExperimentPolicy(base, principal("control")),
-			attendance,
-			undefined,
-		),
-	).toBe(false);
-});
-
-test("fresh control enrollment subtracts already completed daily generations only once", async () => {
-	const id = principal("control");
-	const counter = createGenerationAdCounter(
-		storage(),
-		"cadence",
-		() => 0,
-		() => id,
-	);
-	const policy = generationExperimentPolicy(base, id, undefined, 3, 2);
-	await counter.load(policy);
-	expect(counter.getSnapshot().remaining).toBe(3);
-	await counter.load(generationExperimentPolicy(base, id, undefined, 3, 4));
-	expect(counter.getSnapshot().remaining).toBe(3);
-	counter.continued();
-	expect(counter.getSnapshot().remaining).toBe(5);
-	expect(adPolicyLabel(policy)).toBe(
-		"generation-cadence-v3/control:device:5-8:5-8",
-	);
 });
 
 test("relaxed mode keeps local progress but draws softer future cycles without daily gating", async () => {
@@ -257,3 +198,46 @@ test("relaxed mode keeps local progress but draws softer future cycles without d
 	fresh.continued();
 	expect(fresh.getSnapshot().remaining).toBe(30);
 });
+
+for (const arm of ["control", "short"] as const) {
+	test(`${arm} preserves an unresolved old prompt so ticket recovery is not charged twice`, async () => {
+		const db = storage();
+		const id = principal(arm);
+		const old =
+			arm === "control" ? "generation-cadence-v3" : "generation-cadence-v2";
+		await db.setItem(
+			`cadence.${old}.${arm}.${id}`,
+			JSON.stringify({
+				remaining: 0,
+				lastGenerationId: 5,
+				prompt: "g-pending",
+				continuedDay: 100,
+			}),
+		);
+		const counter = createGenerationAdCounter(
+			db,
+			"cadence",
+			() => 0.999999,
+			() => id,
+		);
+		const policy = generationExperimentPolicy(base, id);
+		await counter.load(policy);
+		expect(counter.getSnapshot()).toMatchObject({
+			remaining: 0,
+			prompt: "g-pending",
+			continuedDay: 100,
+		});
+		counter.continued(101);
+		await Bun.sleep(1);
+		const reopened = createGenerationAdCounter(
+			db,
+			"cadence",
+			() => 0,
+			() => id,
+		);
+		await reopened.load(policy);
+		expect(reopened.getSnapshot().prompt).toBeUndefined();
+		expect(reopened.getSnapshot().remaining).toBe(arm === "control" ? 8 : 5);
+		expect(reopened.getSnapshot().continuedDay).toBe(101);
+	});
+}

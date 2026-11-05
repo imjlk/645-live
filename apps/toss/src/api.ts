@@ -485,9 +485,6 @@ export function createApi() {
 				generationAdPolicy: generationExperimentPolicy(
 					config.generationAdPolicy,
 					principal.id,
-					undefined,
-					attendance.requiredGenerations,
-					attendance.generatedCount,
 				),
 			};
 		},
@@ -498,6 +495,9 @@ export function createApi() {
 		) =>
 			request<AdSession>("/api/app/v1/ads/start", {
 				placement,
+				...(placement === "generation_continue" && clientManagedCounter
+					? { experiment: GENERATION_AD_EXPERIMENT }
+					: {}),
 				...(clientManagedCounter ? { clientManagedCounter: true } : {}),
 				...(opportunityKey ? { opportunityKey } : {}),
 			}),

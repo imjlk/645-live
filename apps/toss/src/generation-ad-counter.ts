@@ -8,6 +8,8 @@ export type GenerationAdPolicy = {
 	firstMaxGenerations?: number;
 	experiment?: string;
 	storageExperiment?: string;
+	/** Carry only an unresolved prompt/daily receipt across a phase transition. */
+	previousStorageExperiment?: string;
 	initialGenerated?: number;
 	variant?: "control" | "short";
 	minGenerations: number;
@@ -133,8 +135,33 @@ export function createGenerationAdCounter(
 			}
 			const epoch = loadEpoch;
 			const source = atom;
+			const previousKey = policy.previousStorageExperiment
+				? `${key}.${policy.previousStorageExperiment}.${policy.variant}.${principalScope()}`
+				: null;
 			loading ??= writes
-				.then(() => source.read())
+				.then(async () => {
+					const value = await source.read();
+					if (!previousKey) return value;
+					try {
+						if (await storage.getItem(nextKey)) return value;
+						const raw = await storage.getItem(previousKey);
+						if (!raw) return value;
+						const previous = JSON.parse(raw) as Progress;
+						return {
+							...value,
+							...(Number.isSafeInteger(previous.continuedDay)
+								? { continuedDay: previous.continuedDay }
+								: {}),
+							// A paid/pending ticket receipt must still match its old prompt.
+							...(typeof previous.prompt === "string" &&
+							PROMPT.test(previous.prompt)
+								? { remaining: 0, prompt: previous.prompt }
+								: {}),
+						};
+					} catch {
+						return value;
+					}
+				})
 				.then((value) => {
 					if (loadEpoch === epoch) publish(value);
 				});

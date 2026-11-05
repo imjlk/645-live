@@ -81,7 +81,11 @@ fn valid_policy(policy: &str, expected: &str) -> bool {
     if policy.len() > 96 {
         return false;
     }
-    let prefixes = ["generation-cadence-v2", "generation-cadence-v3"];
+    let prefixes = [
+        "generation-cadence-v2",
+        "generation-cadence-v3",
+        "generation-cadence-v4",
+    ];
     let Some(ranges) = prefixes
         .iter()
         .find_map(|experiment| policy.strip_prefix(&format!("{experiment}/{expected}:device:")))
@@ -228,9 +232,17 @@ mod tests {
             "generation-cadence-v3/control:device:5-8:5-8",
             "control"
         ));
-        assert!(!valid_policy(
-            "generation-cadence-v4/control:device:5-8:5-8",
+        assert!(valid_policy(
+            "generation-cadence-v4/control:device:1-3:2-8",
             "control"
+        ));
+        assert!(valid_policy(
+            "generation-cadence-v4/short:device:1-3:2-5",
+            "short"
+        ));
+        assert!(!valid_policy(
+            "generation-cadence-v5/short:device:1-3:2-5",
+            "short"
         ));
         assert!(valid_policy(
             "generation-cadence-v2/short:device:5-5:5-30",

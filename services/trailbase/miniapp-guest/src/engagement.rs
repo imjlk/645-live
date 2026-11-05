@@ -31,7 +31,9 @@ struct AttendanceEnrollment {
 }
 pub(crate) async fn attendance_enroll(req: &mut Request) -> ApiResult<Json> {
     let input: AttendanceEnrollment = body(req).await?;
-    if input.experiment != attendance::EXPERIMENT {
+    if input.experiment != attendance::EXPERIMENT
+        && input.experiment != attendance::CURRENT_EXPERIMENT
+    {
         return Err(bad_request(
             "INVALID_EXPERIMENT",
             "출석 정보를 다시 확인해 주세요.",
@@ -40,9 +42,17 @@ pub(crate) async fn attendance_enroll(req: &mut Request) -> ApiResult<Json> {
     let mut tx = db::tx()?;
     let user = auth::user(req, &mut tx)?;
     let now = db::now_ms_tx(&mut tx)?;
-    attendance::enroll(&mut tx, &user.id, now)?;
+    if input.experiment == attendance::CURRENT_EXPERIMENT {
+        attendance::enroll_current(&mut tx, &user.id, now)?;
+    } else {
+        attendance::enroll(&mut tx, &user.id, now)?;
+    }
     db::tx_commit(&mut tx)?;
-    attendance_status(req).await
+    let mut state = attendance_status(req).await?;
+    // Old bundles can still open after an update. Never downgrade an earned v4
+    // attendance requirement, but return the handshake version they understand.
+    state["attendanceExperiment"] = json!(input.experiment);
+    Ok(state)
 }
 pub(crate) async fn attendance_status(req: &mut Request) -> ApiResult<Json> {
     let mut tx = db::tx()?;
