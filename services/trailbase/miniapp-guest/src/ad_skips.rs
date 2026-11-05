@@ -24,6 +24,10 @@ struct Redeem {
     opportunity_key: String,
     #[serde(default)]
     context: String,
+    // Older kit controllers sent their local persistence timestamp. Accept only
+    // this known legacy field; receipt times and eligibility remain server-owned.
+    #[serde(default, rename = "createdAt")]
+    _client_created_at: Option<i64>,
 }
 
 // Read-only: decides whether the prompt still needs an ad. Errors when the feature
@@ -92,6 +96,28 @@ pub(crate) async fn redeem(req: &mut Request) -> ApiResult<Json> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn redemption_accepts_legacy_metadata_without_relaxing_the_contract() {
+        let payload = serde_json::json!({
+            "requestId": "request-000000001",
+            "placement": "generation_continue",
+            "opportunityKey": "generation:1",
+            "context": ""
+        });
+        assert!(serde_json::from_value::<Redeem>(payload.clone()).is_ok());
+        let mut legacy = payload.clone();
+        legacy["createdAt"] = serde_json::json!(1_793_857_200_000_i64);
+        let parsed: Redeem = serde_json::from_value(legacy).unwrap();
+        assert_eq!(parsed.request_id, "request-000000001");
+        assert_eq!(parsed.opportunity_key, "generation:1");
+        let mut unexpected = payload.clone();
+        unexpected["balance"] = serde_json::json!(100);
+        assert!(serde_json::from_value::<Redeem>(unexpected).is_err());
+        let mut missing = payload;
+        missing.as_object_mut().unwrap().remove("requestId");
+        assert!(serde_json::from_value::<Redeem>(missing).is_err());
+    }
+
     #[test]
     fn opportunity_keys_are_opaque_and_bounded() {
         assert!(valid_key("generation_continue:3f9a-01"));
