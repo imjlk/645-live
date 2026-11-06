@@ -46,12 +46,16 @@ struct Bootstrap {
     anonymous_hash: String,
 }
 
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct BootstrapCode {
+    code: String,
+}
+
 pub(crate) async fn bootstrap(req: &mut Request) -> ApiResult<Json> {
-    let mut timing = BootstrapTiming::new(
-        settings::string("TRAILBASE_BOOTSTRAP_TIMING").as_deref() == Some("true"),
-    );
     enabled()?;
     let input: Bootstrap = body(req).await?;
+    limit_bootstrap(req)?;
     let raw = input.anonymous_hash.trim();
     let dev_allowed = settings::string_or("AIT_ALLOW_DEV_IDENTITY", "false") == "true";
     if raw.len() < 12
@@ -63,19 +67,48 @@ pub(crate) async fn bootstrap(req: &mut Request) -> ApiResult<Json> {
             "토스 앱에서 다시 열어 주세요.",
         ));
     }
+    // A claimed prefix is not proof of an Apps in Toss identity. Only the explicit
+    // disposable development identity path bypasses provider verification.
+    if !dev_allowed || !raw.starts_with("dev-anon") {
+        let verified = crate::engagement::proxy_post(
+            "/internal/apps-in-toss/anonymous-key/verify",
+            json!({"anonKey":raw.strip_prefix("ait:").unwrap_or(raw)}),
+        )
+        .await?;
+        if verified["valid"] != true || verified["mode"] != "forward" {
+            return Err(unauthorized(
+                "IDENTITY_VERIFICATION_FAILED",
+                "토스 앱의 연결 정보를 확인해 주세요.",
+            ));
+        }
+    }
+    finish_bootstrap(raw).await
+}
+
+pub(crate) async fn bootstrap_code(req: &mut Request) -> ApiResult<Json> {
+    enabled()?;
+    let input: BootstrapCode = body(req).await?;
+    limit_bootstrap(req)?;
+    let verified = trailbase_guest_common::anonymous_identity::exchange_anonymous_auth_code(
+        &settings::required("MTLS_PROXY_URL")?,
+        Some(&settings::required("MTLS_PROXY_TOKEN")?),
+        &input.code,
+    )
+    .await
+    .map_err(|_| {
+        unauthorized(
+            "IDENTITY_VERIFICATION_FAILED",
+            "토스 앱의 연결 정보를 확인해 주세요.",
+        )
+    })?;
+    finish_bootstrap(verified.anonymous_hash()).await
+}
+
+fn limit_bootstrap(req: &Request) -> ApiResult<()> {
     let secret = settings::required("AIT_IDENTITY_HMAC_SECRET")?;
-    let digest = hmac_hex(&secret, raw)?;
-    let now;
     {
         let mut tx = db::tx()?;
-        now = db::now_ms_tx(&mut tx)?;
-        trailbase_auth::enforce_anonymous_bootstrap_attempt_limit_tx(
-            &mut tx,
-            &format!("ait-identity:{digest}"),
-            now,
-            30,
-            600_000,
-        )?;
+        let now = db::now_ms_tx(&mut tx)?;
         // A rotating claimed identity must not bypass the coarse creation limit.
         trailbase_auth::enforce_anonymous_bootstrap_attempt_limit_tx(
             &mut tx,
@@ -96,20 +129,27 @@ pub(crate) async fn bootstrap(req: &mut Request) -> ApiResult<Json> {
         }
         db::tx_commit(&mut tx)?;
     }
-    // A claimed prefix is not proof of an Apps in Toss identity. Only the explicit
-    // disposable development identity path bypasses provider verification.
-    if !dev_allowed || !raw.starts_with("dev-anon") {
-        let verified = crate::engagement::proxy_post(
-            "/internal/apps-in-toss/anonymous-key/verify",
-            json!({"anonKey":raw.strip_prefix("ait:").unwrap_or(raw)}),
-        )
-        .await?;
-        if verified["valid"] != true || verified["mode"] != "forward" {
-            return Err(unauthorized(
-                "IDENTITY_VERIFICATION_FAILED",
-                "토스 앱의 연결 정보를 확인해 주세요.",
-            ));
-        }
+    Ok(())
+}
+
+async fn finish_bootstrap(raw: &str) -> ApiResult<Json> {
+    let mut timing = BootstrapTiming::new(
+        settings::string("TRAILBASE_BOOTSTRAP_TIMING").as_deref() == Some("true"),
+    );
+    let secret = settings::required("AIT_IDENTITY_HMAC_SECRET")?;
+    let digest = hmac_hex(&secret, raw)?;
+    let now;
+    {
+        let mut tx = db::tx()?;
+        now = db::now_ms_tx(&mut tx)?;
+        trailbase_auth::enforce_anonymous_bootstrap_attempt_limit_tx(
+            &mut tx,
+            &format!("ait-identity:{digest}"),
+            now,
+            30,
+            600_000,
+        )?;
+        db::tx_commit(&mut tx)?;
     }
     let password_secret = settings::required("TRAILBASE_AUTH_PASSWORD_SECRET")?;
     let credentials = trailbase_auth::anonymous_auth_user_credentials(&digest, &password_secret)?;

@@ -126,7 +126,7 @@ set -- /app/trail \
   --runtime-root-fs /app/traildepot/runtime \
   --runtime-threads "${RUNTIME_THREADS:-8}"
 
-cors_allowed_origins="${CORS_ALLOWED_ORIGINS:-https://www.645.live,https://645.live}"
+cors_allowed_origins="${CORS_ALLOWED_ORIGINS:-https://www.645.live,https://645.live,https://645-live.apps.tossmini.com,https://645-live.private-apps.tossmini.com}"
 old_ifs="$IFS"
 IFS=','
 for origin in $cors_allowed_origins; do
