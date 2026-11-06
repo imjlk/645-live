@@ -1,7 +1,7 @@
 -- 24. v4 스킵권 사용·광고수익·재방문. Attached에서 analytics를 선택한다.
 -- 포인트 신규 적립 종료일(2026-11-06 KST)부터 최근 30일. control 이후 2~8회, short 이후 2~5회. 두 군 모두 출석은 생성 1회, 첫 광고는 1~3회.
 -- 서버의 v4 최초 배정군 기준이다. 배정 이후 구버전으로 돌아온 사용자도 원래 군에 포함하며, 11/06은 SDK 전환일이다.
--- 서버활동자는 배정, 번호 생성, 출석, 출석권 발급 또는 생성 광고 기회 해결을 기록한 당일 고유 사용자다. 단순 앱 열기는 빠질 수 있다.
+-- 서버활동자는 배정·출석·스킵권 발급·생성 광고 기회 해결 중 하나가 남은 당일 고유 사용자다. 앱 열기나 번호 생성만 한 날은 빠질 수 있다.
 -- 배정 후 생성 계속하기의 키별 최종 결과를 한 번만 센다. 사용률=스킵 사용자/서버활동자. 스킵선택률=TICKET/(AD+TICKET). FREE와 미해결 기회는 선택률 분모에서 제외한다.
 -- 당일 지급과 사용은 다른 날의 적립분을 포함할 수 있다. 스킵권 자체의 인과효과나 사용 포기율은 이 비교로 계산할 수 없다.
 -- D1/D7은 기준일 활동자가 정확히 1일/7일 뒤 다시 서버 활동한 비율이다. 그 날짜가 끝난 뒤 표시한다. 여러 날짜를 합칠 때 같은 사람이 중복될 수 있다.
@@ -23,8 +23,6 @@ members AS (
 ),
 actions(user_id,variant,at_ms,kind,quantity) AS (
  SELECT user_id,variant,enrolled_at,'visit',1 FROM members WHERE enrolled_at>=start_ms
- UNION ALL SELECT m.user_id,m.variant,g.created_at,'visit',1 FROM members m
-   JOIN ait_lotto_generation_requests g ON g.user_id=m.user_id AND g.created_at>=m.start_ms
  UNION ALL SELECT m.user_id,m.variant,a.created_at,'visit',1 FROM members m
    JOIN ait_lotto_attendance a ON a.user_id=m.user_id AND a.created_at>=m.start_ms
  UNION ALL SELECT m.user_id,m.variant,g.created_at,'grant',g.quantity FROM members m

@@ -158,7 +158,8 @@ test("skip efficiency uses enrolled server activity without SDK events and waits
 		  (x'01',${day0 + 110},'generation_continue','AD'),
 		  (x'01',${day0 + 115},'generation_continue','FREE'),
 		  (x'01',${day0 + 120},'report','TICKET');
-		INSERT INTO ait_lotto_generation_requests VALUES (x'01',${tomorrow}), (x'01',${tomorrow + 1});
+		INSERT INTO ait_lotto_attendance VALUES (x'01',${tomorrow});
+		INSERT INTO ait_lotto_generation_requests VALUES (x'02',${tomorrow});
 		INSERT INTO ait_lotto_ad_revenue_daily VALUES ('2026-11-06','${a}',2,5,1000);
 	`);
 	const sql = readFileSync(
@@ -198,6 +199,8 @@ test("skip efficiency uses enrolled server activity without SDK events and waits
 		D1_pct: 50,
 		D7_pct: null,
 	});
+	db.exec("DELETE FROM ait_lotto_generation_requests");
+	expect(controlOnSixth("2026-11-07 15:00:00")?.D1_pct).toBe(50);
 	expect(controlOnSixth("2026-11-13 15:00:00")?.D7_pct).toBe(0);
 	db.close();
 });
