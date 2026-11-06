@@ -1,12 +1,12 @@
 import type { Feed, Generation } from "@645/lotto-core";
-import { Badge } from "@toss/tds-react-native";
 import { useEffect, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
 import {
 	generationInsights,
 	preferredGenerationInsight,
 } from "./generation-insights";
 import { useTheme } from "./theme";
+import { Badge } from "./web/controls";
+import { Pressable, StyleSheet, Text, View } from "./web/primitives";
 
 export function GenerationInsightPreview({
 	generation,

@@ -1,18 +1,4 @@
-import {
-	IOScrollView,
-	useBackEvent,
-	useNavigation,
-	useParams,
-	useVisibility,
-} from "@granite-js/react-native";
-import { TDSProvider } from "@toss/tds-react-native";
-import {
-	HideAccessibilityProvider,
-	HideAccessibilityView,
-} from "@toss/tds-react-native/private";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
 	FeatureAccessPrompt,
 	type FeatureRequest,
@@ -21,6 +7,19 @@ import { GenerationResultsContent } from "./GenerationResultsContent";
 import { useLottoContext } from "./LottoProvider";
 import { TabShellContext, useOverlayStack } from "./TabShell";
 import { useTheme } from "./theme";
+import {
+	HideAccessibilityProvider,
+	HideAccessibilityView,
+} from "./web/accessibility";
+import { StyleSheet, Text, View } from "./web/primitives";
+import { useSafeAreaInsets } from "./web/safe-area";
+import {
+	IOScrollView,
+	useBackEvent,
+	useNavigation,
+	useParams,
+	useVisibility,
+} from "./web/viewport";
 
 export function GenerationResultsScreen() {
 	const { model } = useLottoContext();
@@ -70,67 +69,65 @@ export function GenerationResultsScreen() {
 		else if (open()) model.featureUsed();
 	};
 	return (
-		<TDSProvider colorPreference="light" fontScaleAvailable>
-			<HideAccessibilityProvider>
-				<TabShellContext.Provider value={{ tabBarHeight: 0, presentOverlay }}>
-					<View style={[s.screen, { backgroundColor: theme.background }]}>
-						<HideAccessibilityView>
-							<IOScrollView
-								contentContainerStyle={[
-									s.content,
-									{ paddingBottom: insets.bottom + 28 },
-								]}
+		<HideAccessibilityProvider>
+			<TabShellContext.Provider value={{ tabBarHeight: 0, presentOverlay }}>
+				<View style={[s.screen, { backgroundColor: theme.background }]}>
+					<HideAccessibilityView>
+						<IOScrollView
+							contentContainerStyle={[
+								s.content,
+								{ paddingBottom: insets.bottom + 28 },
+							]}
+						>
+							<Text
+								accessibilityRole="header"
+								style={[s.title, { color: theme.text }]}
 							>
-								<Text
-									accessibilityRole="header"
-									style={[s.title, { color: theme.text }]}
-								>
-									이전 회차 결과
+								이전 회차 결과
+							</Text>
+							<GenerationResultsContent
+								active={visible && model.foreground}
+								initialRound={params.round}
+								onNumberPress={openNumber}
+								onInsights={(round) => {
+									if (
+										!visible ||
+										opening.current ||
+										request ||
+										overlay ||
+										model.busy
+									)
+										return;
+									opening.current = true;
+									navigation.navigate("/insights", { round });
+								}}
+							/>
+							{model.actionError?.area === "feature" ? (
+								<Text accessibilityRole="alert" style={s.error}>
+									{model.actionError.message}
 								</Text>
-								<GenerationResultsContent
-									active={visible && model.foreground}
-									initialRound={params.round}
-									onNumberPress={openNumber}
-									onInsights={(round) => {
-										if (
-											!visible ||
-											opening.current ||
-											request ||
-											overlay ||
-											model.busy
-										)
-											return;
-										opening.current = true;
-										navigation.navigate("/insights", { round });
-									}}
-								/>
-								{model.actionError?.area === "feature" ? (
-									<Text accessibilityRole="alert" style={s.error}>
-										{model.actionError.message}
-									</Text>
-								) : null}
-							</IOScrollView>
-						</HideAccessibilityView>
-						<FeatureAccessPrompt
-							request={visible ? request : null}
-							entryPoint="results"
-							continueFeature={async (feature, flow) => {
-								const ok = await model.continueFeature(feature, flow);
-								if (ok) model.featureUsed();
-								return ok;
-							}}
-							continueWithTicket={async (feature) => {
-								const ok = await model.continueFeatureWithTicket(feature);
-								if (ok) model.featureUsed();
-								return ok;
-							}}
-							ticketChoice={model.adSkipChoice}
-							onDone={() => setRequest(null)}
-						/>
-					</View>
-				</TabShellContext.Provider>
-			</HideAccessibilityProvider>
-		</TDSProvider>
+							) : null}
+						</IOScrollView>
+					</HideAccessibilityView>
+					<FeatureAccessPrompt
+						request={visible ? request : null}
+						entryPoint="results"
+						continueFeature={async (feature, flow) => {
+							const ok = await model.continueFeature(feature, flow);
+							if (ok) model.featureUsed();
+							return ok;
+						}}
+						continueWithTicket={async (feature) => {
+							const ok = await model.continueFeatureWithTicket(feature);
+							if (ok) model.featureUsed();
+							return ok;
+						}}
+						ticketChoice={model.adSkipChoice}
+						onDone={() => setRequest(null)}
+					/>
+				</View>
+			</TabShellContext.Provider>
+		</HideAccessibilityProvider>
 	);
 }
 

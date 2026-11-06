@@ -2,13 +2,24 @@
 import { expect, mock } from "bun:test";
 import type { Feed, Generation } from "@645/lotto-core";
 import * as React from "react";
-import { act, create } from "react-test-renderer";
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 mock.module(
 	Bun.resolveSync("react", `${import.meta.dir}/../../apps/toss`),
 	() => React,
 );
+mock.module(
+	Bun.resolveSync(
+		"react",
+		Bun.resolveSync(
+			"react-test-renderer/package.json",
+			import.meta.dir,
+		).replace(/\/package.json$/, ""),
+	),
+	() => React,
+);
+const { act, create } = await import("react-test-renderer");
+
 const host = (name: string) => (props: Record<string, unknown>) =>
 	React.createElement(name, props, props.children as React.ReactNode);
 const io = React.createContext<{ manager: object | null }>({ manager: null });
@@ -22,10 +33,10 @@ let returns = 0;
 let params: { round: number; number?: number; source?: "draw" | "generated" } =
 	{ round: 1243 };
 const navigations: unknown[] = [];
-mock.module("@granite-js/native/@react-navigation/native", () => ({
+mock.module("../../apps/toss/src/web/navigation", () => ({
 	useIsFocused: () => true,
 }));
-mock.module("@granite-js/react-native", () => ({
+mock.module("../../apps/toss/src/web/viewport", () => ({
 	IOContext: io,
 	InView: ({
 		onChange,
@@ -36,7 +47,7 @@ mock.module("@granite-js/react-native", () => ({
 	}) => {
 		React.useEffect(() => {
 			onChange(true, 1);
-		}, []);
+		}, [onChange]);
 		return children;
 	},
 	IOScrollView: (props: Record<string, unknown>) => (
@@ -54,7 +65,7 @@ mock.module("@granite-js/react-native", () => ({
 	useParams: () => params,
 }));
 const appState = new Set<(state: string) => void>();
-mock.module("react-native", () => ({
+mock.module("../../apps/toss/src/web/primitives", () => ({
 	View: "view",
 	Text: "text",
 	ScrollView: "scroll",
@@ -69,31 +80,29 @@ mock.module("react-native", () => ({
 		},
 	},
 }));
-mock.module("react-native-safe-area-context", () => ({
+mock.module("../../apps/toss/src/web/safe-area", () => ({
 	useSafeAreaInsets: () => ({ top: 0, bottom: 24 }),
 }));
-mock.module("@toss/tds-react-native", () => ({
+mock.module("../../apps/toss/src/web/controls", () => ({
 	TDSProvider: host("tds"),
 	Button: "button",
 	Badge: "badge",
 	SegmentedControl: { Root: "segmented", Item: "item" },
 	ConfirmDialog: Object.assign(host("dialog"), { Button: "dialogButton" }),
 }));
-mock.module("@toss/tds-react-native/private", () => ({
+mock.module("../../apps/toss/src/web/accessibility", () => ({
 	HideAccessibilityProvider: host("accessible"),
 	HideAccessibilityView: "hiddenView",
 }));
-mock.module("@apps-in-toss/framework", () => ({
+mock.module("../../apps/toss/src/web/banner", () => ({
 	getOperationalEnvironment: () => "toss",
 	isMinVersionSupported: () => true,
+	isBannerSupported: async () => true,
 	InlineAd: (props: object) => {
 		if (!React.useContext(io).manager)
 			throw new Error("Ad outside Granite IO root");
 		return React.createElement("nativeAd", props);
 	},
-}));
-mock.module("@trailbase-apps-in-toss-kit/ait-rn/inline-ads", () => ({
-	isAppsInTossInlineAdSupported: async () => true,
 }));
 mock.module("../../apps/toss/src/api", () => ({
 	API_BASE: "https://insights.invalid",

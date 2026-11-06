@@ -21,7 +21,7 @@
 			"!**/worker-configuration.d.ts",
 			"!services/",
 			"!vendor/",
-			"!apps/toss/require.context.ts"
+			"!apps/toss/dist"
 		]
 	},
 	"formatter": {

@@ -2,7 +2,7 @@ import {
 	type AnalyticsEvent,
 	createAnalyticsRouter,
 	createBufferedAnalyticsSink,
-} from "@trailbase-apps-in-toss-kit/ait-rn/analytics";
+} from "@trailbase-apps-in-toss-kit/ait-web/analytics";
 import { GENERATION_AD_SETTINGS } from "./generation-ad-settings";
 
 export type AdMetric =

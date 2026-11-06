@@ -1,42 +1,15 @@
 import { expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
-import { createRequire } from "node:module";
-import path from "node:path";
 import { createContext, runInContext } from "node:vm";
-import graniteConfig from "../../apps/toss/granite.config";
 
-const require = createRequire(import.meta.url);
-const graniteRequire = createRequire(
-	require.resolve("@granite-js/react-native"),
-);
-const mpackRoot = path.dirname(
-	graniteRequire.resolve("@granite-js/mpack/package.json"),
-);
-const mpackRequire = createRequire(path.join(mpackRoot, "package.json"));
-const sdkPath = require.resolve("trailbase");
-
-test("the production-transformed SDK refreshes expired sessions and preserves 64-bit JSON values", async () => {
-	const source = readFileSync(sdkPath, "utf8");
-	// Use Granite's installed transform steps, including the same private-field assumptions.
-	const config = await graniteConfig;
-	const conditions = config.pluginConfigs.flatMap(
-		(pluginConfig) => pluginConfig.babel?.conditions ?? [],
-	);
-	const babel = conditions.some((condition) => condition(source, sdkPath));
-	const stepName = babel
-		? "createFullyTransformStep"
-		: "createTransformToHermesSyntaxStep";
-	const step = mpackRequire(
-		path.join(
-			mpackRoot,
-			"dist/bundler/plugins/transformPlugin/steps",
-			`${stepName}.js`,
-		),
-	)[stepName]({ dev: false, platform: "ios" });
-	const transformed = await step(source, { path: sdkPath });
-	const code = (
-		await mpackRequire("esbuild").transform(transformed.code, { format: "cjs" })
-	).code;
+test("browser-bundled TrailBase refreshes expired sessions and preserves 64-bit JSON values", async () => {
+	const built = await Bun.build({
+		entrypoints: [Bun.resolveSync("trailbase", import.meta.dir)],
+		target: "browser",
+		format: "cjs",
+		minify: true,
+	});
+	if (!built.success) throw new AggregateError(built.logs);
+	const code = await built.outputs[0].text();
 	const token = (expires: number) =>
 		`fixture.${Buffer.from(JSON.stringify({ sub: "fixture-user", exp: expires })).toString("base64url")}.fixture`;
 	const valid = token(Math.floor(Date.now() / 1000) + 3600);
@@ -75,7 +48,13 @@ test("the production-transformed SDK refreshes expired sessions and preserves 64
 	const realm = createContext({
 		module,
 		exports: module.exports,
-		require: mpackRequire,
+		Request,
+		Response,
+		Headers,
+		AbortController,
+		crypto,
+		TextEncoder,
+		TextDecoder,
 		URL,
 		URLSearchParams,
 		atob,
@@ -83,7 +62,7 @@ test("the production-transformed SDK refreshes expired sessions and preserves 64
 		fetch: transport,
 		console: { debug() {}, error() {} },
 	});
-	// Hermes lacks native raw JSON. Keep its fallback and BigInt prototype changes in this test realm.
+	// Some WebViews lack native raw JSON. Keep its fallback and BigInt prototype changes in this test realm.
 	runInContext("JSON.rawJSON = undefined; JSON.isRawJSON = undefined;", realm);
 	runInContext(code, realm, { timeout: 1000 });
 	const client = module.exports.initClient("https://runtime.invalid", {

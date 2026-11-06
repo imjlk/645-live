@@ -1,6 +1,6 @@
 import { expect, mock } from "bun:test";
 import * as React from "react";
-import { act, create, type ReactTestRenderer } from "react-test-renderer";
+import type { ReactTestRenderer } from "react-test-renderer";
 import type { AdFlow } from "../../apps/toss/src/ad-telemetry";
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
@@ -8,16 +8,31 @@ mock.module(
 	Bun.resolveSync("react", `${import.meta.dir}/../../apps/toss`),
 	() => React,
 );
+mock.module(
+	Bun.resolveSync(
+		"react",
+		Bun.resolveSync(
+			"react-test-renderer/package.json",
+			import.meta.dir,
+		).replace(/\/package.json$/, ""),
+	),
+	() => React,
+);
+const { act, create } = await import("react-test-renderer");
+
 const Dialog = Object.assign(
 	(props: Record<string, unknown>) =>
 		React.createElement("dialog", props, props.content as React.ReactNode),
 	{ Button: "button" },
 );
-mock.module("@toss/tds-react-native", () => ({
+mock.module("../../apps/toss/src/web/controls", () => ({
 	ConfirmDialog: Dialog,
 	Button: "ticket",
 }));
-mock.module("react-native", () => ({ View: "view", Text: "text" }));
+mock.module("../../apps/toss/src/web/primitives", () => ({
+	View: "view",
+	Text: "text",
+}));
 mock.module("../../apps/toss/src/theme", () => ({
 	useTheme: () => ({ muted: "#999" }),
 }));

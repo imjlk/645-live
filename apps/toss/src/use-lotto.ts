@@ -14,7 +14,7 @@ import {
 import type {
 	AdSkipControllerSnapshot,
 	AdSkipRedemptionReceipt,
-} from "@trailbase-apps-in-toss-kit/ait-rn/ad-skip";
+} from "@trailbase-apps-in-toss-kit/ait-web/ad-skip";
 import {
 	useCallback,
 	useEffect,
@@ -23,7 +23,6 @@ import {
 	useState,
 	useSyncExternalStore,
 } from "react";
-import { AccessibilityInfo, AppState } from "react-native";
 import {
 	type AdUnlockResult,
 	createAdController,
@@ -72,6 +71,7 @@ import { type ConnectionState, subscribeRealtime } from "./realtime";
 import { loadLottoStartup } from "./startup";
 import { adTelemetry, trackProduct } from "./telemetry";
 import { actionArea, rememberGeneration } from "./ux-state";
+import { AccessibilityInfo, AppState } from "./web/primitives";
 
 const NO_AD_SKIPS: AdSkipControllerSnapshot = {
 	balance: null,

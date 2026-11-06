@@ -94,13 +94,16 @@ try {
 }
 console.log(`[645 local] API: ${apiBase} · test ads on · live payments off`);
 if (process.argv.includes("--server-only")) process.exit(0);
-const metro = Bun.spawn(["bun", "x", "granite", "dev"], {
-	cwd: resolve(root, "apps/toss"),
-	env: { ...env, LOTTO_APP_ENV: "local", LOTTO_API_BASE_URL: apiBase },
-	stdin: "inherit",
-	stdout: "inherit",
-	stderr: "inherit",
-});
+const vite = Bun.spawn(
+	["bun", "x", "vite", "--host", "0.0.0.0", "--port", "3000"],
+	{
+		cwd: resolve(root, "apps/toss"),
+		env: { ...env, LOTTO_APP_ENV: "local", LOTTO_API_BASE_URL: apiBase },
+		stdin: "inherit",
+		stdout: "inherit",
+		stderr: "inherit",
+	},
+);
 for (const signal of ["SIGINT", "SIGTERM"] as const)
-	process.on(signal, () => metro.kill(signal));
-process.exit(await metro.exited);
+	process.on(signal, () => vite.kill(signal));
+process.exit(await vite.exited);

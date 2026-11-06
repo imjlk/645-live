@@ -1,19 +1,4 @@
-import { useIsFocused } from "@granite-js/native/@react-navigation/native";
-import {
-	ImpressionArea,
-	IOContext,
-	openURL,
-	useVisibility,
-} from "@granite-js/react-native";
 import { memo, useContext, useEffect, useRef, useState } from "react";
-import {
-	AppState,
-	Image,
-	Pressable,
-	StyleSheet,
-	Text,
-	View,
-} from "react-native";
 import { LOCAL_PREVIEW, publicGet } from "./api";
 import {
 	createShoppingCatalog,
@@ -24,6 +9,21 @@ import {
 } from "./shopping-recommendations";
 import { trackShopping } from "./telemetry";
 import { useTheme } from "./theme";
+import { useIsFocused } from "./web/navigation";
+import {
+	AppState,
+	Image,
+	Pressable,
+	StyleSheet,
+	Text,
+	View,
+} from "./web/primitives";
+import {
+	ImpressionArea,
+	IOContext,
+	openURL,
+	useVisibility,
+} from "./web/viewport";
 
 const catalog = createShoppingCatalog(() =>
 	publicGet("/api/app/v1/shopping/recommendations"),

@@ -5,16 +5,12 @@ import type {
 	RoundContext,
 } from "@645/lotto-core";
 import { parseNumbers } from "@645/lotto-core";
-import { getAnonymousKey, Storage } from "@apps-in-toss/framework";
 import {
 	type AdSkipRedemptionRequest,
 	createAdSkipRedemptionController,
 	normalizeAdSkipRedemptionReceipt,
-} from "@trailbase-apps-in-toss-kit/ait-rn/ad-skip";
-import {
-	createAppsInTossSessionStorage,
-	createPersistentJsonAtom,
-} from "@trailbase-apps-in-toss-kit/ait-rn/storage";
+} from "@trailbase-apps-in-toss-kit/ait-web/ad-skip";
+import { createPersistentJsonAtom } from "@trailbase-apps-in-toss-kit/ait-web/storage";
 import {
 	createAppsInTossSessionManager,
 	createTrailBaseTokenRefresher,
@@ -39,6 +35,7 @@ import type { GenerationResponse } from "./generation-request";
 import { resolveLottoRuntime } from "./runtime-config";
 import { createSavedStore } from "./saved-store";
 import { createPreferencesStore } from "./ux-state";
+import { createSessionStorage } from "./web/session";
 
 const runtime = resolveLottoRuntime(
 	import.meta.env.LOTTO_APP_ENV,
@@ -216,22 +213,7 @@ export function newRequestId() {
 export function createApi() {
 	// Bind progress to the principal whose config was loaded, not transient tokens.
 	let generationPrincipal = "";
-	const storage = createAppsInTossSessionStorage({
-		appKey: runtime.storageKey,
-		storage: {
-			getItem: (key) => connectionStep("C10", () => Storage.getItem(key)),
-			setItem: (key, value) =>
-				connectionStep("C11", () => Storage.setItem(key, value)),
-		},
-		// Explicit local preview uses the kit's persistent dev-anon identity.
-		getAnonymousKey: LOCAL_PREVIEW
-			? async () => undefined
-			: () => connectionStep("C20", getAnonymousKey),
-		production: !LOCAL_PREVIEW,
-		revalidateAnonymousHash: true,
-		allowFallback: false,
-		productionRequired: true,
-	});
+	const storage = createSessionStorage(runtime.storageKey, LOCAL_PREVIEW);
 	let client: ReturnType<typeof initClient> | null = null;
 	let currentUser: User | null = null;
 	let pending: Promise<User> | null = null;
@@ -293,21 +275,29 @@ export function createApi() {
 				signal,
 			),
 		bootstrap: async (anonymousHash, operation) => {
-			const response = await withTimeout(
-				async (signal) =>
-					readResponse<{
-						user: User;
-						authTokens: TrailBaseAuthTokens;
-					}>(
-						await fetch(`${API_BASE}/api/app/v1/session/bootstrap`, {
-							signal,
-							method: "POST",
-							headers: { "Content-Type": "application/json" },
-							body: JSON.stringify({ anonymousHash }),
-						}),
-					),
-				operation?.signal,
-			);
+			const response = await withTimeout(async (signal) => {
+				const body = LOCAL_PREVIEW
+					? { anonymousHash }
+					: await storage.adapter.createAnonymousKeyAuthCode();
+				signal.throwIfAborted();
+				const path = LOCAL_PREVIEW ? "bootstrap" : "bootstrap-code";
+				return readResponse<{
+					user: User;
+					authTokens: TrailBaseAuthTokens;
+				}>(
+					await fetch(`${API_BASE}/api/app/v1/session/${path}`, {
+						signal,
+						method: "POST",
+						headers: { "Content-Type": "application/json" },
+						body: JSON.stringify("code" in body ? { code: body.code } : body),
+					}),
+				);
+			}, operation?.signal);
+			if (
+				!LOCAL_PREVIEW &&
+				(await storage.adapter.anonymousHash()) !== anonymousHash
+			)
+				throw interrupted();
 			return { user: response.user, tokens: response.authTokens };
 		},
 		loadSession: async (input, operation) => {

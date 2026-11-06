@@ -1,17 +1,4 @@
 import {
-	CommonActions,
-	createNavigatorFactory,
-	type DefaultNavigatorOptions,
-	type ParamListBase,
-	type TabActionHelpers,
-	type TabNavigationState,
-	TabRouter,
-	type TabRouterOptions,
-	useNavigationBuilder,
-} from "@granite-js/native/@react-navigation/native";
-import { useBackEvent, useVisibility } from "@granite-js/react-native";
-import { Tab, TDSProvider } from "@toss/tds-react-native";
-import {
 	type PropsWithChildren,
 	startTransition,
 	useEffect,
@@ -20,23 +7,21 @@ import {
 	useRef,
 	useState,
 } from "react";
-import { StyleSheet, useWindowDimensions, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLottoContext } from "./LottoProvider";
 import { LottoScreen } from "./LottoScreen";
-import { type LottoTab, navigateToTab, TAB_BACK_BEHAVIOR } from "./navigation";
+import { type LottoTab, navigateToTab } from "./navigation";
 import { createPerformanceTracker } from "./performance";
 import { ResultNotificationPrompt } from "./ResultNotificationPrompt";
-import {
-	type SavedParams,
-	savedParams,
-	unreadSavedRounds,
-} from "./result-return";
+import { savedParams, unreadSavedRounds } from "./result-return";
 import { TabShellContext, useOverlayStack } from "./TabShell";
 import { trackProduct } from "./telemetry";
 import { useTheme } from "./theme";
+import { Tab } from "./web/controls";
+import { Focus, navigation, useRouteState } from "./web/navigation";
+import { StyleSheet, useWindowDimensions, View } from "./web/primitives";
+import { useSafeAreaInsets } from "./web/safe-area";
+import { useBackEvent, useVisibility } from "./web/viewport";
 
-type Options = Record<string, never>;
 const idleScheduler = globalThis as typeof globalThis & {
 	requestIdleCallback?: (
 		callback: () => void,
@@ -44,27 +29,19 @@ const idleScheduler = globalThis as typeof globalThis & {
 	) => number;
 	cancelIdleCallback?: (handle: number) => void;
 };
-type NavigatorProps = DefaultNavigatorOptions<
-	ParamListBase,
-	undefined,
-	TabNavigationState<ParamListBase>,
-	Options,
-	Options,
-	unknown
-> &
-	TabRouterOptions;
-
-function TabNavigator(props: NavigatorProps) {
-	const { state, navigation, descriptors, NavigationContent } =
-		useNavigationBuilder<
-			TabNavigationState<ParamListBase>,
-			TabRouterOptions,
-			TabActionHelpers<ParamListBase>,
-			Options,
-			Options
-		>(TabRouter, props);
-	const tab = state.routes[state.index].name as LottoTab;
-	const [loaded, setLoaded] = useState([state.routes[state.index].key]);
+export function LottoTabs() {
+	const { tab, saved } = useRouteState();
+	const state = {
+		index: ["make", "live", "saved"].indexOf(tab),
+		routes: (["make", "live", "saved"] as const).map((name) => ({
+			name,
+			key: name,
+			params: name === "saved" ? saved : undefined,
+		})),
+	};
+	const [loaded, setLoaded] = useState<string[]>([
+		state.routes[state.index].key,
+	]);
 	const performance = useMemo(() => createPerformanceTracker(trackProduct), []);
 	const pendingTab = useRef<{
 		tab: LottoTab;
@@ -143,27 +120,13 @@ function TabNavigator(props: NavigatorProps) {
 	const { overlay, presentOverlay } = useOverlayStack();
 	const backEvent = useBackEvent();
 	useLayoutEffect(() => {
-		if (!visible || (!overlay && state.history.length < 2)) return;
-		const back = () => {
-			if (overlay) overlay.onBack();
-			else
-				navigation.dispatch({ ...CommonActions.goBack(), target: state.key });
-		};
-		// Granite's header is outside this navigator. One handler forwards header
-		// and hardware Back to the sheet or to the standard tab history.
+		if (!visible || !overlay) return;
+		const back = () => overlay.onBack();
 		backEvent.addEventListener(back);
 		return () => backEvent.removeEventListener(back);
-	}, [
-		backEvent,
-		navigation,
-		overlay,
-		state.history.length,
-		state.key,
-		visible,
-	]);
-
+	}, [visible, overlay, backEvent]);
 	return (
-		<NavigationContent>
+		<>
 			<TabShellContext.Provider
 				value={{
 					tabBarHeight,
@@ -190,7 +153,9 @@ function TabNavigator(props: NavigatorProps) {
 									}
 								}}
 							>
-								{descriptors[route.key].render()}
+								<Focus.Provider value={visible && index === state.index}>
+									<LottoScreen tab={route.name} />
+								</Focus.Provider>
 							</TabScene>
 						) : null,
 					)}
@@ -257,7 +222,7 @@ function TabNavigator(props: NavigatorProps) {
 				</View>
 				<ResultNotificationPrompt />
 			</TabShellContext.Provider>
-		</NavigationContent>
+		</>
 	);
 }
 
@@ -266,65 +231,25 @@ function TabScene({
 	children,
 	onReady,
 }: PropsWithChildren<{ focused: boolean; onReady: () => void }>) {
-	const [measured, setMeasured] = useState(false);
-	const [ready, setReady] = useState(false);
-	useEffect(() => {
-		if (focused && ready) onReady();
-	}, [focused, ready, onReady]);
+	const callback = useRef(onReady);
+	callback.current = onReady;
 	useLayoutEffect(() => {
-		if (!measured) return;
-		const frame = requestAnimationFrame(() => setReady(true));
+		if (!focused) return;
+		const frame = requestAnimationFrame(() => callback.current());
 		return () => cancelAnimationFrame(frame);
-	}, [measured]);
+	}, [focused]);
 	return (
-		<View
-			style={[StyleSheet.absoluteFill, { opacity: focused && ready ? 1 : 0 }]}
-			pointerEvents={focused ? "auto" : "none"}
-			accessibilityElementsHidden={!focused}
-			importantForAccessibility={focused ? "auto" : "no-hide-descendants"}
-			onLayout={({ nativeEvent }) => {
-				if (nativeEvent.layout.width > 0 && nativeEvent.layout.height > 0)
-					setMeasured(true);
+		<div
+			aria-hidden={!focused}
+			style={{
+				position: "absolute",
+				inset: 0,
+				display: focused ? "flex" : "none",
+				flexDirection: "column",
 			}}
 		>
 			{children}
-		</View>
-	);
-}
-
-const Tabs = createNavigatorFactory(TabNavigator)();
-function MakeScreen() {
-	return <LottoScreen tab="make" />;
-}
-function LiveScreen() {
-	return <LottoScreen tab="live" />;
-}
-function SavedScreen() {
-	return <LottoScreen tab="saved" />;
-}
-
-export function LottoTabs({
-	initialTab = "make",
-	savedTarget,
-}: {
-	initialTab?: LottoTab;
-	savedTarget?: SavedParams;
-}) {
-	return (
-		<TDSProvider colorPreference="light" fontScaleAvailable>
-			<Tabs.Navigator
-				initialRouteName={initialTab}
-				backBehavior={TAB_BACK_BEHAVIOR}
-			>
-				<Tabs.Screen name="make" component={MakeScreen} />
-				<Tabs.Screen name="live" component={LiveScreen} />
-				<Tabs.Screen
-					name="saved"
-					component={SavedScreen}
-					initialParams={savedTarget}
-				/>
-			</Tabs.Navigator>
-		</TDSProvider>
+		</div>
 	);
 }
 

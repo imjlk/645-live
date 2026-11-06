@@ -2,13 +2,13 @@
 import { expect, mock } from "bun:test";
 
 let focused = true;
-mock.module("@granite-js/native/@react-navigation/native", () => ({
+mock.module("../../apps/toss/src/web/navigation", () => ({
 	useIsFocused: () => focused,
 }));
 
 import * as React from "react";
 import { createContext, createElement, useContext, useEffect } from "react";
-import { act, create, type ReactTestRenderer } from "react-test-renderer";
+import type { ReactTestRenderer } from "react-test-renderer";
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 // A hoisted renderer and app-local React must share one dispatcher in this harness.
@@ -16,6 +16,18 @@ mock.module(
 	Bun.resolveSync("react", `${import.meta.dir}/../../apps/toss`),
 	() => React,
 );
+mock.module(
+	Bun.resolveSync(
+		"react",
+		Bun.resolveSync(
+			"react-test-renderer/package.json",
+			import.meta.dir,
+		).replace(/\/package.json$/, ""),
+	),
+	() => React,
+);
+const { act, create } = await import("react-test-renderer");
+
 const io = createContext<{ manager: object | null }>({ manager: null });
 let visible = true;
 let mounts = 0;
@@ -54,7 +66,7 @@ let props = {
 	onAdClicked: () => {},
 	onAdFailedToRender: (_payload: { error: { code: number } }) => {},
 };
-mock.module("@granite-js/react-native", () => ({
+mock.module("../../apps/toss/src/web/viewport", () => ({
 	IOContext: io,
 	useVisibility: () => visible,
 	InView: ({
@@ -79,7 +91,8 @@ mock.module("@granite-js/react-native", () => ({
 		return children;
 	},
 }));
-mock.module("@apps-in-toss/framework", () => ({
+mock.module("../../apps/toss/src/web/banner", () => ({
+	isBannerSupported: async () => true,
 	InlineAd: (value: typeof props) => {
 		if (!useContext(io).manager) throw new Error("Missing native IO context");
 		useEffect(() => {
@@ -94,10 +107,7 @@ mock.module("@apps-in-toss/framework", () => ({
 	getOperationalEnvironment: () => "toss",
 	isMinVersionSupported: () => true,
 }));
-mock.module("@trailbase-apps-in-toss-kit/ait-rn/inline-ads", () => ({
-	isAppsInTossInlineAdSupported: async () => true,
-}));
-mock.module("react-native", () => ({
+mock.module("../../apps/toss/src/web/primitives", () => ({
 	View: "view",
 	Text: "text",
 	StyleSheet: { create: (value: unknown) => value },

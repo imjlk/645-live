@@ -4,17 +4,32 @@ const stored = new Map<string, string>();
 let writes = 0;
 let identity = "fixture-account-a";
 let identityFailure = false;
-mock.module("@apps-in-toss/framework", () => ({
+const codes = new Map<string, string>();
+let seq = 0;
+mock.module("@apps-in-toss/web-framework", () => ({
 	Storage: {
+		removeItem: async (key: string) => {
+			stored.delete(key);
+		},
 		getItem: async (key: string) => stored.get(key) ?? null,
 		setItem: async (key: string, value: string) => {
 			writes++;
 			stored.set(key, value);
 		},
 	},
-	getAnonymousKey: async () => {
-		if (identityFailure) throw new Error("native identity unavailable");
-		return { type: "HASH", hash: identity };
+	User: {
+		createAnonymousKeyAuthCode: Object.assign(
+			async () => {
+				const code = "test-code-" + ++seq;
+				codes.set(code, identity);
+				return { code, expiresIn: 300 };
+			},
+			{ isSupported: () => true },
+		),
+		getAnonymousKey: async () => {
+			if (identityFailure) throw new Error("native identity unavailable");
+			return { type: "HASH", hash: identity };
+		},
 	},
 }));
 
@@ -53,11 +68,16 @@ globalThis.fetch = (async (
 	options?: RequestInit,
 ) => {
 	const path = new URL(String(input)).pathname;
-	if (path.endsWith("/bootstrap")) {
+	if (path.endsWith("/bootstrap-code")) {
 		bootstraps++;
 		bootstrapSignal = options?.signal ?? undefined;
 		await bootstrapWait;
-		const id = principal(JSON.parse(String(options?.body)).anonymousHash);
+		const body = JSON.parse(String(options?.body));
+		expect(Object.keys(body)).toEqual(["code"]);
+		const hash = codes.get(body.code);
+		if (!hash) throw new Error("unknown or reused code");
+		codes.delete(body.code);
+		const id = principal(hash);
 		return Response.json({
 			user: user(id),
 			authTokens: { authToken: jwt(id), refreshToken: id },
@@ -211,7 +231,7 @@ api.dispose();
 identityFailure = true;
 api = createApi();
 const beforeIdentityFailure = stored.get(key);
-await expect(api.ensure()).rejects.toThrow("anonymous key");
+await expect(api.ensure()).rejects.toThrow("anonymous identity");
 expect(stored.get(key)).toBe(beforeIdentityFailure);
 expect(bootstraps).toBe(1);
 api.dispose();

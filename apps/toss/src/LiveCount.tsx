@@ -1,5 +1,6 @@
 import { LIVE_COUNT_MOTION_MS } from "@645/lotto-core";
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useTheme } from "./theme";
 import {
 	Animated,
 	Easing,
@@ -8,8 +9,7 @@ import {
 	Text,
 	type TextStyle,
 	View,
-} from "react-native";
-import { useTheme } from "./theme";
+} from "./web/primitives";
 
 export function useLiveCount(count: number, reducedMotion: boolean) {
 	const progress = useRef(new Animated.Value(1)).current;
@@ -27,7 +27,7 @@ export function useLiveCount(count: number, reducedMotion: boolean) {
 			toValue: 1,
 			duration: LIVE_COUNT_MOTION_MS,
 			easing: Easing.linear,
-			useNativeDriver: true,
+			useNativeDriver: false,
 			isInteraction: false,
 		});
 		animation.start();

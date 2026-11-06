@@ -8,28 +8,7 @@ import {
 	resultFingerprint,
 	type SavedCombination,
 } from "@645/lotto-core";
-import { getTossShareLink, share } from "@apps-in-toss/framework";
-import {
-	useIsFocused,
-	useNavigation,
-} from "@granite-js/native/@react-navigation/native";
-import {
-	ImpressionArea,
-	IOScrollView,
-	useVisibility,
-} from "@granite-js/react-native";
-import {
-	BottomSheet,
-	Button,
-	IconButton,
-	SegmentedControl,
-	Switch,
-	Tab,
-} from "@toss/tds-react-native";
-import {
-	HideAccessibilityProvider,
-	HideAccessibilityView,
-} from "@toss/tds-react-native/private";
+import { getTossShareLink, share } from "@apps-in-toss/web-framework";
 import {
 	type ReactNode,
 	useCallback,
@@ -39,18 +18,6 @@ import {
 	useRef,
 	useState,
 } from "react";
-import {
-	ActivityIndicator,
-	Alert,
-	Pressable,
-	RefreshControl,
-	ScrollView,
-	StyleSheet,
-	Text,
-	useWindowDimensions,
-	View,
-} from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AdCtaImpression } from "./AdCtaImpression";
 import { AttendancePanel } from "./AttendancePanel";
 import { adSkipLabel } from "./ad-skip";
@@ -72,7 +39,6 @@ import { LocalTestPanel } from "./LocalTestPanel";
 import { useLottoContext } from "./LottoProvider";
 import {
 	type LottoTab,
-	type LottoTabNavigation,
 	navigateToGenerationResults,
 	navigateToInsights,
 	navigateToNumberStatistics,
@@ -96,6 +62,32 @@ import {
 	savedRounds,
 	savedSummary,
 } from "./ux-state";
+import {
+	HideAccessibilityProvider,
+	HideAccessibilityView,
+} from "./web/accessibility";
+import {
+	BottomSheet,
+	Button,
+	IconButton,
+	SegmentedControl,
+	Switch,
+	Tab,
+} from "./web/controls";
+import { useIsFocused, useNavigation } from "./web/navigation";
+import {
+	ActivityIndicator,
+	Alert,
+	Pressable,
+	RefreshControl,
+	ScrollView,
+	StyleSheet,
+	Text,
+	useWindowDimensions,
+	View,
+} from "./web/primitives";
+import { useSafeAreaInsets } from "./web/safe-area";
+import { ImpressionArea, IOScrollView, useVisibility } from "./web/viewport";
 
 type Panel =
 	| "custom"
@@ -142,7 +134,7 @@ export function LottoScreen({ tab = "make" }: { tab?: LottoTab }) {
 function LottoContent({ tab }: { tab: LottoTab }) {
 	const { model, options, setOptions, liveColumns, setLiveColumns } =
 		useLottoContext();
-	const navigation = useNavigation<LottoTabNavigation>();
+	const navigation = useNavigation();
 	const focused = useIsFocused();
 	const visible = useVisibility() && focused;
 	const navigateTab = (value: string) => {

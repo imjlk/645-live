@@ -5,16 +5,27 @@ import {
 	type SavedCombination,
 } from "@645/lotto-core";
 import * as React from "react";
-import { act, create } from "react-test-renderer";
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 mock.module(
 	Bun.resolveSync("react", `${import.meta.dir}/../../apps/toss`),
 	() => React,
 );
+mock.module(
+	Bun.resolveSync(
+		"react",
+		Bun.resolveSync(
+			"react-test-renderer/package.json",
+			import.meta.dir,
+		).replace(/\/package.json$/, ""),
+	),
+	() => React,
+);
+const { act, create } = await import("react-test-renderer");
+
 const host = (name: string) => (props: Record<string, unknown>) =>
 	React.createElement(name, props, props.children as React.ReactNode);
-mock.module("react-native", () => ({
+mock.module("../../apps/toss/src/web/primitives", () => ({
 	View: "view",
 	Text: "text",
 	ScrollView: "scroll",
@@ -25,10 +36,10 @@ mock.module("react-native", () => ({
 	StyleSheet: { create: (styles: unknown) => styles },
 	useWindowDimensions: () => ({ width: 390, height: 844 }),
 }));
-mock.module("react-native-safe-area-context", () => ({
+mock.module("../../apps/toss/src/web/safe-area", () => ({
 	useSafeAreaInsets: () => ({ top: 0, bottom: 0 }),
 }));
-mock.module("@apps-in-toss/framework", () => ({
+mock.module("@apps-in-toss/web-framework", () => ({
 	getTossShareLink: async () => "",
 	share: async () => {},
 }));
@@ -45,7 +56,7 @@ const nativeStack = {
 		visible = false;
 	},
 };
-mock.module("@granite-js/native/@react-navigation/native", () => ({
+mock.module("../../apps/toss/src/web/navigation", () => ({
 	useIsFocused: () => focused,
 	useNavigation: () => ({
 		getState: () => ({ index: 0, routes: [{ name: currentTab }] }),
@@ -60,7 +71,7 @@ mock.module("@granite-js/native/@react-navigation/native", () => ({
 		getParent: () => nativeStack,
 	}),
 }));
-mock.module("@granite-js/react-native", () => ({
+mock.module("../../apps/toss/src/web/viewport", () => ({
 	IOScrollView: "scroll",
 	ImpressionArea: "impression",
 	useVisibility: () => visible,
@@ -71,11 +82,11 @@ mock.module("@granite-js/react-native", () => ({
 		push: (name: string, params: object) => nativeStack.push(name, params),
 	}),
 }));
-mock.module("@toss/tds-react-native/private", () => ({
+mock.module("../../apps/toss/src/web/accessibility", () => ({
 	HideAccessibilityProvider: host("accessible"),
 	HideAccessibilityView: "hiddenView",
 }));
-mock.module("@toss/tds-react-native", () => ({
+mock.module("../../apps/toss/src/web/controls", () => ({
 	TDSProvider: host("tds"),
 	Button: "button",
 	IconButton: "iconButton",

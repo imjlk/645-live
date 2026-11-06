@@ -47,21 +47,13 @@ export function syncReleaseLock(source, version) {
 	);
 }
 
-export function validateRuntime(source) {
-	for (const [key, expected] of Object.entries({
-		LOTTO_APP_ENV: "production",
-		LOTTO_API_BASE_URL: API_BASE,
-	})) {
-		const values = [
-			...source.matchAll(
-				new RegExp(`["']?${key}["']?\\s*:\\s*["']([^"']+)["']`, "g"),
-			),
-		];
-		assert(
-			values.length > 0 && values.every((match) => match[1] === expected),
-			`Bundle has an invalid ${key}`,
-		);
-	}
+export function validateRuntime(runtime) {
+	assert.equal(
+		runtime.LOTTO_APP_ENV,
+		"production",
+		"Expected a production build",
+	);
+	assert.equal(runtime.LOTTO_API_BASE_URL, API_BASE, "Wrong API origin");
 }
 
 export function validateReceipt(receipt, { version, commit, tag, digest }) {
@@ -95,19 +87,30 @@ async function inspect(bytes) {
 	const sdk = reader.toAppJson()._metadata.sdkVersion;
 	assert.equal(
 		sdk,
-		manifest().dependencies["@apps-in-toss/framework"],
+		manifest().dependencies["@apps-in-toss/web-framework"],
 		"Artifact SDK differs from the pinned SDK",
 	);
-	const bundles = reader
-		.listEntries()
-		.filter((name) => /^bundle\.(ios|android)\..*\.js$/.test(name));
-	assert(
-		bundles.some((name) => name.startsWith("bundle.ios.")) &&
-			bundles.some((name) => name.startsWith("bundle.android.")),
-		"Both native platforms must be bundled",
+	const entries = reader.listEntries();
+	assert(entries.includes("sources/index.html"), "Missing WebView entry page");
+	const html = new TextDecoder().decode(
+		await reader.readEntry("sources/index.html"),
 	);
-	for (const name of bundles)
-		validateRuntime(new TextDecoder().decode(await reader.readEntry(name)));
+	const script = /<script[^>]*src="(?:\.\/|\/)?(assets\/[^"?#]+\.js)"/.exec(
+		html,
+	)?.[1];
+	assert(
+		script && entries.includes("sources/" + script),
+		"Missing WebView entry script",
+	);
+	const bundles = entries.filter(
+		(name) => name.startsWith("sources/assets/") && name.endsWith(".js"),
+	);
+	const runtime = JSON.parse(
+		new TextDecoder().decode(
+			await reader.readEntry("sources/lotto-runtime.json"),
+		),
+	);
+	validateRuntime(runtime);
 	return { deploymentId: reader.deploymentId, sdk, bundles };
 }
 

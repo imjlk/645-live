@@ -1,4 +1,3 @@
-import { ConfirmDialog } from "@toss/tds-react-native";
 import {
 	useCallback,
 	useEffect,
@@ -9,6 +8,7 @@ import {
 import { useLottoContext } from "./LottoProvider";
 import { useTabShell } from "./TabShell";
 import { trackProduct } from "./telemetry";
+import { ConfirmDialog } from "./web/controls";
 
 /** One host for all tabs; do not open the native consent sheet until TDS has exited. */
 export function ResultNotificationPrompt() {

@@ -1,8 +1,8 @@
-import { Pressable, StyleSheet, Text, View } from "react-native";
 import type { Attendance } from "./api";
 import { attendanceInstruction, attendanceReady } from "./attendance-progress";
 import { pointWindowHeadline } from "./reward-policy";
 import { useTheme } from "./theme";
+import { Pressable, StyleSheet, Text, View } from "./web/primitives";
 
 export function GeneratorAttendanceEntry({
 	attendance,

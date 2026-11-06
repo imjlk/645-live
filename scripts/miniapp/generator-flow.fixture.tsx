@@ -10,15 +10,26 @@ import {
 import {
 	type AdSkipRedemptionRequest,
 	createAdSkipRedemptionController,
-} from "@trailbase-apps-in-toss-kit/ait-rn/ad-skip";
+} from "@trailbase-apps-in-toss-kit/ait-web/ad-skip";
 import * as React from "react";
-import { act, create } from "react-test-renderer";
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 mock.module(
 	Bun.resolveSync("react", `${import.meta.dir}/../../apps/toss`),
 	() => React,
 );
+mock.module(
+	Bun.resolveSync(
+		"react",
+		Bun.resolveSync(
+			"react-test-renderer/package.json",
+			import.meta.dir,
+		).replace(/\/package.json$/, ""),
+	),
+	() => React,
+);
+const { act, create } = await import("react-test-renderer");
+
 const { createGenerationCooldown } = await import(
 	"../../apps/toss/src/generation-cooldown"
 );
@@ -52,7 +63,7 @@ const appState = {
 		return { remove: () => appStates.delete(listener) };
 	},
 };
-mock.module("react-native", () => ({
+mock.module("../../apps/toss/src/web/primitives", () => ({
 	AccessibilityInfo: {
 		isReduceMotionEnabled: async () => true,
 		addEventListener: () => ({ remove() {} }),

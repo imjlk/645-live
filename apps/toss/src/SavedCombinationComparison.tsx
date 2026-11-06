@@ -1,11 +1,11 @@
 import type { Generation, SavedCombination } from "@645/lotto-core";
-import { Button } from "@toss/tds-react-native";
 import { useMemo, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
 import { Balls } from "./Balls";
 import { savedComparison } from "./saved-comparison";
 import { trackProduct } from "./telemetry";
 import { useTheme } from "./theme";
+import { Button } from "./web/controls";
+import { StyleSheet, Text, View } from "./web/primitives";
 
 export function SavedCombinationComparison({
 	generation,

@@ -16,19 +16,18 @@ test("release lock refresh preserves every dependency resolution", () => {
 	expect(() => syncReleaseLock(lock + lock, "1.0.0")).toThrow();
 });
 
-test("release uploads reject development and mixed-runtime artifacts", () => {
-	expect(() =>
-		validateRuntime(
-			'const env = { LOTTO_APP_ENV: "production", LOTTO_API_BASE_URL: "https://trail.645.live" };',
-		),
-	).not.toThrow();
-	for (const source of [
-		'LOTTO_APP_ENV: "local", LOTTO_API_BASE_URL: "http://127.0.0.1:4015"',
-		'LOTTO_APP_ENV: "production", LOTTO_API_BASE_URL: "https://wrong.example"',
-		'LOTTO_APP_ENV: "production", LOTTO_APP_ENV: "local", LOTTO_API_BASE_URL: "https://trail.645.live"',
-		"// No runtime configuration was compiled",
+test("release builds bind the WebView runtime to the production origin", () => {
+	const runtime = {
+		LOTTO_APP_ENV: "production",
+		LOTTO_API_BASE_URL: "https://trail.645.live",
+	};
+	expect(() => validateRuntime(runtime)).not.toThrow();
+	for (const changed of [
+		{ ...runtime, LOTTO_APP_ENV: "local" },
+		{ ...runtime, LOTTO_API_BASE_URL: "https://wrong.example" },
+		{},
 	])
-		expect(() => validateRuntime(source)).toThrow();
+		expect(() => validateRuntime(changed)).toThrow();
 });
 
 test("release identity binds the version, tag, commit and exact artifact bytes", () => {

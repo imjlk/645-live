@@ -1,5 +1,11 @@
 import { expect, test } from "bun:test";
-import { createRequire } from "node:module";
+import {
+	CommonActions,
+	StackActions,
+	StackRouter,
+	TabActions,
+	TabRouter,
+} from "@react-navigation/routers";
 import {
 	numberStatisticsParams,
 	resultsParams,
@@ -13,20 +19,6 @@ import {
 	navigateToTab,
 	TAB_BACK_BEHAVIOR,
 } from "../../apps/toss/src/navigation";
-
-// Exercise the router shipped with Granite, not an app-owned imitation of a stack.
-const require = createRequire(import.meta.url);
-const nativeRequire = createRequire(
-	require.resolve("@granite-js/native/package.json"),
-);
-const navigationRequire = createRequire(
-	nativeRequire.resolve("@react-navigation/native"),
-);
-const coreRequire = createRequire(
-	navigationRequire.resolve("@react-navigation/core"),
-);
-const { TabRouter, TabActions, CommonActions, StackRouter, StackActions } =
-	await import(coreRequire.resolve("@react-navigation/routers"));
 
 function fixture(initialRouteName: LottoTab = "make") {
 	const router = TabRouter({

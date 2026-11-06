@@ -2,11 +2,11 @@ import {
 	getOperationalEnvironment,
 	requestReview,
 	Storage,
-} from "@apps-in-toss/framework";
-import { AppState } from "react-native";
+} from "@apps-in-toss/web-framework";
 import { LOCAL_PREVIEW } from "./api";
 import { createReviewRequest } from "./review-request";
 import { trackProduct } from "./telemetry";
+import { AppState } from "./web/primitives";
 
 const reviews = createReviewRequest({
 	storage: Storage,

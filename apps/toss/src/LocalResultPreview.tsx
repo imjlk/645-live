@@ -1,11 +1,11 @@
 import { compareDraw, type Draw, parseNumbers } from "@645/lotto-core";
-import { Button } from "@toss/tds-react-native";
 import { useEffect, useState } from "react";
-import { Text, View } from "react-native";
 import { LOCAL_PREVIEW } from "./api";
 import { Balls } from "./Balls";
 import { Celebration } from "./Celebration";
 import { useTheme } from "./theme";
+import { Button } from "./web/controls";
+import { Text, View } from "./web/primitives";
 
 export function LocalResultPreview({
 	draw,

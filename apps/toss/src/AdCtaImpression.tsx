@@ -1,7 +1,7 @@
-import { ImpressionArea } from "@granite-js/react-native";
 import { type ReactNode, useEffect, useMemo, useReducer, useRef } from "react";
 import { type AdFlow, createAdFlow } from "./ad-telemetry";
 import { adTelemetry } from "./telemetry";
+import { ImpressionArea } from "./web/viewport";
 
 type RunAdAttempt = (
 	action: (flow: AdFlow | undefined) => Promise<unknown>,

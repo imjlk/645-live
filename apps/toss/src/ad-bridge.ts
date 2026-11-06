@@ -1,14 +1,13 @@
 import {
 	getOperationalEnvironment,
 	loadFullScreenAd,
-	requestNotificationAgreement,
 	showFullScreenAd,
-} from "@apps-in-toss/framework";
+} from "@apps-in-toss/web-framework";
+import { createAppsInTossWebAdapter } from "@trailbase-apps-in-toss-kit/ait-web";
 import {
 	AppsInTossAdBridgeError,
 	createAppsInTossFullScreenAdBridge,
-} from "@trailbase-apps-in-toss-kit/ait-rn/ads";
-import { createAppsInTossNotificationAgreementBridge } from "@trailbase-apps-in-toss-kit/ait-rn/notifications";
+} from "@trailbase-apps-in-toss-kit/ait-web/ads";
 import { type AdFlow, createAdFlow } from "./ad-telemetry";
 import { type AdPlacement, type Api, apiErrorCode, LOCAL_PREVIEW } from "./api";
 import { adTelemetry } from "./telemetry";
@@ -301,11 +300,11 @@ export async function setResultNotification(
 ) {
 	let result = "agreementRejected";
 	if (enabled) {
-		const bridge = createAppsInTossNotificationAgreementBridge({
-			requestNotificationAgreement,
-			production: true,
+		const bridge = createAppsInTossWebAdapter({
+			appKey: "645-live",
+			loadSdk: () => import("@apps-in-toss/web-framework"),
 		});
-		const response = await bridge.requestAgreement({ templateCode });
+		const response = await bridge.requestNotificationAgreement(templateCode);
 		result = response.result;
 	}
 	await api.request("/api/app/v1/notifications/agreement", {

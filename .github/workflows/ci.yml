@@ -103,15 +103,19 @@ jobs:
           targets: wasm32-wasip2
           components: rustfmt
       - run: bun install --frozen-lockfile
-      - name: Check and test the native app
+      - name: Check and test the WebView app
         run: |
           bun run miniapp:check
           bun run miniapp:test
           bunx biome check apps/toss packages/lotto-core
-      - name: Build the native miniapp
+      - name: Build the WebView miniapp
         env:
           LOTTO_APP_ENV: production
-        run: bun run toss build
+        run: bun scripts/miniapp/release.mjs build
+      - name: Open the packaged WebView and navigate in Chromium
+        run: |
+          bun x playwright install --with-deps --only-shell chromium
+          bun scripts/miniapp/webview-browser-smoke.mjs
       - name: Check WASM
         run: |
           cargo fmt --manifest-path services/trailbase/miniapp-guest/Cargo.toml -- --check

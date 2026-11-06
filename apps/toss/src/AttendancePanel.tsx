@@ -1,6 +1,4 @@
-import { Button } from "@toss/tds-react-native";
 import { useEffect, useRef } from "react";
-import { Alert, StyleSheet, Text, View } from "react-native";
 import { LOCAL_PREVIEW, type Promotion } from "./api";
 import { attendanceInstruction, attendanceReady } from "./attendance-progress";
 import { createPromotionRefresh } from "./promotion-refresh";
@@ -13,6 +11,8 @@ import {
 } from "./reward-policy";
 import { useTheme } from "./theme";
 import type { LottoModel } from "./use-lotto";
+import { Button } from "./web/controls";
+import { Alert, StyleSheet, Text, View } from "./web/primitives";
 
 function Reward({ reward, model }: { reward: Promotion; model: LottoModel }) {
 	const theme = useTheme();

@@ -1,9 +1,9 @@
 import type { CombinationReport } from "@645/lotto-core";
-import { Button } from "@toss/tds-react-native";
-import { ActivityIndicator, Pressable, Text, View } from "react-native";
 import { LOCAL_PREVIEW } from "./api";
 import { Balls } from "./Balls";
 import { useTheme } from "./theme";
+import { Button } from "./web/controls";
+import { ActivityIndicator, Pressable, Text, View } from "./web/primitives";
 
 export type ReportState =
 	| { data: CombinationReport; error?: never }

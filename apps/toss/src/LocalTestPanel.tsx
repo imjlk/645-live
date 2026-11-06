@@ -1,9 +1,9 @@
-import { Button } from "@toss/tds-react-native";
 import { useEffect, useRef } from "react";
-import { Text, View } from "react-native";
 import { API_BASE, LOCAL_PREVIEW, type LocalAttendanceAction } from "./api";
 import { useTheme } from "./theme";
 import type { LottoModel } from "./use-lotto";
+import { Button } from "./web/controls";
+import { Text, View } from "./web/primitives";
 
 const SCENARIOS = [
 	["day_seven", "7일 출석 직전"],

@@ -1,9 +1,3 @@
-import type {
-	NavigationProp,
-	NavigationState,
-	TabActionHelpers,
-} from "@granite-js/native/@react-navigation/native";
-import type { NativeStackNavigationProp } from "@granite-js/native/@react-navigation/native-stack";
 import type { InsightsParams, ResultsParams } from "./insights-route";
 import type { SavedParams } from "./result-return";
 
@@ -13,8 +7,21 @@ export type LottoTabParams = {
 	live: undefined;
 	saved: SavedParams | undefined;
 };
-export type LottoTabNavigation = NavigationProp<LottoTabParams> &
-	TabActionHelpers<LottoTabParams>;
+export type NavigationState = {
+	index: number;
+	routes: { name: string }[];
+	type?: string;
+};
+export type DetailPath = "/numbers" | "/insights" | "/results";
+export type LottoTabNavigation = {
+	getState(): NavigationState;
+	jumpTo(tab: LottoTab, params?: SavedParams): void;
+	setParams(params: SavedParams): void;
+	getParent(): {
+		getState(): NavigationState;
+		push(path: DetailPath, params: InsightsParams): void;
+	};
+};
 // Keep the visit sequence like a browser, while TabRouter retains only three
 // screen instances. History entries contain route keys, not native controllers.
 export const TAB_BACK_BEHAVIOR = "fullHistory" as const;
@@ -78,14 +85,7 @@ function navigateToDetail(
 	if (!visible) return false;
 	const tabs = navigation.getState();
 	if (tabs.routes[tabs.index]?.name !== tab) return false;
-	const parent =
-		navigation.getParent<
-			NativeStackNavigationProp<{
-				"/insights": InsightsParams;
-				"/results": ResultsParams;
-				"/numbers": import("./insights-route").NumberStatisticsParams;
-			}>
-		>();
+	const parent = navigation.getParent();
 	if (!parent) return false;
 	const stack = parent.getState();
 	// A stale tab callback cannot place another detail above the first push.

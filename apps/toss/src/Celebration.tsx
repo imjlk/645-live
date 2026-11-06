@@ -5,7 +5,7 @@ import {
 	StyleSheet,
 	useWindowDimensions,
 	View,
-} from "react-native";
+} from "./web/primitives";
 
 const CONFETTI_COLORS = ["#D9A300", "#3182F6", "#F04452", "#6B7684", "#209966"];
 const CONFETTI_COUNT = 48;
@@ -41,13 +41,13 @@ export function Celebration({ onDone }: { onDone: () => void }) {
 				duration: CONFETTI_EXPLOSION_MS,
 				easing: Easing.out(Easing.quad),
 				toValue: 1,
-				useNativeDriver: true,
+				useNativeDriver: false,
 			}),
 			Animated.timing(animation, {
 				duration: CONFETTI_FALL_MS,
 				easing: Easing.quad,
 				toValue: 2,
-				useNativeDriver: true,
+				useNativeDriver: false,
 			}),
 		]);
 		sequence.start(({ finished }) => {
