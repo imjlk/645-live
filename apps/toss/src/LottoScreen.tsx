@@ -1624,6 +1624,40 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 							<Text style={[s.body, text]}>
 								{model.user?.displayName ?? "연결을 확인하고 있어요"}
 							</Text>
+							{model.adFree.enabled ? (
+								<View style={{ gap: 8 }}>
+									<Text style={[s.body, text]}>
+										{model.adFree.owned ? "광고 제거 이용 중" : "광고 제거"}
+									</Text>
+									<Text style={[s.caption, muted]}>
+										한 번 구매하면 배너와 번호 생성 광고가 사라져요. 맞춤
+										설정·분석·출석 복구 광고는 별도예요.
+									</Text>
+									{!model.adFree.owned && model.adFree.price ? (
+										<Button
+											display="full"
+											disabled={model.adFree.busy}
+											onPress={() => void model.adFree.purchase()}
+										>
+											{model.adFree.price}에 구매하기
+										</Button>
+									) : null}
+									<Button
+										display="full"
+										type="dark"
+										style="weak"
+										disabled={model.adFree.busy}
+										onPress={() => void model.adFree.restore()}
+									>
+										구매 복원
+									</Button>
+									{model.adFree.message ? (
+										<Text style={[s.caption, muted]}>
+											{model.adFree.message}
+										</Text>
+									) : null}
+								</View>
+							) : null}
 							{model.attendance?.promotionTestEnabled ? (
 								<View style={{ gap: 12 }}>
 									<Text style={[s.body, text]}>프로모션 연동 테스트</Text>

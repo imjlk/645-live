@@ -56,6 +56,7 @@ export type LocalAttendanceAction =
 	  }
 	| { action: "restore" };
 export type AdConfig = {
+	adFreeSku?: string | null;
 	placements: {
 		placement: AdPlacement;
 		enabled: boolean;
@@ -392,6 +393,7 @@ export function createApi() {
 		});
 	}
 	return {
+		purchase: storage.adapter.purchase,
 		ensure,
 		request,
 		preferences: createPreferencesStore(

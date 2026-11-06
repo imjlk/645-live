@@ -83,7 +83,7 @@ pub(crate) async fn config(req: &mut Request) -> ApiResult<Json> {
         feed_inline_groups.extend(inline_banner.clone());
     }
     Ok(
-        json!({"featureAccess":"basic","featureAdPolicy":{"minUses":3,"maxUses":15},"placements":placements,"passes":passes,"testMode":test,"bannerGroupId":inline_banner,"bannerGroups":{"inline":inline_banner,"card":card_banner},"feedInlineGroupIds":feed_inline_groups,"generationAdRequired":generation_ad_required,"generationAdPolicy":generation_ad_policy,"serverTime":now}),
+        json!({"adFreeSku":settings::string("AIT_AD_FREE_SKU"),"featureAccess":"basic","featureAdPolicy":{"minUses":3,"maxUses":15},"placements":placements,"passes":passes,"testMode":test,"bannerGroupId":inline_banner,"bannerGroups":{"inline":inline_banner,"card":card_banner},"feedInlineGroupIds":feed_inline_groups,"generationAdRequired":generation_ad_required,"generationAdPolicy":generation_ad_policy,"serverTime":now}),
     )
 }
 /// The global usage cap and cooldown span placements to limit full-screen ad pressure.

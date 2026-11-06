@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 
 mod activity;
+mod ad_free;
 mod ad_skips;
 mod ads;
 mod attendance;
@@ -82,6 +83,7 @@ endpoint!(generate, lotto::generate);
 endpoint!(delete_generation, lotto::delete_generation);
 endpoint!(heartbeat, auth::heartbeat);
 endpoint!(disconnect, auth::disconnect);
+endpoint!(verify_ad_free, ad_free::verify);
 endpoint!(ad_config, ads::config);
 endpoint!(metric_ingest, metrics::ingest);
 endpoint!(shopping_recommendations, shopping::get);
@@ -114,6 +116,7 @@ impl Guest for Miniapp {
             routing::post("/api/web/v1/lotto/heartbeat", web_heartbeat),
             routing::post("/api/app/v1/session/bootstrap", bootstrap),
             routing::post("/api/app/v1/session/bootstrap-code", bootstrap_code),
+            routing::post("/api/app/v1/iap/ad-free/verify", verify_ad_free),
             routing::post("/api/app/v1/metrics", metric_ingest),
             routing::get("/api/app/v1/session/me", session),
             routing::post("/api/app/v1/session/me", session),

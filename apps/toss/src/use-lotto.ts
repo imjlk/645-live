@@ -28,6 +28,7 @@ import {
 	createAdController,
 	setResultNotification,
 } from "./ad-bridge";
+import { withoutPurchasedAds } from "./ad-free";
 import {
 	AD_SKIP_UNKNOWN,
 	adSkipChoice,
@@ -70,6 +71,7 @@ import type { ReportState } from "./ReportHistory";
 import { type ConnectionState, subscribeRealtime } from "./realtime";
 import { loadLottoStartup } from "./startup";
 import { adTelemetry, trackProduct } from "./telemetry";
+import { useAdFree } from "./use-ad-free";
 import { actionArea, rememberGeneration } from "./ux-state";
 import { AccessibilityInfo, AppState } from "./web/primitives";
 
@@ -186,7 +188,7 @@ export function useLotto() {
 	const [reports, setReports] = useState<Record<string, ReportState>>({});
 	const [results, setResults] = useState<Record<number, Draw>>({});
 	const [resultsLoading, setResultsLoading] = useState(false);
-	const [adConfig, setAdConfig] = useState<AdConfig | null>(null);
+	const [rawAdConfig, setAdConfig] = useState<AdConfig | null>(null);
 	const [attendance, setAttendance] = useState<Attendance | null>(null);
 	const adSkips = useMemo(() => (user ? api.adSkips(user) : null), [api, user]);
 	const adSkipState = useSyncExternalStore(
@@ -205,6 +207,13 @@ export function useLotto() {
 	const [foreground, setForeground] = useState(
 		AppState.currentState !== "background" &&
 			AppState.currentState !== "inactive",
+	);
+	const adFree = useAdFree(api, user?.id, rawAdConfig?.adFreeSku, foreground);
+	const checkingPurchase = adFree.enabled && !adFree.checked;
+	const suppressAds = adFree.owned || checkingPurchase;
+	const adConfig = useMemo(
+		() => (suppressAds ? withoutPurchasedAds(rawAdConfig) : rawAdConfig),
+		[rawAdConfig, suppressAds],
 	);
 	const [reducedMotion, setReducedMotion] = useState(true);
 	const [celebration, setCelebration] = useState<string | null>(null);
@@ -485,11 +494,13 @@ export function useLotto() {
 		(adConfig.generationAdPolicy?.counter !== "device" || generationAds.ready);
 	const generationReady =
 		experimentReady &&
+		!checkingPurchase &&
 		(!requiresAttendanceForGeneration(adConfig?.generationAdPolicy) ||
 			!!attendance);
 	useEffect(() => {
 		if (
 			experimentReady &&
+			!suppressAds &&
 			foreground &&
 			adConfig?.generationAdPolicy?.experiment &&
 			!exposedPolicies.current.has(exposureKey)
@@ -502,6 +513,7 @@ export function useLotto() {
 		}
 	}, [
 		experimentReady,
+		suppressAds,
 		foreground,
 		adConfig?.generationAdPolicy?.experiment,
 		generationPolicyLabel,
@@ -849,11 +861,13 @@ export function useLotto() {
 			setPublishedGenerationId(response.generation.id);
 			setRecent((items) => rememberGeneration(items, response.generation));
 			trackProduct("generation_succeeded");
-			adTelemetry.track("generation_succeeded", {
-				placement: "generation_continue",
-				policy: generationPolicyLabel,
-			});
-			if (deviceCounter) api.generationAds.generated(response.generation.id);
+			if (!suppressAds)
+				adTelemetry.track("generation_succeeded", {
+					placement: "generation_continue",
+					policy: generationPolicyLabel,
+				});
+			if (deviceCounter && !suppressAds)
+				api.generationAds.generated(response.generation.id);
 			setAdConfig((previous) =>
 				previous
 					? {
@@ -940,6 +954,7 @@ export function useLotto() {
 		markResultsViewed,
 		results,
 		resultsLoading,
+		adFree,
 		adConfig,
 		generationCooling,
 		generationAdRequired:
@@ -1024,12 +1039,13 @@ export function useLotto() {
 			// Enforce one second from the tap; actionLock covers slow requests and ads.
 			generationCooldown.start();
 			trackProduct("generation_started");
-			adTelemetry.track("generation_attempted", {
-				placement: "generation_continue",
-				policy: generationPolicyLabel,
-			});
+			if (!suppressAds)
+				adTelemetry.track("generation_attempted", {
+					placement: "generation_continue",
+					policy: generationPolicyLabel,
+				});
 			const adFlow =
-				watchAd && !useTicket
+				!suppressAds && watchAd && !useTicket
 					? (impressionFlow ??
 						createAdFlow(adTelemetry, {
 							placement: "generation_continue",
@@ -1041,13 +1057,13 @@ export function useLotto() {
 					adConfig?.generationAdPolicy?.counter === "device";
 				if (deviceCounter)
 					await api.generationAds.load(adConfig.generationAdPolicy);
-				if (useTicket) {
+				if (!suppressAds && useTicket) {
 					if (!deviceCounter)
 						throw new Error("앱을 업데이트한 뒤 스킵권을 사용할 수 있어요.");
 					// The prompt is settled before generating; a failed generation is
 					// retried without charging again.
 					setNotice(adSkipNotice(await redeemAdSkip("generation_continue")));
-				} else if (watchAd) {
+				} else if (!suppressAds && watchAd) {
 					// Only the explicitly labelled ad CTA may open a full-screen ad.
 					const result = await adsController.unlock(
 						"generation_continue",
@@ -1063,7 +1079,12 @@ export function useLotto() {
 					if (result?.continuedWithoutAd)
 						setNotice("광고를 불러오지 못해 바로 이어서 만들어요.");
 				}
-				await generateOne(options, context, deviceCounter, adFlow);
+				await generateOne(
+					options,
+					context,
+					deviceCounter || adFree.owned,
+					adFlow,
+				);
 			});
 		},
 		save: (generation: Generation) => run("save", () => save(generation)),
@@ -1140,6 +1161,7 @@ export function useLotto() {
 			}),
 		unlock: (feature: AdPlacement) =>
 			run(`unlock-${feature}`, async () => {
+				if (feature === "generation_continue" && suppressAds) return;
 				let outcome: AdUnlockResult;
 				let refreshed = true;
 				try {
