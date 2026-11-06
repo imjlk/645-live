@@ -51,3 +51,6 @@ Reward grace end is a separate runtime setting (`AIT_REWARD_LEGACY_POINTS_ENDS_A
 exclusive epoch milliseconds). Verify it in Coolify and the mounted runtime settings
 before release; a campaign end date or an eligibility claim deadline is not that value.
 Preserve earned claims through their existing deadline. See `OPERATIONS.md`.
+
+
+SQL editor report 24 compares daily ticket use, generation ad revenue and D1/D7 server activity across the existing cadence arms from November 6 (KST). Builds through 2.0.0 did not mirror v4 exposure events. The report uses server records after enrollment for daily activity and requires both format reports before showing revenue.
