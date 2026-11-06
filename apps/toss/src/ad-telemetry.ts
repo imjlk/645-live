@@ -3,6 +3,7 @@ import {
 	createAnalyticsRouter,
 	createBufferedAnalyticsSink,
 } from "@trailbase-apps-in-toss-kit/ait-web/analytics";
+import { GENERATION_AD_EXPERIMENT } from "./generation-ad-experiment";
 import { GENERATION_AD_SETTINGS } from "./generation-ad-settings";
 
 export type AdMetric =
@@ -164,7 +165,8 @@ export function bindAdMetrics(
 			events.filter(
 				(e) =>
 					e.eventPayload.placement === "generation_continue" &&
-					e.eventPayload.policy.startsWith("generation-cadence-v3/"),
+					(e.eventPayload.policy.startsWith(`${GENERATION_AD_EXPERIMENT}/`) ||
+						e.eventPayload.policy.startsWith("generation-cadence-v3/")),
 			),
 			{ sink: "detail" },
 		);

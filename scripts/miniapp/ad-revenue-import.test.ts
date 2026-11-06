@@ -136,3 +136,71 @@ test("cohort queries keep receipt-time observations and stop costs at the next p
 
 	db.close();
 });
+
+test("skip efficiency uses enrolled server activity without SDK events and waits for complete days and revenue", () => {
+	const db = database();
+	const day0 = Date.parse("2026-11-06T00:00:00+09:00");
+	const tomorrow = day0 + 86_400_000;
+	db.exec(`
+		CREATE TABLE ait_lotto_generation_requests(user_id BLOB,created_at INTEGER);
+		CREATE TABLE ait_lotto_attendance(user_id BLOB,created_at INTEGER);
+		CREATE TABLE ad_skip_ticket_grants(user_id BLOB,created_at INTEGER,cause TEXT,quantity INTEGER);
+		CREATE TABLE ad_skip_opportunities(user_id BLOB,resolved_at INTEGER,placement TEXT,resolution TEXT);
+		INSERT INTO _user VALUES (x'01'),(x'02'),(x'03');
+		INSERT INTO ait_lotto_generation_experiment_enrollments VALUES
+		  (x'01','generation-cadence-v4','control',${day0 + 100}),
+		  (x'02','generation-cadence-v4','control',${day0}),
+		  (x'03','generation-cadence-v4','short',${day0});
+		INSERT INTO ad_skip_ticket_grants VALUES (x'01',${day0 + 101},'streak_bonus',3);
+		INSERT INTO ad_skip_opportunities VALUES
+		  (x'01',${day0 + 1},'generation_continue','TICKET'),
+		  (x'01',${day0 + 105},'generation_continue','TICKET'),
+		  (x'01',${day0 + 110},'generation_continue','AD'),
+		  (x'01',${day0 + 115},'generation_continue','FREE'),
+		  (x'01',${day0 + 120},'report','TICKET');
+		INSERT INTO ait_lotto_attendance VALUES (x'01',${tomorrow});
+		INSERT INTO ait_lotto_generation_requests VALUES (x'02',${tomorrow});
+		INSERT INTO ait_lotto_ad_revenue_daily VALUES ('2026-11-06','${a}',2,5,1000);
+	`);
+	const sql = readFileSync(
+		join(root, "services/trailbase/sql/24-generation-v4-skip-efficiency.sql"),
+		"utf8",
+	);
+	function controlOnSixth(now: string) {
+		const rows = db.query(sql.replaceAll("'now'", `'${now}'`)).all() as Record<
+			string,
+			unknown
+		>[];
+		return rows.find(
+			(row) => row.한국시간_날짜 === "2026-11-06" && row.실험군 === "control",
+		);
+	}
+	expect(controlOnSixth("2026-11-07 14:59:59")).toMatchObject({
+		서버활동자: 2,
+		SDK노출자: 0,
+		출석발급장수: 3,
+		생성스킵_사용자: 1,
+		활동자_사용률_pct: 50,
+		생성스킵_장수: 1,
+		광고로_해결: 1,
+		무료로_해결: 1,
+		해결중_스킵선택_pct: 50,
+		생성광고_예상수익_원: null,
+		D1_pct: null,
+		D7_pct: null,
+	});
+	db.exec(
+		`INSERT INTO ait_lotto_ad_revenue_daily VALUES ('2026-11-06','${b}',0,0,1000)`,
+	);
+	expect(controlOnSixth("2026-11-07 15:00:00")).toMatchObject({
+		생성광고_예상수익_원: 5,
+		활동자당_생성수익_원: 2.5,
+		D1_재방문자: 1,
+		D1_pct: 50,
+		D7_pct: null,
+	});
+	db.exec("DELETE FROM ait_lotto_generation_requests");
+	expect(controlOnSixth("2026-11-07 15:00:00")?.D1_pct).toBe(50);
+	expect(controlOnSixth("2026-11-13 15:00:00")?.D7_pct).toBe(0);
+	db.close();
+});
