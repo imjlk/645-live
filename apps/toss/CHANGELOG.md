@@ -1,5 +1,11 @@
 # @645/toss
 
+## 2.0.1 — 2026-11-06
+
+### Patch changes
+
+- [6801899](https://github.com/imjlk/645-live/commit/6801899c38af02b44c956b565edb02de93693565) 번호 생성 실험의 활동 지표 동기화를 수정했습니다.
+
 ## 2.0.0 — 2026-11-06
 
 ### Major changes
