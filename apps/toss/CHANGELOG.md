@@ -1,5 +1,11 @@
 # @645/toss
 
+## 2.0.0 — 2026-11-06
+
+### Major changes
+
+- [53ca304](https://github.com/imjlk/645-live/commit/53ca30400b73996a221e679855eccf2f62c5fadb) 번호 생성기 화면을 앱인토스 WebView SDK 3으로 전환했습니다.
+
 ## 1.9.1 — 2026-11-05
 
 ### Patch changes
