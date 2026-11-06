@@ -42,7 +42,7 @@ RUN chmod +x /app/entrypoint.sh \
   && apk add --no-cache libstdc++ libgcc \
   && bun --version
 
-ENV CORS_ALLOWED_ORIGINS="https://www.645.live,https://645.live" \
+ENV CORS_ALLOWED_ORIGINS="https://www.645.live,https://645.live,https://645-live.apps.tossmini.com,https://645-live.private-apps.tossmini.com" \
     BACKFILL_ON_STARTUP="true" \
     BACKFILL_DRAWS="true" \
     BACKFILL_DRAW_LATEST_ROUNDS="30" \

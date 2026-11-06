@@ -70,6 +70,7 @@ macro_rules! endpoint {
     };
 }
 endpoint!(bootstrap, auth::bootstrap);
+endpoint!(bootstrap_code, auth::bootstrap_code);
 endpoint!(session, auth::session);
 endpoint!(withdraw, auth::withdraw);
 endpoint!(round_context, lotto::round_context);
@@ -112,6 +113,7 @@ impl Guest for Miniapp {
             routing::post("/api/web/v1/lotto/withdraw", web_withdraw),
             routing::post("/api/web/v1/lotto/heartbeat", web_heartbeat),
             routing::post("/api/app/v1/session/bootstrap", bootstrap),
+            routing::post("/api/app/v1/session/bootstrap-code", bootstrap_code),
             routing::post("/api/app/v1/metrics", metric_ingest),
             routing::get("/api/app/v1/session/me", session),
             routing::post("/api/app/v1/session/me", session),

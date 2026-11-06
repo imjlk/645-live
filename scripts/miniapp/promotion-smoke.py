@@ -51,6 +51,7 @@ def check_forward_migration():
 
 def run():
     check_forward_migration()
+    codes = {"fixture-web-code"}
     grants = []
     prepared = set()
     recipients = {}
@@ -89,7 +90,13 @@ def run():
                 if key in recipients and recipients[key] != data['anonKey']:
                     self.send_error(400, 'recipient must match the prepared key')
                     return
-            if self.path.endswith('/anonymous-key/verify'):
+            if self.path.endswith('/anonymous-key/exchange'):
+                if data.get('code') not in codes:
+                    self.send_error(400)
+                    return
+                codes.remove(data['code'])
+                result = {'ok': True, 'mode': 'forward', 'anonKey': 'fixture-same-account'}
+            elif self.path.endswith('/anonymous-key/verify'):
                 result = {'valid': True, 'mode': 'forward'}
             elif self.path.endswith('/promotion/reward/prepare'):
                 with provider_lock:
@@ -158,6 +165,14 @@ def run():
                     time.sleep(.2)
                 else:
                     raise AssertionError('Promotion fixture guest startup failed')
+                legacy_status, legacy = request(base, '/api/app/v1/session/bootstrap', {'anonymousHash': 'ait:fixture-same-account'})
+                expect(legacy_status, 200, 'native session')
+                web_path = '/api/app/v1/session/bootstrap-code'
+                web_status, web = request(base, web_path, {'code': 'fixture-web-code'})
+                expect(web_status, 200, 'WebView fresh-code session')
+                assert web['user']['id'] == legacy['user']['id'] and 'anonKey' not in web
+                expect(request(base, web_path, {'code': 'fixture-web-code'})[0], 401, 'code replay rejected')
+                expect(request(base, web_path, {'anonymousHash': 'ait:fixture-same-account'})[0], 400, 'hash rejected on web route')
                 seed = 'dev-anon-' + uuid.uuid4().hex
                 status, session = request(base, '/api/app/v1/session/bootstrap', {'anonymousHash': seed})
                 expect(status, 200, 'promotion fixture bootstrap')
