@@ -30,7 +30,9 @@ const server = Bun.serve({
 });
 let browser;
 try {
-	browser = await chromium.launch();
+	browser = await chromium.launch({
+		channel: process.env.PLAYWRIGHT_CHROMIUM_CHANNEL,
+	});
 	const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
 	const errors = [];
 	page.on("pageerror", (error) => errors.push(error.message));

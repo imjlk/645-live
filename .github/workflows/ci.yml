@@ -88,9 +88,10 @@ jobs:
         run: bun --cwd packages/trailbase-adapter -- test --run
 
   miniapp:
-    # Playwright 1.59 ships Chromium for Ubuntu 24.04.
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    env:
+      PLAYWRIGHT_CHROMIUM_CHANNEL: chrome
     steps:
       - uses: actions/checkout@v4
         with:
@@ -114,9 +115,7 @@ jobs:
           LOTTO_APP_ENV: production
         run: bun scripts/miniapp/release.mjs build
       - name: Open the packaged WebView and navigate in Chromium
-        run: |
-          bun x playwright install --with-deps --only-shell chromium
-          bun scripts/miniapp/webview-browser-smoke.mjs
+        run: bun scripts/miniapp/webview-browser-smoke.mjs
       - name: Check WASM
         run: |
           cargo fmt --manifest-path services/trailbase/miniapp-guest/Cargo.toml -- --check
@@ -128,7 +127,7 @@ jobs:
           python3 scripts/miniapp/bootstrap-timing-smoke.py
           python3 scripts/miniapp/smoke.py --bots-only
           python3 scripts/miniapp/promotion-smoke.py
-          python3 scripts/miniapp/local-smoke.py
+          python3 scripts/miniapp/local-smoke.py --browser
           python3 scripts/miniapp/feed-smoke.py
           python3 scripts/miniapp/web-smoke.py
           python3 scripts/miniapp/generation-ad-smoke.py

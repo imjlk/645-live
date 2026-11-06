@@ -24,6 +24,8 @@ export default defineConfig(({ command }) => {
 			},
 		],
 		define: {
+			// The DOM animation driver cancels in-flight frames through global.
+			global: "globalThis",
 			"import.meta.env.LOTTO_APP_ENV": JSON.stringify(env),
 			"import.meta.env.LOTTO_API_BASE_URL": JSON.stringify(base),
 		},
