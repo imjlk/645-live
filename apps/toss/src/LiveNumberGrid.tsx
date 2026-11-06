@@ -1,5 +1,7 @@
 import { ballColor, type Feed } from "@645/lotto-core";
 import { memo, useMemo, useState } from "react";
+import { LiveCount, useLiveCount } from "./LiveCount";
+import { useTheme } from "./theme";
 import {
 	Animated,
 	Pressable,
@@ -7,9 +9,7 @@ import {
 	Text,
 	useWindowDimensions,
 	View,
-} from "react-native";
-import { LiveCount, useLiveCount } from "./LiveCount";
-import { useTheme } from "./theme";
+} from "./web/primitives";
 
 const NUMBERS = Array.from({ length: 45 }, (_, i) => i + 1);
 

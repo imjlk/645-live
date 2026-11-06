@@ -1,12 +1,23 @@
 import { expect, mock } from "bun:test";
 import * as React from "react";
-import { act, create } from "react-test-renderer";
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 mock.module(
 	Bun.resolveSync("react", `${import.meta.dir}/../../apps/toss`),
 	() => React,
 );
+mock.module(
+	Bun.resolveSync(
+		"react",
+		Bun.resolveSync(
+			"react-test-renderer/package.json",
+			import.meta.dir,
+		).replace(/\/package.json$/, ""),
+	),
+	() => React,
+);
+const { act, create } = await import("react-test-renderer");
+
 const io = React.createContext<{ manager: object | null }>({ manager: null });
 let focused = true,
 	shown = true,
@@ -38,7 +49,7 @@ globalThis.clearTimeout = (timer) => {
 	refreshTimers.delete(timer);
 	originalClearTimeout(timer);
 };
-mock.module("react-native", () => ({
+mock.module("../../apps/toss/src/web/primitives", () => ({
 	View: "view",
 	Text: "text",
 	Pressable: "pressable",
@@ -52,10 +63,10 @@ mock.module("react-native", () => ({
 		},
 	},
 }));
-mock.module("@granite-js/native/@react-navigation/native", () => ({
+mock.module("../../apps/toss/src/web/navigation", () => ({
 	useIsFocused: () => focused,
 }));
-mock.module("@granite-js/react-native", () => ({
+mock.module("../../apps/toss/src/web/viewport", () => ({
 	IOContext: io,
 	useVisibility: () => shown,
 	ImpressionArea: (p: Record<string, unknown>) =>

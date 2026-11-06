@@ -1,13 +1,24 @@
 import { expect, mock } from "bun:test";
 import * as React from "react";
-import { act, create } from "react-test-renderer";
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 mock.module(
 	Bun.resolveSync("react", `${import.meta.dir}/../../apps/toss`),
 	() => React,
 );
-mock.module("react-native", () => ({
+mock.module(
+	Bun.resolveSync(
+		"react",
+		Bun.resolveSync(
+			"react-test-renderer/package.json",
+			import.meta.dir,
+		).replace(/\/package.json$/, ""),
+	),
+	() => React,
+);
+const { act, create } = await import("react-test-renderer");
+
+mock.module("../../apps/toss/src/web/primitives", () => ({
 	View: "view",
 	Text: "text",
 	Pressable: "pressable",

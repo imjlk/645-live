@@ -1,4 +1,4 @@
-import { eventLog } from "@apps-in-toss/framework";
+import { Analytics } from "@apps-in-toss/web-framework";
 import { version } from "../package.json";
 import { createAdTelemetry } from "./ad-telemetry";
 import { LOCAL_PREVIEW } from "./api";
@@ -12,7 +12,7 @@ export const adTelemetry = createAdTelemetry((event) => {
 		console.info("[lotto analytics]", event.log_name, event.params);
 		return;
 	}
-	return eventLog(event);
+	return Analytics.log(event);
 }, version);
 
 export const trackShopping = createShoppingTelemetry((event) => {
@@ -20,7 +20,7 @@ export const trackShopping = createShoppingTelemetry((event) => {
 		console.info("[lotto analytics]", event.log_name, event.params);
 		return;
 	}
-	return eventLog(event);
+	return Analytics.log(event);
 }, version);
 
 export const trackProduct = createProductTelemetry((event) => {
@@ -28,5 +28,5 @@ export const trackProduct = createProductTelemetry((event) => {
 		console.info("[lotto analytics]", event.log_name, event.params);
 		return;
 	}
-	return eventLog(event);
+	return Analytics.log(event);
 }, version);

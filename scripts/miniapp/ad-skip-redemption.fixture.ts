@@ -3,7 +3,7 @@ import {
 	type AdSkipRedemptionRequest,
 	createAdSkipRedemptionController,
 	normalizeAdSkipRedemptionReceipt,
-} from "../../vendor/trailbase-apps-in-toss-kit/packages/ait-rn/src/ad-skip";
+} from "@trailbase-apps-in-toss-kit/ait-web/ad-skip";
 
 // Called only against the disposable attendance smoke server and synthetic user.
 const [, , base, rawHeaders] = process.argv;

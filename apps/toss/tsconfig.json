@@ -3,20 +3,14 @@
 		"target": "ESNext",
 		"module": "ESNext",
 		"moduleResolution": "bundler",
-		"lib": ["ESNext"],
-		"types": ["react-native", "node"],
-		"jsx": "react-native",
+		"lib": ["ESNext", "DOM", "DOM.Iterable"],
+		"types": ["node", "vite/client"],
+		"jsx": "react-jsx",
 		"esModuleInterop": true,
 		"strict": true,
 		"skipLibCheck": true,
 		"resolveJsonModule": true
 	},
-	"include": [
-		"src",
-		"pages",
-		"index.ts",
-		"require.context.ts",
-		"granite.config.ts"
-	],
+	"include": ["src", "vite.config.ts", "apps-in-toss.config.ts"],
 	"exclude": ["**/*.test.ts", "node_modules"]
 }

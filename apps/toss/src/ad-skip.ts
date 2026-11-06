@@ -2,7 +2,7 @@ import {
 	type AdSkipChoice,
 	type AdSkipRedemptionReceipt,
 	resolveAdSkipChoice,
-} from "@trailbase-apps-in-toss-kit/ait-rn/ad-skip";
+} from "@trailbase-apps-in-toss-kit/ait-web/ad-skip";
 import type { AdPlacement, AdSkipStatus, Attendance } from "./api";
 
 /**

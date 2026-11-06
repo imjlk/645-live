@@ -1,13 +1,13 @@
-import { Button, ConfirmDialog } from "@toss/tds-react-native";
-import type { AdSkipChoice } from "@trailbase-apps-in-toss-kit/ait-rn/ad-skip";
+import type { AdSkipChoice } from "@trailbase-apps-in-toss-kit/ait-web/ad-skip";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { Text, View } from "react-native";
 import { adSkipLabel } from "./ad-skip";
 import { type AdFlow, createAdFlow } from "./ad-telemetry";
 import { FEATURE_AD_POLICY } from "./feature-ad-counter";
 import { useTabShell } from "./TabShell";
 import { adTelemetry } from "./telemetry";
 import { useTheme } from "./theme";
+import { Button, ConfirmDialog } from "./web/controls";
+import { Text, View } from "./web/primitives";
 export type FeatureRequest = {
 	feature: "custom" | "report";
 	action: () => void;

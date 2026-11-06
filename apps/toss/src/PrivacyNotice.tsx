@@ -1,5 +1,5 @@
-import { StyleSheet, Text, View } from "react-native";
 import { useTheme } from "./theme";
+import { StyleSheet, Text, View } from "./web/primitives";
 
 const sections = [
 	{

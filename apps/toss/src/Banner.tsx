@@ -1,12 +1,4 @@
 import {
-	getOperationalEnvironment,
-	InlineAd,
-	isMinVersionSupported,
-} from "@apps-in-toss/framework";
-import { useIsFocused } from "@granite-js/native/@react-navigation/native";
-import { InView, IOContext, useVisibility } from "@granite-js/react-native";
-import { isAppsInTossInlineAdSupported } from "@trailbase-apps-in-toss-kit/ait-rn/inline-ads";
-import {
 	memo,
 	useCallback,
 	useContext,
@@ -15,11 +7,14 @@ import {
 	useRef,
 	useState,
 } from "react";
-import { StyleSheet, Text, View } from "react-native";
 import { type AdMetric, createAdFlow } from "./ad-telemetry";
 import { LOCAL_PREVIEW } from "./api";
 import { adTelemetry } from "./telemetry";
 import { useTheme } from "./theme";
+import { InlineAd, isBannerSupported } from "./web/banner";
+import { useIsFocused } from "./web/navigation";
+import { StyleSheet, Text, View } from "./web/primitives";
+import { InView, IOContext, useVisibility } from "./web/viewport";
 
 const SLOT_FORMAT = {
 	generator: "inline",
@@ -121,11 +116,7 @@ function BannerSlot({
 	useEffect(() => {
 		if (!entered) return;
 		let active = true;
-		void isAppsInTossInlineAdSupported({
-			InlineAd,
-			getOperationalEnvironment,
-			isMinVersionSupported,
-		})
+		void isBannerSupported()
 			.then((value) => {
 				if (active) setSupported(value);
 			})
@@ -161,6 +152,12 @@ function BannerSlot({
 			{entered && supported && !unavailable ? (
 				<View style={format === "card" ? s.cardSlot : undefined}>
 					<InlineAd
+						onUnavailable={() => {
+							if (active.current) {
+								track("banner_failed");
+								if (!hasRendered.current) setUnavailable(true);
+							}
+						}}
 						adGroupId={groupId}
 						theme="auto"
 						tone="grey"

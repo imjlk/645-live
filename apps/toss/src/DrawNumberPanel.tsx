@@ -1,6 +1,4 @@
-import { Button } from "@toss/tds-react-native";
 import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import { type AdConfig, API_BASE } from "./api";
 import { Balls } from "./Balls";
 import { Banner } from "./Banner";
@@ -9,6 +7,8 @@ import {
 	type DrawNumberStatistics,
 } from "./draw-statistics";
 import { useTheme } from "./theme";
+import { Button } from "./web/controls";
+import { ActivityIndicator, StyleSheet, Text, View } from "./web/primitives";
 
 const client = createDrawStatisticsClient(API_BASE);
 export function DrawNumberPanel({

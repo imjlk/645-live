@@ -9,7 +9,6 @@ import {
 	numberActivity,
 	sum,
 } from "@645/lotto-core";
-import { Button, SegmentedControl } from "@toss/tds-react-native";
 import {
 	useEffect,
 	useMemo,
@@ -17,6 +16,13 @@ import {
 	useState,
 	useSyncExternalStore,
 } from "react";
+import { type AdConfig, API_BASE } from "./api";
+import { Balls } from "./Balls";
+import { Banner } from "./Banner";
+import { createPerformanceTracker } from "./performance";
+import { trackProduct } from "./telemetry";
+import { useTheme } from "./theme";
+import { Button, SegmentedControl } from "./web/controls";
 import {
 	ActivityIndicator,
 	AppState,
@@ -25,13 +31,7 @@ import {
 	StyleSheet,
 	Text,
 	View,
-} from "react-native";
-import { type AdConfig, API_BASE } from "./api";
-import { Balls } from "./Balls";
-import { Banner } from "./Banner";
-import { createPerformanceTracker } from "./performance";
-import { trackProduct } from "./telemetry";
-import { useTheme } from "./theme";
+} from "./web/primitives";
 
 const percent = (n: number) => `${(n * 100).toFixed(1)}%`;
 export function ActivityPanel({

@@ -7,7 +7,7 @@ import {
 
 const originalFetch = globalThis.fetch;
 const kit = await import("@trailbase-apps-in-toss-kit/trailbase-client");
-const storageKit = await import("@trailbase-apps-in-toss-kit/ait-rn/storage");
+
 let fetchPath: (path: string) => Promise<Response>;
 let bootstrapCount = 0;
 let adEnvironment = "toss";
@@ -32,9 +32,9 @@ type AdCallbacks = {
 const json = (value: unknown, status = 200) =>
 	new Response(JSON.stringify(value), { status });
 
-mock.module("@apps-in-toss/framework", () => ({
+mock.module("@apps-in-toss/web-framework", () => ({
 	Storage: {},
-	eventLog: async () => {},
+	Analytics: { log: async () => {} },
 	getAnonymousKey: async () => "fixture",
 	getOperationalEnvironment: () => adEnvironment,
 	loadFullScreenAd: Object.assign(
@@ -69,25 +69,30 @@ mock.module("@apps-in-toss/framework", () => ({
 		},
 		{ isSupported: () => true },
 	),
-	requestNotificationAgreement: ({
-		onEvent,
-		onError,
-	}: {
-		onEvent: (event: { type: string }) => void;
-		onError: (error: Error) => void;
-	}) => {
-		queueMicrotask(() =>
-			notificationResult === "cancelled"
-				? onError(new Error("cancelled"))
-				: onEvent({ type: notificationResult }),
-		);
-		return () => {};
+	Notification: {
+		requestAgreement: ({
+			onEvent,
+			onError,
+		}: {
+			onEvent: (event: { type: string }) => void;
+			onError: (error: Error) => void;
+		}) => {
+			queueMicrotask(() =>
+				notificationResult === "cancelled"
+					? onError(new Error("cancelled"))
+					: onEvent({ type: notificationResult }),
+			);
+			return () => {};
+		},
 	},
 }));
-mock.module("@trailbase-apps-in-toss-kit/ait-rn/storage", () => ({
-	...storageKit,
-	createAppsInTossSessionStorage: () => ({
-		storage: { getItem: () => null, setItem: () => {} },
+mock.module("./web/session", () => ({
+	createSessionStorage: () => ({
+		storage: { getItem: async () => null, setItem: async () => {} },
+		adapter: {
+			createAnonymousKeyAuthCode: async () => ({ code: "test-code" }),
+			anonymousHash: async () => "ait:fixture-identity",
+		},
 	}),
 }));
 mock.module("@trailbase-apps-in-toss-kit/trailbase-client", () => ({

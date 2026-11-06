@@ -1,4 +1,4 @@
-import { Button } from "@toss/tds-react-native";
+import { Button } from "./web/controls";
 
 export function GenerationResultsLink({ onPress }: { onPress: () => void }) {
 	return (

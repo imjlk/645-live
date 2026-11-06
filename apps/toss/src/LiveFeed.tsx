@@ -1,11 +1,16 @@
 import type { Feed, Generation } from "@645/lotto-core";
-import {
-	IOFlatList,
-	type IOFlatListController,
-	useVisibility,
-} from "@granite-js/react-native";
-import { Button, SegmentedControl } from "@toss/tds-react-native";
 import { memo, useEffect, useMemo, useRef, useState } from "react";
+import type { AdConfig } from "./api";
+import { Balls } from "./Balls";
+import { Banner } from "./Banner";
+import { type FeedRow, shuffleAdGroups, withFeedAds } from "./feed-ad-slots";
+import type { createFeedHistory, FeedHistory } from "./feed-history";
+import { GenerationResultsLink } from "./GenerationResultsLink";
+import { LiveTotal } from "./LiveCount";
+import { LiveNumberGrid } from "./LiveNumberGrid";
+import type { ConnectionState } from "./realtime";
+import { useTheme } from "./theme";
+import { Button, SegmentedControl } from "./web/controls";
 import {
 	ActivityIndicator,
 	RefreshControl,
@@ -13,17 +18,12 @@ import {
 	Text,
 	useWindowDimensions,
 	View,
-} from "react-native";
-import type { AdConfig } from "./api";
-import { Balls } from "./Balls";
-import { Banner } from "./Banner";
-import { shuffleAdGroups, withFeedAds } from "./feed-ad-slots";
-import type { createFeedHistory, FeedHistory } from "./feed-history";
-import { GenerationResultsLink } from "./GenerationResultsLink";
-import { LiveTotal } from "./LiveCount";
-import { LiveNumberGrid } from "./LiveNumberGrid";
-import type { ConnectionState } from "./realtime";
-import { useTheme } from "./theme";
+} from "./web/primitives";
+import {
+	IOFlatList,
+	type IOFlatListController,
+	useVisibility,
+} from "./web/viewport";
 
 export function relativeTime(at: number, now: number) {
 	const seconds = Math.max(0, Math.floor((now - at) / 1000));
@@ -138,7 +138,7 @@ export function LiveFeed({
 		const timer = setTimeout(() => setHighlightId(null), 6000);
 		return () => clearTimeout(timer);
 	}, [confirmedId, visible]);
-	const list = useRef<IOFlatListController>(null);
+	const list = useRef<IOFlatListController<FeedRow>>(null);
 	const scrollOffset = useRef(0);
 	const gridChangeOffset = useRef<number | null>(null);
 	const lastRound = useRef(history.round);

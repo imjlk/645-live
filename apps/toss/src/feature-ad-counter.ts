@@ -1,5 +1,5 @@
-import { createAdSkipRequestId } from "@trailbase-apps-in-toss-kit/ait-rn/ad-skip";
-import { createPersistentJsonAtom } from "@trailbase-apps-in-toss-kit/ait-rn/storage";
+import { createAdSkipRequestId } from "@trailbase-apps-in-toss-kit/ait-web/ad-skip";
+import { createPersistentJsonAtom } from "@trailbase-apps-in-toss-kit/ait-web/storage";
 import type { Storage } from "./saved-store";
 export const FEATURE_AD_MIN_USES = 3;
 export const FEATURE_AD_MAX_USES = 15;

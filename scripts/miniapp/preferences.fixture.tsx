@@ -1,13 +1,25 @@
 import { expect, mock } from "bun:test";
 import { EMPTY_OPTIONS } from "@645/lotto-core";
 import * as React from "react";
-import { act, create, type ReactTestRenderer } from "react-test-renderer";
+import type { ReactTestRenderer } from "react-test-renderer";
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 mock.module(
 	Bun.resolveSync("react", `${import.meta.dir}/../../apps/toss`),
 	() => React,
 );
+mock.module(
+	Bun.resolveSync(
+		"react",
+		Bun.resolveSync(
+			"react-test-renderer/package.json",
+			import.meta.dir,
+		).replace(/\/package.json$/, ""),
+	),
+	() => React,
+);
+const { act, create } = await import("react-test-renderer");
+
 const write = mock(async () => {});
 let resolveRead: (value: unknown) => void = () => {};
 const preferences = {

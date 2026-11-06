@@ -1,7 +1,7 @@
 // Isolate native mocks from the API tests.
 import { expect, mock } from "bun:test";
 import * as React from "react";
-import { act, create, type ReactTestRenderer } from "react-test-renderer";
+import type { ReactTestRenderer } from "react-test-renderer";
 import type { LottoModel } from "../../apps/toss/src/use-lotto";
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
@@ -10,13 +10,25 @@ mock.module(
 	Bun.resolveSync("react", `${import.meta.dir}/../../apps/toss`),
 	() => React,
 );
-mock.module("react-native", () => ({
+mock.module(
+	Bun.resolveSync(
+		"react",
+		Bun.resolveSync(
+			"react-test-renderer/package.json",
+			import.meta.dir,
+		).replace(/\/package.json$/, ""),
+	),
+	() => React,
+);
+const { act, create } = await import("react-test-renderer");
+
+mock.module("../../apps/toss/src/web/primitives", () => ({
 	Alert: { alert },
 	View: "view",
 	Text: "text",
 	StyleSheet: { create: (v: unknown) => v },
 }));
-mock.module("@toss/tds-react-native", () => ({ Button: "button" }));
+mock.module("../../apps/toss/src/web/controls", () => ({ Button: "button" }));
 mock.module("../../apps/toss/src/api", () => ({ LOCAL_PREVIEW: false }));
 mock.module("../../apps/toss/src/theme", () => ({ useTheme: () => ({}) }));
 const { createPromotionRefresh: createRefresh } = await import(

@@ -1,7 +1,7 @@
 import { ballColor } from "@645/lotto-core";
 import { useEffect, useRef } from "react";
-import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
 import { useTheme } from "./theme";
+import { Animated, Pressable, StyleSheet, Text, View } from "./web/primitives";
 
 export function Balls({
 	numbers,
@@ -34,7 +34,7 @@ export function Balls({
 					toValue: 1,
 					tension: 90,
 					friction: 8,
-					useNativeDriver: true,
+					useNativeDriver: false,
 				}),
 			),
 		);

@@ -8,7 +8,6 @@ import {
 	generationResultStatus,
 	winningGenerations,
 } from "@645/lotto-core";
-import { Button } from "@toss/tds-react-native";
 import {
 	useEffect,
 	useMemo,
@@ -16,18 +15,19 @@ import {
 	useState,
 	useSyncExternalStore,
 } from "react";
+import { API_BASE } from "./api";
+import { Balls } from "./Balls";
+import { previousGenerationResults } from "./generation-result-view";
+import { ShoppingRecommendation } from "./ShoppingRecommendation";
+import { useTheme } from "./theme";
+import { Button } from "./web/controls";
 import {
 	ActivityIndicator,
 	StyleSheet,
 	Text,
 	useWindowDimensions,
 	View,
-} from "react-native";
-import { API_BASE } from "./api";
-import { Balls } from "./Balls";
-import { previousGenerationResults } from "./generation-result-view";
-import { ShoppingRecommendation } from "./ShoppingRecommendation";
-import { useTheme } from "./theme";
+} from "./web/primitives";
 
 export function GenerationResultsContent({
 	active,

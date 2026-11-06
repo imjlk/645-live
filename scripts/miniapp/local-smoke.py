@@ -2,6 +2,7 @@
 import argparse
 import json
 import sqlite3
+import subprocess
 import tempfile
 import time
 import uuid
@@ -9,7 +10,7 @@ import uuid
 from smoke import cleanup_case, command, expect, request
 
 
-def run_case(image, blocked_by=None):
+def run_case(image, blocked_by=None, browser=False):
     name = '645-miniapp-local-' + uuid.uuid4().hex[:8]
     flags = {
         'BACKFILL_ON_STARTUP': 'false', 'RUNTIME_THREADS': '4',
@@ -101,6 +102,8 @@ def run_case(image, blocked_by=None):
             status, ad = request(base, '/api/app/v1/ads/start', {'placement': 'custom'}, auth)
             expect(status, 200, 'real test-ad flow still available')
             assert ad['groupId'] in ['ait-ad-test-rewarded-id', 'ait-ad-test-interstitial-id']
+            if browser:
+                subprocess.run(['bun', 'scripts/miniapp/webview-generation-smoke.mjs', base], check=True, timeout=90)
             print(json.dumps({'local_preview': 'passed', 'checks': ['authenticated local passes', 'real generation and attendance', '7-day fixtures and bounded restore', 'user isolation and public feed preserved', 'no synthetic ad sessions or cash', 'reset and SDK test-ad reservation']}), flush=True)
         finally:
             cleanup_case(name, folder, image)
@@ -109,6 +112,7 @@ def run_case(image, blocked_by=None):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--image', default='645-trailbase:miniapp')
+    parser.add_argument('--browser', action='store_true')
     args = parser.parse_args()
     for flag in ['AIT_LOCAL_PREVIEW', 'AIT_ALLOW_DEV_IDENTITY', 'AIT_TEST_ADS', 'AIT_PROMOTIONS_ENABLED', None]:
-        run_case(args.image, flag)
+        run_case(args.image, flag, args.browser)
