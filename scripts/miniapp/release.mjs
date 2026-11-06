@@ -205,11 +205,14 @@ async function run(command) {
 			artifact,
 			"--memo",
 			`${tag} (${commit.slice(0, 12)})`,
-			"--timeout",
-			"300",
 			"--scheme-only",
 		],
-		{ cwd: APP, encoding: "utf8", maxBuffer: 4 * 1024 * 1024 },
+		{
+			cwd: APP,
+			encoding: "utf8",
+			timeout: 300_000,
+			maxBuffer: 4 * 1024 * 1024,
+		},
 	);
 	const output = `${result.stdout ?? ""}\n${result.stderr ?? ""}`.replaceAll(
 		key,
