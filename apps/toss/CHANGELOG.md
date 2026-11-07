@@ -1,5 +1,11 @@
 # @645/toss
 
+## 2.1.0 — 2026-11-07
+
+### Minor changes
+
+- [e045db2](https://github.com/imjlk/645-live/commit/e045db2cd87b2a2237e8e07b387a4c3017f72bc6) 설정에서 배너와 번호 생성 광고를 한 번의 구매로 제거하고 토스 계정의 구매를 복원할 수 있어요.
+
 ## 2.0.1 — 2026-11-06
 
 ### Patch changes
