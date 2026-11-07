@@ -52,6 +52,8 @@ def check_forward_migration():
 def run():
     check_forward_migration()
     codes = {"fixture-web-code"}
+    iap_status = "PAYMENT_COMPLETED"
+    iap_id = str(uuid.uuid4())
     grants = []
     prepared = set()
     recipients = {}
@@ -98,6 +100,10 @@ def run():
                 result = {'ok': True, 'mode': 'forward', 'anonKey': 'fixture-same-account'}
             elif self.path.endswith('/anonymous-key/verify'):
                 result = {'valid': True, 'mode': 'forward'}
+            elif self.path == '/internal/mtls/request':
+                assert data == {'method':'POST','path':'/api-partner/v1/apps-in-toss/order/get-order-status','body':{'orderId':iap_id}}
+                result = {'status':200,'body':{'resultType':'SUCCESS','success':{
+                    'orderId':iap_id, 'sku':'fixture-ad-free', 'status':iap_status}}}
             elif self.path.endswith('/promotion/reward/prepare'):
                 with provider_lock:
                     prepare_calls.append(data)
@@ -152,7 +158,7 @@ def run():
                     '-p', '127.0.0.1::4000', '-v', f'{folder}:/app/traildepot',
                     '-e', 'BACKFILL_ON_STARTUP=false', '-e', 'AIT_ENABLED=true',
                     '-e', 'AIT_ALLOW_DEV_IDENTITY=true', '-e', 'AIT_BOTS_ENABLED=false',
-                    '-e', 'AIT_PROMOTIONS_ENABLED=true', '-e', 'AIT_TEST_ADS=true', '-e', 'RUNTIME_THREADS=4',
+                    '-e', 'AIT_AD_FREE_SKU=fixture-ad-free', '-e', 'AIT_PROMOTIONS_ENABLED=true', '-e', 'AIT_TEST_ADS=true', '-e', 'RUNTIME_THREADS=4',
                     '-e', f'MTLS_PROXY_URL=http://host.docker.internal:{server.server_port}',
                     '-e', 'MTLS_PROXY_TOKEN=fixture-token', image)
                 base = 'http://127.0.0.1:' + command('docker', 'port', name, '4000/tcp').rsplit(':', 1)[1]
@@ -178,6 +184,14 @@ def run():
                 expect(status, 200, 'promotion fixture bootstrap')
                 tokens = session['authTokens']
                 auth = {'Authorization': 'Bearer ' + tokens['authToken'], 'CSRF-Token': tokens['csrfToken'], 'Refresh-Token': tokens['refreshToken']}
+                path = '/api/app/v1/iap/ad-free/verify'
+                order = {'orderId':iap_id}
+                expect(request(base,path,order)[0],401,'IAP requires app session')
+                assert request(base,'/api/app/v1/ads/config',None,auth)[1]['adFreeSku'] == 'fixture-ad-free'
+                for iap_status, active in [('PAYMENT_COMPLETED',True),('PURCHASED',True),('REFUNDED',False),('PURCHASED',False)]:
+                    code, receipt = request(base,path,order,auth)
+                    expect(code,200,'IAP verify ' + iap_status)
+                    assert receipt == {'active':active}
                 user = list(base64.urlsafe_b64decode(session['user']['id'] + '=='))
                 def fixture(statements):
                     # Run inside the same VM as SQLite; host WAL mmap coherence differs on macOS.

@@ -60,3 +60,10 @@ The app shares an in-flight read and a memory cache for at most 60 seconds, refr
 Keep provider API keys, approved fixed outbound IP calls, product selection and link issuance in the automation service. Its Sharelink preset provides app-scoped, versioned snapshots and a consumer-only `selectSharelinkOffer` validator. A future trusted server-side importer should validate `appId`, `appRevision`, `subjectId`, `ruleRevision`, `generatedAt`, ready status, unique subject entries and offer expiry before atomically mapping the two configured subjects to these placement rows. Preserve `offer.productId`, `offer.title`, `offer.url`, `offer.checkedAt` and `offer.expiresAt`; reject overlong titles or ask for a shorter reviewed title. The current automation offer has no image field, so leave `image_url` null unless a separately approved thumbnail is supplied. A failed/expired snapshot disables that slot; it must not extend expiry or reactivate the global policy. Use registered subTags for attribution, not a user key in the URL.
 
 This PR adds the consumer boundary, not a scheduler, provider credential, external webhook write route or deployment to the automation service. Validate its released consumer package and real provider response contract before installing that importer.
+
+### 미니앱 광고 제거 상품
+
+- 등록된 비소모성 상품은 **배너·번호 생성 광고 제거**이며 SKU는 `ait.0000076048.8fa415ff.e371f261ea.4019218323`이다. 공급가는 10,900원, 부가세 포함 판매가는 11,990원이며 구매 화면은 스토어가 반환한 가격을 표시한다.
+- 운영 서버는 등록 SKU를 기본값으로 사용한다. `AIT_AD_FREE_SKU` 환경 변수로 바꿀 수 있고 명시적인 빈 값은 구매 기능을 끈다. 로컬 프리뷰는 테스트 SKU를 명시할 때만 구매를 사용한다. 판매 중단 시에는 콘솔에서 미노출로 전환하고 기존 구매·환불 조회를 위해 서버에는 같은 SKU를 유지한다. 기존 내부 mTLS 프록시의 forward 모드와 앱 인증서가 필요하다.
+- 토스 계정의 미지급 주문 및 전체 구매 이력을 조회하고 서버에서 주문·SKU·결제 상태를 확인한다. 서버의 비공개 원장은 주문 다이제스트와 환불 여부만 보관한다. 앱 재실행·포그라운드 복귀·설정의 구매 복원 또는 활성 상태에서 5분마다 재확인한다. 일시적인 조회 장애 시 같은 세션에서 확인된 구매에 최대 15분의 유예를 적용한다. 별도 환불 신청은 스토어 구매 내역에서 진행한다.
+- 판매 전 실제 기기에서 결제, 재설치 후 복원, 같은 기기의 다른 토스 계정, 환불 후 배너·번호 생성 광고 재개를 확인한다. SDK 3 콘솔 QR 결제에는 실제 금액이 청구된다.

@@ -22,6 +22,16 @@ test("bootstrap diagnostics stay opt-in and preserve auth settings and generated
 	try {
 		const initial = run();
 		expect(initial.TRAILBASE_BOOTSTRAP_TIMING).toBe("false");
+		expect(initial.AIT_AD_FREE_SKU).toBe(
+			"ait.0000076048.8fa415ff.e371f261ea.4019218323",
+		);
+		expect(run({ AIT_AD_FREE_SKU: "" }).AIT_AD_FREE_SKU).toBe("");
+		expect(run({ AIT_LOCAL_PREVIEW: "true" }).AIT_AD_FREE_SKU).toBe("");
+		expect(
+			run({ AIT_LOCAL_PREVIEW: "true", AIT_AD_FREE_SKU: "fixture-ad-free" })
+				.AIT_AD_FREE_SKU,
+		).toBe("fixture-ad-free");
+
 		expect(initial.TRAILBASE_AUTH_BASE_URL).toBe("http://127.0.0.1:4000");
 		const savedKeys = readFileSync(
 			path.join(depot, "secrets/miniapp-keys.json"),
