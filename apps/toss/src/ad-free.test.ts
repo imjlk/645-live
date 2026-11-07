@@ -190,3 +190,48 @@ test("removes banner fallback, feed inventory and generation placement only", ()
 	]);
 	expect(config.placements.every((p) => p.enabled)).toBe(true);
 });
+
+test("a stalled refund and a failed older receipt do not block a verified repurchase", async () => {
+	let release!: (value: boolean) => void;
+	const slow = new Promise<boolean>((resolve) => {
+		release = resolve;
+	});
+	const store = history([
+		[
+			order("refunded", "REFUNDED"),
+			order("old", "COMPLETED"),
+			order("new", "COMPLETED"),
+		],
+	]);
+	try {
+		expect(
+			await restoreAdFree(store, sku, async (id) => {
+				if (id === "refunded") return slow;
+				if (id === "old") throw new Error("unavailable");
+				return true;
+			}),
+		).toBe(true);
+	} finally {
+		release(false);
+	}
+});
+test("network failure preserves a verified purchase in this session; a confirmed refund clears it", async () => {
+	let verdict: boolean | null = true;
+	const store = createAdFreeStore({
+		enabled: true,
+		restore: async () => {
+			if (verdict === null) throw new Error("offline");
+			return verdict;
+		},
+		verify: async () => true,
+		price: async () => "",
+		purchase: async () => {},
+	});
+	await store.run("refresh");
+	verdict = null;
+	await store.run("refresh");
+	expect(store.read().owned).toBe(true);
+	verdict = false;
+	await store.run("refresh");
+	expect(store.read().owned).toBe(false);
+});

@@ -81,7 +81,7 @@ sync_traildepot_static_assets() {
 
 sync_traildepot_static_assets
 
-bun /app/miniapp-settings.mjs
+TRAILDEPOT_PATH=/app/traildepot bun /app/miniapp-settings.mjs
 
 if is_true "${BACKFILL_ON_STARTUP:-true}"; then
   cd /app/traildepot

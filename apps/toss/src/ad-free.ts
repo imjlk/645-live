@@ -37,25 +37,30 @@ export async function restoreAdFree(
 		key = page.nextKey;
 		cursors.add(key);
 	}
-	let owned = false;
+	// The native history has already revoked these receipts. Record provider
+	// refunds independently so old orders cannot delay or invalidate a repurchase.
 	for (const [orderId, status] of orders) {
-		// Persist authoritative refunds too. A stale native completed entry
-		// cannot override the provider or revive a previously revoked order.
-		if (status === "REFUNDED") {
-			// The native account already excludes this order. Reconciliation of
-			// an old refund must not block restoring a later repurchase.
-			await verify(orderId).catch(() => false);
-			continue;
-		}
-		if (!(await verify(orderId))) continue;
-		if (
-			status === "PENDING" &&
-			!(await store.completeProductGrant({ params: { orderId } }))
-		)
-			throw new Error("결제는 완료됐어요. 구매 복원을 다시 눌러 주세요.");
-		owned = true;
+		if (status === "REFUNDED") void verify(orderId).catch(() => {});
 	}
-	return owned;
+	const candidates = Array.from(orders).filter(
+		([, status]) => status !== "REFUNDED",
+	);
+	const results = await Promise.allSettled(
+		candidates.map(async ([orderId, status]) => {
+			if (!(await verify(orderId))) return false;
+			if (
+				status === "PENDING" &&
+				!(await store.completeProductGrant({ params: { orderId } }))
+			)
+				throw new Error("결제는 완료됐어요. 구매 복원을 다시 눌러 주세요.");
+			return true;
+		}),
+	);
+	if (results.some((result) => result.status === "fulfilled" && result.value))
+		return true;
+	const failed = results.find((result) => result.status === "rejected");
+	if (failed?.status === "rejected") throw failed.reason;
+	return false;
 }
 
 export function withoutPurchasedAds(config: AdConfig | null) {
@@ -103,6 +108,10 @@ export function createAdFreeStore(deps: StoreDependencies) {
 		message: "",
 	};
 	let version = 0;
+	// Grace is in memory and scoped to this account and SKU. An authoritative
+	// empty/refunded history clears access immediately, even within the grace.
+	let lastVerifiedPurchase = 0;
+	const verifiedGraceMs = 15 * 60_000;
 	const update = (changes: Partial<typeof state>) => {
 		state = { ...state, ...changes };
 		for (const fn of listeners) fn();
@@ -133,11 +142,11 @@ export function createAdFreeStore(deps: StoreDependencies) {
 				return active;
 			};
 			update({ busy: true, message: "" });
-			let restored = false;
+
 			try {
 				const owned = await bounded(deps.restore(verify), 25_000);
 				check();
-				restored = true;
+				lastVerifiedPurchase = owned ? Date.now() : 0;
 				update({ owned, checked: true });
 				if (owned) {
 					if (action !== "refresh")
@@ -152,12 +161,15 @@ export function createAdFreeStore(deps: StoreDependencies) {
 				if (action !== "purchase" || !price) return;
 				await deps.purchase(verify);
 				check();
+				lastVerifiedPurchase = Date.now();
 				update({ owned: true, message: "배너와 번호 생성 광고를 제거했어요." });
 			} catch {
 				if (id === version)
 					update({
 						checked: true,
-						...(!restored ? { owned: false } : {}),
+						owned:
+							state.owned &&
+							Date.now() - lastVerifiedPurchase < verifiedGraceMs,
 						price: "",
 						message:
 							action === "purchase"
