@@ -1,4 +1,5 @@
 import type { IAP } from "@apps-in-toss/web-framework";
+import { WebAdapterError } from "@trailbase-apps-in-toss-kit/ait-web";
 import type { AdConfig } from "./api";
 
 type Store = {
@@ -163,7 +164,13 @@ export function createAdFreeStore(deps: StoreDependencies) {
 				check();
 				lastVerifiedPurchase = Date.now();
 				update({ owned: true, message: "배너와 번호 생성 광고를 제거했어요." });
-			} catch {
+			} catch (error) {
+				if (
+					error instanceof WebAdapterError &&
+					error.operation === "purchase" &&
+					error.code === "USER_CANCELED"
+				)
+					return;
 				if (id === version)
 					update({
 						checked: true,

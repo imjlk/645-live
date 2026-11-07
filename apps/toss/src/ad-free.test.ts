@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { WebAdapterError } from "@trailbase-apps-in-toss-kit/ait-web";
 import {
 	createAdFreeStore,
 	restoreAdFree,
@@ -234,4 +235,35 @@ test("network failure preserves a verified purchase in this session; a confirmed
 	verdict = false;
 	await store.run("refresh");
 	expect(store.read().owned).toBe(false);
+});
+
+test("canceling checkout retains the price and clears busy state without a payment error", async () => {
+	let canceled = true;
+	let grants = 0;
+	const store = createAdFreeStore({
+		enabled: true,
+		restore: async () => false,
+		price: async () => "11,990원",
+		verify: async () => {
+			grants++;
+			return true;
+		},
+		purchase: async (grant) => {
+			if (canceled) throw new WebAdapterError("USER_CANCELED", "purchase");
+			await grant("new");
+		},
+	});
+	await store.run("purchase");
+	expect(store.read()).toEqual({
+		owned: false,
+		checked: true,
+		busy: false,
+		price: "11,990원",
+		message: "",
+	});
+	expect(grants).toBe(0);
+	canceled = false;
+	await store.run("purchase");
+	expect(store.read().owned).toBe(true);
+	expect(grants).toBe(1);
 });
