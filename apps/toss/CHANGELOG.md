@@ -1,5 +1,15 @@
 # @645/toss
 
+## 2.2.0 — 2026-11-09
+
+### Minor changes
+
+- [87da617](https://github.com/imjlk/645-live/commit/87da6179d5d3f9684fad88d368c2dfb5b5dac23c) 처음 출석한 날부터 15일 동안 매일 출석과 7일 연속 출석으로 토스 포인트를 받는 출석 혜택 안내를 추가했어요. 혜택이 시작되기 전, 진행 중, 끝난 뒤의 안내 문구를 구분해서 보여줘요.
+
+### Patch changes
+
+- [cd79f8b](https://github.com/imjlk/645-live/commit/cd79f8b1dd358baaed18e81df40b4f691e9832af) 구매 화면에서 취소하고 돌아왔을 때 오류 안내 없이 다시 구매할 수 있도록 개선했습니다.
+
 ## 2.1.0 — 2026-11-07
 
 ### Minor changes
