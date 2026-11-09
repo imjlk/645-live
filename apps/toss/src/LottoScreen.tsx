@@ -1676,7 +1676,7 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 										>
 											{kind === "daily"
 												? "매일 1P 테스트·상태 확인"
-												: "7일 50P 테스트·상태 확인"}
+												: "7일 연속 10P 테스트·상태 확인"}
 										</Button>
 									))}
 								</View>

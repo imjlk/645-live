@@ -31,6 +31,8 @@ Attendance always earns app-owned ad skip tickets; Toss points are limited by co
 | `AIT_REWARD_NEW_USER_CUTOVER_AT` | Subjects first seen before it are legacy, at or after it welcome | unset |
 | `AIT_REWARD_LEGACY_POINTS_ENDS_AT` | Exclusive end of new point eligibility for every legacy subject | unset |
 | `AIT_REWARD_WELCOME_POINT_DAYS` | KST days of welcome points, counting the first day | `7` |
+| `AIT_REWARD_WINDOW_START` | `first_check_in` starts each subject's window on its first own check-in under this policy version | first use |
+| `AIT_REWARD_WELCOME_STREAK_LIMIT` | Streak point rewards a welcome subject can earn inside its window (1–52) | `1` |
 | `AIT_AD_SKIP_REWARDS_STARTS_AT` | Daily (1) and 7-day streak bonus (3) ticket grants start | unset |
 | `AIT_AD_SKIP_REDEMPTION_ENABLED` | `false` pauses redemption only; balances and grants stay | `true` |
 
@@ -42,10 +44,22 @@ Profiles deleted before the cohort limit was activated cannot be recovered. With
 
 - Tickets are granted in the check-in/restore transaction and reconciled on status reads for today's own check-in and recently completed cycles only. No history is replayed: a cycle completed before the start earns nothing, a cycle that began before and completes after it earns its bonus once, and a restored day earns no daily ticket.
 - Subjects are registered with the original profile `created_at` (first registration wins, keyed by a scoped HMAC of the verified identity). Profiles deleted before activation cannot be recovered; such a returning identity registers with its new profile time.
-- With the cohort limit active, a point condition met inside the window is snapshotted with the campaign, provider code and amount at that time (`promotion_reward_eligibilities`). A first claim uses only that snapshot until its deadline (daily: end of that KST day; streak: completion day + 6 days) and never answers `CAMPAIGN_CHANGED` for a newer campaign. Pending ledger rows keep reconciling after the window. A welcome subject earns at most one streak point reward.
+- With the cohort limit active, a point condition met inside the window is snapshotted with the campaign, provider code and amount at that time (`promotion_reward_eligibilities`). A first claim uses only that snapshot until its deadline (daily: end of that KST day; streak: completion day + 6 days) and never answers `CAMPAIGN_CHANGED` for a newer campaign. Pending ledger rows keep reconciling after the window.
 - Without an active campaign the status amount is `null`; there is no fixed 50P fallback.
+- A welcome subject earns at most `AIT_REWARD_WELCOME_STREAK_LIMIT` streak point rewards.
 - `AIT_PROMOTIONS_ENABLED=false` is not a cohort limit: it also stops pending claims from being rechecked. Ending the legacy window does not end the console promotion that welcome users may still use. Before ending or replacing a console promotion, check unclaimed snapshots, open first-claim deadlines and pending ledger rows, and keep campaign rows referenced by snapshots.
 - Tickets are not transferable or convertible to cash or Toss points and never use `promotion_reward_ledger`. Withdrawal forfeits the balance; grant history keeps its subject hash so a re-joined identity cannot earn the same day or an overlapping cycle again. Retention prunes redemption receipts and settled prompts after 90 days.
+
+### Check-in program: every subject is new once
+
+`AIT_REWARD_WINDOW_START=first_check_in` runs a program in which every subject, including users of earlier programs, is new exactly once. Registrations are keyed by a scoped HMAC that includes `AIT_REWARD_POLICY_VERSION`, so choose a version that was never used before (for example `attendance-rewards-v2`) and never reuse it for a different program. Ticket grants keep their own subject key and are unaffected.
+
+- Reading the status registers nothing; the status shows `pointWindow.status = NOT_STARTED` until the subject's first own check-in at or after `AIT_REWARD_NEW_USER_CUTOVER_AT` (the program start). That check-in day is day 1 and the window lasts `AIT_REWARD_WELCOME_POINT_DAYS` KST days.
+- Only conditions met on or after day 1 pay: a streak completed before the window (or before the program) never does, while a cycle that began earlier and completes inside the window does. A restore that completes a streak earlier on day 1 counts once the check-in follows. Restores keep the existing rules: one per 7-day cycle, a rewarded ad, no daily point for the restored day.
+- Set `AIT_REWARD_LEGACY_POINTS_ENDS_AT` to the program start as well; no subject registers as legacy in this mode.
+- Leave `AIT_REWARD_NOTICE_STARTS_AT` unset. Bundles released before this mode would otherwise show the legacy grace notice for a `NOT_STARTED` window.
+
+Rollout: deploy this server first (inactive until configured). Create and approve the console promotions, verify them with the `TEST_` codes through the console test endpoint, start them, and insert one `ACTIVE` `promotion_campaigns` row per kind (`ait_lotto_attendance_daily`, `ait_lotto_attendance_weekly`) with the new provider code, amount, `starts_at` = program start and a budget not above the console budget. Then set the six settings above together with `AIT_PROMOTIONS_ENABLED=true` and restart TrailBase. Prefer a KST 00:00 program start.
 
 ## Shopping recommendation configuration
 

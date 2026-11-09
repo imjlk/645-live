@@ -101,17 +101,23 @@ export type AdSkipStatus = {
 	lastStreakBonusEndDay: number | null;
 	placements: AdSkipPlacement[];
 };
-export type PointWindow = {
-	status: "LEGACY_GRACE" | "WELCOME" | "ENDED";
-	cohort: "LEGACY" | "WELCOME";
-	endsAt: number;
-};
+export type PointWindow =
+	| {
+			status: "LEGACY_GRACE" | "WELCOME" | "ENDED";
+			cohort: "LEGACY" | "WELCOME";
+			endsAt: number;
+	  }
+	/** A check-in program before the subject's first own check-in. */
+	| { status: "NOT_STARTED"; cohort: "WELCOME"; endsAt: null };
 export type RewardPolicy = {
 	version: string;
 	noticeStartsAt: number | null;
 	noticeActive: boolean;
 	legacyPointsEndsAt: number;
 	welcomePointDays: number;
+	/** Absent on older servers, which always start windows at first use. */
+	windowStart?: "first_seen" | "first_check_in";
+	welcomeStreakLimit?: number;
 	pointWindow: PointWindow;
 };
 export type Attendance = Partial<AttendanceProgress> & {

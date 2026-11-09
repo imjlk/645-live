@@ -25,11 +25,36 @@ export function kstStartLabel(at: number) {
 	return `${day} ${hh}:${mm}부터`;
 }
 
+/** Current program amounts, e.g. "매일 1P, 7일 연속 출석하면 10P", never a fixed fallback. */
+function programRewards(state: Attendance) {
+	const amount = (kind: Promotion["kind"]) =>
+		state.promotions?.find((p) => p.kind === kind)?.amount ?? null;
+	const daily = amount("daily");
+	const weekly = amount("weekly");
+	const once = state.rewardPolicy?.welcomeStreakLimit === 1 ? "(1회)" : "";
+	const parts = [
+		daily !== null ? `매일 ${daily}P` : null,
+		weekly !== null ? `7일 연속 출석하면 ${weekly}P${once}` : null,
+	].filter(Boolean);
+	return parts.length ? parts.join(", ") : null;
+}
+
 /** Point copy follows the server's window; tickets are described separately. */
 export function pointWindowNotice(state: Attendance | null | undefined) {
 	const policy = state?.rewardPolicy;
-	if (!policy) return null;
+	if (!state || !policy) return null;
 	const window = policy.pointWindow;
+	const days = policy.welcomePointDays;
+	if (policy.windowStart === "first_check_in") {
+		const rewards = programRewards(state);
+		if (window.status === "NOT_STARTED")
+			return `오늘 번호를 만들고 출석하면 ${days}일 동안 토스 포인트 출석 혜택이 시작돼요.${rewards ? ` ${rewards}를 받을 수 있어요.` : ""}`;
+		if (window.status === "WELCOME")
+			return `출석 시작일부터 ${days}일 동안 토스 포인트 출석 혜택 · ${kstEndLabel(window.endsAt)}${rewards ? ` · ${rewards}` : ""}`;
+		if (window.status === "ENDED")
+			return `${days}일 토스 포인트 출석 혜택 기간이 끝났어요. 이미 신청한 포인트는 이전 혜택 내역에서 확인할 수 있어요. 출석 스킵권은 계속 받을 수 있어요.`;
+	}
+	if (window.status === "NOT_STARTED") return null;
 	const skips = state?.adSkips;
 	const tickets =
 		skips && (skips.active || skips.startsAt)
@@ -38,7 +63,7 @@ export function pointWindowNotice(state: Attendance | null | undefined) {
 	if (window.status === "ENDED")
 		return `토스 포인트 출석 이벤트는 끝났어요. 이미 신청한 포인트는 이전 혜택 내역에서 확인할 수 있어요. 출석 스킵권은 계속 받을 수 있어요.`;
 	if (window.status === "WELCOME")
-		return `처음 ${policy.welcomePointDays}일 토스 포인트 추가 혜택 · ${kstEndLabel(window.endsAt)}`;
+		return `처음 ${days}일 토스 포인트 추가 혜택 · ${kstEndLabel(window.endsAt)}`;
 	return policy.noticeActive
 		? [
 				`출석 혜택이 바뀌어요. 토스 포인트 출석 혜택은 ${kstEndLabel(window.endsAt)} 제공돼요.`,
@@ -53,9 +78,18 @@ export function pointWindowNotice(state: Attendance | null | undefined) {
 /** A one-line pointer for the main screen while the points change is announced. */
 export function pointWindowHeadline(state: Attendance | null | undefined) {
 	const policy = state?.rewardPolicy;
-	if (!policy || policy.pointWindow.status !== "LEGACY_GRACE") return null;
+	if (!policy) return null;
+	const window = policy.pointWindow;
+	if (policy.windowStart === "first_check_in") {
+		if (window.status === "NOT_STARTED")
+			return `출석하면 ${policy.welcomePointDays}일 동안 토스 포인트를 받을 수 있어요.`;
+		if (window.status === "WELCOME")
+			return `토스 포인트 출석 혜택은 ${kstEndLabel(window.endsAt)} 받을 수 있어요.`;
+		return null;
+	}
+	if (window.status !== "LEGACY_GRACE") return null;
 	return policy.noticeActive
-		? `토스 포인트 출석 혜택은 ${kstEndLabel(policy.pointWindow.endsAt)} 제공돼요.`
+		? `토스 포인트 출석 혜택은 ${kstEndLabel(window.endsAt)} 제공돼요.`
 		: null;
 }
 

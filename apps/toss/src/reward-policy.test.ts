@@ -90,6 +90,71 @@ describe("reward policy copy", () => {
 				pointWindowNotice(attendance({ rewardPolicy: policy(status) })),
 			).not.toMatch(/50P|57P/);
 	});
+	test("check-in programs start on the first check-in and name current amounts", () => {
+		const program = (
+			pointWindow: NonNullable<Attendance["rewardPolicy"]>["pointWindow"],
+			welcomeStreakLimit = 2,
+		) =>
+			attendance({
+				promotions: [
+					reward({ kind: "daily", amount: 1 }),
+					reward({ kind: "weekly", amount: 10 }),
+				],
+				rewardPolicy: {
+					version: "attendance-rewards-v2",
+					noticeStartsAt: null,
+					noticeActive: false,
+					legacyPointsEndsAt: 1,
+					welcomePointDays: 15,
+					windowStart: "first_check_in",
+					welcomeStreakLimit,
+					pointWindow,
+				},
+			});
+		const waiting = program({
+			status: "NOT_STARTED",
+			cohort: "WELCOME",
+			endsAt: null,
+		});
+		expect(pointWindowNotice(waiting)).toBe(
+			"오늘 번호를 만들고 출석하면 15일 동안 토스 포인트 출석 혜택이 시작돼요. 매일 1P, 7일 연속 출석하면 10P를 받을 수 있어요.",
+		);
+		expect(pointWindowHeadline(waiting)).toBe(
+			"출석하면 15일 동안 토스 포인트를 받을 수 있어요.",
+		);
+		const active = program(
+			{ status: "WELCOME", cohort: "WELCOME", endsAt: DAY_EIGHT },
+			1,
+		);
+		expect(pointWindowNotice(active)).toBe(
+			"출석 시작일부터 15일 동안 토스 포인트 출석 혜택 · 12월 7일까지 · 매일 1P, 7일 연속 출석하면 10P(1회)",
+		);
+		expect(pointWindowHeadline(active)).toBe(
+			"토스 포인트 출석 혜택은 12월 7일까지 받을 수 있어요.",
+		);
+		const ended = program({
+			status: "ENDED",
+			cohort: "WELCOME",
+			endsAt: DAY_EIGHT,
+		});
+		expect(pointWindowNotice(ended)).toContain(
+			"15일 토스 포인트 출석 혜택 기간이 끝났어요",
+		);
+		expect(pointWindowHeadline(ended)).toBeNull();
+		// Older servers omit windowStart; a NOT_STARTED window is never mislabeled.
+		const legacy = attendance({
+			rewardPolicy: {
+				version: "attendance-rewards-v2",
+				noticeStartsAt: 1,
+				noticeActive: true,
+				legacyPointsEndsAt: 1,
+				welcomePointDays: 15,
+				pointWindow: { status: "NOT_STARTED", cohort: "WELCOME", endsAt: null },
+			},
+		});
+		expect(pointWindowNotice(legacy)).toBeNull();
+		expect(pointWindowHeadline(legacy)).toBeNull();
+	});
 	test("point buttons use the campaign amount and the stored state", () => {
 		expect(promotionButton(reward())).toBe("30P 받기");
 		expect(promotionButton(reward({ amount: null, available: false }))).toBe(

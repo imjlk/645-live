@@ -432,8 +432,9 @@ fn claim_campaign(
         period,
     )?
     else {
-        let window = attendance_rewards::subject(tx, user, policy, now)?.point_window(policy, now);
-        return Err(if window.status == PointWindowStatus::Ended {
+        let ended = attendance_rewards::subject(tx, user, &config, policy, now)?
+            .is_some_and(|s| s.point_window(policy, now).status == PointWindowStatus::Ended);
+        return Err(if ended {
             forbidden(
                 "POINT_WINDOW_ENDED",
                 "토스 포인트 출석 혜택 기간이 끝났어요. 광고 스킵권은 계속 받을 수 있어요.",

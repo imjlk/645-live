@@ -80,6 +80,64 @@ fn complete_configuration_uses_kst_days_and_seven_welcome_days() {
 }
 
 #[test]
+fn check_in_programs_default_to_first_seen_and_one_streak_reward() {
+    let base = config(&[]);
+    assert_eq!(base.window_start, WindowStart::FirstSeen);
+    assert_eq!(base.welcome_streak_limit, 1);
+    for invalid in ["0", "53", "two", ""] {
+        assert_eq!(
+            config(&[("AIT_REWARD_WELCOME_STREAK_LIMIT", invalid)]).welcome_streak_limit,
+            1
+        );
+    }
+    assert_eq!(
+        config(&[("AIT_REWARD_WINDOW_START", "first-check-in")]).window_start,
+        WindowStart::FirstSeen
+    );
+    let settings = config(&[
+        ("AIT_REWARD_POLICY_VERSION", "attendance-rewards-v2"),
+        ("AIT_REWARD_NEW_USER_CUTOVER_AT", &CUTOVER.to_string()),
+        ("AIT_REWARD_LEGACY_POINTS_ENDS_AT", &CUTOVER.to_string()),
+        ("AIT_REWARD_WELCOME_POINT_DAYS", "15"),
+        ("AIT_REWARD_WINDOW_START", " first_check_in "),
+        ("AIT_REWARD_WELCOME_STREAK_LIMIT", "2"),
+    ]);
+    assert_eq!(settings.window_start, WindowStart::FirstCheckIn);
+    assert_eq!(settings.welcome_streak_limit, 2);
+    let policy = settings.cohort.unwrap();
+    // A first check-in at 23:59 KST on day 3 keeps points through day 17.
+    let first = CUTOVER + 3 * 86_400_000 - 60_000;
+    assert_eq!(
+        policy.welcome_points_ends_at(first),
+        CUTOVER + 17 * 86_400_000
+    );
+}
+
+#[test]
+fn first_check_in_windows_never_pay_conditions_met_before_their_first_day() {
+    let mut settings = config(&[("AIT_REWARD_WINDOW_START", "first_check_in")]);
+    let subject = RewardSubjectCohort {
+        subject_hash: "0".repeat(64),
+        cohort: RewardCohort::Welcome,
+        // First check-in at 15:00 KST on the window's first day.
+        first_seen_at: CUTOVER + 15 * 3_600_000,
+        welcome_points_ends_at: Some(CUTOVER + 15 * 86_400_000),
+        policy_version: "attendance-rewards-v2".into(),
+    };
+    // A restore that completed a streak earlier the same day still counts.
+    assert!(earned_inside_window(&settings, &subject, CUTOVER));
+    assert!(earned_inside_window(
+        &settings,
+        &subject,
+        CUTOVER + 86_400_000
+    ));
+    // A streak completed the previous day, before the program, does not.
+    assert!(!earned_inside_window(&settings, &subject, CUTOVER - 1));
+    settings.window_start = WindowStart::FirstSeen;
+    assert!(earned_inside_window(&settings, &subject, CUTOVER - 1));
+}
+
+#[test]
 fn daily_ticket_needs_own_check_in_on_a_started_kst_day() {
     // Start at 12:00 KST: a 09:00 check-in on the start day is reconciled once.
     let start = CUTOVER + 12 * 3_600_000;
