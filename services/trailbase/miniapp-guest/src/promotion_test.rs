@@ -27,7 +27,8 @@ impl Kind {
     fn amount(self) -> i64 {
         match self {
             Self::Daily => 1,
-            Self::Weekly => 50,
+            // Must not exceed the console promotion's single reward limit.
+            Self::Weekly => 10,
         }
     }
 }
