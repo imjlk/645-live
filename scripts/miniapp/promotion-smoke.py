@@ -450,6 +450,60 @@ def run():
                 expect(request(base,test_path,{'kind':'daily'},auth)[0],404,'live code rejected by test endpoint')
                 test_settings({'AIT_PROMOTION_TEST_DAILY_CODE':'TEST_00000000000000000000000001','AIT_PROMOTION_TEST_UNTIL':str(now-1)})
                 expect(request(base,test_path,{'kind':'daily'},auth)[0],404,'expired console access denied')
+                # A check-in program: every subject is new to a new policy version once,
+                # and its window starts on the first own check-in, not on registration.
+                # Earlier fixtures end, as the previous program's campaigns do in production.
+                fixture([("UPDATE promotion_campaigns SET status='ENDED' WHERE status='ACTIVE'",[])])
+                campaign('daily-v2','daily',1,1000)
+                campaign('weekly-v2','weekly',10,1000)
+                test_settings({'AIT_REWARD_POLICY_VERSION':'attendance-rewards-v2','AIT_REWARD_NEW_USER_CUTOVER_AT':str(now-1000),'AIT_REWARD_LEGACY_POINTS_ENDS_AT':str(now-1000),'AIT_REWARD_WELCOME_POINT_DAYS':'15','AIT_REWARD_WINDOW_START':'first_check_in','AIT_REWARD_WELCOME_STREAK_LIMIT':'2'})
+                def program_state(headers):
+                    status, result = request(base, '/api/app/v1/attendance/status', headers=headers)
+                    expect(status, 200, 'program attendance state')
+                    return result
+                def program_check_in(headers):
+                    round = request(base,'/api/app/v1/lotto/round-context')[1]['targetRound']
+                    for _ in range(program_state(headers)['requiredGenerations']):
+                        expect(request(base,'/api/app/v1/lotto/generations',{'requestId':uuid.uuid4().hex,'round':round,'options':{'fixed':[],'excluded':[],'oddCount':None}},headers)[0],200,'program generation')
+                    expect(request(base,check_path,{},headers)[0],200,'program check-in')
+                    return program_state(headers)
+                def program_reward(result, kind):
+                    return next(p for p in result['promotions'] if p['kind'] == kind)
+                window_end = ((now+32400000)//86400000 + 15)*86400000 - 32400000
+                # An existing subject with an older streak: reading registers nothing,
+                # and a cycle completed before the window never pays.
+                prior_id, prior_auth = new_user()
+                fixture([('INSERT INTO ait_lotto_attendance(user_id,day,created_at) VALUES (?,?,?)',[prior_id,d,now-86400000]) for d in range(day-7,day)]
+                    +[('INSERT INTO ait_lotto_attendance_cycles(user_id,start_day,end_day,created_at) VALUES (?,?,?,?)',[prior_id,day-7,day-1,now-86400000])])
+                for _ in range(2):
+                    policy = program_state(prior_auth)['rewardPolicy']
+                    assert policy['windowStart']=='first_check_in' and policy['welcomeStreakLimit']==2
+                    assert policy['pointWindow']=={'status':'NOT_STARTED','cohort':'WELCOME','endsAt':None}, policy
+                    assert not program_reward(program_state(prior_auth),'daily')['eligible']
+                started = program_check_in(prior_auth)
+                assert started['rewardPolicy']['pointWindow']=={'status':'WELCOME','cohort':'WELCOME','endsAt':window_end}, started['rewardPolicy']
+                daily_v2 = program_reward(started,'daily')
+                assert daily_v2['eligible'] and daily_v2['amount']==1 and daily_v2['campaignId']=='daily-v2', daily_v2
+                weekly_old = program_reward(started,'weekly')
+                assert weekly_old['periodDay']==day-1 and not weekly_old['eligible'], weekly_old
+                # A streak that completes inside the window pays its program amount.
+                streak_id, streak_auth = new_user()
+                fixture([('INSERT INTO ait_lotto_attendance(user_id,day,created_at) VALUES (?,?,?)',[streak_id,d,now-86400000]) for d in range(day-6,day)])
+                completed = program_check_in(streak_auth)
+                assert completed['streak']==7
+                weekly_v2 = program_reward(completed,'weekly')
+                assert weekly_v2['eligible'] and weekly_v2['amount']==10 and weekly_v2['periodDay']==day, weekly_v2
+                def container_rows(sql, params):
+                    # Read inside the container; host WAL reads can be stale on macOS.
+                    script="import {Database} from 'bun:sqlite'; const [sql,params]=await Bun.stdin.json(); const db=new Database('/app/traildepot/data/main.db',{readonly:true}); console.log(JSON.stringify(db.query(sql).values(...params))); db.close();"
+                    result = subprocess.run(['docker','exec','-i',name,'bun','-e',script], input=json.dumps([sql,params]), text=True, capture_output=True, timeout=10)
+                    assert result.returncode == 0, 'program fixture read failed'
+                    return [tuple(r) for r in json.loads(result.stdout)]
+                rows = container_rows("SELECT cohort,first_seen_at>=?,welcome_points_ends_at FROM reward_subject_cohorts WHERE policy_version='attendance-rewards-v2'",[now-1000])
+                assert rows==[('WELCOME',1,window_end)]*2, rows
+                kinds = container_rows("SELECT reward_kind,reward_amount,basis FROM promotion_reward_eligibilities WHERE policy_version='attendance-rewards-v2' ORDER BY reward_kind",[])
+                assert kinds==[('attendance_daily',1,'WELCOME'),('attendance_daily',1,'WELCOME'),('attendance_weekly',10,'WELCOME')], kinds
+                expect(request(base,path,{k:weekly_v2[k] for k in ['kind','periodDay','campaignId','claimId']},streak_auth)[0],200,'program streak claim')
                 print(json.dumps({'case':'attendance-promotions','passed':[
                     'generation-gated check-in; no three-day pass', 'daily and seven-day bonuses independently configurable',
                     'concurrent claims are idempotent; budget survives deletion and rejoin',
@@ -461,7 +515,9 @@ def run():
                     'prepare outage resumes same intent once, including console tests',
                     'prepared key survives restart; legacy and paused claims never dispatch',
                     'lost execute response reconciles without another payment',
-                    'prepare, execute and status all use the same anonymous recipient'
+                    'prepare, execute and status all use the same anonymous recipient',
+                    'a new check-in program registers every subject once from its first check-in',
+                    'streaks completed before a check-in window never pay; streaks inside it pay the program amount'
                 ]}),flush=True)
             finally:
                 cleanup_case(name, folder, image)

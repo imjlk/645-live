@@ -19,14 +19,36 @@ const DAILY_CAUSE: &str = "daily_attendance";
 const STREAK_CAUSE: &str = "streak_bonus";
 const DEFAULT_POLICY_VERSION: &str = "attendance-rewards-v1";
 const DEFAULT_WELCOME_POINT_DAYS: i64 = 7;
+const DEFAULT_WELCOME_STREAK_LIMIT: i64 = 1;
 // Never list attendance_restore: a restore always needs a completed rewarded ad.
 pub(crate) const AD_SKIP_PLACEMENTS: [&str; 3] = ["generation_continue", "custom", "report"];
+
+/// When a subject's point window starts.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum WindowStart {
+    /// The original profile creation, registered on the first read (v1 behavior).
+    FirstSeen,
+    /// The first own check-in at or after the program start. Each policy version
+    /// keeps its own registry, so every subject is new to a new program once.
+    FirstCheckIn,
+}
+impl WindowStart {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::FirstSeen => "first_seen",
+            Self::FirstCheckIn => "first_check_in",
+        }
+    }
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct RewardSettings {
     pub version: String,
     pub notice_starts_at: Option<i64>,
     pub cohort: Option<RewardCohortPolicy>,
+    pub window_start: WindowStart,
+    /// Streak point rewards a welcome subject can earn inside its window.
+    pub welcome_streak_limit: i64,
     pub tickets_start_at: Option<i64>,
     pub redemption_enabled: bool,
 }
@@ -64,10 +86,20 @@ pub(crate) fn parse(get: impl Fn(&str) -> Option<String>) -> RewardSettings {
         .filter(|p| p.validate().is_ok()),
         _ => None,
     };
+    let window_start = match get("AIT_REWARD_WINDOW_START").as_deref().map(str::trim) {
+        Some("first_check_in") => WindowStart::FirstCheckIn,
+        _ => WindowStart::FirstSeen,
+    };
+    let welcome_streak_limit = get("AIT_REWARD_WELCOME_STREAK_LIMIT")
+        .and_then(|v| v.trim().parse::<i64>().ok())
+        .filter(|v| (1..=52).contains(v))
+        .unwrap_or(DEFAULT_WELCOME_STREAK_LIMIT);
     RewardSettings {
         version,
         notice_starts_at: instant(get("AIT_REWARD_NOTICE_STARTS_AT")),
         cohort,
+        window_start,
+        welcome_streak_limit,
         tickets_start_at: instant(get("AIT_AD_SKIP_REWARDS_STARTS_AT")),
         redemption_enabled: get("AIT_AD_SKIP_REDEMPTION_ENABLED").as_deref() != Some("false"),
     }
@@ -97,15 +129,47 @@ fn subject_key(tx: &mut Transaction, user: &[u8]) -> ApiResult<String> {
     engagement::identity(tx, user, "reward-subject")
 }
 
-/// The first registration wins. The original profile creation is the earliest
-/// first use this app can verify; a re-created profile keeps the earlier record.
+/// Point registrations of a check-in program are scoped by its policy version: a
+/// new program registers every subject again, while tickets keep `subject_key`.
+fn point_subject_key(
+    tx: &mut Transaction,
+    user: &[u8],
+    config: &RewardSettings,
+) -> ApiResult<String> {
+    match config.window_start {
+        WindowStart::FirstSeen => subject_key(tx, user),
+        WindowStart::FirstCheckIn => {
+            engagement::identity(tx, user, &format!("reward-subject/{}", config.version))
+        }
+    }
+}
+
+/// The first registration wins. FirstSeen registers on any read with the original
+/// profile creation, the earliest first use this app can verify. FirstCheckIn
+/// registers only with an own check-in today at or after the program start, so a
+/// subject without one has no window yet (None). A re-created profile or a later
+/// check-in never moves an existing registration.
 pub(crate) fn subject(
     tx: &mut Transaction,
     user: &[u8],
+    config: &RewardSettings,
     policy: &RewardCohortPolicy,
     now: i64,
-) -> ApiResult<RewardSubjectCohort> {
-    let key = subject_key(tx, user)?;
+) -> ApiResult<Option<RewardSubjectCohort>> {
+    let key = point_subject_key(tx, user, config)?;
+    if config.window_start == WindowStart::FirstCheckIn {
+        if let Some(found) = cohorts::find_reward_subject_tx(tx, &key)? {
+            return Ok(Some(found));
+        }
+        if now < policy.new_user_cutover_at {
+            return Ok(None);
+        }
+        let Some(at) = attendance::checked_at(tx, user, engagement::kst_day(now))? else {
+            return Ok(None);
+        };
+        let first = at.max(policy.new_user_cutover_at).min(now);
+        return cohorts::register_reward_subject_tx(tx, &key, first, policy, now).map(Some);
+    }
     let rows = db::tx_query(
         tx,
         "SELECT created_at FROM ait_lotto_profiles WHERE user_id=?1",
@@ -116,7 +180,18 @@ pub(crate) fn subject(
         .map(|r| db::integer(&r[0], "created"))
         .transpose()?
         .ok_or_else(|| unauthorized("AUTH_REQUIRED", "연결을 다시 확인해 주세요."))?;
-    cohorts::register_reward_subject_tx(tx, &key, created.clamp(0, now), policy, now)
+    cohorts::register_reward_subject_tx(tx, &key, created.clamp(0, now), policy, now).map(Some)
+}
+
+/// FirstCheckIn counts only conditions met on or after the window's first day, so a
+/// streak completed before the program (or before the first check-in) never pays.
+pub(crate) fn earned_inside_window(
+    config: &RewardSettings,
+    subject: &RewardSubjectCohort,
+    earned_at: i64,
+) -> bool {
+    config.window_start == WindowStart::FirstSeen
+        || earned_at >= kst_day_start(engagement::kst_day(subject.first_seen_at))
 }
 
 pub(crate) fn kst_day_start(day: i64) -> i64 {
@@ -187,7 +262,7 @@ pub(crate) fn sync_attendance(
         }
     }
     if let Some(policy) = &config.cohort {
-        record_points(tx, user, policy, now, today)?;
+        record_points(tx, user, config, policy, now, today)?;
     }
     Ok(())
 }
@@ -195,11 +270,14 @@ pub(crate) fn sync_attendance(
 fn record_points(
     tx: &mut Transaction,
     user: &[u8],
+    config: &RewardSettings,
     policy: &RewardCohortPolicy,
     now: i64,
     today: i64,
 ) -> ApiResult<()> {
-    let subject = subject(tx, user, policy, now)?;
+    let Some(subject) = subject(tx, user, config, policy, now)? else {
+        return Ok(());
+    };
     let mut met = vec![];
     if let Some(at) = attendance::checked_at(tx, user, today)? {
         met.push((engagement::Kind::Daily, today, today, at));
@@ -212,6 +290,9 @@ fn record_points(
         met.push((engagement::Kind::Weekly, start, end, at));
     }
     for (kind, start, end, earned_at) in met {
+        if !earned_inside_window(config, &subject, earned_at) {
+            continue;
+        }
         // Snapshot the campaign the server would choose now; without one there is no
         // amount to promise, and the status shows the campaign as unavailable.
         let Some(campaign) = engagement::active_campaign(tx, now, kind)? else {
@@ -230,10 +311,10 @@ fn record_points(
                 campaign_id: &campaign.id,
                 earned_at: earned_at.min(now),
                 claim_deadline_at: claim_deadline(reward_kind, end),
-                // A welcome subject gets one streak reward inside its window.
+                // A welcome subject's streak rewards are capped inside its window.
                 max_per_subject: (subject.cohort == RewardCohort::Welcome
                     && reward_kind == WEEKLY_KIND)
-                    .then_some(1),
+                    .then_some(config.welcome_streak_limit),
             },
             now,
         )?;
@@ -304,13 +385,19 @@ pub(crate) fn status(
     });
     let policy = match &config.cohort {
         Some(policy) => {
-            let window = subject(tx, user, policy, now)?.point_window(policy, now);
+            // Without a registration yet, the first own check-in starts the window.
+            let window = match subject(tx, user, config, policy, now)? {
+                Some(subject) => json!(subject.point_window(policy, now)),
+                None => json!({"status": "NOT_STARTED", "cohort": "WELCOME", "endsAt": null}),
+            };
             json!({
                 "version": config.version,
                 "noticeStartsAt": config.notice_starts_at,
                 "noticeActive": config.notice_starts_at.is_some_and(|at| now >= at),
                 "legacyPointsEndsAt": policy.legacy_points_earn_ends_at,
                 "welcomePointDays": policy.welcome_point_days,
+                "windowStart": config.window_start.as_str(),
+                "welcomeStreakLimit": config.welcome_streak_limit,
                 "pointWindow": window,
             })
         }
