@@ -181,6 +181,16 @@ export function bindAdMetrics(
 			await send(events);
 		},
 	});
+	async function flushUrgent(pending: void | Promise<void>) {
+		try {
+			await (pending ?? sink.flush());
+		} catch {
+			// Failed batches remain queued. Allow only one immediate follow-up.
+		}
+		// A callback may join the gap between the drain ending and its promise
+		// being cleared. Check again after that promise settles, including failure.
+		if (sink.getQueueSize() > 0) await sink.flush();
+	}
 	const forward = (
 		events: Array<AnalyticsEvent<AdMetric, AdMetricPayload>>,
 	) => {
@@ -207,7 +217,7 @@ export function bindAdMetrics(
 					eventName === "generation_completed",
 			)
 		)
-			return pending ?? sink.flush();
+			return flushUrgent(pending);
 		return pending;
 	};
 	detailSink = forward;
