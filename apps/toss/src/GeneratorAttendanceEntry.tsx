@@ -1,5 +1,7 @@
 import type { Attendance } from "./api";
 import { attendanceInstruction, attendanceReady } from "./attendance-progress";
+import { JourneyImpression } from "./JourneyImpression";
+import { createJourneyFlow } from "./journey-telemetry";
 import { pointWindowHeadline } from "./reward-policy";
 import { useTheme } from "./theme";
 import { Pressable, StyleSheet, Text, View } from "./web/primitives";
@@ -7,9 +9,11 @@ import { Pressable, StyleSheet, Text, View } from "./web/primitives";
 export function GeneratorAttendanceEntry({
 	attendance,
 	onPress,
+	active = true,
 }: {
 	attendance: Attendance | null;
 	onPress: () => void;
+	active?: boolean;
 }) {
 	const theme = useTheme();
 	const daily = attendance?.promotions.find(
@@ -44,25 +48,51 @@ export function GeneratorAttendanceEntry({
 		action = "출석하기 ›";
 	}
 	const notice = pointWindowHeadline(attendance);
+	const ready =
+		!!attendance && !attendance.checkedIn && attendanceReady(attendance);
+	const state = attendance?.checkedIn
+		? "completed"
+		: ready
+			? "ready"
+			: "needs_generation";
+	if (ready) title = "번호를 만들었어요 · 출석할 수 있어요";
 	return (
-		<Pressable
-			accessibilityRole="button"
-			accessibilityLabel="오늘의 출석과 혜택 보기"
-			onPress={onPress}
-			style={({ pressed }) => [
-				s.root,
-				{ borderColor: theme.line, opacity: pressed ? 0.65 : 1 },
-			]}
+		<JourneyImpression
+			active={active && !!attendance}
+			impressionKey={`${attendance?.day}:${state}`}
+			event="attendance_entry_viewed"
+			outcome={state}
 		>
-			<View style={s.copy}>
-				<Text style={[s.title, { color: theme.text }]}>{title}</Text>
-				<Text style={[s.caption, { color: theme.muted }]}>{caption}</Text>
-				{notice ? (
-					<Text style={[s.caption, { color: theme.blue }]}>{notice}</Text>
-				) : null}
-			</View>
-			<Text style={[s.action, { color: theme.blue }]}>{action}</Text>
-		</Pressable>
+			<Pressable
+				accessibilityRole="button"
+				accessibilityLabel="오늘의 출석과 혜택 보기"
+				onPress={() => {
+					createJourneyFlow("generator").track(
+						"attendance_entry_clicked",
+						state,
+					);
+					onPress();
+				}}
+				style={({ pressed }) => [
+					s.root,
+					{
+						borderColor: ready ? theme.blue : theme.line,
+						opacity: pressed ? 0.65 : 1,
+					},
+				]}
+			>
+				<View style={s.copy}>
+					<Text style={[s.title, { color: ready ? theme.blue : theme.text }]}>
+						{title}
+					</Text>
+					<Text style={[s.caption, { color: theme.muted }]}>{caption}</Text>
+					{notice ? (
+						<Text style={[s.caption, { color: theme.blue }]}>{notice}</Text>
+					) : null}
+				</View>
+				<Text style={[s.action, { color: theme.blue }]}>{action}</Text>
+			</Pressable>
+		</JourneyImpression>
 	);
 }
 

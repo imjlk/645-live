@@ -43,7 +43,16 @@ try {
 	});
 	await page.goto(api.origin);
 	await page.getByRole("button", { name: "번호 만들기", exact: true }).click();
-	await page.getByRole("button", { name: "오늘의 출석과 혜택 보기" }).click();
+	const attendanceEntry = page.getByRole("button", {
+		name: "오늘의 출석과 혜택 보기",
+	});
+	await page
+		.getByText("번호를 만들었어요 · 출석할 수 있어요", { exact: true })
+		.waitFor();
+	await attendanceEntry.scrollIntoViewIfNeeded();
+	if (process.env.MINIAPP_SCREENSHOT_PATH)
+		await page.screenshot({ path: process.env.MINIAPP_SCREENSHOT_PATH });
+	await attendanceEntry.click();
 	await page
 		.getByRole("button", { name: "오늘 출석하기", exact: true })
 		.click();

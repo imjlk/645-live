@@ -200,3 +200,35 @@ test("purchase metrics mirror separately from ad policy and never carry order re
 		mirror.dispose();
 	}
 });
+
+test("journey flow keeps ticket and purchased generation separate from SDK ad completion", async () => {
+	const names: string[] = [];
+	const mirror = bindAdMetrics(async (events) => {
+		names.push(...events.map((e) => e.eventName));
+	});
+	try {
+		const t = createAdTelemetry(() => {});
+		const flow = createAdFlow(t, {
+			placement: "app_journey",
+			policy: "journey-v1",
+			format: "product",
+			entryPoint: "generator",
+		});
+		flow.track("journey_generation_started", "ticket");
+		flow.track("journey_ticket_selected");
+		flow.track("journey_ticket_redeemed", "ticket");
+		flow.track("journey_generation_finished", "ticket");
+		flow.track("journey_generation_finished", "ticket");
+		await t.flush();
+		await mirror.flush();
+		expect(names).toEqual([
+			"journey_generation_started",
+			"journey_ticket_selected",
+			"journey_ticket_redeemed",
+			"journey_generation_finished",
+		]);
+		expect(names).not.toContain("completed");
+	} finally {
+		mirror.dispose();
+	}
+});

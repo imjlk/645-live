@@ -128,6 +128,24 @@ fn validate(event: &Event, expected: &str) -> ApiResult<()> {
             | "completion_storage_failed"
     );
     let p = &event.event_payload;
+    let journey = matches!(
+        event.event_name.as_str(),
+        "journey_entered"
+            | "generation_cta_viewed"
+            | "journey_generation_started"
+            | "journey_generation_finished"
+            | "journey_generation_failed"
+            | "attendance_entry_viewed"
+            | "attendance_entry_clicked"
+            | "journey_attendance_started"
+            | "journey_attendance_succeeded"
+            | "journey_attendance_failed"
+            | "journey_ticket_selected"
+            | "journey_ticket_redeemed"
+    ) && p.placement == "app_journey"
+        && p.policy == "journey-v1"
+        && p.format == "product"
+        && !p.flow_id.is_empty();
     let purchase = matches!(
         event.event_name.as_str(),
         "purchase_entered"
@@ -158,6 +176,7 @@ fn validate(event: &Event, expected: &str) -> ApiResult<()> {
         || p.session_id.is_empty()
         || p.event_id.is_empty()
         || !(purchase
+            || journey
             || (valid_name
                 && valid_policy(&p.policy, expected)
                 && p.placement == "generation_continue"))
@@ -329,5 +348,19 @@ mod tests {
         assert!(
             serde_json::from_str::<Props>(&raw.replace("\"placement\"", "\"orderId\"")).is_err()
         );
+    }
+    #[test]
+    fn journey_metrics_cannot_impersonate_ad_completion() {
+        let raw = r#"{"placement":"app_journey","format":"product","policy":"journey-v1","flow_id":"f","outcome":"ticket","entry_point":"generator","app_version":"2.3.0","session_id":"s","event_id":"s-1"}"#;
+        let mut e = Event {
+            event_name: "journey_generation_finished".into(),
+            event_payload: serde_json::from_str(raw).unwrap(),
+            client_created_at: 1,
+        };
+        assert!(validate(&e, "short").is_ok());
+        e.event_name = "completed".into();
+        assert!(validate(&e, "short").is_err());
+        e.event_name = "purchase_succeeded".into();
+        assert!(validate(&e, "short").is_err());
     }
 }

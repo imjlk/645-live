@@ -103,6 +103,9 @@ const productEvents: string[] = [];
 mock.module("../../apps/toss/src/telemetry", () => ({
 	trackProduct: (event: string) => productEvents.push(event),
 }));
+mock.module("../../apps/toss/src/journey-telemetry", () => ({
+	createJourneyFlow: () => ({ track() {} }),
+}));
 const reviewSources: string[] = [];
 mock.module("../../apps/toss/src/review-bridge", () => ({
 	requestAppReview: async (options: {

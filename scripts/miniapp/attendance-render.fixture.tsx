@@ -25,6 +25,7 @@ const { act, create } = await import("react-test-renderer");
 mock.module("../../apps/toss/src/web/primitives", () => ({
 	Alert: { alert },
 	View: "view",
+	Pressable: "button",
 	Text: "text",
 	StyleSheet: { create: (v: unknown) => v },
 }));
@@ -205,3 +206,66 @@ await act(async () => {
 });
 expect(timers).toHaveLength(0);
 console.log("attendance reward actions passed");
+
+const journeyEvents: string[] = [];
+mock.module("../../apps/toss/src/journey-telemetry", () => ({
+	createJourneyFlow: () => ({
+		track: (event: string) => journeyEvents.push(event),
+	}),
+}));
+mock.module("../../apps/toss/src/web/viewport", () => ({
+	ImpressionArea: ({
+		children,
+		...props
+	}: React.PropsWithChildren<Record<string, unknown>>) =>
+		React.createElement("exposure", props, children),
+}));
+const { GeneratorAttendanceEntry } = await import(
+	"../../apps/toss/src/GeneratorAttendanceEntry"
+);
+let opened = 0;
+const ready = {
+	...model("eligible").attendance,
+	day: 1,
+	checkedIn: false,
+	canCheckIn: true,
+	generatedToday: true,
+	promotions: [{ kind: "daily", amount: 1, available: true }],
+} as LottoModel["attendance"];
+await act(async () => {
+	root = create(
+		<GeneratorAttendanceEntry
+			attendance={ready}
+			active={false}
+			onPress={() => {
+				opened++;
+			}}
+		/>,
+	);
+});
+root.root.findByType("exposure").props.onImpressionStart();
+expect(journeyEvents).toEqual([]);
+await act(async () => {
+	root.update(
+		<GeneratorAttendanceEntry
+			attendance={ready}
+			active
+			onPress={() => {
+				opened++;
+			}}
+		/>,
+	);
+});
+root.root.findByType("exposure").props.onImpressionStart();
+root.root.findByType("exposure").props.onImpressionStart();
+expect(journeyEvents).toEqual(["attendance_entry_viewed"]);
+root.root.findByType("button").props.onPress();
+expect(opened).toBe(1);
+expect(journeyEvents).toEqual([
+	"attendance_entry_viewed",
+	"attendance_entry_clicked",
+]);
+expect(JSON.stringify(root.toJSON())).toContain(
+	"번호를 만들었어요 · 출석할 수 있어요",
+);
+await act(async () => root.unmount());

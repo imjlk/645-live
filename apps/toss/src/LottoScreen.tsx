@@ -33,6 +33,7 @@ import {
 import { GenerationInsightPreview } from "./GenerationInsightPreview";
 import { GeneratorAttendanceEntry } from "./GeneratorAttendanceEntry";
 import { generationOptionsError } from "./generation-options";
+import { JourneyImpression } from "./JourneyImpression";
 import { GenerationRow, LiveFeed, relativeTime } from "./LiveFeed";
 import { LocalResultPreview } from "./LocalResultPreview";
 import { LocalTestPanel } from "./LocalTestPanel";
@@ -618,39 +619,52 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 												</Text>
 											</Pressable>
 										) : null}
-										<AdCtaImpression
-											enabled={model.generationAdRequired}
-											policy={adPolicyLabel(model.adConfig?.generationAdPolicy)}
+										<JourneyImpression
+											active={
+												visible &&
+												!sheetOpen &&
+												model.foreground &&
+												model.generationReady
+											}
+											impressionKey={`${model.attendance?.day}:generator`}
+											event="generation_cta_viewed"
 										>
-											{(runAttempt) => (
-												<Button
-													display="full"
-													loading={model.busy === "generate"}
-													disabled={
-														!!model.busy ||
-														model.generationCooling ||
-														!model.user ||
-														!model.generationReady ||
-														(model.generationAdRequired &&
-															!generationTicket.adEnabled)
-													}
-													onPress={() => {
-														void runAttempt((adFlow) =>
-															model.generate(
-																hasOptions ? options : EMPTY_OPTIONS,
-																model.generationAdRequired,
-																adFlow,
-																() => visibleRef.current,
-															),
-														);
-													}}
-												>
-													{model.generationAdRequired
-														? "광고 보고 계속 만들기"
-														: generationLabel}
-												</Button>
-											)}
-										</AdCtaImpression>
+											<AdCtaImpression
+												enabled={model.generationAdRequired}
+												policy={adPolicyLabel(
+													model.adConfig?.generationAdPolicy,
+												)}
+											>
+												{(runAttempt) => (
+													<Button
+														display="full"
+														loading={model.busy === "generate"}
+														disabled={
+															!!model.busy ||
+															model.generationCooling ||
+															!model.user ||
+															!model.generationReady ||
+															(model.generationAdRequired &&
+																!generationTicket.adEnabled)
+														}
+														onPress={() => {
+															void runAttempt((adFlow) =>
+																model.generate(
+																	hasOptions ? options : EMPTY_OPTIONS,
+																	model.generationAdRequired,
+																	adFlow,
+																	() => visibleRef.current,
+																),
+															);
+														}}
+													>
+														{model.generationAdRequired
+															? "광고 보고 계속 만들기"
+															: generationLabel}
+													</Button>
+												)}
+											</AdCtaImpression>
+										</JourneyImpression>
 										{model.generationAdRequired &&
 										generationTicket.showTicket ? (
 											<View style={{ marginTop: 10 }}>
@@ -683,6 +697,11 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 												{saveButton(model.current)}
 											</View>
 										) : null}
+										<GeneratorAttendanceEntry
+											attendance={model.attendance}
+											active={visible && !sheetOpen && model.foreground}
+											onPress={() => setPanel("attendance")}
+										/>
 										{model.generationAdRequired ? (
 											<Text style={[s.caption, muted, { marginTop: 8 }]}>
 												{generationTicket.showTicket
@@ -806,10 +825,6 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 												model.adConfig?.bannerGroups?.inline ??
 												model.adConfig?.bannerGroupId
 											}
-										/>
-										<GeneratorAttendanceEntry
-											attendance={model.attendance}
-											onPress={() => setPanel("attendance")}
 										/>
 										<ShoppingRecommendation
 											placement="generator"

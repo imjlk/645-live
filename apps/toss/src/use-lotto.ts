@@ -64,6 +64,7 @@ import {
 } from "./generation-ad-experiment";
 import { createGenerationCooldown } from "./generation-cooldown";
 import { createGenerationRequest } from "./generation-request";
+import { createJourneyFlow, journeyErrorCode } from "./journey-telemetry";
 import { createPerformanceTracker } from "./performance";
 import { createPrivateRefresh } from "./private-refresh";
 import { promotionFeedback } from "./promotion-feedback";
@@ -418,6 +419,7 @@ export function useLotto() {
 	}, [api, revision, refreshPrivate, performance]);
 
 	const exposedPolicies = useRef(new Set<string>());
+	const journeyDays = useRef(new Set<string>());
 	const generationPolicyLabel = adPolicyLabel(adConfig?.generationAdPolicy);
 	const exposureKey = `${generationPolicyLabel}:${attendance?.day ?? "unknown"}`;
 	const dailyGenerationAd = dailyGenerationAdRequired(
@@ -519,6 +521,13 @@ export function useLotto() {
 		generationPolicyLabel,
 		exposureKey,
 	]);
+	useEffect(() => {
+		if (!generationReady || !foreground || !user || !attendance) return;
+		const key = `${user.id}:${attendance.day}`;
+		if (journeyDays.current.has(key)) return;
+		journeyDays.current.add(key);
+		createJourneyFlow("generator").track("journey_entered", "ready");
+	}, [generationReady, foreground, user, attendance]);
 	useEffect(() => {
 		if (generationReady && foreground && !initialReady.current) {
 			initialReady.current = true;
@@ -1052,39 +1061,64 @@ export function useLotto() {
 							policy: adPolicyLabel(adConfig?.generationAdPolicy),
 						}))
 					: undefined;
+			const journey = createJourneyFlow("generator");
+			let route = adFree.owned
+				? "ad_free"
+				: useTicket
+					? "ticket"
+					: watchAd
+						? "ad"
+						: "free";
+			journey.track("journey_generation_started", route);
 			return await run("generate", async () => {
-				const deviceCounter =
-					adConfig?.generationAdPolicy?.counter === "device";
-				if (deviceCounter)
-					await api.generationAds.load(adConfig.generationAdPolicy);
-				if (!suppressAds && useTicket) {
-					if (!deviceCounter)
-						throw new Error("앱을 업데이트한 뒤 스킵권을 사용할 수 있어요.");
-					// The prompt is settled before generating; a failed generation is
-					// retried without charging again.
-					setNotice(adSkipNotice(await redeemAdSkip("generation_continue")));
-				} else if (!suppressAds && watchAd) {
-					// Only the explicitly labelled ad CTA may open a full-screen ad.
-					const result = await adsController.unlock(
-						"generation_continue",
-						deviceCounter,
-						adFlow,
-						canShow,
-						deviceCounter ? api.generationAds.opportunityKey() : null,
-					);
+				try {
+					const deviceCounter =
+						adConfig?.generationAdPolicy?.counter === "device";
 					if (deviceCounter)
-						api.generationAds.continued(
-							dailyGenerationAd ? attendance?.day : undefined,
+						await api.generationAds.load(adConfig.generationAdPolicy);
+					if (!suppressAds && useTicket) {
+						if (!deviceCounter)
+							throw new Error("앱을 업데이트한 뒤 스킵권을 사용할 수 있어요.");
+						// The prompt is settled before generating; a failed generation is
+						// retried without charging again.
+						journey.track("journey_ticket_selected", "ticket");
+						const receipt = await redeemAdSkip("generation_continue");
+						route = receipt.consumed === 1 ? "ticket" : "ticket_replay";
+						journey.track("journey_ticket_redeemed", route);
+						setNotice(adSkipNotice(receipt));
+					} else if (!suppressAds && watchAd) {
+						// Only the explicitly labelled ad CTA may open a full-screen ad.
+						const result = await adsController.unlock(
+							"generation_continue",
+							deviceCounter,
+							adFlow,
+							canShow,
+							deviceCounter ? api.generationAds.opportunityKey() : null,
 						);
-					if (result?.continuedWithoutAd)
-						setNotice("광고를 불러오지 못해 바로 이어서 만들어요.");
+						if (deviceCounter)
+							api.generationAds.continued(
+								dailyGenerationAd ? attendance?.day : undefined,
+							);
+						if (result?.continuedWithoutAd) {
+							route = "free";
+							setNotice("광고를 불러오지 못해 바로 이어서 만들어요.");
+						} else if (
+							result.resolution === "completion_retry" ||
+							result.resolution === "already_granted"
+						)
+							route = "ad_recovered";
+					}
+					await generateOne(
+						options,
+						context,
+						deviceCounter || adFree.owned,
+						adFlow,
+					);
+					journey.track("journey_generation_finished", route);
+				} catch (error) {
+					journey.track("journey_generation_failed", journeyErrorCode(error));
+					throw error;
 				}
-				await generateOne(
-					options,
-					context,
-					deviceCounter || adFree.owned,
-					adFlow,
-				);
 			});
 		},
 		save: (generation: Generation) => run("save", () => save(generation)),
@@ -1111,7 +1145,15 @@ export function useLotto() {
 			}),
 		checkIn: () =>
 			run("checkIn", async () => {
-				await api.checkIn();
+				const journey = createJourneyFlow("attendance");
+				journey.track("journey_attendance_started");
+				try {
+					await api.checkIn();
+				} catch (error) {
+					journey.track("journey_attendance_failed", journeyErrorCode(error));
+					throw error;
+				}
+				journey.track("journey_attendance_succeeded");
 				trackProduct("attendance_completed");
 				const state = await api.attendance();
 				receiveAttendance(state);
