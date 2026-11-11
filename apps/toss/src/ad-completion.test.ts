@@ -145,3 +145,20 @@ test("stored receipt projection rejects fabricated events, stale entries and unr
 	).toBeNull();
 	expect(normalizeAdCompletion({ ...value, placement: "purchase" })).toBeNull();
 });
+
+test("repeated SDK callbacks are compacted and an invalid receipt is discarded", async () => {
+	const f = fixture();
+	const c = f.controller();
+	await c.load();
+	await c.save({
+		...receipt,
+		events: Array.from({ length: 40 }, () => "impression"),
+	});
+	expect(c.pending?.events).toEqual(["impression"]);
+	f.complete(async () => {
+		throw new Error("INVALID_EVENTS");
+	});
+	await expect(c.settle()).rejects.toThrow("INVALID_EVENTS");
+	expect(c.pending).toBeNull();
+	expect(f.calls).toHaveLength(1);
+});

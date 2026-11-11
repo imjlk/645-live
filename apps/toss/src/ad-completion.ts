@@ -17,6 +17,7 @@ const terminal = new Set([
 	"AD_INCOMPLETE",
 	"AD_EXPIRED",
 	"AD_NOT_FOUND",
+	"INVALID_EVENTS",
 	"RESTORE_EXPIRED",
 	"RESTORE_UNAVAILABLE",
 ]);
@@ -132,7 +133,11 @@ export function createAdCompletionRecovery<T>(deps: {
 		},
 		async save(value: Omit<PendingAdCompletion, "savedAt">) {
 			check();
-			pending = { ...value, events: [...value.events], savedAt: Date.now() };
+			pending = {
+				...value,
+				events: [...new Set(value.events)],
+				savedAt: Date.now(),
+			};
 			await persist();
 			check();
 		},
