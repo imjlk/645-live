@@ -1,5 +1,11 @@
 # @645/toss
 
+## 2.3.1 — 2026-11-11
+
+### Patch changes
+
+- [d6087b0](https://github.com/imjlk/645-live/commit/d6087b084c907bd7bca31bd6b86582297b4c6784) Refine navigation selection, attendance and generation actions, live previews, and saved-number controls. Add an attendance entry to the ad-removal information screen and retain its purchase source in diagnostics.
+
 ## 2.3.0 — 2026-11-11
 
 ### Minor changes
