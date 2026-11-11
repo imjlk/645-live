@@ -194,6 +194,14 @@ export function apiErrorCode(error: unknown): string | null {
 		? ((error.payload as { error?: { code?: string } })?.error?.code ?? null)
 		: null;
 }
+export function retryableApiError(error: unknown) {
+	return (
+		error instanceof TypeError ||
+		(error instanceof TrailBaseHttpError && error.status >= 500) ||
+		(error instanceof Error &&
+			error.message === "연결이 오래 걸리고 있어요. 다시 시도해 주세요.")
+	);
+}
 export async function publicGet<T>(
 	path: string,
 	signal?: AbortSignal,
@@ -400,6 +408,13 @@ export function createApi() {
 	}
 	return {
 		purchase: storage.adapter.purchase,
+		adCompletionScope: async () => {
+			const principal = await ensure();
+			return {
+				key: `${runtime.storageKey}.adCompletion.v1.${principal.id}`,
+				storage: storage.storage,
+			};
+		},
 		ensure,
 		request,
 		preferences: createPreferencesStore(

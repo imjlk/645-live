@@ -113,10 +113,26 @@ mock.module("trailbase", () => ({
 	initClient: () => ({ fetch: (path: string) => fetchPath(path) }),
 }));
 const { createApi } = await import("./api");
-const { createAdController, setResultNotification } = await import(
-	"./ad-bridge"
-);
-type AdApi = Parameters<typeof createAdController>[0];
+const { createAdController: buildAdController, setResultNotification } =
+	await import("./ad-bridge");
+type AdApi = Pick<
+	Parameters<typeof buildAdController>[0],
+	"startAd" | "completeAd"
+>;
+function createAdController(api: AdApi, data = new Map<string, string>()) {
+	return buildAdController({
+		...api,
+		adCompletionScope: async () => ({
+			key: "fixture-account",
+			storage: {
+				getItem: (key: string) => data.get(key) ?? null,
+				setItem: (key: string, value: string) => {
+					data.set(key, value);
+				},
+			},
+		}),
+	});
+}
 afterEach(() => {
 	globalThis.fetch = originalFetch;
 	adEnvironment = "toss";
@@ -287,7 +303,7 @@ test("disposing during native loading prevents a late full-screen show", async (
 		},
 	});
 	const attempt = controller.unlock("generation_continue", true);
-	for (let i = 0; i < 5 && !adLoads.length; i++) await Promise.resolve();
+	for (let i = 0; i < 25 && !adLoads.length; i++) await Promise.resolve();
 	expect(adLoads).toEqual(["late-group"]);
 	controller.dispose();
 	loadGate?.();
@@ -324,7 +340,7 @@ test("leaving the originating screen during loading cancels the session instead 
 			undefined,
 			() => visible,
 		);
-		for (let i = 0; i < 5 && !adLoads.length; i++) await Promise.resolve();
+		for (let i = 0; i < 25 && !adLoads.length; i++) await Promise.resolve();
 		visible = false;
 		loadGate?.();
 		await expect(attempt).rejects.toThrow("중단");
@@ -402,13 +418,18 @@ test("a lost ad completion response is retried without showing another ad", asyn
 			"lotto_ad_shown",
 			"lotto_ad_viewable",
 			"lotto_ad_completed",
+			"lotto_ad_completion_failed",
 			"lotto_ad_failed",
 		]);
 		expect(
 			metrics
 				.filter((e) => e.params.flow_id === "retry")
 				.map((e) => e.log_name),
-		).toEqual(["lotto_ad_requested", "lotto_ad_settled"]);
+		).toEqual([
+			"lotto_ad_requested",
+			"lotto_ad_completion_recovered",
+			"lotto_ad_settled",
+		]);
 		expect(starts).toBe(1);
 		expect(adShowCount).toBe(1);
 		expect(completions).toBe(2);
@@ -791,5 +812,53 @@ test("attendance after check-in never reuses a pending pre-mutation snapshot", a
 		expect(reads).toBe(2);
 	} finally {
 		api.dispose();
+	}
+});
+
+test("restart recovers a stored completion for the same prompt without opening another ad", async () => {
+	const data = new Map<string, string>();
+	let calls = 0;
+	const api: AdApi = {
+		startAd: async () => ({
+			alreadyGranted: false,
+			id: "saved-session",
+			format: "rewarded",
+			groupId: "group",
+			expiresAt: Date.now() + 300000,
+		}),
+		completeAd: async () => {
+			if (++calls === 1) throw new Error("offline");
+			return { feature: "generation_continue" };
+		},
+	};
+	const first = createAdController(api, data);
+	await expect(
+		first.unlock(
+			"generation_continue",
+			true,
+			undefined,
+			() => true,
+			"prompt-1",
+		),
+	).rejects.toThrow("offline");
+	first.dispose();
+	const restarted = createAdController(api, data);
+	try {
+		expect(
+			(
+				await restarted.unlock(
+					"generation_continue",
+					true,
+					undefined,
+					() => true,
+					"prompt-1",
+				)
+			).resolution,
+		).toBe("completion_retry");
+		expect(adShowCount).toBe(1);
+		expect(calls).toBe(2);
+		expect(JSON.parse(data.get("fixture-account") ?? "{}")).toBeNull();
+	} finally {
+		restarted.dispose();
 	}
 });
