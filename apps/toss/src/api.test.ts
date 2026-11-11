@@ -17,6 +17,7 @@ let showGate: ((callbacks: AdCallbacks) => void) | null = null;
 const adLoads: string[] = [];
 let loadGate: (() => void) | null = null;
 let sessionFailure: Error | null = null;
+const clearedAdReceipts: string[] = [];
 let notificationResult = "newAgreement";
 const adEvents = [
 	"requested",
@@ -88,7 +89,13 @@ mock.module("@apps-in-toss/web-framework", () => ({
 }));
 mock.module("./web/session", () => ({
 	createSessionStorage: () => ({
-		storage: { getItem: async () => null, setItem: async () => {} },
+		storage: {
+			getItem: async () => null,
+			setItem: async (key: string, value: string) => {
+				if (key.includes(".adCompletion.") && value === "null")
+					clearedAdReceipts.push(key);
+			},
+		},
 		adapter: {
 			createAnonymousKeyAuthCode: async () => ({ code: "test-code" }),
 			anonymousHash: async () => "ait:fixture-identity",
@@ -142,6 +149,7 @@ afterEach(() => {
 	adLoads.length = 0;
 	loadGate = null;
 	sessionFailure = null;
+	clearedAdReceipts.length = 0;
 	adEvents.splice(
 		0,
 		adEvents.length,
@@ -651,6 +659,8 @@ test("a late heartbeat 401 cannot recreate a withdrawn identity", async () => {
 	);
 	await entered;
 	await api.withdraw();
+	expect(clearedAdReceipts).toHaveLength(1);
+	expect(clearedAdReceipts[0]).toContain(".adCompletion.v1.");
 	release(json({ error: { code: "AUTH_REQUIRED" } }, 401));
 	expect(await heartbeat).toBeInstanceOf(Error);
 	expect(bootstrapCount).toBe(1);

@@ -556,7 +556,13 @@ export function createApi() {
 		},
 		async withdraw() {
 			paused = false;
-			await ensure();
+			const principal = await ensure();
+			// Remove the private completion receipt before revoking this identity.
+			// A failed device write remains retryable without deleting the server account.
+			await storage.storage.setItem(
+				`${runtime.storageKey}.adCompletion.v1.${principal.id}`,
+				"null",
+			);
 			if (!client) throw new Error("세션을 다시 연결해 주세요.");
 			epoch += 1;
 			paused = true;
