@@ -6,6 +6,7 @@
 -- 당일 지급과 사용은 다른 날의 적립분을 포함할 수 있다. 스킵권 자체의 인과효과나 사용 포기율은 이 비교로 계산할 수 없다.
 -- D1/D7은 기준일 활동자가 정확히 1일/7일 뒤 다시 서버 활동한 비율이다. 그 날짜가 끝난 뒤 표시한다. 여러 날짜를 합칠 때 같은 사람이 중복될 수 있다.
 -- SDK노출자는 별도 진단 지표다. v4 미러 수정 전 번들은 서버에 v4 노출을 전송하지 않아 과거 화면 방문을 복원할 수 없다.
+-- 수익 갱신은 28번, 구매 전환은 25번, 완료 처리 진단은 26번에서 확인합니다.
 -- 수익은 23번과 동일한 생성 전용 두 그룹의 콘솔 예상수익. 두 보고서가 있어야 금액을 표시한다. 공통 배너·기타 지면은 제외한다.
 -- 오늘은 진행 중이다. 0건과 미수집(NULL)을 구분하고 표본 수를 함께 본다.
 WITH RECURSIVE
@@ -54,7 +55,7 @@ sdk AS (
    AND json_extract(a.props_json,'$.policy') LIKE 'generation-cadence-v4/'||m.variant||':%' GROUP BY 1,m.variant
 ),
 revenue AS (
- SELECT r.report_day AS day,g.variant,count(*) AS formats,sum(r.estimated_revenue_krw) AS krw
+ SELECT r.report_day AS day,g.variant,count(*) AS formats,sum(r.estimated_revenue_krw) AS krw,min(r.imported_at) AS oldest_imported
  FROM ait_lotto_ad_revenue_daily r JOIN ait_lotto_generation_ad_groups g USING(group_id)
  WHERE g.experiment='generation-cadence-v4' GROUP BY r.report_day,g.variant
 )
@@ -65,6 +66,7 @@ SELECT d.day AS 한국시간_날짜,a.variant AS 실험군,coalesce(s.active,0) 
  round(100.0*s.tickets/nullif(s.ads+s.tickets,0),1) AS 해결중_스킵선택_pct,
  coalesce(r.formats,0) AS 수익수집그룹_2개중,
  CASE WHEN r.formats=2 THEN round(r.krw,2) END AS 생성광고_예상수익_원,
+ datetime(r.oldest_imported/1000,'unixepoch','+9 hours') AS 가장오래된그룹수집_KST,
  CASE WHEN r.formats=2 THEN round(r.krw/nullif(s.active,0),2) END AS 활동자당_생성수익_원,
  CASE WHEN date(d.day,'+1 day')<b.today THEN coalesce(s.d1_users,0) END AS D1_재방문자,
  CASE WHEN date(d.day,'+1 day')<b.today THEN round(100.0*s.d1_users/nullif(s.active,0),1) END AS D1_pct,

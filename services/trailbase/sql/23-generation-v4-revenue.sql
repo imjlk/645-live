@@ -1,6 +1,8 @@
 -- Attached에서 analytics를 선택합니다.
 -- v4 생성 계속하기 전용 광고 그룹의 콘솔 예상수익입니다. SDK 완료 수로 매출을 추정하지 않습니다.
--- 먼저 scripts/miniapp/ad-revenue-import.mjs로 만든 SQL을 실행하세요. 콘솔 집계는 매일 갱신되며 확정 정산과 다릅니다.
+-- ad-revenue-sync.mjs가 지난 7일을 재수집합니다. 콘솔 집계는 매일 갱신되며 확정 정산과 다릅니다.
+-- 미보고 날짜는 0원으로 채우지 않습니다. 28번에서 수집 실행 상태를 확인하세요.
+-- 가장 오래된 그룹 수집시각도 확인해야 부분 갱신을 최신 완전 집계로 오인하지 않습니다.
 -- 두 포맷 중 미수집 그룹이 있으면 합계/차액은 NULL입니다. 관측된부분수익은 하한 참고용입니다.
 -- 광고 노출수와 서버 승인수는 다른 지표입니다. 공통 배너/맞춤/분석/복구 수익과 기타 비용은 제외됩니다.
 -- 포인트 비용은 v4 등록 이후 신청 당시 최근 관측 실험이 v4인 성공 지급입니다. 다른 실험에서 v4로 돌아온 구간도 포함합니다.
@@ -20,6 +22,7 @@ WITH RECURSIVE days(day) AS (
  (SELECT sum(r.estimated_revenue_krw) FROM ait_lotto_ad_revenue_daily r JOIN ait_lotto_generation_ad_groups g USING(group_id) WHERE g.experiment=a.experiment AND g.variant=a.variant AND r.report_day=d.day) AS revenue,
  (SELECT sum(r.impressions) FROM ait_lotto_ad_revenue_daily r JOIN ait_lotto_generation_ad_groups g USING(group_id) WHERE g.experiment=a.experiment AND g.variant=a.variant AND r.report_day=d.day) AS impressions,
  (SELECT max(r.imported_at) FROM ait_lotto_ad_revenue_daily r JOIN ait_lotto_generation_ad_groups g USING(group_id) WHERE g.experiment=a.experiment AND g.variant=a.variant AND r.report_day=d.day) AS imported,
+ (SELECT min(r.imported_at) FROM ait_lotto_ad_revenue_daily r JOIN ait_lotto_generation_ad_groups g USING(group_id) WHERE g.experiment=a.experiment AND g.variant=a.variant AND r.report_day=d.day) AS oldest_imported,
  (SELECT coalesce(sum(l.reward_amount),0) FROM promotion_reward_ledger l JOIN ait_lotto_generation_experiment_enrollments e ON e.user_id=l.user_id AND e.experiment=a.experiment AND e.variant=a.variant WHERE l.status='success' AND l.source_type IN ('ait_lotto_attendance_daily','ait_lotto_attendance_weekly') AND l.requested_at>=e.enrolled_at AND coalesce((SELECT json_extract(ev.props_json,'$.policy') FROM analytics.events ev WHERE ev.user_id=e.user_id AND ev.name='experiment_exposed' AND ev.server_at>=e.enrolled_at AND ev.server_at<=l.requested_at ORDER BY ev.server_at DESC,ev.rowid DESC LIMIT 1),e.experiment||'/unobserved') LIKE e.experiment||'/%' AND date(l.requested_at/1000,'unixepoch','+9 hours')=d.day) AS cost
  FROM days d CROSS JOIN arms a
  WHERE d.day>=coalesce((SELECT date(min(enrolled_at)/1000,'unixepoch','+9 hours') FROM ait_lotto_generation_experiment_enrollments WHERE experiment=a.experiment),date('now','+9 hours'))
@@ -34,5 +37,6 @@ SELECT day AS 한국시간_날짜,variant AS 실험군,
  CASE WHEN coverage=2 THEN round(revenue-cost,2) END AS 지급액차감_예상차액,
  CASE WHEN coverage=2 THEN round(revenue/nullif(observed,0),2) END AS 관측자당_생성광고예상수익,
  datetime(imported/1000,'unixepoch','+9 hours') AS 최근수익수집_KST,
+ datetime(oldest_imported/1000,'unixepoch','+9 hours') AS 가장오래된그룹수집_KST,
  day=date('now','+9 hours') AS 오늘_진행중
 FROM daily ORDER BY day DESC,variant;
