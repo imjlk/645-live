@@ -42,6 +42,15 @@ def run():
                     with sqlite3.connect(':memory:') as query:
                         query.execute('ATTACH DATABASE ? AS analytics',(str(Path(folder)/'data/analytics.db'),))
                         query.execute((Path(__file__).resolve().parents[2]/'services/trailbase/sql'/f).read_text()).fetchall()
+            purchase=json.loads(json.dumps(payload))
+            purchase['events'][0]['eventName']='purchase_entered'
+            purchase['events'][0]['eventPayload'].update(placement='ad_free_purchase',format='non_consumable',policy='purchase-v1',flow_id='checkout',event_id='purchase-1')
+            expect(request(base,'/api/app/v1/metrics',purchase,auth)[0],200,'purchase metric')
+            expect(request(base,'/api/app/v1/metrics',purchase,auth)[0],200,'purchase dedup')
+            with sqlite3.connect(Path(folder)/'data/analytics.db') as db:
+                assert db.execute("SELECT count(*) FROM events WHERE name='purchase_entered'").fetchone()[0]==1
+            purchase['events'][0]['eventName']='completed'
+            expect(request(base,'/api/app/v1/metrics',purchase,auth)[0],400,'purchase cannot impersonate ad completion')
             wrong=json.loads(json.dumps(payload));wrong['events'][0]['eventPayload']['policy']='wrong'
             expect(request(base,'/api/app/v1/metrics',wrong,auth)[0],400,'policy validation')
             wrong=json.loads(json.dumps(payload));wrong['events'][0]['eventPayload']['secret']='not-allowed'

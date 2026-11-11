@@ -169,3 +169,34 @@ test("disabling the server mirror keeps SDK analytics independent and sends no s
 		mirror.dispose();
 	}
 });
+
+test("purchase metrics mirror separately from ad policy and never carry order receipts", async () => {
+	const batches: string[] = [];
+	const mirror = bindAdMetrics(async (events) => {
+		batches.push(...events.map((e) => e.eventName));
+	});
+	try {
+		const t = createAdTelemetry(() => {});
+		t.track("purchase_entered", {
+			placement: "ad_free_purchase",
+			policy: "purchase-v1",
+			flowId: "p",
+			format: "non_consumable",
+		});
+		t.track(
+			"purchase_succeeded",
+			{
+				placement: "ad_free_purchase",
+				policy: "purchase-v1",
+				flowId: "p",
+				format: "non_consumable",
+			},
+			"verified",
+		);
+		await t.flush();
+		await mirror.flush();
+		expect(batches).toEqual(["purchase_entered", "purchase_succeeded"]);
+	} finally {
+		mirror.dispose();
+	}
+});

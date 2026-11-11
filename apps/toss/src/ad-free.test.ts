@@ -267,3 +267,51 @@ test("canceling checkout retains the price and clears busy state without a payme
 	expect(store.read().owned).toBe(true);
 	expect(grants).toBe(1);
 });
+
+test("purchase metrics separate checkout, cancellation, verified success and restoration", async () => {
+	const events: Array<[string, string, string]> = [];
+	let mode = "cancel";
+	const store = createAdFreeStore({
+		enabled: true,
+		restore: async () => mode === "owned",
+		price: async () => "11,990원",
+		verify: async () => true,
+		metric: (...event) => {
+			events.push(event);
+		},
+		purchase: async (grant) => {
+			if (mode === "cancel")
+				throw new WebAdapterError("USER_CANCELED", "purchase");
+			if (mode === "unverified") return;
+			await grant("receipt-never-logged");
+		},
+	});
+	await store.run("purchase");
+	expect(events.map((e) => e[0])).toEqual([
+		"purchase_entered",
+		"purchase_opened",
+		"purchase_canceled",
+	]);
+	expect(new Set(events.map((e) => e[1])).size).toBe(1);
+	events.length = 0;
+	mode = "success";
+	await store.run("purchase");
+	expect(events.map((e) => e[0])).toEqual([
+		"purchase_entered",
+		"purchase_opened",
+		"purchase_succeeded",
+	]);
+	expect(JSON.stringify(events)).not.toContain("receipt-never-logged");
+	events.length = 0;
+	mode = "owned";
+	await store.run("restore");
+	expect(events).toEqual([]);
+	mode = "unverified";
+	await store.run("purchase");
+	expect(store.read().owned).toBe(false);
+	expect(events.map((e) => e[0])).toEqual([
+		"purchase_entered",
+		"purchase_opened",
+		"purchase_failed",
+	]);
+});

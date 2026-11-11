@@ -122,8 +122,23 @@ fn validate(event: &Event, expected: &str) -> ApiResult<()> {
             | "settled"
             | "feature_outcome"
             | "generation_completed"
+            | "completion_retry"
+            | "completion_recovered"
+            | "completion_failed"
+            | "completion_storage_failed"
     );
     let p = &event.event_payload;
+    let purchase = matches!(
+        event.event_name.as_str(),
+        "purchase_entered"
+            | "purchase_opened"
+            | "purchase_canceled"
+            | "purchase_succeeded"
+            | "purchase_failed"
+    ) && p.placement == "ad_free_purchase"
+        && p.policy == "purchase-v1"
+        && p.format == "non_consumable"
+        && !p.flow_id.is_empty();
     let bounded = [
         (&p.flow_id, 64),
         (&p.session_id, 64),
@@ -139,12 +154,13 @@ fn validate(event: &Event, expected: &str) -> ApiResult<()> {
             && s.bytes()
                 .all(|c| c.is_ascii_alphanumeric() || b"-_.:".contains(&c))
     });
-    if !valid_name
-        || !bounded
+    if !bounded
         || p.session_id.is_empty()
         || p.event_id.is_empty()
-        || !valid_policy(&p.policy, expected)
-        || p.placement != "generation_continue"
+        || !(purchase
+            || (valid_name
+                && valid_policy(&p.policy, expected)
+                && p.placement == "generation_continue"))
     {
         return Err(bad_request("INVALID_METRIC", "지표 형식을 확인해 주세요."));
     }
@@ -282,6 +298,36 @@ mod tests {
         assert!(validate(&e, "control").is_err());
         assert!(
             serde_json::from_str::<Props>(&raw.replace("\"placement\"", "\"secret\"")).is_err()
+        );
+    }
+    #[test]
+    fn purchase_metrics_cannot_impersonate_ad_events_or_include_receipts() {
+        let raw = r#"{"placement":"ad_free_purchase","format":"non_consumable","policy":"purchase-v1","flow_id":"p1","outcome":"","entry_point":"settings","app_version":"2.3.0","session_id":"s","event_id":"s-1"}"#;
+        for name in [
+            "purchase_entered",
+            "purchase_opened",
+            "purchase_canceled",
+            "purchase_succeeded",
+            "purchase_failed",
+        ] {
+            let e = Event {
+                event_name: name.into(),
+                event_payload: serde_json::from_str(raw).unwrap(),
+                client_created_at: 1,
+            };
+            assert!(validate(&e, "control").is_ok());
+        }
+        let mut e = Event {
+            event_name: "completed".into(),
+            event_payload: serde_json::from_str(raw).unwrap(),
+            client_created_at: 1,
+        };
+        assert!(validate(&e, "control").is_err());
+        e.event_name = "purchase_succeeded".into();
+        e.event_payload.placement = "generation_continue".into();
+        assert!(validate(&e, "control").is_err());
+        assert!(
+            serde_json::from_str::<Props>(&raw.replace("\"placement\"", "\"orderId\"")).is_err()
         );
     }
 }

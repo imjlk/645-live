@@ -81,7 +81,14 @@ export function withoutPurchasedAds(config: AdConfig | null) {
 const RESTORE_ERROR =
 	"구매 내역을 확인하지 못했어요. 잠시 후 구매 복원을 눌러 주세요.";
 type StoreAction = "refresh" | "restore" | "purchase";
+export type PurchaseMetric =
+	| "purchase_entered"
+	| "purchase_opened"
+	| "purchase_canceled"
+	| "purchase_succeeded"
+	| "purchase_failed";
 type StoreDependencies = {
+	metric?: (event: PurchaseMetric, flowId: string, outcome: string) => void;
 	enabled: boolean;
 	restore: (verify: VerifyOrder) => Promise<boolean>;
 	price: () => Promise<string>;
@@ -133,6 +140,18 @@ export function createAdFreeStore(deps: StoreDependencies) {
 		async run(action: StoreAction) {
 			if (!deps.enabled || state.busy) return;
 			const id = ++version;
+			const flowId = `purchase-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+			const metric = (event: PurchaseMetric, outcome = "") => {
+				if (id !== version || action !== "purchase") return;
+				try {
+					deps.metric?.(event, flowId, outcome);
+				} catch {
+					/* Optional analytics never blocks checkout. */
+				}
+			};
+			metric("purchase_entered");
+			let phase = "history";
+			let purchaseVerified = false;
 			const check = () => {
 				if (id !== version) throw new Error(RESTORE_ERROR);
 			};
@@ -156,21 +175,33 @@ export function createAdFreeStore(deps: StoreDependencies) {
 				}
 				if (action === "restore")
 					update({ message: "복원할 광고 제거 구매가 없어요." });
+				phase = "price";
 				const price = await bounded(deps.price(), 8_000);
 				check();
 				update({ price });
 				if (action !== "purchase" || !price) return;
-				await deps.purchase(verify);
+				phase = "checkout";
+				metric("purchase_opened");
+				await deps.purchase(async (orderId) => {
+					const active = await verify(orderId);
+					if (active) purchaseVerified = true;
+					return active;
+				});
+				if (!purchaseVerified) throw new Error(RESTORE_ERROR);
 				check();
 				lastVerifiedPurchase = Date.now();
 				update({ owned: true, message: "배너와 번호 생성 광고를 제거했어요." });
+				metric("purchase_succeeded", "verified");
 			} catch (error) {
 				if (
 					error instanceof WebAdapterError &&
 					error.operation === "purchase" &&
 					error.code === "USER_CANCELED"
-				)
+				) {
+					metric("purchase_canceled", "user_canceled");
 					return;
+				}
+				metric("purchase_failed", phase);
 				if (id === version)
 					update({
 						checked: true,

@@ -2,6 +2,7 @@ import { IAP } from "@apps-in-toss/web-framework";
 import { useEffect, useMemo, useSyncExternalStore } from "react";
 import { createAdFreeStore, restoreAdFree } from "./ad-free";
 import type { Api } from "./api";
+import { adTelemetry } from "./telemetry";
 
 export function useAdFree(
 	api: Api,
@@ -13,6 +14,18 @@ export function useAdFree(
 		() =>
 			createAdFreeStore({
 				enabled: Boolean(userId && sku),
+				metric: (event, flowId, outcome) =>
+					adTelemetry.track(
+						event,
+						{
+							placement: "ad_free_purchase",
+							policy: "purchase-v1",
+							flowId,
+							entryPoint: "settings",
+							format: "non_consumable",
+						},
+						outcome,
+					),
 				restore: (verify) => restoreAdFree(IAP, sku ?? "", verify),
 				price: async () => {
 					if (!IAP.createOneTimePurchaseOrder.isSupported()) return "";

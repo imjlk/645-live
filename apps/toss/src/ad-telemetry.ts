@@ -21,6 +21,15 @@ export type AdMetric =
 	| "settled"
 	| "feature_outcome"
 	| "generation_completed"
+	| "completion_retry"
+	| "completion_recovered"
+	| "completion_failed"
+	| "completion_storage_failed"
+	| "purchase_entered"
+	| "purchase_opened"
+	| "purchase_canceled"
+	| "purchase_succeeded"
+	| "purchase_failed"
 	| "banner_slot_viewed"
 	| "banner_requested"
 	| "banner_impression"
@@ -164,9 +173,11 @@ export function bindAdMetrics(
 		sink.enqueueBatch(
 			events.filter(
 				(e) =>
-					e.eventPayload.placement === "generation_continue" &&
-					(e.eventPayload.policy.startsWith(`${GENERATION_AD_EXPERIMENT}/`) ||
-						e.eventPayload.policy.startsWith("generation-cadence-v3/")),
+					(e.eventPayload.placement === "ad_free_purchase" &&
+						e.eventPayload.policy === "purchase-v1") ||
+					(e.eventPayload.placement === "generation_continue" &&
+						(e.eventPayload.policy.startsWith(`${GENERATION_AD_EXPERIMENT}/`) ||
+							e.eventPayload.policy.startsWith("generation-cadence-v3/"))),
 			),
 			{ sink: "detail" },
 		);

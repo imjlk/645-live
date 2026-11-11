@@ -8,8 +8,15 @@ import {
 	AppsInTossAdBridgeError,
 	createAppsInTossFullScreenAdBridge,
 } from "@trailbase-apps-in-toss-kit/ait-web/ads";
+import { completionMatches, createAdCompletionRecovery } from "./ad-completion";
 import { type AdFlow, createAdFlow } from "./ad-telemetry";
-import { type AdPlacement, type Api, apiErrorCode, LOCAL_PREVIEW } from "./api";
+import {
+	type AdPlacement,
+	type Api,
+	apiErrorCode,
+	LOCAL_PREVIEW,
+	retryableApiError,
+} from "./api";
 import { adTelemetry } from "./telemetry";
 
 export type AdUnlockResult = {
@@ -40,7 +47,9 @@ function resolvedAd(
 	return { ...result, resolution };
 }
 
-export function createAdController(api: Pick<Api, "startAd" | "completeAd">) {
+export function createAdController(
+	api: Pick<Api, "startAd" | "completeAd" | "adCompletionScope">,
+) {
 	let activeFlow: AdFlow | null = null;
 	const observedShow = Object.assign(
 		(params: Parameters<typeof showFullScreenAd>[0]) => {
@@ -66,11 +75,17 @@ export function createAdController(api: Pick<Api, "startAd" | "completeAd">) {
 	});
 	let busy = false;
 	let disposed = false;
-	let pendingCompletion: {
-		placement: AdPlacement;
-		id: string;
-		events: string[];
-	} | null = null;
+	const recovery = createAdCompletionRecovery({
+		scope: api.adCompletionScope,
+		complete: api.completeAd,
+		errorCode: apiErrorCode,
+		retryable: retryableApiError,
+		validate: (result, pending) => {
+			resolvedAd(result, pending.placement as AdPlacement, "completion_retry");
+		},
+		active: () => !disposed,
+		track: (event, outcome) => activeFlow?.track(event, outcome),
+	});
 	let pendingCancellation: string | null = null;
 	async function flushCancellation() {
 		if (!pendingCancellation) return;
@@ -121,33 +136,21 @@ export function createAdController(api: Pick<Api, "startAd" | "completeAd">) {
 			activeFlow = flow;
 			flow.track("requested");
 			try {
+				await recovery.load();
 				await flushCancellation();
-				if (pendingCompletion) {
+				if (recovery.pending) {
+					const previous = recovery.pending;
 					try {
-						const previous = pendingCompletion;
-						const result = await api.completeAd(
-							pendingCompletion.id,
-							pendingCompletion.events,
-						);
-						pendingCompletion = null;
-						if (previous.placement === placement) {
+						const result = await recovery.settle();
+						// A previous prompt must not refill the counter for a different prompt.
+						if (completionMatches(previous, placement, opportunityKey)) {
+							flow.track("completion_recovered", "previous_request");
 							flow.track("settled", "completion_retry");
 							return resolvedAd(result, placement, "completion_retry");
 						}
 					} catch (error) {
-						if (
-							[
-								"AD_INCOMPLETE",
-								"AD_EXPIRED",
-								"AD_NOT_FOUND",
-								"RESTORE_EXPIRED",
-								"RESTORE_UNAVAILABLE",
-							].includes(apiErrorCode(error) ?? "")
-						)
-							pendingCompletion = null;
-						else throw error;
+						if (recovery.pending) throw error;
 					}
-					pendingCompletion = null;
 				}
 				const session = await api
 					.startAd(placement, clientManagedCounter, opportunityKey)
@@ -191,16 +194,13 @@ export function createAdController(api: Pick<Api, "startAd" | "completeAd">) {
 						throw new Error("광고 요청을 중단했어요.");
 					if (reason) {
 						flow.track("unavailable", "unsupported");
-						pendingCompletion = {
+						await recovery.save({
 							placement,
 							id: session.id,
 							events: ["failedToShow"],
-						};
-						const result = await api.completeAd(
-							session.id,
-							pendingCompletion.events,
-						);
-						pendingCompletion = null;
+							opportunityKey: opportunityKey ?? null,
+						});
+						const result = await recovery.settle();
 						return resolvedAd(result, placement, "unavailable");
 					}
 					// Load only the server-selected group after an explicit CTA. A
@@ -219,13 +219,13 @@ export function createAdController(api: Pick<Api, "startAd" | "completeAd">) {
 						);
 					}
 					if (result.completed) flow.track("completed");
-					pendingCompletion = {
+					await recovery.save({
 						placement,
 						id: session.id,
 						events: result.events,
-					};
-					const completed = await api.completeAd(session.id, result.events);
-					pendingCompletion = null;
+						opportunityKey: opportunityKey ?? null,
+					});
+					const completed = await recovery.settle();
 					flow.track("settled", "accepted");
 					return resolvedAd(completed, placement, "ad_completed");
 				} catch (error) {
@@ -237,33 +237,20 @@ export function createAdController(api: Pick<Api, "startAd" | "completeAd">) {
 					);
 					if (
 						continuation(placement) &&
-						!pendingCompletion &&
+						!recovery.pending &&
 						error instanceof AppsInTossAdBridgeError &&
 						error.code !== "AD_SHOW_TIMEOUT"
 					) {
-						pendingCompletion = {
+						await recovery.save({
 							placement,
 							id: session.id,
 							events: ["failedToShow"],
-						};
-						const result = await api.completeAd(
-							session.id,
-							pendingCompletion.events,
-						);
-						pendingCompletion = null;
+							opportunityKey: opportunityKey ?? null,
+						});
+						const result = await recovery.settle();
 						return resolvedAd(result, placement, "unavailable");
 					}
-					if (
-						[
-							"AD_INCOMPLETE",
-							"AD_EXPIRED",
-							"AD_NOT_FOUND",
-							"RESTORE_EXPIRED",
-							"RESTORE_UNAVAILABLE",
-						].includes(apiErrorCode(error) ?? "")
-					)
-						pendingCompletion = null;
-					if (!pendingCompletion) {
+					if (!recovery.pending) {
 						bridge.clear(session.groupId);
 						pendingCancellation = session.id;
 						await flushCancellation().catch(() => {});
