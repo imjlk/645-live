@@ -40,6 +40,7 @@ import {
 	type AdFlow,
 	adPolicyLabel,
 	bindAdMetrics,
+	bindMetricsPageLifecycle,
 	createAdFlow,
 } from "./ad-telemetry";
 import {
@@ -101,11 +102,9 @@ export function useLotto() {
 				})),
 			}),
 		);
-		const subscription = AppState.addEventListener("change", (state) => {
-			if (state !== "active") void metrics.flush();
-		});
+		const stopMetricsLifecycle = bindMetricsPageLifecycle(metrics.flush);
 		return () => {
-			subscription.remove();
+			stopMetricsLifecycle();
 			metrics.dispose();
 		};
 	}, [api]);

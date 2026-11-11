@@ -100,6 +100,13 @@ globalThis.fetch = (async (
 	const id = JSON.parse(
 		Buffer.from(token?.split(".")[1] ?? "", "base64url").toString(),
 	).sub;
+	if (path === "/api/app/v1/metrics") {
+		expect(options?.keepalive).toBe(true);
+		expect(options?.method).toBe("POST");
+		expect(id).toBe("user-a");
+		return Response.json({ accepted: true });
+	}
+	expect(options?.keepalive).not.toBe(true);
 	if (path.endsWith("/me")) {
 		if (dataFailure)
 			return Response.json(
@@ -151,6 +158,7 @@ expect(await Promise.all([api.ensure(), api.ensure(), api.ensure()])).toEqual(
 	Array(3).fill(user("user-a")),
 );
 expect(bootstraps).toBe(1);
+await api.request("/api/app/v1/metrics", { events: [] });
 stored.set("645-live.saved.v1.user-a", "[]");
 api.dispose();
 api = createApi();

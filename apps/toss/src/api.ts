@@ -263,6 +263,9 @@ export function createApi() {
 			const response = await connectionStep("C41", () =>
 				instance.fetch(path, {
 					signal,
+					// Finish a small analytics POST if checkout return closes the WebView.
+					// Business operations keep the normal request lifecycle.
+					keepalive: path === "/api/app/v1/metrics",
 					method: body === undefined ? "GET" : "POST",
 					headers: {
 						"Content-Type": "application/json",

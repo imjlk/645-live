@@ -181,20 +181,35 @@ export function bindAdMetrics(
 			await send(events);
 		},
 	});
-	const forward = (events: Array<AnalyticsEvent<AdMetric, AdMetricPayload>>) =>
-		sink.enqueueBatch(
-			events.filter(
-				(e) =>
-					(e.eventPayload.placement === "app_journey" &&
-						e.eventPayload.policy === "journey-v1") ||
-					(e.eventPayload.placement === "ad_free_purchase" &&
-						e.eventPayload.policy === "purchase-v1") ||
-					(e.eventPayload.placement === "generation_continue" &&
-						(e.eventPayload.policy.startsWith(`${GENERATION_AD_EXPERIMENT}/`) ||
-							e.eventPayload.policy.startsWith("generation-cadence-v3/"))),
-			),
-			{ sink: "detail" },
+	const forward = (
+		events: Array<AnalyticsEvent<AdMetric, AdMetricPayload>>,
+	) => {
+		const accepted = events.filter(
+			(e) =>
+				(e.eventPayload.placement === "app_journey" &&
+					e.eventPayload.policy === "journey-v1") ||
+				(e.eventPayload.placement === "ad_free_purchase" &&
+					e.eventPayload.policy === "purchase-v1") ||
+				(e.eventPayload.placement === "generation_continue" &&
+					(e.eventPayload.policy.startsWith(`${GENERATION_AD_EXPERIMENT}/`) ||
+						e.eventPayload.policy.startsWith("generation-cadence-v3/"))),
 		);
+		const pending = sink.enqueueBatch(accepted, { sink: "detail" });
+		// Native checkout/ad callbacks can arrive just before this page closes.
+		// Start delivery now; the router isolates network failures from the action.
+		if (
+			accepted.some(
+				({ eventName }) =>
+					eventName.startsWith("purchase_") ||
+					eventName.startsWith("completion_") ||
+					eventName === "completed" ||
+					eventName === "settled" ||
+					eventName === "generation_completed",
+			)
+		)
+			return pending ?? sink.flush();
+		return pending;
+	};
 	detailSink = forward;
 	return {
 		flush: () => sink.flush().catch(() => {}),
@@ -202,5 +217,25 @@ export function bindAdMetrics(
 			if (detailSink === forward) detailSink = undefined;
 			sink.clear();
 		},
+	};
+}
+
+export function bindMetricsPageLifecycle(
+	flush: () => Promise<void>,
+	page: EventTarget | undefined = globalThis.window,
+	visibility: EventTarget | undefined = globalThis.document,
+) {
+	const send = () => {
+		void flush().catch(() => {});
+	};
+	// Retry on return as well as departure. pagehide covers navigation/unload
+	// where React Native Web's visibility-based AppState may not change.
+	visibility?.addEventListener("visibilitychange", send);
+	page?.addEventListener("pagehide", send);
+	page?.addEventListener("pageshow", send);
+	return () => {
+		visibility?.removeEventListener("visibilitychange", send);
+		page?.removeEventListener("pagehide", send);
+		page?.removeEventListener("pageshow", send);
 	};
 }
