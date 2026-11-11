@@ -1,5 +1,16 @@
 # @645/toss
 
+## 2.3.0 — 2026-11-11
+
+### Minor changes
+
+- [2f7ab03](https://github.com/imjlk/645-live/commit/2f7ab03af76dbcac9370ef92a2e44c51906f3130) Place attendance guidance next to generated numbers and saving actions. Add generation and attendance journey diagnostics, separating successful ad, skip-ticket, purchased and free continuation paths.
+- [523df26](https://github.com/imjlk/645-live/commit/523df26fa8b6538d5a7cfdcfe62129524b99482f) Preserve pending ad completion across restarts and retry transient completion failures without showing another ad. Add separate purchase entry, checkout, cancellation and verified completion diagnostics.
+
+### Patch changes
+
+- [3568874](https://github.com/imjlk/645-live/commit/3568874bf919894a5f60cd90b71778dc0d029107) Add validated revenue synchronization and reporting freshness, purchase conversion and ad completion diagnostics.
+
 ## 2.2.0 — 2026-11-09
 
 ### Minor changes
