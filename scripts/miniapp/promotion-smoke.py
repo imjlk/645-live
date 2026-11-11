@@ -358,6 +358,7 @@ def run():
                 prepared.add(key)
                 recipients[key] = prepare_calls[-1]['anonKey']
                 fixture([("UPDATE promotion_reward_ledger SET provider_transaction_key=? WHERE id=?",[key,pending['claimId']])])
+                before_prepares=len(prepare_calls)
                 command('docker','restart',name)
                 base='http://127.0.0.1:'+command('docker','port',name,'4000/tcp').rsplit(':',1)[1]
                 for _ in range(100):
@@ -366,10 +367,14 @@ def run():
                     except OSError: pass
                     time.sleep(.2)
                 else: raise AssertionError('Recovery restart failed')
-                before_prepares=len(prepare_calls);before=len(grants)
                 expect(claim(pending)[0],200,'resume prepared intent')
                 assert claim(pending)[1]['status']=='success'
-                assert len(prepare_calls)==before_prepares and len(grants)==before+1
+                # The minute-41 reconciliation job can execute this key while the
+                # restart health check is pending. Count this intent's execution,
+                # not a global delta measured after the server is already ready.
+                with provider_lock:
+                    assert len(prepare_calls)==before_prepares, 'persisted key prepared again'
+                    assert key in executions and grants.count(executions[key])==1, 'persisted intent must execute exactly once'
 
                 # Legacy keyless rows must NEVER be adopted as never-executed.
                 campaign('recovery-3','daily',1,1)
