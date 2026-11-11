@@ -21,3 +21,9 @@ services/trailbase/traildepot/uploads
 services/trailbase/traildepot/runtime
 services/trailbase/traildepot/metadata.textproto
 services/trailbase/traildepot/wasm
+
+# Reviewed operational commands included in the TrailBase image.
+!scripts/
+!scripts/miniapp/
+!scripts/miniapp/ad-revenue-import.mjs
+!scripts/miniapp/ad-revenue-sync.mjs
