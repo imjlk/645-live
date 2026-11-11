@@ -292,7 +292,7 @@ export function LiveFeed({
 								name="live-number-columns"
 								size="small"
 								alignment="fixed"
-								style={s.gridControl}
+								style={{ width: 132, minWidth: 132, flexShrink: 0, padding: 0 }}
 								value={String(columns)}
 								onChange={(value) => {
 									if (value !== "5" && value !== "9") return;
@@ -411,7 +411,6 @@ const s = StyleSheet.create({
 	detailActions: { gap: 8, paddingTop: 16, paddingBottom: 8 },
 	detailAction: { flex: 1 },
 	gridToolbar: { marginTop: 16, flexWrap: "wrap" },
-	gridControl: { width: 132, paddingHorizontal: 0 },
 	footer: { paddingVertical: 26, alignItems: "center", gap: 12 },
 	newActivity: { position: "absolute", top: 12, alignSelf: "center" },
 });

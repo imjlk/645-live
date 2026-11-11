@@ -87,8 +87,14 @@ export type PurchaseMetric =
 	| "purchase_canceled"
 	| "purchase_succeeded"
 	| "purchase_failed";
+export type PurchaseEntryPoint = "settings" | "attendance";
 type StoreDependencies = {
-	metric?: (event: PurchaseMetric, flowId: string, outcome: string) => void;
+	metric?: (
+		event: PurchaseMetric,
+		flowId: string,
+		outcome: string,
+		entryPoint: PurchaseEntryPoint,
+	) => void;
 	enabled: boolean;
 	restore: (verify: VerifyOrder) => Promise<boolean>;
 	price: () => Promise<string>;
@@ -137,14 +143,17 @@ export function createAdFreeStore(deps: StoreDependencies) {
 			version++;
 			update({ busy: false });
 		},
-		async run(action: StoreAction) {
+		async run(
+			action: StoreAction,
+			entryPoint: PurchaseEntryPoint = "settings",
+		) {
 			if (!deps.enabled || state.busy) return;
 			const id = ++version;
 			const flowId = `purchase-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 			const metric = (event: PurchaseMetric, outcome = "") => {
 				if (id !== version || action !== "purchase") return;
 				try {
-					deps.metric?.(event, flowId, outcome);
+					deps.metric?.(event, flowId, outcome, entryPoint);
 				} catch {
 					/* Optional analytics never blocks checkout. */
 				}

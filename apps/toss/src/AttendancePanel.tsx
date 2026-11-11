@@ -76,9 +76,11 @@ function Reward({ reward, model }: { reward: Promotion; model: LottoModel }) {
 export function AttendancePanel({
 	model,
 	onGenerate,
+	onAdFree,
 }: {
 	model: LottoModel;
 	onGenerate: () => void;
+	onAdFree?: () => void;
 }) {
 	const theme = useTheme();
 	const state = model.attendance;
@@ -259,6 +261,28 @@ export function AttendancePanel({
 				>
 					오늘 번호 만들기
 				</Button>
+			) : null}
+			{onAdFree && (model.adFree.enabled || LOCAL_PREVIEW) ? (
+				<View style={[s.restore, { backgroundColor: theme.surface }]}>
+					<Text style={[s.rewardTitle, { color: theme.text }]}>
+						{model.adFree.owned ? "광고 제거 이용 중" : "광고 없이 번호 만들기"}
+					</Text>
+					<Text style={[s.body, { color: theme.muted }]}>
+						{model.adFree.owned
+							? "배너와 번호 생성 광고 없이 이용 중이에요."
+							: "한 번 구매하면 배너와 번호 생성 광고를 제거할 수 있어요."}
+					</Text>
+					{!model.adFree.owned ? (
+						<Button
+							display="full"
+							size="medium"
+							style="weak"
+							onPress={onAdFree}
+						>
+							광고 제거 알아보기
+						</Button>
+					) : null}
+				</View>
 			) : null}
 			{visiblePointRewards(state?.promotions ?? []).map((reward) => (
 				<Reward key={reward.kind} reward={reward} model={model} />

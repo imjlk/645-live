@@ -186,6 +186,7 @@ export function LottoTabs() {
 							>
 								<View style={s.clip}>
 									<Tab
+										floating
 										value={tab}
 										onChange={(next) => {
 											if (
@@ -255,13 +256,19 @@ function TabScene({
 
 const s = StyleSheet.create({
 	root: { flex: 1 },
-	fixed: { position: "absolute", left: 0, right: 0 },
+	fixed: {
+		position: "absolute",
+		left: 0,
+		right: 0,
+		backgroundColor: "transparent",
+	},
 	spacing: {
 		width: "100%",
 		maxWidth: 640,
 		alignSelf: "center",
 		paddingHorizontal: 16,
 		paddingVertical: 8,
+		backgroundColor: "transparent",
 	},
 	dock: {
 		borderRadius: 24,

@@ -98,6 +98,7 @@ export function GeneratorAttendanceEntry({
 
 const s = StyleSheet.create({
 	root: {
+		width: "100%",
 		marginTop: 20,
 		paddingTop: 20,
 		paddingBottom: 4,
