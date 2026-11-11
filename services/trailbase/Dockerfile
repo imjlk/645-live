@@ -29,6 +29,7 @@ WORKDIR /app
 COPY --chown=trailbase services/trailbase/traildepot /app/traildepot-image
 COPY services/trailbase/entrypoint.sh /app/entrypoint.sh
 COPY services/trailbase/miniapp-settings.mjs /app/miniapp-settings.mjs
+COPY scripts/miniapp/ad-revenue-import.mjs scripts/miniapp/ad-revenue-sync.mjs /app/operations/
 
 USER root
 RUN rm -rf /app/traildepot-image/data /app/traildepot-image/backups /app/traildepot-image/uploads \
