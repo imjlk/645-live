@@ -19,6 +19,7 @@ import {
 	useState,
 } from "react";
 import { AdCtaImpression } from "./AdCtaImpression";
+import { AdFreePanel } from "./AdFreePanel";
 import { AttendancePanel } from "./AttendancePanel";
 import { adSkipLabel } from "./ad-skip";
 import { adPolicyLabel } from "./ad-telemetry";
@@ -94,6 +95,7 @@ type Panel =
 	| "custom"
 	| "report"
 	| "attendance"
+	| "adFree"
 	| "settings"
 	| "privacy"
 	| "support"
@@ -106,6 +108,7 @@ const PANEL_TITLES = {
 	custom: "내 취향대로 만들기",
 	report: "내 조합 살펴보기",
 	attendance: "매일 한 번, 출석",
+	adFree: "광고 제거",
 	settings: "설정",
 	privacy: "개인정보 처리방침",
 	support: "문의하기",
@@ -113,6 +116,7 @@ const PANEL_TITLES = {
 	resultPreview: "당첨 결과 미리보기",
 } as const;
 const PANEL_PARENTS: Partial<Record<NonNullable<Panel>, NonNullable<Panel>>> = {
+	adFree: "attendance",
 	privacy: "settings",
 	support: "settings",
 	localTest: "settings",
@@ -710,22 +714,23 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 											</Text>
 										) : null}
 										<View style={s.secondaryActions}>
-											<Pressable
-												accessibilityRole="button"
-												onPress={() => {
-													model.clearError();
-													setDraft(options);
-													accessFeature("custom", () => setPanel("custom"));
-												}}
-												style={s.secondaryLink}
-											>
-												<Text style={[s.body, { color: theme.blue }]}>
+											<View style={s.customAction}>
+												<Button
+													display="full"
+													size="medium"
+													type="primary"
+													style="weak"
+													onPress={() => {
+														model.clearError();
+														setDraft(options);
+														accessFeature("custom", () => setPanel("custom"));
+													}}
+												>
 													{hasOptions
 														? "다음 번호 맞춤 조건"
-														: "내 취향대로 만들기"}{" "}
-													›
-												</Text>
-											</Pressable>
+														: "내 취향대로 만들기"}
+												</Button>
+											</View>
 											{model.recent.length > 0 ? (
 												<Pressable
 													accessibilityRole="button"
@@ -855,7 +860,7 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 												<Text style={[s.caption, muted]}>
 													번호를 누르면 통계를 볼 수 있어요.
 												</Text>
-												{model.feed.generations.slice(0, 2).map((item) => (
+												{model.feed.generations.slice(0, 5).map((item) => (
 													<GenerationRow
 														key={item.id}
 														item={item}
@@ -1001,12 +1006,18 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 											<ScrollView
 												horizontal
 												showsHorizontalScrollIndicator={false}
-												contentContainerStyle={{ gap: 8 }}
+												style={{ flexGrow: 0, flexShrink: 0 }}
+												contentContainerStyle={{
+													gap: 8,
+													paddingVertical: 8,
+													alignItems: "center",
+												}}
 											>
 												{rounds.map((round) => (
 													<Button
 														key={round}
-														size="tiny"
+														size="medium"
+														display="inline"
 														style={round === savedRound ? "fill" : "weak"}
 														onPress={() => {
 															setSelectedRound(round);
@@ -1353,7 +1364,9 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 						>
 							{panel === "resultPreview"
 								? "테스트 도구로 돌아가기"
-								: "설정으로 돌아가기"}
+								: parentPanel === "attendance"
+									? "출석 안내로 돌아가기"
+									: "설정으로 돌아가기"}
 						</BottomSheet.CTA>
 					) : undefined
 				}
@@ -1617,12 +1630,16 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 					{panel === "attendance" ? (
 						<AttendancePanel
 							model={model}
+							onAdFree={() => setPanel("adFree")}
 							onGenerate={() => {
 								setPanel(null);
 								navigateTab("make");
 								scroll.current?.scrollTo({ y: 0, animated: true });
 							}}
 						/>
+					) : null}
+					{panel === "adFree" ? (
+						<AdFreePanel state={model.adFree} entryPoint="attendance" />
 					) : null}
 					{panel === "settings" ? (
 						<View style={{ gap: 20 }}>
@@ -1640,38 +1657,7 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 								{model.user?.displayName ?? "연결을 확인하고 있어요"}
 							</Text>
 							{model.adFree.enabled ? (
-								<View style={{ gap: 8 }}>
-									<Text style={[s.body, text]}>
-										{model.adFree.owned ? "광고 제거 이용 중" : "광고 제거"}
-									</Text>
-									<Text style={[s.caption, muted]}>
-										한 번 구매하면 배너와 번호 생성 광고가 사라져요. 맞춤
-										설정·분석·출석 복구 광고는 별도예요.
-									</Text>
-									{!model.adFree.owned && model.adFree.price ? (
-										<Button
-											display="full"
-											disabled={model.adFree.busy}
-											onPress={() => void model.adFree.purchase()}
-										>
-											{model.adFree.price}에 구매하기
-										</Button>
-									) : null}
-									<Button
-										display="full"
-										type="dark"
-										style="weak"
-										disabled={model.adFree.busy}
-										onPress={() => void model.adFree.restore()}
-									>
-										구매 복원
-									</Button>
-									{model.adFree.message ? (
-										<Text style={[s.caption, muted]}>
-											{model.adFree.message}
-										</Text>
-									) : null}
-								</View>
+								<AdFreePanel state={model.adFree} />
 							) : null}
 							{model.attendance?.promotionTestEnabled ? (
 								<View style={{ gap: 12 }}>
@@ -1820,6 +1806,7 @@ const s = StyleSheet.create({
 		columnGap: 12,
 		marginTop: 8,
 	},
+	customAction: { width: "100%", paddingVertical: 8 },
 	secondaryLink: {
 		minHeight: 44,
 		justifyContent: "center",

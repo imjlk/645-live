@@ -269,7 +269,7 @@ test("canceling checkout retains the price and clears busy state without a payme
 });
 
 test("purchase metrics separate checkout, cancellation, verified success and restoration", async () => {
-	const events: Array<[string, string, string]> = [];
+	const events: Array<[string, string, string, string]> = [];
 	let mode = "cancel";
 	const store = createAdFreeStore({
 		enabled: true,
@@ -286,16 +286,20 @@ test("purchase metrics separate checkout, cancellation, verified success and res
 			await grant("receipt-never-logged");
 		},
 	});
-	await store.run("purchase");
+	const attendancePurchase = store.run("purchase", "attendance");
+	await store.run("purchase", "settings");
+	await attendancePurchase;
 	expect(events.map((e) => e[0])).toEqual([
 		"purchase_entered",
 		"purchase_opened",
 		"purchase_canceled",
 	]);
 	expect(new Set(events.map((e) => e[1])).size).toBe(1);
+	expect(new Set(events.map((e) => e[3]))).toEqual(new Set(["attendance"]));
 	events.length = 0;
 	mode = "success";
 	await store.run("purchase");
+	expect(new Set(events.map((e) => e[3]))).toEqual(new Set(["settings"]));
 	expect(events.map((e) => e[0])).toEqual([
 		"purchase_entered",
 		"purchase_opened",

@@ -348,8 +348,8 @@ Object.assign(model, {
 	feed: {
 		round: 1244,
 		serverTime: 100,
-		totalGenerations: 3,
-		generations: [1, 2, 3].map((id) => ({
+		totalGenerations: 6,
+		generations: [1, 2, 3, 4, 5, 6].map((id) => ({
 			id,
 			round: 1244,
 			numbers: [7, 10, 25, 29, 30, 43],
@@ -361,7 +361,7 @@ Object.assign(model, {
 await act(async () => {
 	root.update(<LottoScreen tab="make" />);
 });
-expect(root.root.findAllByType("generationRow")).toHaveLength(2);
+expect(root.root.findAllByType("generationRow")).toHaveLength(5);
 await act(async () => {
 	root.root.findAllByType("generationRow")[0].props.onNumberPress(1244, 7);
 	root.root.findAllByType("generationRow")[0].props.onNumberPress(1244, 7);
