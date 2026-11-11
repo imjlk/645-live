@@ -33,7 +33,7 @@ mock.module("../../apps/toss/src/web/primitives", () => ({
 }));
 mock.module("../../apps/toss/src/telemetry", () => ({
 	trackProduct() {},
-	adTelemetry: {},
+	adTelemetry: { track() {} },
 }));
 mock.module("../../apps/toss/src/ad-bridge", () => ({
 	createAdController: () => ({

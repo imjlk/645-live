@@ -103,3 +103,59 @@ test("saved metrics SQL separates mature conversion windows and counts each paid
 	expect(preexisting.관측_출석완료율).toBeNull();
 	db.close();
 });
+
+test("journey reporting distinguishes enrollment cohorts and ticket/free purchases from ad success", () => {
+	const db = new Database(":memory:");
+	try {
+		db.exec(
+			"ATTACH DATABASE ':memory:' AS analytics; CREATE TABLE analytics.events(name TEXT,user_id BLOB,source TEXT,props_json TEXT,server_at INTEGER); CREATE TABLE ait_lotto_generation_experiment_enrollments(user_id BLOB,experiment TEXT,enrolled_at INTEGER)",
+		);
+		const at = Date.parse("2026-11-08T10:00:00+09:00");
+		db.query(
+			"INSERT INTO ait_lotto_generation_experiment_enrollments VALUES(x'01','generation-cadence-v4',?)",
+		).run(at);
+		const insert = db.query(
+			"INSERT INTO analytics.events VALUES(?,x'01','control',?,?)",
+		);
+		const add = (name: string, flow: string, outcome = "", time = at) =>
+			insert.run(
+				name,
+				JSON.stringify({
+					policy: "journey-v1",
+					placement: "app_journey",
+					flow_id: flow,
+					outcome,
+				}),
+				time,
+			);
+		add("journey_entered", "entry");
+		add("journey_generation_started", "ticket", "ticket");
+		add("journey_generation_finished", "ticket", "ticket");
+		add("journey_generation_finished", "ticket", "ticket");
+		add("journey_generation_started", "owned", "ad_free");
+		add("journey_generation_finished", "owned", "ad_free");
+		add("journey_attendance_succeeded", "check");
+		add("journey_entered", "next", "", at + 86400000);
+		const query = readFileSync(
+			join(root, "services/trailbase/sql/27-generation-attendance-journey.sql"),
+			"utf8",
+		).replaceAll("'now'", "'2026-11-11 01:00:00'");
+		const rows = db.query(query).all() as Record<string, unknown>[];
+		expect(rows.find((r) => r.한국시간_날짜 === "2026-11-08")).toMatchObject({
+			배정구분: "v4신규배정",
+			관측이용자: 1,
+			생성성공수: 2,
+			광고경로_생성: 0,
+			스킵경로_생성: 1,
+			광고제거구매자_생성: 1,
+			출석성공자: 1,
+			D1_재방문자: 1,
+			D1_pct: 100,
+		});
+		expect(rows.find((r) => r.한국시간_날짜 === "2026-11-09")?.배정구분).toBe(
+			"이전배정",
+		);
+	} finally {
+		db.close();
+	}
+});

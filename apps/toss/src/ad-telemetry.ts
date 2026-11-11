@@ -25,6 +25,18 @@ export type AdMetric =
 	| "completion_recovered"
 	| "completion_failed"
 	| "completion_storage_failed"
+	| "journey_entered"
+	| "generation_cta_viewed"
+	| "journey_generation_started"
+	| "journey_generation_finished"
+	| "journey_generation_failed"
+	| "attendance_entry_viewed"
+	| "attendance_entry_clicked"
+	| "journey_attendance_started"
+	| "journey_attendance_succeeded"
+	| "journey_attendance_failed"
+	| "journey_ticket_selected"
+	| "journey_ticket_redeemed"
 	| "purchase_entered"
 	| "purchase_opened"
 	| "purchase_canceled"
@@ -173,6 +185,8 @@ export function bindAdMetrics(
 		sink.enqueueBatch(
 			events.filter(
 				(e) =>
+					(e.eventPayload.placement === "app_journey" &&
+						e.eventPayload.policy === "journey-v1") ||
 					(e.eventPayload.placement === "ad_free_purchase" &&
 						e.eventPayload.policy === "purchase-v1") ||
 					(e.eventPayload.placement === "generation_continue" &&

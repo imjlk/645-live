@@ -51,6 +51,12 @@ def run():
                 assert db.execute("SELECT count(*) FROM events WHERE name='purchase_entered'").fetchone()[0]==1
             purchase['events'][0]['eventName']='completed'
             expect(request(base,'/api/app/v1/metrics',purchase,auth)[0],400,'purchase cannot impersonate ad completion')
+            journey=json.loads(json.dumps(payload))
+            journey['events'][0]['eventName']='journey_generation_finished'
+            journey['events'][0]['eventPayload'].update(placement='app_journey',format='product',policy='journey-v1',flow_id='generate',event_id='journey-1',outcome='ticket')
+            expect(request(base,'/api/app/v1/metrics',journey,auth)[0],200,'journey metric')
+            journey['events'][0]['eventName']='completed'
+            expect(request(base,'/api/app/v1/metrics',journey,auth)[0],400,'journey cannot impersonate ad completion')
             wrong=json.loads(json.dumps(payload));wrong['events'][0]['eventPayload']['policy']='wrong'
             expect(request(base,'/api/app/v1/metrics',wrong,auth)[0],400,'policy validation')
             wrong=json.loads(json.dumps(payload));wrong['events'][0]['eventPayload']['secret']='not-allowed'
