@@ -197,7 +197,7 @@ def run():
                     # Run inside the same VM as SQLite; host WAL mmap coherence differs on macOS.
                     script = "import {Database} from 'bun:sqlite'; const db=new Database('/app/traildepot/data/main.db'); const rows=await Bun.stdin.json(); db.exec('PRAGMA foreign_keys=ON'); db.transaction(()=>{for(const [sql,params] of rows) db.query(sql).run(...params.map(v=>Array.isArray(v)?Buffer.from(v):v));})(); db.close();"
                     result = subprocess.run(['docker','exec','-i',name,'bun','-e',script], input=json.dumps(statements), text=True, capture_output=True, timeout=10)
-                    assert result.returncode == 0, 'isolated promotion fixture failed'
+                    assert result.returncode == 0, 'isolated promotion fixture failed: ' + result.stderr
                 def state():
                     status, result = request(base, '/api/app/v1/attendance/status', headers=auth)
                     expect(status, 200, 'attendance state')
@@ -458,7 +458,7 @@ def run():
                 # A check-in program: every subject is new to a new policy version once,
                 # and its window starts on the first own check-in, not on registration.
                 # Earlier fixtures end, as the previous program's campaigns do in production.
-                fixture([("UPDATE promotion_campaigns SET status='ENDED' WHERE status='ACTIVE'",[])])
+                fixture([("UPDATE promotion_campaigns SET status='ENDED',starts_at=?,ends_at=?",[now-86400000,now-1000])])
                 campaign('daily-v2','daily',1,1000)
                 campaign('weekly-v2','weekly',10,1000)
                 test_settings({'AIT_REWARD_POLICY_VERSION':'attendance-rewards-v2','AIT_REWARD_NEW_USER_CUTOVER_AT':str(now-1000),'AIT_REWARD_LEGACY_POINTS_ENDS_AT':str(now-1000),'AIT_REWARD_WELCOME_POINT_DAYS':'15','AIT_REWARD_WINDOW_START':'first_check_in','AIT_REWARD_WELCOME_STREAK_LIMIT':'2'})
@@ -509,6 +509,54 @@ def run():
                 kinds = container_rows("SELECT reward_kind,reward_amount,basis FROM promotion_reward_eligibilities WHERE policy_version='attendance-rewards-v2' ORDER BY reward_kind",[])
                 assert kinds==[('attendance_daily',1,'WELCOME'),('attendance_daily',1,'WELCOME'),('attendance_weekly',10,'WELCOME')], kinds
                 expect(request(base,path,{k:weekly_v2[k] for k in ['kind','periodDay','campaignId','claimId']},streak_auth)[0],200,'program streak claim')
+                # Existing attendance days count toward this accepted seven-day reward.
+                # Notice changes must preserve the claim, its amount and the 15-day window.
+                paid = program_reward(program_state(streak_auth), 'weekly')
+                expect(request(base,path,{k:paid[k] for k in ['kind','periodDay','campaignId','claimId']},streak_auth)[0],200,'existing streak receipt')
+                before_notice = program_state(streak_auth)
+                before_grants = len(grants)
+                def offer(result, kind):
+                    return next(p for p in result['rewardPolicy']['program']['rewards'] if p['kind'] == kind)
+                fixture([("UPDATE promotion_campaigns SET reward_amount=20 WHERE id='weekly-v2'",[]),
+                         ("UPDATE promotion_campaigns SET reward_amount=2 WHERE id='daily-v2'",[])])
+                changed = program_state(streak_auth)
+                assert offer(changed, 'weekly')['amount']==20
+                assert program_reward(changed, 'weekly')['amount']==10, 'notice rewrote a prior claim'
+                assert program_reward(program_state(prior_auth), 'daily')['amount']==1, 'notice rewrote an unclaimed snapshot'
+                assert offer(changed, 'daily')['amount']==2
+                assert changed['rewardPolicy']['pointWindow']==before_notice['rewardPolicy']['pointWindow']
+                # A future/draft/paused replacement cannot override the live offer.
+                for key, status, starts in [('notice-draft','DRAFT',now-1),('notice-future','ACTIVE',now+86400000),('notice-paused','PAUSED',now-1)]:
+                    campaign(key, 'weekly', 99, 1000)
+                    fixture([("UPDATE promotion_campaigns SET status=?,starts_at=?,ends_at=? WHERE id=?",[status,starts,now+2*86400000,key])])
+                assert offer(program_state(streak_auth), 'weekly')['amount']==20
+                fixture([("DELETE FROM promotion_campaigns WHERE id IN ('notice-draft','notice-future','notice-paused')",[])])
+                fixture([("UPDATE promotion_campaigns SET budget_limit_amount=1 WHERE id='weekly-v2'",[])])
+                exhausted = program_state(streak_auth)
+                assert offer(exhausted, 'weekly')['unavailableReason']=='budget_exhausted'
+                assert not offer(exhausted, 'weekly')['available'] and offer(exhausted, 'daily')['available']
+                # Explicit exhaustion/pausing and elapsed campaign dates remain distinct.
+                for campaign_status, reason in [('EXHAUSTED','budget_exhausted'),('PAUSED','paused'),('ENDED','ended')]:
+                    fixture([("UPDATE promotion_campaigns SET status=? WHERE id='daily-v2'",[campaign_status])])
+                    shown = offer(program_state(streak_auth), 'daily')
+                    assert shown['unavailableReason']==reason, shown
+                # A paused campaign may have no budget. Inspect as a participant
+                # with no personal snapshot; legacy claim behavior is out of scope.
+                _, notice_auth = new_user()
+                fixture([("UPDATE promotion_campaigns SET status='PAUSED',budget_limit_amount=NULL WHERE id='daily-v2'",[])])
+                assert offer(program_state(notice_auth), 'daily')['unavailableReason']=='paused'
+                fixture([("UPDATE promotion_campaigns SET status='ACTIVE',budget_limit_amount=1000,ends_at=? WHERE id='daily-v2'",[now-1])])
+                assert offer(program_state(streak_auth), 'daily')['unavailableReason']=='ended'
+                assert program_reward(program_state(streak_auth), 'weekly')['claimId']==paid['claimId']
+                assert len(grants)==before_grants, 'reading a notice issued another reward'
+                # Future program configuration is a disposable test only. Displaying
+                # its start must not re-enroll an existing subject or move their end.
+                future = now + 86400000
+                test_settings({'AIT_REWARD_NEW_USER_CUTOVER_AT':str(future),'AIT_REWARD_LEGACY_POINTS_ENDS_AT':str(future)})
+                future_state = program_state(streak_auth)
+                assert future_state['rewardPolicy']['program']=={'startsAt':future,'started':False,'rewards':[]}
+                assert future_state['rewardPolicy']['pointWindow']==before_notice['rewardPolicy']['pointWindow']
+                assert program_reward(future_state, 'weekly')['claimId']==paid['claimId']
                 print(json.dumps({'case':'attendance-promotions','passed':[
                     'generation-gated check-in; no three-day pass', 'daily and seven-day bonuses independently configurable',
                     'concurrent claims are idempotent; budget survives deletion and rejoin',
@@ -522,7 +570,9 @@ def run():
                     'lost execute response reconciles without another payment',
                     'prepare, execute and status all use the same anonymous recipient',
                     'a new check-in program registers every subject once from its first check-in',
-                    'streaks completed before a check-in window never pay; streaks inside it pay the program amount'
+                    'streaks completed before a check-in window never pay; streaks inside it pay the program amount',
+                    'current program notices separate prior claims and snapshots from current campaign amounts',
+                    'budget, paused, ended and pre-start notices preserve accepted prior attendance, claims and benefit periods'
                 ]}),flush=True)
             finally:
                 cleanup_case(name, folder, image)

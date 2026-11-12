@@ -25,18 +25,44 @@ export function kstStartLabel(at: number) {
 	return `${day} ${hh}:${mm}부터`;
 }
 
-/** Current program amounts, e.g. "매일 1P, 7일 연속 출석하면 10P", never a fixed fallback. */
+/** Never use personal claims/snapshots to advertise the current program. */
 function programRewards(state: Attendance) {
-	const amount = (kind: Promotion["kind"]) =>
-		state.promotions?.find((p) => p.kind === kind)?.amount ?? null;
-	const daily = amount("daily");
-	const weekly = amount("weekly");
 	const once = state.rewardPolicy?.welcomeStreakLimit === 1 ? "(1회)" : "";
-	const parts = [
-		daily !== null ? `매일 ${daily}P` : null,
-		weekly !== null ? `7일 연속 출석하면 ${weekly}P${once}` : null,
-	].filter(Boolean);
-	return parts.length ? parts.join(", ") : null;
+	return state.rewardPolicy?.program?.rewards
+		.map((reward) => {
+			const daily = reward.kind === "daily";
+			if (reward.available && reward.amount !== null)
+				return daily
+					? `매일 ${reward.amount}P`
+					: `7일 연속 ${reward.amount}P${once}`;
+			const label = daily ? "매일 출석" : "연속 출석";
+			if (reward.unavailableReason === "budget_exhausted")
+				return `${label} 예산 소진`;
+			if (reward.unavailableReason === "ended") return `${label} 포인트 종료`;
+			return `${label} 포인트 준비 중`;
+		})
+		.join(", ");
+}
+
+/** One short replacement message when the program cannot currently offer points. */
+function programUnavailableNotice(state: Attendance) {
+	const program = state.rewardPolicy?.program;
+	if (!program) return null;
+	if (!program.started)
+		return `출석 포인트 혜택은 ${kstStartLabel(program.startsAt)} 시작돼요.`;
+	if (program.rewards.some((r) => r.available && r.amount !== null))
+		return null;
+	if (
+		program.rewards.length &&
+		program.rewards.every((r) => r.unavailableReason === "budget_exhausted")
+	)
+		return "출석 포인트 예산이 소진됐어요.";
+	if (
+		program.rewards.length &&
+		program.rewards.every((r) => r.unavailableReason === "ended")
+	)
+		return "출석 포인트 이벤트가 종료됐어요.";
+	return "출석 포인트 지급을 잠시 쉬고 있어요.";
 }
 
 /** Point copy follows the server's window; tickets are described separately. */
@@ -46,13 +72,17 @@ export function pointWindowNotice(state: Attendance | null | undefined) {
 	const window = policy.pointWindow;
 	const days = policy.welcomePointDays;
 	if (policy.windowStart === "first_check_in") {
-		const rewards = programRewards(state);
-		if (window.status === "NOT_STARTED")
-			return `오늘 번호를 만들고 출석하면 ${days}일 동안 토스 포인트 출석 혜택이 시작돼요.${rewards ? ` ${rewards}를 받을 수 있어요.` : ""}`;
-		if (window.status === "WELCOME")
-			return `출석 시작일부터 ${days}일 동안 토스 포인트 출석 혜택 · ${kstEndLabel(window.endsAt)}${rewards ? ` · ${rewards}` : ""}`;
 		if (window.status === "ENDED")
 			return `${days}일 토스 포인트 출석 혜택 기간이 끝났어요. 이미 신청한 포인트는 이전 혜택 내역에서 확인할 수 있어요. 출석 스킵권은 계속 받을 수 있어요.`;
+		const unavailable = programUnavailableNotice(state);
+		if (unavailable) return unavailable;
+		const rewards = programRewards(state);
+		if (window.status === "NOT_STARTED")
+			return policy.program
+				? `첫 출석부터 ${days}일 · ${rewards}`
+				: "출석 포인트 혜택은 아래에서 확인해 주세요.";
+		if (window.status === "WELCOME")
+			return `포인트 혜택 ${kstEndLabel(window.endsAt)}${rewards ? ` · ${rewards}` : ""}`;
 	}
 	if (window.status === "NOT_STARTED") return null;
 	const skips = state?.adSkips;
@@ -78,9 +108,12 @@ export function pointWindowNotice(state: Attendance | null | undefined) {
 /** A one-line pointer for the main screen while the points change is announced. */
 export function pointWindowHeadline(state: Attendance | null | undefined) {
 	const policy = state?.rewardPolicy;
-	if (!policy) return null;
+	if (!state || !policy) return null;
 	const window = policy.pointWindow;
 	if (policy.windowStart === "first_check_in") {
+		if (window.status === "ENDED" || !policy.program) return null;
+		const unavailable = programUnavailableNotice(state);
+		if (unavailable) return unavailable;
 		if (window.status === "NOT_STARTED")
 			return `출석하면 ${policy.welcomePointDays}일 동안 토스 포인트를 받을 수 있어요.`;
 		if (window.status === "WELCOME")

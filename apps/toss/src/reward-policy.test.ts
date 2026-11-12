@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import type { Attendance, Promotion } from "./api";
+import type { Attendance, Promotion, RewardPolicy } from "./api";
 import {
 	checkInLabel,
 	kstEndLabel,
@@ -30,6 +30,139 @@ const attendance = (overrides: Partial<Attendance> = {}) =>
 		promotions: [],
 		...overrides,
 	}) as unknown as Attendance;
+
+const currentProgram: NonNullable<RewardPolicy["program"]> = {
+	startsAt: DAY_EIGHT - 7 * 86_400_000,
+	started: true,
+	rewards: [
+		{
+			kind: "daily" as const,
+			amount: 1,
+			available: true,
+			unavailableReason: null,
+		},
+		{
+			kind: "weekly" as const,
+			amount: 10,
+			available: true,
+			unavailableReason: null,
+		},
+	],
+};
+const programState = () => ({
+	...attendance({}),
+	promotions: [
+		reward({ amount: 50, claimId: "past-reward", available: false }),
+	],
+	rewardPolicy: {
+		version: "attendance-rewards-v2",
+		noticeStartsAt: null,
+		noticeActive: false,
+		legacyPointsEndsAt: 1,
+		welcomePointDays: 15,
+		windowStart: "first_check_in" as const,
+		welcomeStreakLimit: 1,
+		pointWindow: {
+			status: "WELCOME",
+			cohort: "WELCOME",
+			endsAt: DAY_EIGHT,
+		} as RewardPolicy["pointWindow"],
+		program: structuredClone(currentProgram),
+	},
+});
+
+describe("current program notice", () => {
+	test("historical claims and unclaimed snapshots never set the advertised amount", () => {
+		for (const claimId of ["past-reward", null]) {
+			const state = programState();
+			state.promotions[0].claimId = claimId;
+			expect(pointWindowNotice(state)).toContain("10P");
+			expect(pointWindowNotice(state)).not.toContain("50P");
+			expect(state.promotions[0].amount).toBe(50);
+		}
+	});
+	test("an exhausted reward is qualified independently of the remaining reward", () => {
+		const state = programState();
+		const weekly = state.rewardPolicy.program.rewards[1];
+		weekly.available = false;
+		weekly.unavailableReason = "budget_exhausted";
+		expect(pointWindowNotice(state)).toContain("매일 1P");
+		expect(pointWindowNotice(state)).toContain("연속 출석 예산 소진");
+		expect(pointWindowNotice(state)).not.toContain("10P");
+	});
+	test("both exhausted budgets remove payment promises from both notices", () => {
+		const state = programState();
+		for (const reward of state.rewardPolicy.program.rewards) {
+			reward.available = false;
+			reward.unavailableReason = "budget_exhausted";
+		}
+		for (const text of [pointWindowNotice(state), pointWindowHeadline(state)]) {
+			expect(text).toBe("출석 포인트 예산이 소진됐어요.");
+			expect(text).not.toContain("받을 수 있어요");
+		}
+	});
+	test("program start is separate from a participant's first check-in", () => {
+		const state = programState();
+		state.rewardPolicy.pointWindow = {
+			status: "NOT_STARTED",
+			cohort: "WELCOME",
+			endsAt: null,
+		};
+		state.rewardPolicy.program.started = false;
+		for (const text of [pointWindowNotice(state), pointWindowHeadline(state)])
+			expect(text).toBe("출석 포인트 혜택은 12월 1일부터 시작돼요.");
+		state.rewardPolicy.program.started = true;
+		expect(pointWindowNotice(state)).toContain("첫 출석부터 15일");
+		expect(pointWindowHeadline(state)).toContain("출석하면 15일");
+	});
+	test("older servers never fall back to historical amounts or an unverified start", () => {
+		const state: Attendance = programState();
+		delete state.rewardPolicy?.program;
+		expect(pointWindowNotice(state)).not.toMatch(/50P|10P/);
+		expect(pointWindowHeadline(state)).toBeNull();
+		if (state.rewardPolicy)
+			state.rewardPolicy.pointWindow = {
+				status: "NOT_STARTED",
+				cohort: "WELCOME",
+				endsAt: null,
+			};
+		expect(pointWindowNotice(state)).not.toContain("첫 출석부터");
+		expect(pointWindowHeadline(state)).toBeNull();
+	});
+	test("paused, ended and missing offers do not promise payment", () => {
+		for (const reason of ["paused", "ended", null] as const) {
+			const state = programState();
+			for (const reward of state.rewardPolicy.program.rewards) {
+				reward.available = false;
+				reward.unavailableReason = reason;
+				if (reason === null) reward.amount = null;
+			}
+			for (const text of [
+				pointWindowNotice(state),
+				pointWindowHeadline(state),
+			]) {
+				expect(text).not.toMatch(/받을 수 있어요|10P|50P/);
+				expect(text).toBe(
+					reason === "ended"
+						? "출석 포인트 이벤트가 종료됐어요."
+						: "출석 포인트 지급을 잠시 쉬고 있어요.",
+				);
+			}
+		}
+	});
+	test("a participant's ended period is not reopened by a current program offer", () => {
+		const state = programState();
+		state.rewardPolicy.pointWindow = {
+			status: "ENDED",
+			cohort: "WELCOME",
+			endsAt: DAY_EIGHT,
+		};
+		expect(pointWindowNotice(state)).toContain(
+			"15일 토스 포인트 출석 혜택 기간이 끝났어요",
+		);
+		expect(pointWindowHeadline(state)).toBeNull();
+	});
+});
 
 describe("reward policy copy", () => {
 	test("exclusive KST ends show the last included day", () => {
@@ -109,6 +242,7 @@ describe("reward policy copy", () => {
 					windowStart: "first_check_in",
 					welcomeStreakLimit,
 					pointWindow,
+					program: currentProgram,
 				},
 			});
 		const waiting = program({
@@ -117,7 +251,7 @@ describe("reward policy copy", () => {
 			endsAt: null,
 		});
 		expect(pointWindowNotice(waiting)).toBe(
-			"오늘 번호를 만들고 출석하면 15일 동안 토스 포인트 출석 혜택이 시작돼요. 매일 1P, 7일 연속 출석하면 10P를 받을 수 있어요.",
+			"첫 출석부터 15일 · 매일 1P, 7일 연속 10P",
 		);
 		expect(pointWindowHeadline(waiting)).toBe(
 			"출석하면 15일 동안 토스 포인트를 받을 수 있어요.",
@@ -127,7 +261,7 @@ describe("reward policy copy", () => {
 			1,
 		);
 		expect(pointWindowNotice(active)).toBe(
-			"출석 시작일부터 15일 동안 토스 포인트 출석 혜택 · 12월 7일까지 · 매일 1P, 7일 연속 출석하면 10P(1회)",
+			"포인트 혜택 12월 7일까지 · 매일 1P, 7일 연속 10P(1회)",
 		);
 		expect(pointWindowHeadline(active)).toBe(
 			"토스 포인트 출석 혜택은 12월 7일까지 받을 수 있어요.",

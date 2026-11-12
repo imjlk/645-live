@@ -163,6 +163,12 @@ pub(crate) async fn attendance_status(req: &mut Request) -> ApiResult<Json> {
     state["promotionTestEnabled"] = json!(test_enabled);
     state["adSkips"] = rewards["adSkips"].clone();
     state["rewardPolicy"] = rewards["rewardPolicy"].clone();
+    if config.window_start == attendance_rewards::WindowStart::FirstCheckIn {
+        if let Some(policy) = &config.cohort {
+            state["rewardPolicy"]["program"] =
+                program_notice(&mut tx, now, policy.new_user_cutover_at)?;
+        }
+    }
     db::tx_commit(&mut tx)?;
     Ok(state)
 }
@@ -309,6 +315,46 @@ pub(crate) struct Campaign {
     pub available: bool,
     /// Why an existing campaign cannot pay now: budget_exhausted, ended or paused.
     pub unavailable: Option<&'static str>,
+}
+
+// Display-only projection. Personal eligibility snapshots, claims, enrollment and
+// payout rules retain their original amounts and dates, including prior streak days.
+fn program_notice(tx: &mut Transaction, now: i64, starts_at: i64) -> ApiResult<Json> {
+    let mut offers = vec![];
+    if now >= starts_at {
+        for kind in [Kind::Daily, Kind::Weekly] {
+            // Prefer the same active campaign as active_campaign. If it cannot pay,
+            // retain its current reason instead of advertising a historical claim.
+            // Exclude drafts, future offers and campaigns ending before this program.
+            let rows = db::tx_query(
+                tx,
+                "SELECT reward_amount,status,ends_at<=?1,(budget_limit_amount >= reward_amount + coalesce((SELECT reserved_amount FROM ait_lotto_promotion_usage WHERE campaign_id=c.id),0) AND (max_grant_count IS NULL OR max_grant_count > coalesce((SELECT grant_count FROM ait_lotto_promotion_usage WHERE campaign_id=c.id),0))) FROM promotion_campaigns c WHERE feature_key=?2 AND status IN ('ACTIVE','PAUSED','ENDED','EXHAUSTED') AND starts_at<=?1 AND ends_at>?3 ORDER BY (status='ACTIVE' AND ends_at>?1) DESC,starts_at DESC,id DESC LIMIT 1",
+                &[
+                    Value::Integer(now),
+                    Value::Text(kind.source().into()),
+                    Value::Integer(starts_at),
+                ],
+            )?;
+            let (amount, unavailable) = match rows.first() {
+                Some(r) => (
+                    Some(db::integer(&r[0], "amount")?),
+                    if !promotions_configured() {
+                        Some("paused")
+                    } else {
+                        campaign_unavailable(
+                            &db::text(&r[1], "status")?,
+                            true,
+                            db::integer(&r[2], "ended")? == 1,
+                            db::nullable_integer(&r[3])? == Some(1),
+                        )
+                    },
+                ),
+                None => (None, None),
+            };
+            offers.push(json!({"kind":kind.as_str(),"amount":amount,"available":amount.is_some() && unavailable.is_none(),"unavailableReason":unavailable}));
+        }
+    }
+    Ok(json!({"startsAt":starts_at,"started":now>=starts_at,"rewards":offers}))
 }
 pub(crate) fn identity(tx: &mut Transaction, user: &[u8], scope: &str) -> ApiResult<String> {
     let rows = db::tx_query(
