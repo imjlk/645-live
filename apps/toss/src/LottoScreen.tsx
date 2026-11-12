@@ -523,15 +523,8 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 	};
 
 	return (
-		<View
-			style={[
-				s.screen,
-				{ backgroundColor: theme.background, paddingBottom: insets.bottom },
-			]}
-		>
-			<HideAccessibilityView
-				style={[s.content, { paddingBottom: tabBarHeight }]}
-			>
+		<View style={[s.screen, { backgroundColor: theme.background }]}>
+			<HideAccessibilityView style={s.content}>
 				{model.error ? (
 					<View
 						accessibilityRole="alert"
@@ -545,6 +538,7 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 				) : null}
 				{tab === "live" ? (
 					<LiveFeed
+						bottomInset={tabBarHeight + insets.bottom}
 						feed={model.feed}
 						history={model.history}
 						controller={model.feedHistory}
@@ -567,7 +561,9 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 					<IOScrollView
 						ref={scroll}
 						style={{ flex: 1 }}
-						contentContainerStyle={{ paddingBottom: 24 }}
+						contentContainerStyle={{
+							paddingBottom: 24 + tabBarHeight + insets.bottom,
+						}}
 						refreshControl={
 							<RefreshControl
 								refreshing={model.refreshing}
@@ -1272,7 +1268,7 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 							s.toast,
 							{
 								backgroundColor: theme.dark ? "#E5E8EB" : "#333D4B",
-								bottom: tabBarHeight + 12,
+								bottom: tabBarHeight + insets.bottom + 12,
 							},
 						]}
 					>

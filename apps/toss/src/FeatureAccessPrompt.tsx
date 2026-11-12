@@ -101,9 +101,46 @@ export function FeatureAccessPrompt({
 			}
 			content={
 				ticket?.showTicket ? (
-					<View style={{ gap: 6, paddingHorizontal: 20, paddingBottom: 8 }}>
+					<View
+						style={{
+							gap: 10,
+							marginTop: 20,
+							paddingTop: 16,
+							paddingBottom: 4,
+							borderTopWidth: 1,
+							borderColor: theme.line,
+						}}
+					>
+						<View
+							style={{
+								flexDirection: "row",
+								alignItems: "center",
+								justifyContent: "space-between",
+								gap: 8,
+							}}
+						>
+							<Text
+								style={{
+									fontSize: 14,
+									lineHeight: 22,
+									fontWeight: "600",
+									color: theme.text,
+								}}
+							>
+								광고 스킵권
+							</Text>
+							<Text
+								style={{ fontSize: 13, lineHeight: 20, color: theme.muted }}
+							>
+								{ticket.balance == null
+									? "보유 수량 확인 중"
+									: `보유 ${ticket.balance}장`}
+							</Text>
+						</View>
 						<Button
-							display="full"
+							display="block"
+							size="medium"
+							accessibilityLabel={adSkipLabel(ticket, "바로 이용하기")}
 							style="weak"
 							disabled={!ticket.ticketEnabled}
 							onPress={() => {
@@ -111,7 +148,18 @@ export function FeatureAccessPrompt({
 								setOpen(false);
 							}}
 						>
-							{adSkipLabel(ticket, "바로 이용하기")}
+							<Text
+								style={{
+									fontSize: 14,
+									lineHeight: 22,
+									fontWeight: "600",
+									color: ticket.ticketEnabled ? theme.blue : theme.muted,
+								}}
+							>
+								{ticket.reason === "checking" || ticket.reason === "loading"
+									? adSkipLabel(ticket, "바로 이용하기")
+									: "스킵권 1장으로 바로 이용하기"}
+							</Text>
 						</Button>
 						{ticket.reason === "empty" ? (
 							<Text

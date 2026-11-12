@@ -159,23 +159,30 @@ export function LottoTabs() {
 							</TabScene>
 						) : null,
 					)}
-					<View
-						testID="lotto-fixed-tabs"
-						pointerEvents={overlay ? "none" : "box-none"}
-						accessibilityElementsHidden={!!overlay}
-						importantForAccessibility={overlay ? "no-hide-descendants" : "auto"}
-						style={[
-							s.fixed,
-							{ bottom: insets.bottom, opacity: overlay ? 0 : 1 },
-						]}
+					<div
+						data-testid="lotto-fixed-tabs"
+						aria-hidden={!!overlay}
+						style={{
+							position: "fixed",
+							display: "flex",
+							flexDirection: "column",
+							left: 0,
+							right: 0,
+							bottom: insets.bottom,
+							background: "transparent",
+							pointerEvents: "none",
+							opacity: overlay ? 0 : 1,
+						}}
 					>
 						<View
 							onLayout={({ nativeEvent }) =>
 								setTabBarHeight(nativeEvent.layout.height)
 							}
 							style={s.spacing}
+							pointerEvents="box-none"
 						>
 							<View
+								pointerEvents={overlay ? "none" : "auto"}
 								style={[
 									s.dock,
 									{
@@ -219,7 +226,7 @@ export function LottoTabs() {
 								</View>
 							</View>
 						</View>
-					</View>
+					</div>
 				</View>
 				<ResultNotificationPrompt />
 			</TabShellContext.Provider>
@@ -256,12 +263,6 @@ function TabScene({
 
 const s = StyleSheet.create({
 	root: { flex: 1 },
-	fixed: {
-		position: "absolute",
-		left: 0,
-		right: 0,
-		backgroundColor: "transparent",
-	},
 	spacing: {
 		width: "100%",
 		maxWidth: 640,

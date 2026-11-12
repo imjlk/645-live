@@ -62,6 +62,7 @@ export function ActivityPanel({
 	) => void;
 }) {
 	const theme = useTheme();
+	const roundFilters = useRef<ScrollView>(null);
 	const numberOnly = initialNumber !== undefined;
 	const controller = useMemo(() => {
 		const measured = new Set<string>();
@@ -271,26 +272,42 @@ export function ActivityPanel({
 			) : null}
 			{snapshot ? (
 				<ScrollView
+					ref={roundFilters}
 					horizontal
-					showsHorizontalScrollIndicator={false}
+					accessibilityLabel="생성 통계 회차 선택"
+					showsHorizontalScrollIndicator
+					style={s.filterScroll}
 					contentContainerStyle={s.filters}
 				>
-					{snapshot.knownRounds.slice(0, 8).map((r) => (
-						<Button
+					{snapshot.knownRounds.map((r) => (
+						<View
 							key={r}
-							size="tiny"
-							style="weak"
-							type={snapshot.round === r ? "primary" : "dark"}
-							onPress={() => changeRound(r)}
+							onLayout={({ nativeEvent }) => {
+								if (snapshot.round === r)
+									roundFilters.current?.scrollTo({
+										x: Math.max(0, nativeEvent.layout.x - 8),
+										animated: false,
+									});
+							}}
 						>
-							{r}회
-						</Button>
+							<Button
+								size="tiny"
+								style="weak"
+								type={snapshot.round === r ? "primary" : "dark"}
+								accessibilityState={{ selected: snapshot.round === r }}
+								onPress={() => changeRound(r)}
+							>
+								{r}회
+							</Button>
+						</View>
 					))}
 				</ScrollView>
 			) : null}
 			<ScrollView
 				horizontal
-				showsHorizontalScrollIndicator={false}
+				accessibilityLabel="생성 통계 기간 선택"
+				showsHorizontalScrollIndicator
+				style={s.filterScroll}
 				contentContainerStyle={s.filters}
 			>
 				{ACTIVITY_PERIODS.filter(
@@ -301,6 +318,7 @@ export function ActivityPanel({
 						size="tiny"
 						style="weak"
 						type={period === p.value ? "primary" : "dark"}
+						accessibilityState={{ selected: period === p.value }}
 						onPress={() => {
 							setPeriod(p.value);
 							if (!numberOnly) setSelected(null);
@@ -700,7 +718,8 @@ export function ActivityPanel({
 }
 const s = StyleSheet.create({
 	root: { gap: 16, paddingVertical: 12 },
-	filters: { gap: 8 },
+	filterScroll: { flexGrow: 0, flexShrink: 0, minHeight: 44 },
+	filters: { gap: 8, paddingVertical: 6, alignItems: "center" },
 	row: {
 		flexDirection: "row",
 		alignItems: "center",
