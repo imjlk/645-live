@@ -148,7 +148,10 @@ fn validate(event: &Event, expected: &str) -> ApiResult<()> {
         && !p.flow_id.is_empty();
     let purchase = matches!(
         event.event_name.as_str(),
-        "purchase_entered"
+        "purchase_info_viewed"
+            | "purchase_cta_viewed"
+            | "purchase_button_clicked"
+            | "purchase_entered"
             | "purchase_opened"
             | "purchase_canceled"
             | "purchase_succeeded"
@@ -323,6 +326,9 @@ mod tests {
     fn purchase_metrics_cannot_impersonate_ad_events_or_include_receipts() {
         let raw = r#"{"placement":"ad_free_purchase","format":"non_consumable","policy":"purchase-v1","flow_id":"p1","outcome":"","entry_point":"settings","app_version":"2.3.0","session_id":"s","event_id":"s-1"}"#;
         for name in [
+            "purchase_info_viewed",
+            "purchase_cta_viewed",
+            "purchase_button_clicked",
             "purchase_entered",
             "purchase_opened",
             "purchase_canceled",
