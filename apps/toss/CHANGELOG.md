@@ -1,5 +1,14 @@
 # @645/toss
 
+## 2.3.2 — 2026-11-12
+
+### Patch changes
+
+- [b76d2ed](https://github.com/imjlk/645-live/commit/b76d2edcedd90b4b47c212748cedd4288ab902ef) Make attendance guidance prominent after generation and connect completed attendance to saving numbers and the next visit.
+- [76816ec](https://github.com/imjlk/645-live/commit/76816ec34ff6a18a14554a3b46e75377628f4643) Improve purchase and ad completion event delivery when returning from native screens or closing the app.
+- [e57e497](https://github.com/imjlk/645-live/commit/e57e497a06a1fd8b6c0c5df5addf17d6f1ce0a40) Keep interstitial callbacks until the ad closes before submitting completion receipts.
+- [1e43d2c](https://github.com/imjlk/645-live/commit/1e43d2c02b76b102218353a449cdf7ba7c456c20) Measure visible purchase information, offer exposure and purchase-button clicks separately from checkout outcomes.
+
 ## 2.3.1 — 2026-11-11
 
 ### Patch changes
