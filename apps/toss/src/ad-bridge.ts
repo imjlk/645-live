@@ -211,7 +211,7 @@ export function createAdController(
 					const result = await bridge.show({
 						adGroupId: session.groupId,
 						adFormat: session.format,
-						interstitialCompletionFallbackMs: 120_000,
+						interstitialCompletionPolicy: "dismissed",
 					});
 					if (!continuation(placement) && !result.completed) {
 						throw new Error(
