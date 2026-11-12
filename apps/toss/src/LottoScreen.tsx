@@ -1389,7 +1389,8 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 				(model.actionError.area === panel ||
 					model.actionError.area === "feature" ||
 					(panel === "custom" && model.actionError.area === "make") ||
-					(panel === "recent" && model.actionError.area === "saved")) ? (
+					((panel === "recent" || panel === "attendance") &&
+						model.actionError.area === "saved")) ? (
 					<Text
 						accessibilityRole="alert"
 						style={{ color: "#F04452", marginBottom: 14, lineHeight: 22 }}

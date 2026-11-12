@@ -664,6 +664,40 @@ try {
 	console.error = originalError;
 }
 expect(renderWarnings.filter((line) => line.includes("same key"))).toEqual([]);
+// Saving from attendance must report storage errors inside the open sheet.
+Object.assign(model, {
+	save: async () => {
+		Object.assign(model, {
+			actionError: {
+				area: "saved",
+				message: "기기 저장 공간을 확인해 주세요.",
+			},
+		});
+		return false;
+	},
+});
+await act(async () => {
+	root = create(<LottoScreen tab="make" />);
+});
+await act(async () => {
+	root.root
+		.findAllByType("pressable")
+		.find((node) => node.props.accessibilityLabel === "오늘의 출석과 혜택 보기")
+		?.props.onPress();
+});
+await act(async () => {
+	await root.root
+		.findByType("AttendancePanel")
+		.props.afterAttendance.props.onPress();
+});
+expect(
+	sheet()
+		.findAllByProps({ accessibilityRole: "alert" })
+		.some((node) => node.props.children === "기기 저장 공간을 확인해 주세요."),
+).toBe(true);
+Object.assign(model, { actionError: null });
+await act(async () => root.unmount());
+
 // Successful saves/results expose an optional review only after their UI settles.
 Object.assign(model, {
 	saved: [savedItem(20, 1244), savedItem(21, 1244)],
