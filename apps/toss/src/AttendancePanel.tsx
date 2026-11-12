@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { type ReactNode, useEffect, useRef } from "react";
 import { LOCAL_PREVIEW, type Promotion } from "./api";
 import { attendanceInstruction, attendanceReady } from "./attendance-progress";
 import { createPromotionRefresh } from "./promotion-refresh";
@@ -77,10 +77,12 @@ export function AttendancePanel({
 	model,
 	onGenerate,
 	onAdFree,
+	afterAttendance,
 }: {
 	model: LottoModel;
 	onGenerate: () => void;
 	onAdFree?: () => void;
+	afterAttendance?: ReactNode;
 }) {
 	const theme = useTheme();
 	const state = model.attendance;
@@ -139,6 +141,25 @@ export function AttendancePanel({
 					시작돼요.
 				</Text>
 			</View>
+			{state?.checkedIn ? (
+				<View style={{ gap: 10 }}>
+					<Text style={[s.rewardTitle, { color: theme.text }]}>
+						내일도 번호 한 번, 출석 한 번
+					</Text>
+					<Text style={[s.body, { color: theme.muted }]}>
+						오늘 출석을 마쳤어요. 내일 다시 번호를 만들고 출석을 이어가세요.
+					</Text>
+					{afterAttendance ? (
+						<>
+							{afterAttendance}
+							<Text style={[s.caption, { color: theme.muted }]}>
+								마음에 드는 번호를 보관하면 추첨 후 보관함에서 결과를 확인할 수
+								있어요.
+							</Text>
+						</>
+					) : null}
+				</View>
+			) : null}
 			{showTickets && skips ? (
 				<View style={[s.restore, { backgroundColor: theme.surface }]}>
 					<View style={s.rewardHeading}>

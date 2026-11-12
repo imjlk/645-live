@@ -4,6 +4,7 @@ import { JourneyImpression } from "./JourneyImpression";
 import { createJourneyFlow } from "./journey-telemetry";
 import { pointWindowHeadline } from "./reward-policy";
 import { useTheme } from "./theme";
+import { Button } from "./web/controls";
 import { Pressable, StyleSheet, Text, View } from "./web/primitives";
 
 export function GeneratorAttendanceEntry({
@@ -27,7 +28,7 @@ export function GeneratorAttendanceEntry({
 		caption =
 			attendance.streak === 7
 				? "7일을 채웠어요. 출석 혜택을 확인해 보세요."
-				: `7일 완성까지 ${7 - attendance.streak}일 남았어요.`;
+				: `내일도 번호를 만들고 출석해요. 7일 완성까지 ${7 - attendance.streak}일 남았어요.`;
 		action = "혜택 보기 ›";
 	} else if (attendanceReady(attendance)) {
 		const tickets = attendance?.adSkips?.active
@@ -55,7 +56,11 @@ export function GeneratorAttendanceEntry({
 		: ready
 			? "ready"
 			: "needs_generation";
-	if (ready) title = "번호를 만들었어요 · 출석할 수 있어요";
+	if (ready) title = "번호 완성! 오늘 출석도 잊지 마세요";
+	const openAttendance = () => {
+		createJourneyFlow("generator").track("attendance_entry_clicked", state);
+		onPress();
+	};
 	return (
 		<JourneyImpression
 			active={active && !!attendance}
@@ -63,40 +68,50 @@ export function GeneratorAttendanceEntry({
 			event="attendance_entry_viewed"
 			outcome={state}
 		>
-			<Pressable
-				accessibilityRole="button"
-				accessibilityLabel="오늘의 출석과 혜택 보기"
-				onPress={() => {
-					createJourneyFlow("generator").track(
-						"attendance_entry_clicked",
-						state,
-					);
-					onPress();
-				}}
-				style={({ pressed }) => [
-					s.root,
-					{
-						borderColor: ready ? theme.blue : theme.line,
-						opacity: pressed ? 0.65 : 1,
-					},
-				]}
-			>
-				<View style={s.copy}>
-					<Text style={[s.title, { color: ready ? theme.blue : theme.text }]}>
+			{ready ? (
+				<View style={s.ready}>
+					<Text
+						accessibilityLiveRegion="polite"
+						style={[s.title, { color: theme.text }]}
+					>
 						{title}
 					</Text>
 					<Text style={[s.caption, { color: theme.muted }]}>{caption}</Text>
-					{notice ? (
-						<Text style={[s.caption, { color: theme.blue }]}>{notice}</Text>
-					) : null}
+					<Button display="full" style="weak" onPress={openAttendance}>
+						오늘 출석하기
+					</Button>
 				</View>
-				<Text style={[s.action, { color: theme.blue }]}>{action}</Text>
-			</Pressable>
+			) : (
+				<Pressable
+					accessibilityRole="button"
+					accessibilityLabel="오늘의 출석과 혜택 보기"
+					onPress={openAttendance}
+					style={({ pressed }) => [
+						s.root,
+						{
+							borderColor: ready ? theme.blue : theme.line,
+							opacity: pressed ? 0.65 : 1,
+						},
+					]}
+				>
+					<View style={s.copy}>
+						<Text style={[s.title, { color: ready ? theme.blue : theme.text }]}>
+							{title}
+						</Text>
+						<Text style={[s.caption, { color: theme.muted }]}>{caption}</Text>
+						{notice ? (
+							<Text style={[s.caption, { color: theme.blue }]}>{notice}</Text>
+						) : null}
+					</View>
+					<Text style={[s.action, { color: theme.blue }]}>{action}</Text>
+				</Pressable>
+			)}
 		</JourneyImpression>
 	);
 }
 
 const s = StyleSheet.create({
+	ready: { width: "100%", gap: 8, paddingBottom: 20 },
 	root: {
 		width: "100%",
 		marginTop: 20,

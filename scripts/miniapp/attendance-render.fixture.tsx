@@ -310,6 +310,35 @@ await act(async () => {
 });
 expect(labels()).toEqual(["구매 복원"]);
 await act(async () => root.unmount());
+await act(async () => {
+	root = create(
+		<AttendancePanel
+			model={model("success")}
+			onGenerate={() => {}}
+			afterAttendance={<button type="button">이 번호 보관하기</button>}
+		/>,
+	);
+});
+expect(JSON.stringify(root.toJSON())).toContain(
+	"내일도 번호 한 번, 출석 한 번",
+);
+expect(labels()).toContain("이 번호 보관하기");
+await act(async () => {
+	root.update(
+		<AttendancePanel
+			model={
+				{
+					...model("success"),
+					attendance: { ...model("success").attendance, checkedIn: false },
+				} as LottoModel
+			}
+			onGenerate={() => {}}
+			afterAttendance={<button type="button">이 번호 보관하기</button>}
+		/>,
+	);
+});
+expect(labels()).not.toContain("이 번호 보관하기");
+await act(async () => root.unmount());
 
 const journeyEvents: string[] = [];
 mock.module("../../apps/toss/src/journey-telemetry", () => ({
@@ -364,6 +393,6 @@ expect(journeyEvents).toEqual([
 	"attendance_entry_clicked",
 ]);
 expect(JSON.stringify(root.toJSON())).toContain(
-	"번호를 만들었어요 · 출석할 수 있어요",
+	"번호 완성! 오늘 출석도 잊지 마세요",
 );
 await act(async () => root.unmount());
