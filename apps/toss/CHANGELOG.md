@@ -1,5 +1,12 @@
 # @645/toss
 
+## 2.3.3 — 2026-11-12
+
+### Patch changes
+
+- [3a88c64](https://github.com/imjlk/645-live/commit/3a88c641dc8448782ee3ea8a8c6dc3d68448bfd3) Keep content behind the floating navigation and preserve statistics controls, scrolling filters and skip-ticket prompt spacing.
+- [efa679e](https://github.com/imjlk/645-live/commit/efa679eb30a7da6a0545d31325526c1162d4de26) Show current attendance reward amounts and concise budget/start notices without changing earned rewards, attendance rules or benefit periods.
+
 ## 2.3.2 — 2026-11-12
 
 ### Patch changes
