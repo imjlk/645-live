@@ -119,6 +119,17 @@ export type RewardPolicy = {
 	windowStart?: "first_seen" | "first_check_in";
 	welcomeStreakLimit?: number;
 	pointWindow: PointWindow;
+	/** Display-only current offers, independent of a user's earned/claimed amounts. */
+	program?: {
+		startsAt: number;
+		started: boolean;
+		rewards: Array<{
+			kind: "daily" | "weekly";
+			amount: number | null;
+			available: boolean;
+			unavailableReason: Promotion["unavailableReason"];
+		}>;
+	};
 };
 export type Attendance = Partial<AttendanceProgress> & {
 	day: number;
