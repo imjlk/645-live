@@ -85,6 +85,7 @@ export const GenerationRow = memo(function GenerationRow({
 });
 
 export function LiveFeed({
+	bottomInset = 0,
 	feed,
 	myGeneration,
 	history,
@@ -101,6 +102,7 @@ export function LiveFeed({
 	onInsights,
 	onNumberPress,
 }: {
+	bottomInset?: number;
 	feed: Feed | null;
 	myGeneration: Generation | null;
 	history: FeedHistory;
@@ -181,7 +183,7 @@ export function LiveFeed({
 			<IOFlatList
 				ref={list}
 				style={s.screen}
-				contentContainerStyle={s.content}
+				contentContainerStyle={[s.content, { paddingBottom: 26 + bottomInset }]}
 				data={rows}
 				keyExtractor={(row) => row.key}
 				renderItem={({ item }) =>

@@ -61,6 +61,8 @@ export function Button({
 			aria-label={accessibilityLabel}
 			{...rest}
 			onClick={onPress}
+			// RN Web flex columns must retain the TDS button's intrinsic touch height.
+			style={{ flexShrink: 0 }}
 			color={type}
 			variant={style}
 			size={size === "tiny" ? "small" : size === "big" ? "xlarge" : size}
@@ -120,7 +122,10 @@ export function IconButton({
 }
 export const SegmentedControl = {
 	Root: ({ style, ...props }: ComponentProps<typeof TSegment>) => (
-		<TSegment {...props} style={{ ...style, whiteSpace: "nowrap" }} />
+		<TSegment
+			{...props}
+			style={{ flexShrink: 0, height: "auto", ...style, whiteSpace: "nowrap" }}
+		/>
 	),
 	Item: TSegment.Item,
 };

@@ -272,15 +272,18 @@ export function ActivityPanel({
 			{snapshot ? (
 				<ScrollView
 					horizontal
-					showsHorizontalScrollIndicator={false}
+					accessibilityLabel="생성 통계 회차 선택"
+					showsHorizontalScrollIndicator
+					style={s.filterScroll}
 					contentContainerStyle={s.filters}
 				>
-					{snapshot.knownRounds.slice(0, 8).map((r) => (
+					{snapshot.knownRounds.map((r) => (
 						<Button
 							key={r}
 							size="tiny"
 							style="weak"
 							type={snapshot.round === r ? "primary" : "dark"}
+							accessibilityState={{ selected: snapshot.round === r }}
 							onPress={() => changeRound(r)}
 						>
 							{r}회
@@ -290,7 +293,9 @@ export function ActivityPanel({
 			) : null}
 			<ScrollView
 				horizontal
-				showsHorizontalScrollIndicator={false}
+				accessibilityLabel="생성 통계 기간 선택"
+				showsHorizontalScrollIndicator
+				style={s.filterScroll}
 				contentContainerStyle={s.filters}
 			>
 				{ACTIVITY_PERIODS.filter(
@@ -301,6 +306,7 @@ export function ActivityPanel({
 						size="tiny"
 						style="weak"
 						type={period === p.value ? "primary" : "dark"}
+						accessibilityState={{ selected: period === p.value }}
 						onPress={() => {
 							setPeriod(p.value);
 							if (!numberOnly) setSelected(null);
@@ -700,7 +706,8 @@ export function ActivityPanel({
 }
 const s = StyleSheet.create({
 	root: { gap: 16, paddingVertical: 12 },
-	filters: { gap: 8 },
+	filterScroll: { flexGrow: 0, flexShrink: 0, minHeight: 44 },
+	filters: { gap: 8, paddingVertical: 6, alignItems: "center" },
 	row: {
 		flexDirection: "row",
 		alignItems: "center",
