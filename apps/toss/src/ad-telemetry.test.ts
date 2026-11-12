@@ -1,8 +1,11 @@
 import { expect, test } from "bun:test";
+import { WebAdapterError } from "@trailbase-apps-in-toss-kit/ait-web";
+import { createAdFreeStore } from "./ad-free";
 import {
 	type AdMetricSink,
 	adPolicyLabel,
 	bindAdMetrics,
+	bindMetricsPageLifecycle,
 	createAdFlow,
 	createAdTelemetry,
 } from "./ad-telemetry";
@@ -197,6 +200,176 @@ test("purchase metrics mirror separately from ad policy and never carry order re
 		await mirror.flush();
 		expect(batches).toEqual(["purchase_entered", "purchase_succeeded"]);
 	} finally {
+		mirror.dispose();
+	}
+});
+
+test("checkout cancellation reaches the server mirror before the app closes on return", async () => {
+	const server: string[] = [];
+	const sdk: string[] = [];
+	const mirror = bindAdMetrics(async (events) => {
+		server.push(...events.map((event) => event.eventName));
+	});
+	const telemetry = createAdTelemetry((event) => {
+		sdk.push(event.log_name);
+	});
+	let opened!: () => void;
+	const checkoutOpened = new Promise<void>((resolve) => {
+		opened = resolve;
+	});
+	let cancel!: (error: Error) => void;
+	const store = createAdFreeStore({
+		enabled: true,
+		restore: async () => false,
+		price: async () => "11,990원",
+		verify: async () => false,
+		purchase: () =>
+			new Promise((_, reject) => {
+				cancel = reject;
+				opened();
+			}),
+		metric: (event, flowId, outcome, entryPoint) =>
+			telemetry.track(
+				event,
+				{
+					placement: "ad_free_purchase",
+					policy: "purchase-v1",
+					format: "non_consumable",
+					flowId,
+					entryPoint,
+				},
+				outcome,
+			),
+	});
+	try {
+		const purchase = store.run("purchase", "attendance");
+		await checkoutOpened;
+		// Opening native checkout flushes the initial events as the page hides.
+		await mirror.flush();
+		cancel(new WebAdapterError("USER_CANCELED", "purchase"));
+		await purchase;
+		await telemetry.flush();
+		// Close immediately after returning, without a timer or explicit mirror flush.
+		mirror.dispose();
+		expect(store.read().busy).toBe(false);
+		expect(store.read().owned).toBe(false);
+		expect(sdk).toContain("lotto_ad_purchase_canceled");
+		expect(server).toEqual([
+			"purchase_entered",
+			"purchase_opened",
+			"purchase_canceled",
+		]);
+	} finally {
+		mirror.dispose();
+	}
+});
+
+test("cancellation queued during a failing request gets a bounded follow-up flush", async () => {
+	const attempts: string[][] = [];
+	let rejectFirst!: (error: Error) => void;
+	const firstRequest = new Promise<void>((_, reject) => {
+		rejectFirst = reject;
+	});
+	const mirror = bindAdMetrics(async (events) => {
+		attempts.push(events.map((event) => event.eventPayload.event_id));
+		if (attempts.length === 1) await firstRequest;
+	});
+	const telemetry = createAdTelemetry(() => {});
+	const context = {
+		placement: "ad_free_purchase",
+		policy: "purchase-v1",
+		flowId: "checkout",
+	};
+	try {
+		telemetry.track("purchase_entered", context);
+		telemetry.track("purchase_canceled", context, "user_canceled");
+		rejectFirst(Error("interrupted native transition"));
+		await telemetry.flush();
+		mirror.dispose();
+		expect(attempts).toHaveLength(2);
+		expect(attempts[1]).toHaveLength(2);
+		expect(attempts[1]?.[0]).toBe(attempts[0]?.[0]);
+		expect(new Set(attempts[1]).size).toBe(2);
+	} finally {
+		mirror.dispose();
+	}
+});
+
+test("cancellation at the end of an in-flight drain is delivered without a batch timer", async () => {
+	for (let delay = 0; delay < 8; delay++) {
+		const delivered: string[] = [];
+		let release!: () => void;
+		const firstRequest = new Promise<void>((resolve) => {
+			release = resolve;
+		});
+		let requests = 0;
+		const mirror = bindAdMetrics(async (events) => {
+			if (++requests === 1) await firstRequest;
+			delivered.push(...events.map((event) => event.eventName));
+		});
+		const telemetry = createAdTelemetry(() => {});
+		const context = {
+			placement: "ad_free_purchase",
+			policy: "purchase-v1",
+			flowId: "checkout",
+		};
+		try {
+			telemetry.track("purchase_entered", context);
+			release();
+			let turn = Promise.resolve();
+			for (let n = 0; n < delay; n++) turn = turn.then(() => {});
+			await turn.then(() =>
+				telemetry.track("purchase_canceled", context, "user_canceled"),
+			);
+			await telemetry.flush();
+			mirror.dispose();
+			expect({ delay, delivered }).toEqual({
+				delay,
+				delivered: ["purchase_entered", "purchase_canceled"],
+			});
+		} finally {
+			mirror.dispose();
+		}
+	}
+});
+
+test("returning to the page retries a failed purchase result with its original event ID", async () => {
+	const page = new EventTarget();
+	const visibility = new EventTarget();
+	const attempts: string[][] = [];
+	let offline = true;
+	const mirror = bindAdMetrics(async (events) => {
+		attempts.push(events.map((event) => event.eventPayload.event_id));
+		if (offline) throw Error("offline");
+	});
+	const stop = bindMetricsPageLifecycle(mirror.flush, page, visibility);
+	const telemetry = createAdTelemetry(() => {});
+	try {
+		telemetry.track(
+			"purchase_canceled",
+			{
+				placement: "ad_free_purchase",
+				policy: "purchase-v1",
+				format: "non_consumable",
+				flowId: "checkout",
+			},
+			"user_canceled",
+		);
+		await telemetry.flush();
+		// One immediate follow-up is allowed; persistent failure must not spin.
+		expect(attempts).toHaveLength(2);
+		offline = false;
+		page.dispatchEvent(new Event("pageshow"));
+		await mirror.flush();
+		expect(attempts).toHaveLength(3);
+		expect(attempts[1]).toEqual(attempts[0]);
+		expect(attempts[2]).toEqual(attempts[0]);
+		visibility.dispatchEvent(new Event("visibilitychange"));
+		page.dispatchEvent(new Event("pagehide"));
+		await mirror.flush();
+		expect(attempts).toHaveLength(3);
+	} finally {
+		stop();
 		mirror.dispose();
 	}
 });
