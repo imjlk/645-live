@@ -24,6 +24,7 @@ import { AttendancePanel } from "./AttendancePanel";
 import { adSkipLabel } from "./ad-skip";
 import { adPolicyLabel } from "./ad-telemetry";
 import { LOCAL_PREVIEW } from "./api";
+import { attendanceReady } from "./attendance-progress";
 import { Balls } from "./Balls";
 import { Banner } from "./Banner";
 import { Celebration } from "./Celebration";
@@ -145,6 +146,10 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 	const navigateTab = (value: string) => {
 		navigateToTab(navigation, tab, value, visible);
 	};
+	const attendancePending =
+		!!model.attendance &&
+		!model.attendance.checkedIn &&
+		attendanceReady(model.attendance);
 	const generationLabel = model.current ? "새 번호 만들기" : "번호 만들기";
 	const generationTicket = model.adSkipChoice("generation_continue");
 	const viewingPreviousRound =
@@ -623,6 +628,13 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 												</Text>
 											</Pressable>
 										) : null}
+										{attendancePending ? (
+											<GeneratorAttendanceEntry
+												attendance={model.attendance}
+												active={visible && !sheetOpen && model.foreground}
+												onPress={() => setPanel("attendance")}
+											/>
+										) : null}
 										<JourneyImpression
 											active={
 												visible &&
@@ -701,11 +713,13 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 												{saveButton(model.current)}
 											</View>
 										) : null}
-										<GeneratorAttendanceEntry
-											attendance={model.attendance}
-											active={visible && !sheetOpen && model.foreground}
-											onPress={() => setPanel("attendance")}
-										/>
+										{!attendancePending ? (
+											<GeneratorAttendanceEntry
+												attendance={model.attendance}
+												active={visible && !sheetOpen && model.foreground}
+												onPress={() => setPanel("attendance")}
+											/>
+										) : null}
 										{model.generationAdRequired ? (
 											<Text style={[s.caption, muted, { marginTop: 8 }]}>
 												{generationTicket.showTicket
@@ -1630,6 +1644,7 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 					{panel === "attendance" ? (
 						<AttendancePanel
 							model={model}
+							afterAttendance={model.current ? saveButton(model.current) : null}
 							onAdFree={() => setPanel("adFree")}
 							onGenerate={() => {
 								setPanel(null);
