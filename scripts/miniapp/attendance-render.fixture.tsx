@@ -31,6 +31,13 @@ mock.module("../../apps/toss/src/web/primitives", () => ({
 }));
 mock.module("../../apps/toss/src/web/controls", () => ({ Button: "button" }));
 mock.module("../../apps/toss/src/api", () => ({ LOCAL_PREVIEW: false }));
+mock.module("../../apps/toss/src/web/viewport", () => ({
+	ImpressionArea: ({
+		children,
+		...props
+	}: React.PropsWithChildren<Record<string, unknown>>) =>
+		React.createElement("exposure", props, children),
+}));
 mock.module("../../apps/toss/src/theme", () => ({ useTheme: () => ({}) }));
 const { createPromotionRefresh: createRefresh } = await import(
 	"../../apps/toss/src/promotion-refresh"
@@ -251,6 +258,14 @@ for (const state of [
 	});
 	expect(labels()).not.toContain("광고 제거 알아보기");
 }
+const purchaseEntry = {
+	infoViewed: mock(() => {}),
+	ctaViewed: mock(() => {}),
+	clicked: mock(() => {}),
+};
+mock.module("../../apps/toss/src/purchase-entry-telemetry", () => ({
+	createPurchaseEntryTelemetry: () => purchaseEntry,
+}));
 const { AdFreePanel } = await import("../../apps/toss/src/AdFreePanel");
 await act(async () => {
 	root.update(<AdFreePanel state={adFree} entryPoint="attendance" />);
@@ -260,6 +275,31 @@ root.root
 	.find((button) => button.props.children?.includes?.("에 구매하기"))
 	?.props.onPress();
 expect(purchase).toHaveBeenCalledWith("attendance");
+expect(purchaseEntry.clicked).toHaveBeenCalledTimes(1);
+const exposures = root.root.findAllByType("exposure");
+exposures.forEach((e) => {
+	e.props.onImpressionStart();
+});
+expect(purchaseEntry.infoViewed).toHaveBeenCalledWith("price_ready");
+expect(purchaseEntry.ctaViewed).toHaveBeenCalledTimes(1);
+await act(async () => {
+	root.update(
+		<AdFreePanel state={adFree} entryPoint="attendance" active={false} />,
+	);
+});
+root.root.findAllByType("exposure").forEach((e) => {
+	expect(e.props.enabled).toBe(false);
+	e.props.onImpressionStart();
+});
+root.root
+	.findAllByType("button")
+	.find((b) => b.props.children?.includes?.("에 구매하기"))
+	?.props.onPress();
+expect(purchaseEntry.infoViewed).toHaveBeenCalledTimes(1);
+expect(purchaseEntry.ctaViewed).toHaveBeenCalledTimes(1);
+expect(purchaseEntry.clicked).toHaveBeenCalledTimes(1);
+expect(purchase).toHaveBeenCalledTimes(1);
+
 root.root
 	.findAllByType("button")
 	.find((button) => button.props.children === "구매 복원")
@@ -277,13 +317,7 @@ mock.module("../../apps/toss/src/journey-telemetry", () => ({
 		track: (event: string) => journeyEvents.push(event),
 	}),
 }));
-mock.module("../../apps/toss/src/web/viewport", () => ({
-	ImpressionArea: ({
-		children,
-		...props
-	}: React.PropsWithChildren<Record<string, unknown>>) =>
-		React.createElement("exposure", props, children),
-}));
+
 const { GeneratorAttendanceEntry } = await import(
 	"../../apps/toss/src/GeneratorAttendanceEntry"
 );

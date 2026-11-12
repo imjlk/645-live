@@ -159,3 +159,59 @@ test("journey reporting distinguishes enrollment cohorts and ticket/free purchas
 		db.close();
 	}
 });
+
+test("purchase funnel keeps presentation-only visitors out of unresolved checkouts and splits entry paths", () => {
+	const db = new Database(":memory:");
+	db.exec(
+		"ATTACH DATABASE ':memory:' AS analytics; CREATE TABLE analytics.events(name TEXT,source TEXT,user_id BLOB,server_at INTEGER,props_json TEXT)",
+	);
+	const put = (name: string, flow: string, entry = "attendance") =>
+		db.query("INSERT INTO analytics.events VALUES(?,'short',x'01',?,?)").run(
+			name,
+			Date.now(),
+			JSON.stringify({
+				placement: "ad_free_purchase",
+				policy: "purchase-v1",
+				flow_id: flow,
+				entry_point: entry,
+				app_version: "fixture",
+			}),
+		);
+	put("purchase_info_viewed", "view");
+	put("purchase_cta_viewed", "view");
+	put("purchase_button_clicked", "click");
+	put("purchase_button_clicked", "click");
+	put("purchase_entered", "cancel");
+	put("purchase_opened", "cancel");
+	put("purchase_canceled", "cancel");
+	put("purchase_entered", "success");
+	put("purchase_succeeded", "success");
+	put("purchase_info_viewed", "settings-only", "settings");
+	const rows = db
+		.query(
+			readFileSync(
+				join(root, "services/trailbase/sql/25-purchase-funnel.sql"),
+				"utf8",
+			),
+		)
+		.all() as Record<string, unknown>[];
+	const attendance = rows.find((r) => r.진입경로 === "attendance");
+	expect(attendance).toMatchObject({
+		상품안내_관측이용자: 1,
+		가격버튼_관측이용자: 1,
+		구매버튼_클릭수: 1,
+		구매진입_시도: 2,
+		명시적_취소: 1,
+		검증후_SDK완료: 1,
+		결과미관측: 0,
+		진입누락_시도: 0,
+		진입대비_성공_pct: 50,
+	});
+	expect(rows.find((r) => r.진입경로 === "settings")).toMatchObject({
+		구매진입_시도: 0,
+		결과미관측: 0,
+		진입누락_시도: 0,
+		진입대비_성공_pct: null,
+	});
+	db.close();
+});

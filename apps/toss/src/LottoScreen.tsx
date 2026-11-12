@@ -1639,7 +1639,11 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 						/>
 					) : null}
 					{panel === "adFree" ? (
-						<AdFreePanel state={model.adFree} entryPoint="attendance" />
+						<AdFreePanel
+							state={model.adFree}
+							entryPoint="attendance"
+							active={visible && sheetOpen && model.foreground}
+						/>
 					) : null}
 					{panel === "settings" ? (
 						<View style={{ gap: 20 }}>
@@ -1657,7 +1661,10 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 								{model.user?.displayName ?? "연결을 확인하고 있어요"}
 							</Text>
 							{model.adFree.enabled ? (
-								<AdFreePanel state={model.adFree} />
+								<AdFreePanel
+									state={model.adFree}
+									active={visible && sheetOpen && model.foreground}
+								/>
 							) : null}
 							{model.attendance?.promotionTestEnabled ? (
 								<View style={{ gap: 12 }}>

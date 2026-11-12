@@ -49,6 +49,14 @@ def run():
             expect(request(base,'/api/app/v1/metrics',purchase,auth)[0],200,'purchase dedup')
             with sqlite3.connect(Path(folder)/'data/analytics.db') as db:
                 assert db.execute("SELECT count(*) FROM events WHERE name='purchase_entered'").fetchone()[0]==1
+
+            for name in ['purchase_info_viewed','purchase_cta_viewed','purchase_button_clicked']:
+                purchase['events'][0]['eventName']=name
+                purchase['events'][0]['eventPayload']['event_id']=name+'-1'
+                expect(request(base,'/api/app/v1/metrics',purchase,auth)[0],200,name)
+                expect(request(base,'/api/app/v1/metrics',purchase,auth)[0],200,name+' dedup')
+                with sqlite3.connect(Path(folder)/'data/analytics.db') as db:
+                    assert db.execute('SELECT count(*) FROM events WHERE name=?',(name,)).fetchone()[0]==1
             purchase['events'][0]['eventName']='completed'
             expect(request(base,'/api/app/v1/metrics',purchase,auth)[0],400,'purchase cannot impersonate ad completion')
             journey=json.loads(json.dumps(payload))

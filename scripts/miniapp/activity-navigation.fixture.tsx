@@ -102,6 +102,14 @@ mock.module("../../apps/toss/src/api", () => ({
 const productEvents: string[] = [];
 mock.module("../../apps/toss/src/telemetry", () => ({
 	trackProduct: (event: string) => productEvents.push(event),
+	adTelemetry: { track() {} },
+}));
+mock.module("../../apps/toss/src/purchase-entry-telemetry", () => ({
+	createPurchaseEntryTelemetry: () => ({
+		infoViewed() {},
+		ctaViewed() {},
+		clicked() {},
+	}),
 }));
 mock.module("../../apps/toss/src/journey-telemetry", () => ({
 	createJourneyFlow: () => ({ track() {} }),

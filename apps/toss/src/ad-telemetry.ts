@@ -37,6 +37,9 @@ export type AdMetric =
 	| "journey_attendance_failed"
 	| "journey_ticket_selected"
 	| "journey_ticket_redeemed"
+	| "purchase_info_viewed"
+	| "purchase_cta_viewed"
+	| "purchase_button_clicked"
 	| "purchase_entered"
 	| "purchase_opened"
 	| "purchase_canceled"
@@ -151,7 +154,7 @@ export function adPolicyLabel(policy?: {
 }
 
 function logType(event: AdMetric): "click" | "impression" | "event" {
-	if (event === "requested" || event === "banner_clicked") return "click";
+	if (event === "requested" || event.endsWith("_clicked")) return "click";
 	if (
 		event.endsWith("viewable") ||
 		event.endsWith("_viewed") ||
