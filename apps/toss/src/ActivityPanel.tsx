@@ -62,6 +62,7 @@ export function ActivityPanel({
 	) => void;
 }) {
 	const theme = useTheme();
+	const roundFilters = useRef<ScrollView>(null);
 	const numberOnly = initialNumber !== undefined;
 	const controller = useMemo(() => {
 		const measured = new Set<string>();
@@ -271,6 +272,7 @@ export function ActivityPanel({
 			) : null}
 			{snapshot ? (
 				<ScrollView
+					ref={roundFilters}
 					horizontal
 					accessibilityLabel="생성 통계 회차 선택"
 					showsHorizontalScrollIndicator
@@ -278,16 +280,26 @@ export function ActivityPanel({
 					contentContainerStyle={s.filters}
 				>
 					{snapshot.knownRounds.map((r) => (
-						<Button
+						<View
 							key={r}
-							size="tiny"
-							style="weak"
-							type={snapshot.round === r ? "primary" : "dark"}
-							accessibilityState={{ selected: snapshot.round === r }}
-							onPress={() => changeRound(r)}
+							onLayout={({ nativeEvent }) => {
+								if (snapshot.round === r)
+									roundFilters.current?.scrollTo({
+										x: Math.max(0, nativeEvent.layout.x - 8),
+										animated: false,
+									});
+							}}
 						>
-							{r}회
-						</Button>
+							<Button
+								size="tiny"
+								style="weak"
+								type={snapshot.round === r ? "primary" : "dark"}
+								accessibilityState={{ selected: snapshot.round === r }}
+								onPress={() => changeRound(r)}
+							>
+								{r}회
+							</Button>
+						</View>
 					))}
 				</ScrollView>
 			) : null}

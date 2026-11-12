@@ -164,6 +164,8 @@ export function LottoTabs() {
 						aria-hidden={!!overlay}
 						style={{
 							position: "fixed",
+							display: "flex",
+							flexDirection: "column",
 							left: 0,
 							right: 0,
 							bottom: insets.bottom,
