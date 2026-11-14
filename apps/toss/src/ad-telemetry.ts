@@ -78,8 +78,11 @@ export type AdMetricSink = (event: {
 }) => void | Promise<void>;
 
 /** No identities, generated numbers, server tokens, or raw error payloads. */
-export function createAdTelemetry(send: AdMetricSink, appVersion = "unknown") {
-	const sessionId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+export function createAdTelemetry(
+	send: AdMetricSink,
+	appVersion = "unknown",
+	sessionId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`,
+) {
 	let sequence = 0;
 	const router = createAnalyticsRouter<AdMetric, AdMetricPayload>({
 		detail: { enabled: true, enqueueBatch: (events) => detailSink?.(events) },

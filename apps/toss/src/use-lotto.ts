@@ -66,6 +66,7 @@ import {
 import { createGenerationCooldown } from "./generation-cooldown";
 import { createGenerationRequest } from "./generation-request";
 import { createJourneyFlow, journeyErrorCode } from "./journey-telemetry";
+import { finishPageStartup } from "./page-startup";
 import { createPerformanceTracker } from "./performance";
 import { createPrivateRefresh } from "./private-refresh";
 import { promotionFeedback } from "./promotion-feedback";
@@ -498,6 +499,10 @@ export function useLotto() {
 		!checkingPurchase &&
 		(!requiresAttendanceForGeneration(adConfig?.generationAdPolicy) ||
 			!!attendance);
+	useEffect(() => {
+		if (generationReady && foreground) finishPageStartup("ready");
+		else if (error && !refreshing) finishPageStartup("failed");
+	}, [generationReady, foreground, error, refreshing]);
 	useEffect(() => {
 		if (
 			experimentReady &&
