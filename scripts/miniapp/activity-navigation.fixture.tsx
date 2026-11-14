@@ -189,7 +189,6 @@ for (const name of [
 	"Celebration",
 	"PrivacyNotice",
 	"ReportHistory",
-	"AttendancePanel",
 	"LocalTestPanel",
 	"LocalResultPreview",
 	"FeatureAccessPrompt",
@@ -199,6 +198,10 @@ for (const name of [
 ]) {
 	mock.module(`../../apps/toss/src/${name}`, () => ({ [name]: host(name) }));
 }
+mock.module("../../apps/toss/src/AttendancePanel", () => ({
+	AttendancePanel: (props: { afterAttendance?: React.ReactNode }) =>
+		React.createElement("AttendancePanel", props, props.afterAttendance),
+}));
 mock.module("../../apps/toss/src/AdCtaImpression", () => ({
 	AdCtaImpression: ({
 		children,
@@ -696,7 +699,8 @@ await act(async () => {
 await act(async () => {
 	await root.root
 		.findByType("AttendancePanel")
-		.props.afterAttendance.props.onPress();
+		.findByType("button")
+		.props.onPress();
 });
 expect(
 	sheet()

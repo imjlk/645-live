@@ -1,4 +1,6 @@
 export type TimingStage =
+	| "page_first_contentful_paint"
+	| "page_generator_ready"
 	| "startup_context"
 	| "startup_session"
 	| "generator_ready"
@@ -15,14 +17,13 @@ export function createPerformanceTracker(
 	now = () => globalThis.performance?.now?.() ?? Date.now(),
 ) {
 	return {
-		start(stage: TimingStage, source: string) {
-			const started = now();
+		start(stage: TimingStage, source: string, started = now()) {
 			let ended = false;
 			return {
-				end(outcome: Timing["outcome"] = "ready") {
+				end(outcome: Timing["outcome"] = "ready", finished = now()) {
 					if (ended) return;
 					ended = true;
-					const elapsed = now() - started;
+					const elapsed = finished - started;
 					const duration_ms = Number.isFinite(elapsed)
 						? Math.round(Math.max(0, Math.min(120000, elapsed)))
 						: 0;

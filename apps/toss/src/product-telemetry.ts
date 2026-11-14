@@ -1,5 +1,11 @@
 import type { Timing } from "./performance";
 export type ProductEvent =
+	| "app_opened"
+	| "generator_viewed"
+	| "generation_cta_viewed"
+	| "generation_cta_clicked"
+	| "save_cta_viewed"
+	| "save_cta_clicked"
 	| "generation_started"
 	| "generation_succeeded"
 	| "generation_failed"
@@ -24,9 +30,14 @@ export function createProductTelemetry(
 	send: (event: {
 		log_name: string;
 		log_type: "event";
-		params: { source: string; app_version: string } & Partial<Timing>;
+		params: {
+			source: string;
+			app_version: string;
+			session_id?: string;
+		} & Partial<Timing>;
 	}) => unknown,
 	appVersion = "unknown",
+	sessionId?: string,
 ) {
 	return (event: ProductEvent, source = "app", timing?: Timing) => {
 		try {
@@ -37,6 +48,7 @@ export function createProductTelemetry(
 					params: {
 						source: source.slice(0, 48),
 						app_version: appVersion.slice(0, 24),
+						...(sessionId ? { session_id: sessionId.slice(0, 64) } : {}),
 						...(event === "performance" && timing
 							? {
 									stage: timing.stage,

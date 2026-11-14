@@ -28,6 +28,8 @@ type ObserverProps = PropsWithChildren<{
 	style?: object;
 	accessibilityLabel?: string;
 	enabled?: boolean;
+	observationKey?: string;
+	bottomInset?: number;
 	areaThreshold?: number;
 	timeThreshold?: number;
 	onChange?: (v: boolean, r: number) => void;
@@ -38,6 +40,8 @@ export function InView({
 	style,
 	accessibilityLabel,
 	enabled = true,
+	observationKey,
+	bottomInset = 0,
 	areaThreshold = 0.5,
 	timeThreshold = 0,
 	onChange,
@@ -46,6 +50,7 @@ export function InView({
 	const host = useRef<HTMLElement>(null),
 		latest = useRef({ onChange, onImpressionStart });
 	latest.current = { onChange, onImpressionStart };
+	// biome-ignore lint/correctness/useExhaustiveDependencies: A new item needs a fresh observation even when it occupies the same DOM node.
 	useEffect(() => {
 		if (
 			!host.current ||
@@ -66,14 +71,17 @@ export function InView({
 						timeThreshold,
 					);
 			},
-			{ threshold: [0, areaThreshold] },
+			{
+				threshold: [0, areaThreshold],
+				rootMargin: `0px 0px -${Math.max(0, bottomInset)}px 0px`,
+			},
 		);
 		observer.observe(host.current);
 		return () => {
 			clearTimeout(timer);
 			observer.disconnect();
 		};
-	}, [enabled, areaThreshold, timeThreshold]);
+	}, [enabled, areaThreshold, timeThreshold, observationKey, bottomInset]);
 	return (
 		<section
 			ref={host}

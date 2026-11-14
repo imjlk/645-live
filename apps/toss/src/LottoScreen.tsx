@@ -18,6 +18,7 @@ import {
 	useRef,
 	useState,
 } from "react";
+import { ActionImpression } from "./ActionImpression";
 import { AdCtaImpression } from "./AdCtaImpression";
 import { AdFreePanel } from "./AdFreePanel";
 import { AttendancePanel } from "./AttendancePanel";
@@ -152,6 +153,25 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 		attendanceReady(model.attendance);
 	const generationLabel = model.current ? "새 번호 만들기" : "번호 만들기";
 	const generationTicket = model.adSkipChoice("generation_continue");
+	const generationPreparing = !model.generationReady && !model.error;
+	const generationDisabled =
+		!!model.busy ||
+		model.generationCooling ||
+		!model.user ||
+		!model.generationReady ||
+		(model.generationAdRequired && !generationTicket.adEnabled);
+	const generatorViewed = useRef(false);
+	useEffect(() => {
+		if (
+			tab !== "make" ||
+			!visible ||
+			!model.foreground ||
+			generatorViewed.current
+		)
+			return;
+		generatorViewed.current = true;
+		trackProduct("generator_viewed", "generator");
+	}, [tab, visible, model.foreground]);
 	const viewingPreviousRound =
 		!!model.current &&
 		!!model.context &&
@@ -391,7 +411,10 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 			setSavingGenerationId(null);
 		}
 	};
-	const saveButton = (item: Generation) => {
+	const saveButton = (
+		item: Generation,
+		source: "generator" | "recent" | "attendance" = "generator",
+	) => {
 		const saved = model.saved.some((entry) => entry.generationId === item.id);
 		if (saved)
 			return (
@@ -407,17 +430,36 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 				</View>
 			);
 		return (
-			<Button
-				display="full"
-				size="medium"
-				style="weak"
-				accessibilityLabel={`${item.round}회 번호 ${item.numbers.join(", ")} 보관하기`}
-				loading={model.busy === "save" && savingGenerationId === item.id}
-				disabled={!!model.busy || !model.savedReady}
-				onPress={() => void saveGeneration(item)}
+			<ActionImpression
+				action="save_cta"
+				source={source}
+				impressionKey={String(item.id)}
+				bottomInset={source === "generator" ? tabBarHeight + insets.bottom : 0}
+				active={
+					visible &&
+					model.foreground &&
+					!model.busy &&
+					model.savedReady &&
+					(source === "generator" ? !sheetOpen : sheetOpen && panel === source)
+				}
 			>
-				이 번호 보관하기
-			</Button>
+				{(trackClick) => (
+					<Button
+						display="full"
+						size="medium"
+						style="weak"
+						accessibilityLabel={`${item.round}회 번호 ${item.numbers.join(", ")} 보관하기`}
+						loading={model.busy === "save" && savingGenerationId === item.id}
+						disabled={!!model.busy || !model.savedReady}
+						onPress={() => {
+							trackClick();
+							void saveGeneration(item);
+						}}
+					>
+						이 번호 보관하기
+					</Button>
+				)}
+			</ActionImpression>
 		);
 	};
 	const scroll = useRef<ScrollView>(null);
@@ -641,41 +683,76 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 											impressionKey={`${model.attendance?.day}:generator`}
 											event="generation_cta_viewed"
 										>
-											<AdCtaImpression
-												enabled={model.generationAdRequired}
-												policy={adPolicyLabel(
-													model.adConfig?.generationAdPolicy,
-												)}
+											<ActionImpression
+												action="generation_cta"
+												source="generator"
+												impressionKey={String(model.current?.id ?? "first")}
+												bottomInset={tabBarHeight + insets.bottom}
+												active={
+													visible &&
+													!sheetOpen &&
+													model.foreground &&
+													!generationDisabled
+												}
 											>
-												{(runAttempt) => (
-													<Button
-														display="full"
-														loading={model.busy === "generate"}
-														disabled={
-															!!model.busy ||
-															model.generationCooling ||
-															!model.user ||
-															!model.generationReady ||
-															(model.generationAdRequired &&
-																!generationTicket.adEnabled)
-														}
-														onPress={() => {
-															void runAttempt((adFlow) =>
-																model.generate(
-																	hasOptions ? options : EMPTY_OPTIONS,
-																	model.generationAdRequired,
-																	adFlow,
-																	() => visibleRef.current,
-																),
-															);
-														}}
+												{(trackClick) => (
+													<AdCtaImpression
+														enabled={model.generationAdRequired}
+														policy={adPolicyLabel(
+															model.adConfig?.generationAdPolicy,
+														)}
 													>
-														{model.generationAdRequired
-															? "광고 보고 계속 만들기"
-															: generationLabel}
-													</Button>
+														{(runAttempt) => (
+															<Button
+																display="full"
+																loading={model.busy === "generate"}
+																disabled={generationDisabled}
+																accessibilityLabel={
+																	generationPreparing
+																		? "번호 만들기 준비 중"
+																		: undefined
+																}
+																onPress={() => {
+																	trackClick();
+																	void runAttempt((adFlow) =>
+																		model.generate(
+																			hasOptions ? options : EMPTY_OPTIONS,
+																			model.generationAdRequired,
+																			adFlow,
+																			() => visibleRef.current,
+																		),
+																	);
+																}}
+															>
+																{generationPreparing ? (
+																	<span
+																		style={{
+																			display: "inline-flex",
+																			alignItems: "center",
+																			gap: 8,
+																		}}
+																	>
+																		<span aria-hidden="true">
+																			<ActivityIndicator
+																				animating={!model.reducedMotion}
+																				size={16}
+																				color="currentColor"
+																			/>
+																		</span>
+																		준비 중…
+																	</span>
+																) : !model.generationReady ? (
+																	"연결 확인 필요"
+																) : model.generationAdRequired ? (
+																	"광고 보고 계속 만들기"
+																) : (
+																	generationLabel
+																)}
+															</Button>
+														)}
+													</AdCtaImpression>
 												)}
-											</AdCtaImpression>
+											</ActionImpression>
 										</JourneyImpression>
 										{model.generationAdRequired &&
 										generationTicket.showTicket ? (
@@ -1422,7 +1499,7 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 											openNumberInsights(item.round, number)
 										}
 									/>
-									{saveButton(item)}
+									{saveButton(item, "recent")}
 									{model.savedReady ? (
 										<SavedCombinationComparison
 											generation={item}
@@ -1641,7 +1718,9 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 					{panel === "attendance" ? (
 						<AttendancePanel
 							model={model}
-							afterAttendance={model.current ? saveButton(model.current) : null}
+							afterAttendance={
+								model.current ? saveButton(model.current, "attendance") : null
+							}
 							onAdFree={() => setPanel("adFree")}
 							onGenerate={() => {
 								setPanel(null);

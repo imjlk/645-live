@@ -3,6 +3,8 @@ import { GeneratedInsightsScreen } from "./GeneratedInsightsScreen";
 import { GenerationResultsScreen } from "./GenerationResultsScreen";
 import { LottoProvider } from "./LottoProvider";
 import { LottoTabs } from "./LottoTabs";
+import { startPageStartup } from "./page-startup";
+import { trackProduct } from "./telemetry";
 import { TDSProvider } from "./web/controls";
 import {
 	Focus,
@@ -12,6 +14,7 @@ import {
 	useRouteState,
 } from "./web/navigation";
 
+startPageStartup(trackProduct);
 startWebNavigation();
 function App() {
 	const { details } = useRouteState();
