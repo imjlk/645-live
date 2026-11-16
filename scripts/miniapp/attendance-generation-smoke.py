@@ -82,9 +82,25 @@ def run():
                 expect(request(base,'/api/app/v1/attendance/check-in',{},auth)[0],403,'v4 requires generation')
                 _,data=generate(auth)
                 assert data['attendanceProgress']['canCheckIn'] and data['attendanceProgress']['generatedCount']==1
+                current=request(base,route,{'experiment':'generation-cadence-v4'},auth)[1]
+                assert current['checkInDayGuard'] is True
+                day=current['day']
+                tickets=current['adSkips']['balance']
+                for other_day in (day-1, day+1):
+                    code,error=request(base,f'/api/app/v1/attendance/check-in?expectedDay={other_day}',{},auth)
+                    expect(code,409,'recovery must not cross the attendance day')
+                    assert error['error']['code']=='ATTENDANCE_DAY_CHANGED'
+                    unchanged=request(base,route,headers=auth)[1]
+                    assert not unchanged['checkedIn'] and unchanged['adSkips']['balance']==tickets
+                expect(request(base,'/api/app/v1/attendance/check-in?expectedDay=invalid',{},auth)[0],400,'invalid recovery date')
                 older=request(base,route,enroll,auth)[1]
                 assert older['attendanceExperiment']=='generation-cadence-v3' and older['requiredGenerations']==1
-                expect(request(base,'/api/app/v1/attendance/check-in',{},auth)[0],200,'v4 one generation check in')
+                code,checked=request(base,f'/api/app/v1/attendance/check-in?expectedDay={day}',{},auth)
+                expect(code,200,'v4 one generation check in')
+                code,replayed=request(base,f'/api/app/v1/attendance/check-in?expectedDay={day}',{},auth)
+                expect(code,200,'same-day recovery replays the committed check-in')
+                assert replayed['replayed'] and replayed['streak']==checked['streak']
+                assert replayed['adSkips']['balance']==checked['adSkips']['balance']
                 # Routing uses the authenticated arm. No SDK or provider calls occur.
                 def configure(weight):
                     sql=f"UPDATE ait_lotto_ad_placements SET enabled=1,rewarded_group_id='fixture-shared-r',interstitial_group_id='fixture-shared-i',cooldown_ms=30000,daily_cap=20,rewarded_weight={weight} WHERE placement='generation_continue'; UPDATE ait_lotto_ad_sessions SET created_at=created_at-60000"

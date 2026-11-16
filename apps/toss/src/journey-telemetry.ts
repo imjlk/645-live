@@ -1,4 +1,5 @@
 import { createAdFlow } from "./ad-telemetry";
+import { requestErrorCode } from "./request-error";
 import { adTelemetry } from "./telemetry";
 
 /** Shared optional analytics transport; no counters or reward decisions depend on it. */
@@ -12,7 +13,5 @@ export function createJourneyFlow(entryPoint: "generator" | "attendance") {
 }
 
 export function journeyErrorCode(error: unknown) {
-	// Diagnostic classification only, never arbitrary server messages or receipts.
-	if (error instanceof TypeError) return "network";
-	return "request_failed";
+	return requestErrorCode(error);
 }

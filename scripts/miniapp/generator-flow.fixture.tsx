@@ -99,6 +99,7 @@ mock.module("../../apps/toss/src/ad-bridge", () => ({
 	setResultNotification: async () => true,
 }));
 const performanceEvents: { stage?: string; outcome?: string }[] = [];
+const journeyEvents: { event: string; outcome?: string }[] = [];
 mock.module("../../apps/toss/src/telemetry", () => ({
 	trackProduct(
 		event: string,
@@ -107,7 +108,11 @@ mock.module("../../apps/toss/src/telemetry", () => ({
 	) {
 		if (event === "performance" && timing) performanceEvents.push(timing);
 	},
-	adTelemetry: { track() {} },
+	adTelemetry: {
+		track(event: string, _context: unknown, outcome?: string) {
+			journeyEvents.push({ event, outcome });
+		},
+	},
 }));
 mock.module("../../apps/toss/src/realtime", () => ({
 	subscribeRealtime: () => () => {},
@@ -125,6 +130,8 @@ const redemptions: {
 let loseRedeem = false;
 const day = 100;
 const at = day * 86_400_000;
+let checkedIn = false;
+let reconcileCheckIn = false;
 const api = {
 	preferences: {},
 	featureAds: {
@@ -178,7 +185,28 @@ const api = {
 	ensure: async () => ({ id: "fixture", displayName: "fixture" }),
 	saved: () => ({ read: async () => [], clear: async () => [] }),
 	notificationPrompt: () => ({ clear: async () => {} }),
-	withdraw: async () => ({ credentialsCleared: true }),
+	withdraw: async () => {
+		checkedIn = false;
+		return { credentialsCleared: true };
+	},
+	checkIn: async (expectedDay: number) => {
+		expect(expectedDay).toBe(day);
+		checkedIn = true;
+		if (reconcileCheckIn)
+			return {
+				streak: 1,
+				replayed: true,
+				recovery: "reconciled",
+				attendance: {
+					day,
+					serverTime: at + records.size + 2,
+					generatedToday: true,
+					checkedIn: true,
+					promotions: [],
+				},
+			};
+		return { streak: 1, replayed: false, recovery: "retried" };
+	},
 	ads: async () => {
 		if (holdInitialAds) {
 			holdInitialAds = false;
@@ -202,9 +230,9 @@ const api = {
 		}
 		return {
 			day,
-			serverTime: at,
+			serverTime: checkedIn ? at + records.size + 1 : at,
 			generatedToday: false,
-			checkedIn: false,
+			checkedIn,
 			promotions: [],
 		};
 	},
@@ -402,6 +430,36 @@ expect(redemptions[0]).toMatchObject({
 });
 expect(progress).toEqual({ ready: true, remaining: 14 });
 expect(requests).toBe(beforeTicket + 1);
+
+// The existing check-in action consumes the recovered result once, without
+// changing the attendance notice or inventing a promotion claim.
+await act(async () => {
+	expect(await model.checkIn()).toBe(true);
+});
+expect(model.attendance?.checkedIn).toBe(true);
+expect(model.notice).toBe("오늘 출석했어요. 내일도 만나요!");
+expect(
+	journeyEvents.filter(({ event }) => event.startsWith("journey_attendance_")),
+).toEqual([
+	{ event: "journey_attendance_started", outcome: "" },
+	{ event: "journey_attendance_succeeded", outcome: "retried" },
+]);
+
+// A fresh recovery snapshot must not be discarded for another network read.
+const readsBeforeRecovery = attendanceReads;
+reconcileCheckIn = true;
+failAttendance = true;
+await act(async () => {
+	expect(await model.checkIn()).toBe(true);
+});
+expect(attendanceReads).toBe(readsBeforeRecovery);
+expect(model.attendance?.checkedIn).toBe(true);
+expect(model.notice).toBe("오늘 출석했어요. 내일도 만나요!");
+expect(journeyEvents.at(-1)).toEqual({
+	event: "journey_attendance_succeeded",
+	outcome: "reconciled",
+});
+failAttendance = false;
 
 await act(async () => {
 	expect(await model.withdraw()).toBe(true);
