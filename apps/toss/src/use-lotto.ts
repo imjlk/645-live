@@ -500,7 +500,8 @@ export function useLotto() {
 		(!requiresAttendanceForGeneration(adConfig?.generationAdPolicy) ||
 			!!attendance);
 	useEffect(() => {
-		if (generationReady && foreground) finishPageStartup("ready");
+		if (generationReady && foreground && !refreshing && !error)
+			finishPageStartup("ready");
 		else if (error && !refreshing) finishPageStartup("failed");
 	}, [generationReady, foreground, error, refreshing]);
 	useEffect(() => {

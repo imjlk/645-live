@@ -1,9 +1,9 @@
-import { type ReactNode, useMemo } from "react";
-import { createActionTelemetry } from "./action-telemetry";
-import { trackProduct } from "./telemetry";
+import type { ReactNode } from "react";
+import type { createActionTelemetryScope } from "./action-telemetry";
 import { ImpressionArea } from "./web/viewport";
 
 export function ActionImpression({
+	scope,
 	action,
 	source,
 	impressionKey,
@@ -11,6 +11,7 @@ export function ActionImpression({
 	bottomInset = 0,
 	children,
 }: {
+	scope: ReturnType<typeof createActionTelemetryScope>;
 	action: "generation_cta" | "save_cta";
 	source: "generator" | "recent" | "attendance";
 	impressionKey: string;
@@ -18,10 +19,7 @@ export function ActionImpression({
 	bottomInset?: number;
 	children: (trackClick: () => void) => ReactNode;
 }) {
-	const telemetry = useMemo(
-		() => createActionTelemetry(trackProduct, action, source),
-		[action, source],
-	);
+	const telemetry = scope(action, source);
 	return (
 		<ImpressionArea
 			enabled={active}

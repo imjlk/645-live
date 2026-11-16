@@ -6,6 +6,7 @@ import {
 	EMPTY_OPTIONS,
 	type Generation,
 	type GenerationOptions,
+	type SavedCombination,
 } from "@645/lotto-core";
 import {
 	type AdSkipRedemptionRequest,
@@ -130,6 +131,7 @@ const redemptions: {
 let loseRedeem = false;
 const day = 100;
 const at = day * 86_400_000;
+let savedRead: Promise<SavedCombination[]> | null = null;
 let checkedIn = false;
 let reconcileCheckIn = false;
 const api = {
@@ -183,7 +185,7 @@ const api = {
 		};
 	},
 	ensure: async () => ({ id: "fixture", displayName: "fixture" }),
-	saved: () => ({ read: async () => [], clear: async () => [] }),
+	saved: () => ({ read: async () => savedRead ?? [], clear: async () => [] }),
 	notificationPrompt: () => ({ clear: async () => {} }),
 	withdraw: async () => {
 		checkedIn = false;
@@ -311,6 +313,20 @@ mock.module("../../apps/toss/src/api", () => ({
 	apiErrorCode: () => null,
 	newRequestId: () => `fixture-${++requestId}`,
 }));
+const { createPageStartupTracker } = await import(
+	"../../apps/toss/src/page-startup"
+);
+const pageOutcomes: string[] = [];
+const newPageStartup = () =>
+	createPageStartupTracker((_event, _source, timing) => {
+		if (timing?.stage === "page_generator_ready")
+			pageOutcomes.push(timing.outcome);
+	});
+let pageStartup = newPageStartup();
+mock.module("../../apps/toss/src/page-startup", () => ({
+	finishPageStartup: (outcome: "ready" | "failed") =>
+		pageStartup.finish(outcome),
+}));
 const { useLotto } = await import("../../apps/toss/src/use-lotto");
 let model!: ReturnType<typeof useLotto>;
 function Probe() {
@@ -333,6 +349,7 @@ await act(async () => {
 });
 expect(model.generationReady).toBe(true);
 expect(model.error).toBe("attendance temporarily unavailable");
+expect(pageOutcomes).toEqual(["failed"]);
 expect(model.feed).toBeNull();
 expect(feedReads).toBe(1);
 expect(attendanceReads).toBe(1);
@@ -492,5 +509,44 @@ expect(
 	performanceEvents.filter((event) => event.stage === "generator_ready"),
 ).toHaveLength(readyMeasurements);
 await act(async () => root.unmount());
+expect(appStates.size).toBe(0);
+// Generation can remain usable while initial saved storage is pending. The page
+// startup metric must wait for the whole initial load and retain its first result.
+for (const failSaved of [true, false]) {
+	pageOutcomes.length = 0;
+	pageStartup = newPageStartup();
+	let resolveSaved!: (items: SavedCombination[]) => void;
+	let rejectSaved!: (error: Error) => void;
+	savedRead = new Promise((resolve, reject) => {
+		resolveSaved = resolve;
+		rejectSaved = reject;
+	});
+	await act(async () => {
+		root = create(<Probe />);
+	});
+	expect(model.generationReady).toBe(true);
+	expect(model.refreshing).toBe(true);
+	expect(model.savedReady).toBe(false);
+	expect(pageOutcomes).toEqual([]);
+	await act(async () => {
+		if (failSaved) rejectSaved(new Error("saved storage unavailable"));
+		else resolveSaved([]);
+	});
+	expect(model.refreshing).toBe(false);
+	expect(model.generationReady).toBe(true);
+	expect(pageOutcomes).toEqual([failSaved ? "failed" : "ready"]);
+	if (failSaved) {
+		expect(model.error).toBe("saved storage unavailable");
+		savedRead = null;
+		await act(async () => {
+			model.retry();
+		});
+		expect(model.error).toBeNull();
+		expect(model.savedReady).toBe(true);
+		expect(pageOutcomes).toEqual(["failed"]);
+	}
+	await act(async () => root.unmount());
+	savedRead = null;
+}
 expect(appStates.size).toBe(0);
 console.log("generator publication receipts and single-generation flow passed");

@@ -25,7 +25,7 @@ import { AttendancePanel } from "./AttendancePanel";
 import { adSkipLabel } from "./ad-skip";
 import { adPolicyLabel } from "./ad-telemetry";
 import { LOCAL_PREVIEW } from "./api";
-import { attendanceReady } from "./attendance-progress";
+import { attendanceInstruction, attendanceReady } from "./attendance-progress";
 import { Balls } from "./Balls";
 import { Banner } from "./Banner";
 import { Celebration } from "./Celebration";
@@ -139,8 +139,14 @@ export function LottoScreen({ tab = "make" }: { tab?: LottoTab }) {
 }
 
 function LottoContent({ tab }: { tab: LottoTab }) {
-	const { model, options, setOptions, liveColumns, setLiveColumns } =
-		useLottoContext();
+	const {
+		model,
+		actionTelemetry,
+		options,
+		setOptions,
+		liveColumns,
+		setLiveColumns,
+	} = useLottoContext();
 	const navigation = useNavigation();
 	const focused = useIsFocused();
 	const visible = useVisibility() && focused;
@@ -151,6 +157,12 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 		!!model.attendance &&
 		!model.attendance.checkedIn &&
 		attendanceReady(model.attendance);
+	const firstSavePending =
+		!!model.attendance?.checkedIn &&
+		!!model.current &&
+		model.savedReady &&
+		model.saved.length === 0;
+	const generationPrimary = !attendancePending && !firstSavePending;
 	const generationLabel = model.current ? "새 번호 만들기" : "번호 만들기";
 	const generationTicket = model.adSkipChoice("generation_continue");
 	const generationPreparing = !model.generationReady && !model.error;
@@ -416,6 +428,8 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 		source: "generator" | "recent" | "attendance" = "generator",
 	) => {
 		const saved = model.saved.some((entry) => entry.generationId === item.id);
+		const primary =
+			firstSavePending && (source === "generator" || source === "attendance");
 		if (saved)
 			return (
 				<View
@@ -431,6 +445,7 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 			);
 		return (
 			<ActionImpression
+				scope={actionTelemetry}
 				action="save_cta"
 				source={source}
 				impressionKey={String(item.id)}
@@ -446,8 +461,8 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 				{(trackClick) => (
 					<Button
 						display="full"
-						size="medium"
-						style="weak"
+						size={primary ? "large" : "medium"}
+						style={primary ? "fill" : "weak"}
 						accessibilityLabel={`${item.round}회 번호 ${item.numbers.join(", ")} 보관하기`}
 						loading={model.busy === "save" && savingGenerationId === item.id}
 						disabled={!!model.busy || !model.savedReady}
@@ -620,6 +635,36 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 									<View style={[s.section, s.firstSection]}>
 										{actionMessage("make")}
 										{actionMessage("saved")}
+										{returnRound ? (
+											<View style={{ gap: 8, marginBottom: 16 }}>
+												<Text style={[s.caption, muted]}>
+													{returnRound}회 · 새 결과
+												</Text>
+												<Text style={[s.body, text]}>
+													보관한 {returnCount}개 조합의 결과가 나왔어요.
+												</Text>
+												<Button
+													size="medium"
+													style="weak"
+													onPress={() => {
+														if (
+															navigateToSavedRound(
+																navigation,
+																tab,
+																returnRound,
+																visible,
+															)
+														)
+															trackProduct(
+																"results_return_opened",
+																"generator",
+															);
+													}}
+												>
+													보관한 번호 결과 보기
+												</Button>
+											</View>
+										) : null}
 										<View style={s.row}>
 											<Text style={[s.eyebrow, { color: theme.blue }]}>
 												{model.context
@@ -640,7 +685,12 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 											viewingPreviousRound
 												? "다시 보는 내 번호"
 												: "이번 주, 내 번호는?",
-											"번호를 만들고 마음에 드는 조합을 보관하세요.",
+											!model.current &&
+												model.attendance &&
+												!model.attendance.checkedIn &&
+												!attendancePending
+												? attendanceInstruction(model.attendance)
+												: "번호를 만들고 마음에 드는 조합을 보관하세요.",
 										)}
 										<View style={{ paddingTop: 20, paddingBottom: 20 }}>
 											<Balls
@@ -668,10 +718,16 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 										) : null}
 										{attendancePending ? (
 											<GeneratorAttendanceEntry
+												primary
 												attendance={model.attendance}
 												active={visible && !sheetOpen && model.foreground}
 												onPress={() => setPanel("attendance")}
 											/>
+										) : null}
+										{firstSavePending && model.current ? (
+											<View style={{ marginBottom: 10 }}>
+												{saveButton(model.current)}
+											</View>
 										) : null}
 										<JourneyImpression
 											active={
@@ -684,6 +740,7 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 											event="generation_cta_viewed"
 										>
 											<ActionImpression
+												scope={actionTelemetry}
 												action="generation_cta"
 												source="generator"
 												impressionKey={String(model.current?.id ?? "first")}
@@ -705,6 +762,7 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 														{(runAttempt) => (
 															<Button
 																display="full"
+																style={generationPrimary ? "fill" : "weak"}
 																loading={model.busy === "generate"}
 																disabled={generationDisabled}
 																accessibilityLabel={
@@ -781,7 +839,7 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 												</Button>
 											</View>
 										) : null}
-										{model.current ? (
+										{model.current && !firstSavePending ? (
 											<View style={{ marginTop: 10 }}>
 												{saveButton(model.current)}
 											</View>
@@ -878,36 +936,6 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 													onPress={() => void model.prepareGenerationAd()}
 												>
 													테스트: 광고 시점 만들기
-												</Button>
-											</View>
-										) : null}
-										{returnRound ? (
-											<View style={{ gap: 8, marginTop: 16 }}>
-												<Text style={[s.caption, muted]}>
-													{returnRound}회 · 새 결과
-												</Text>
-												<Text style={[s.body, text]}>
-													보관한 {returnCount}개 조합의 결과가 나왔어요.
-												</Text>
-												<Button
-													size="medium"
-													style="weak"
-													onPress={() => {
-														if (
-															navigateToSavedRound(
-																navigation,
-																tab,
-																returnRound,
-																visible,
-															)
-														)
-															trackProduct(
-																"results_return_opened",
-																"generator",
-															);
-													}}
-												>
-													보관한 번호 결과 보기
 												</Button>
 											</View>
 										) : null}

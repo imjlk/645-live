@@ -21,3 +21,19 @@ export function createActionTelemetry(
 		},
 	};
 }
+
+/** The app provider owns this scope so sheet/tab remounts share impressions. */
+export function createActionTelemetryScope(
+	track: ReturnType<typeof createProductTelemetry>,
+) {
+	const actions = new Map<string, ReturnType<typeof createActionTelemetry>>();
+	return (action: "generation_cta" | "save_cta", source: string) => {
+		const key = `${action}:${source}`;
+		let telemetry = actions.get(key);
+		if (!telemetry) {
+			telemetry = createActionTelemetry(track, action, source);
+			actions.set(key, telemetry);
+		}
+		return telemetry;
+	};
+}

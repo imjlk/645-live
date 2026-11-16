@@ -11,10 +11,12 @@ export function GeneratorAttendanceEntry({
 	attendance,
 	onPress,
 	active = true,
+	primary = false,
 }: {
 	attendance: Attendance | null;
 	onPress: () => void;
 	active?: boolean;
+	primary?: boolean;
 }) {
 	const theme = useTheme();
 	const daily = attendance?.promotions.find(
@@ -77,7 +79,11 @@ export function GeneratorAttendanceEntry({
 						{title}
 					</Text>
 					<Text style={[s.caption, { color: theme.muted }]}>{caption}</Text>
-					<Button display="full" style="weak" onPress={openAttendance}>
+					<Button
+						display="full"
+						style={primary ? "fill" : "weak"}
+						onPress={openAttendance}
+					>
 						오늘 출석하기
 					</Button>
 				</View>

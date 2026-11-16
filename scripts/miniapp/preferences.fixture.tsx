@@ -32,6 +32,7 @@ const preferences = {
 mock.module("../../apps/toss/src/use-lotto", () => ({
 	useLotto: () => ({ preferences }),
 }));
+mock.module("../../apps/toss/src/telemetry", () => ({ trackProduct() {} }));
 const { LottoProvider, useLottoContext } = await import(
 	"../../apps/toss/src/LottoProvider"
 );
