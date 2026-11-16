@@ -20,7 +20,10 @@ import {
 	toTrailBaseSdkTokens,
 } from "@trailbase-apps-in-toss-kit/trailbase-client";
 import { initClient } from "trailbase";
-import type { AttendanceProgress } from "./attendance-progress";
+import {
+	type AttendanceProgress,
+	attendanceReady,
+} from "./attendance-progress";
 import { connectionStep, connectionSync } from "./connection-error";
 import { createFeatureAdCounter } from "./feature-ad-counter";
 import {
@@ -32,6 +35,7 @@ import {
 	generationExperimentPolicy,
 } from "./generation-ad-experiment";
 import type { GenerationResponse } from "./generation-request";
+import { RequestTimeoutError, recoverableCheckInError } from "./request-error";
 import { resolveLottoRuntime } from "./runtime-config";
 import { createSavedStore } from "./saved-store";
 import { createPreferencesStore } from "./ux-state";
@@ -133,6 +137,8 @@ export type RewardPolicy = {
 };
 export type Attendance = Partial<AttendanceProgress> & {
 	day: number;
+	/** Only servers enforcing expectedDay may receive an automatic check-in retry. */
+	checkInDayGuard?: boolean;
 	checkedIn: boolean;
 	generatedToday: boolean;
 	streak: number;
@@ -193,7 +199,7 @@ async function withTimeout<T>(
 		return await operation(controller.signal);
 	} catch (error) {
 		if (controller.signal.aborted && !parent?.aborted)
-			throw new Error("연결이 오래 걸리고 있어요. 다시 시도해 주세요.");
+			throw new RequestTimeoutError();
 		throw error;
 	} finally {
 		clearTimeout(timer);
@@ -536,11 +542,52 @@ export function createApi() {
 			}>("/api/app/v1/ads/complete", { id, events }),
 		// Follow-up reads after check-in, promotion, or restore must not reuse a pre-mutation snapshot.
 		attendance: () => readAttendance(true),
-		checkIn: () =>
-			request<{ streak: number; replayed: boolean; adSkips?: AdSkipStatus }>(
-				"/api/app/v1/attendance/check-in",
-				{},
-			),
+		async checkIn(expectedDay?: number): Promise<{
+			streak: number;
+			replayed: boolean;
+			adSkips?: AdSkipStatus;
+			recovery?: "reconciled" | "retried";
+			attendance?: Attendance;
+		}> {
+			const attempt = epoch;
+			const principal = await ensure();
+			const assertCurrent = () => {
+				if (attempt !== epoch || paused || currentUser?.id !== principal.id)
+					throw interrupted();
+			};
+			assertCurrent();
+			const path = "/api/app/v1/attendance/check-in";
+			try {
+				return await request(path, {});
+			} catch (error) {
+				if (!recoverableCheckInError(error) || !Number.isInteger(expectedDay))
+					throw error;
+				assertCurrent();
+				// A lost response may already have committed attendance and tickets.
+				// Never reuse a status read that started before the user's request.
+				const state = await readAttendance(true);
+				assertCurrent();
+				if (state.day !== expectedDay) throw error;
+				if (state.checkedIn)
+					return {
+						streak: state.streak,
+						adSkips: state.adSkips,
+						replayed: true,
+						recovery: "reconciled",
+						attendance: state,
+					};
+				if (state.checkInDayGuard !== true || !attendanceReady(state))
+					throw error;
+				// One bounded retry. The server checks the day atomically with the
+				// normal eligibility and grant transaction, including midnight races.
+				const result = await request<{
+					streak: number;
+					replayed: boolean;
+					adSkips?: AdSkipStatus;
+				}>(`${path}?expectedDay=${expectedDay}`, {});
+				return { ...result, recovery: "retried" };
+			}
+		},
 		heartbeat: (active = true) =>
 			request(
 				`/api/app/v1/presence/${active ? "heartbeat" : "disconnect"}`,

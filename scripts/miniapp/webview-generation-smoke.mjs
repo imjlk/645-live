@@ -27,49 +27,73 @@ try {
 			: await chromium.launch({
 					channel: process.env.PLAYWRIGHT_CHROMIUM_CHANNEL,
 				});
-	const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
-	const errors = [];
-	page.on("pageerror", (error) => errors.push(error.message));
-	await page.route("**/*", async (route) => {
-		const url = new URL(route.request().url());
-		if (url.origin !== api.origin) return route.abort();
-		if (url.pathname.startsWith("/api/")) return route.continue();
-		return route.fulfill({
-			path: join(
-				dist,
-				url.pathname.startsWith("/assets/") ? url.pathname : "index.html",
-			),
+	for (const recovery of ["none", "lost_request", "lost_response"]) {
+		const page = await browser.newPage({
+			viewport: { width: 390, height: 844 },
 		});
-	});
-	await page.goto(api.origin);
-	await page.getByRole("button", { name: "번호 만들기", exact: true }).click();
-	const attendanceEntry = page.getByRole("button", {
-		name: "오늘 출석하기",
-		exact: true,
-	});
-	await page
-		.getByText("번호 완성! 오늘 출석도 잊지 마세요", { exact: true })
-		.waitFor();
-	await attendanceEntry.scrollIntoViewIfNeeded();
-	if (process.env.MINIAPP_SCREENSHOT_PATH)
-		await page.screenshot({ path: process.env.MINIAPP_SCREENSHOT_PATH });
-	await attendanceEntry.click();
-	const attendance = page.getByRole("dialog");
-	await attendance
-		.getByRole("button", { name: "오늘 출석하기", exact: true })
-		.click();
-	await page.getByText("오늘 출석 완료", { exact: true }).waitFor();
-	await attendance
-		.getByText("내일도 번호 한 번, 출석 한 번", { exact: true })
-		.waitFor();
-	await attendance.getByRole("button", { name: /보관하기$/ }).click();
-	await attendance
-		.getByText("✓ 보관함에 저장했어요", { exact: true })
-		.waitFor();
-	assert.deepEqual(errors, []);
-	console.log(
-		"WebView generated numbers, completed attendance and remained interactive",
-	);
+		const checkInRequests = [];
+		const errors = [];
+		page.on("pageerror", (error) => errors.push(error.message));
+		await page.route("**/*", async (route) => {
+			const url = new URL(route.request().url());
+			if (url.origin !== api.origin) return route.abort();
+			if (url.pathname === "/api/app/v1/attendance/check-in") {
+				checkInRequests.push(url);
+				if (checkInRequests.length === 1 && recovery !== "none") {
+					if (recovery === "lost_response") {
+						// Commit in the real local server, then lose only the response.
+						const response = await route.fetch();
+						assert.equal(response.status(), 200);
+						assert.equal((await response.json()).checkedIn, true);
+					}
+					return route.abort("failed");
+				}
+			}
+			if (url.pathname.startsWith("/api/")) return route.continue();
+			return route.fulfill({
+				path: join(
+					dist,
+					url.pathname.startsWith("/assets/") ? url.pathname : "index.html",
+				),
+			});
+		});
+		await page.goto(api.origin);
+		await page
+			.getByRole("button", { name: "번호 만들기", exact: true })
+			.click();
+		const attendanceEntry = page.getByRole("button", {
+			name: "오늘 출석하기",
+			exact: true,
+		});
+		await page
+			.getByText("번호 완성! 오늘 출석도 잊지 마세요", { exact: true })
+			.waitFor();
+		await attendanceEntry.scrollIntoViewIfNeeded();
+		if (process.env.MINIAPP_SCREENSHOT_PATH)
+			await page.screenshot({ path: process.env.MINIAPP_SCREENSHOT_PATH });
+		await attendanceEntry.click();
+		const attendance = page.getByRole("dialog");
+		await attendance
+			.getByRole("button", { name: "오늘 출석하기", exact: true })
+			.click();
+		await page.getByText("오늘 출석 완료", { exact: true }).waitFor();
+		await attendance
+			.getByText("내일도 번호 한 번, 출석 한 번", { exact: true })
+			.waitFor();
+		await attendance.getByRole("button", { name: /보관하기$/ }).click();
+		await attendance
+			.getByText("✓ 보관함에 저장했어요", { exact: true })
+			.waitFor();
+		assert.deepEqual(errors, []);
+		assert.equal(checkInRequests.length, recovery === "lost_request" ? 2 : 1);
+		assert.equal(checkInRequests[0].search, "");
+		if (recovery === "lost_request")
+			assert.match(checkInRequests[1].searchParams.get("expectedDay"), /^\d+$/);
+		await page.close();
+		console.log(
+			`WebView generated numbers, completed attendance and saved after ${recovery}`,
+		);
+	}
 } finally {
 	await browser?.close();
 	await rm(dist, { recursive: true, force: true });
