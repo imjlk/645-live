@@ -1151,15 +1151,16 @@ export function useLotto() {
 			run("checkIn", async () => {
 				const journey = createJourneyFlow("attendance");
 				journey.track("journey_attendance_started");
+				let result: Awaited<ReturnType<typeof api.checkIn>>;
 				try {
-					await api.checkIn();
+					result = await api.checkIn(attendance?.day);
 				} catch (error) {
 					journey.track("journey_attendance_failed", journeyErrorCode(error));
 					throw error;
 				}
-				journey.track("journey_attendance_succeeded");
+				journey.track("journey_attendance_succeeded", result.recovery);
 				trackProduct("attendance_completed");
-				const state = await api.attendance();
+				const state = result.attendance ?? (await api.attendance());
 				receiveAttendance(state);
 				const daily = state.promotions.find(
 					(p) => p.kind === "daily" && p.eligible,

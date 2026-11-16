@@ -163,6 +163,7 @@ pub(crate) async fn attendance_status(req: &mut Request) -> ApiResult<Json> {
     state["promotionTestEnabled"] = json!(test_enabled);
     state["adSkips"] = rewards["adSkips"].clone();
     state["rewardPolicy"] = rewards["rewardPolicy"].clone();
+    state["checkInDayGuard"] = json!(true);
     if config.window_start == attendance_rewards::WindowStart::FirstCheckIn {
         if let Some(policy) = &config.cohort {
             state["rewardPolicy"]["program"] =
@@ -177,6 +178,19 @@ pub(crate) async fn check_in(req: &mut Request) -> ApiResult<Json> {
     let user = auth::user(req, &mut tx)?;
     let now = db::now_ms_tx(&mut tx)?;
     let day = kst_day(now);
+    // Only recovery requests carry this fence. Legacy requests retain the
+    // existing behavior, and a delayed retry cannot check in on another day.
+    if let Some(expected) = req.query_param("expectedDay") {
+        let expected: i64 = expected
+            .parse()
+            .map_err(|_| bad_request("INVALID_DAY", "요청 내용을 확인해 주세요."))?;
+        if expected != day {
+            return Err(conflict(
+                "ATTENDANCE_DAY_CHANGED",
+                "출석 정보를 다시 확인해 주세요.",
+            ));
+        }
+    }
     attendance::require_check_in(&mut tx, &user.id, now)?;
     let inserted = db::tx_execute(
         &mut tx,

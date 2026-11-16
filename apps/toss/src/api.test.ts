@@ -8,7 +8,7 @@ import {
 const originalFetch = globalThis.fetch;
 const kit = await import("@trailbase-apps-in-toss-kit/trailbase-client");
 
-let fetchPath: (path: string) => Promise<Response>;
+let fetchPath: (path: string, options?: RequestInit) => Promise<Response>;
 let bootstrapCount = 0;
 let adEnvironment = "toss";
 let adLoadFails = false;
@@ -117,7 +117,9 @@ mock.module("@trailbase-apps-in-toss-kit/trailbase-client", () => ({
 	}),
 }));
 mock.module("trailbase", () => ({
-	initClient: () => ({ fetch: (path: string) => fetchPath(path) }),
+	initClient: () => ({
+		fetch: (path: string, options: RequestInit) => fetchPath(path, options),
+	}),
 }));
 const { createApi } = await import("./api");
 const { createAdController: buildAdController, setResultNotification } =
@@ -820,6 +822,258 @@ test("attendance after check-in never reuses a pending pre-mutation snapshot", a
 		expect((await after).checkedIn).toBe(true);
 		expect((await before).checkedIn).toBe(false);
 		expect(reads).toBe(2);
+	} finally {
+		api.dispose();
+	}
+});
+
+test("attendance retries a lost request once after checking the same server day", async () => {
+	globalThis.fetch = (async () =>
+		json({
+			user: { id: "fixture-user", displayName: "fixture" },
+			authTokens: { authToken: "fixture", refreshToken: "refresh" },
+		})) as typeof fetch;
+	const paths: string[] = [];
+	fetchPath = async (path) => {
+		paths.push(path);
+		if (paths.length === 1) throw new TypeError("Failed to fetch");
+		if (path.endsWith("/attendance/status"))
+			return json({
+				day: 100,
+				checkedIn: false,
+				canCheckIn: true,
+				checkInDayGuard: true,
+			});
+		return json({ streak: 1, replayed: false });
+	};
+	const api = createApi();
+	try {
+		expect(await api.checkIn(100)).toEqual({
+			streak: 1,
+			replayed: false,
+			recovery: "retried",
+		});
+		expect(paths).toEqual([
+			"/api/app/v1/attendance/check-in",
+			"/api/app/v1/attendance/status",
+			"/api/app/v1/attendance/check-in?expectedDay=100",
+		]);
+	} finally {
+		api.dispose();
+	}
+});
+
+function mockAttendanceRequests(handle: (path: string) => Promise<Response>) {
+	globalThis.fetch = (async () =>
+		json({
+			user: { id: "fixture-user", displayName: "fixture" },
+			authTokens: { authToken: "fixture", refreshToken: "refresh" },
+		})) as typeof fetch;
+	const paths: string[] = [];
+	fetchPath = (path) => {
+		paths.push(path);
+		return handle(path);
+	};
+	return { api: createApi(), paths };
+}
+
+test("a check-in timeout reconciles a committed result without resending", async () => {
+	const { api } = mockAttendanceRequests(async () => json({}));
+	let sends = 0;
+	fetchPath = async (path, options) => {
+		if (path.endsWith("/status"))
+			return json({ day: 100, checkedIn: true, streak: 1 });
+		sends++;
+		return new Promise<Response>((_resolve, reject) => {
+			options?.signal?.addEventListener(
+				"abort",
+				() => reject(new DOMException("Aborted", "AbortError")),
+				{ once: true },
+			);
+		});
+	};
+	const realSetTimeout = globalThis.setTimeout;
+	const timers = spyOn(globalThis, "setTimeout").mockImplementation(((
+		handler,
+		delay,
+		...args
+	) =>
+		realSetTimeout(
+			handler,
+			delay === 12_000 ? 1 : delay,
+			...args,
+		)) as typeof setTimeout);
+	try {
+		expect(await api.checkIn(100)).toMatchObject({
+			recovery: "reconciled",
+			streak: 1,
+		});
+		expect(sends).toBe(1);
+	} finally {
+		timers.mockRestore();
+		api.dispose();
+	}
+});
+
+test("an account change while checking recovery cannot send another attendance request", async () => {
+	const { api, paths } = mockAttendanceRequests(async (path) => {
+		if (path.endsWith("/check-in")) throw new TypeError("Failed to fetch");
+		return json({ error: { code: "AUTH_REQUIRED" } }, 401);
+	});
+	try {
+		await api.ensure();
+		globalThis.fetch = (async () =>
+			json({
+				user: { id: "another-user", displayName: "another" },
+				authTokens: { authToken: "another-token", refreshToken: "refresh" },
+			})) as typeof fetch;
+		await expect(api.checkIn(100)).rejects.toThrow("토스 계정이 바뀌었어요");
+		expect(paths).toHaveLength(2);
+		await expect(api.ensure()).rejects.toThrow("연결 요청을 중단");
+	} finally {
+		api.dispose();
+	}
+});
+
+test("an unknown attendance day cannot enable recovery and a failed status read cannot authorize retry", async () => {
+	for (const day of [undefined, 100]) {
+		const { api, paths } = mockAttendanceRequests(async () => {
+			throw new TypeError("Failed to fetch");
+		});
+		try {
+			await expect(api.checkIn(day)).rejects.toThrow();
+			expect(paths).toHaveLength(day === undefined ? 1 : 2);
+		} finally {
+			api.dispose();
+		}
+	}
+});
+
+test("a committed attendance with a lost response is reconciled without a second check-in", async () => {
+	const { api, paths } = mockAttendanceRequests(async (path) => {
+		if (path.endsWith("/check-in")) throw new TypeError("Failed to fetch");
+		return json({
+			day: 100,
+			checkedIn: true,
+			streak: 7,
+			adSkips: { balance: 3 },
+		});
+	});
+	try {
+		expect(await api.checkIn(100)).toMatchObject({
+			replayed: true,
+			recovery: "reconciled",
+			streak: 7,
+			adSkips: { balance: 3 },
+		});
+		expect(paths).toEqual([
+			"/api/app/v1/attendance/check-in",
+			"/api/app/v1/attendance/status",
+		]);
+	} finally {
+		api.dispose();
+	}
+});
+
+test("attendance never retries on another day, an older server, or ineligible progress", async () => {
+	for (const state of [
+		{ day: 101, checkedIn: false, canCheckIn: true, checkInDayGuard: true },
+		{ day: 101, checkedIn: true, canCheckIn: true, checkInDayGuard: true },
+		{ day: 100, checkedIn: false, canCheckIn: true },
+		{ day: 100, checkedIn: false, canCheckIn: false, checkInDayGuard: true },
+	]) {
+		const { api, paths } = mockAttendanceRequests(async (path) => {
+			if (path.endsWith("/check-in")) throw new TypeError("Failed to fetch");
+			return json(state);
+		});
+		try {
+			await expect(api.checkIn(100)).rejects.toThrow();
+			expect(paths).toHaveLength(2);
+		} finally {
+			api.dispose();
+		}
+	}
+});
+
+test("attendance preserves policy rejection and bounds repeated transport failures", async () => {
+	for (const status of [403, 409, 429, 503]) {
+		const { api, paths } = mockAttendanceRequests(async (path) => {
+			if (path.endsWith("/status"))
+				return json({
+					day: 100,
+					checkedIn: false,
+					canCheckIn: true,
+					checkInDayGuard: true,
+				});
+			return json({ error: { code: "FIXTURE_REJECTION" } }, status);
+		});
+		try {
+			await expect(api.checkIn(100)).rejects.toMatchObject({ status });
+			expect(paths).toHaveLength(status === 503 ? 3 : 1);
+		} finally {
+			api.dispose();
+		}
+	}
+});
+
+test("a disposed session cannot replay a pending attendance recovery", async () => {
+	let entered!: () => void;
+	let release!: (response: Response) => void;
+	const reading = new Promise<void>((resolve) => {
+		entered = resolve;
+	});
+	const { api, paths } = mockAttendanceRequests(async (path) => {
+		if (path.endsWith("/check-in")) throw new TypeError("Failed to fetch");
+		entered();
+		return new Promise<Response>((resolve) => {
+			release = resolve;
+		});
+	});
+	const pending = api.checkIn(100).catch((error: unknown) => error);
+	await reading;
+	api.dispose();
+	release(
+		json({
+			day: 100,
+			checkedIn: false,
+			canCheckIn: true,
+			checkInDayGuard: true,
+		}),
+	);
+	expect(await pending).toMatchObject({
+		message: "연결 요청을 중단했어요. 다시 연결해 주세요.",
+	});
+	expect(paths).toHaveLength(2);
+});
+
+test("attendance recovery must read after failure instead of joining a stale snapshot", async () => {
+	let reads = 0;
+	let entered!: () => void;
+	let release!: (response: Response) => void;
+	const reading = new Promise<void>((resolve) => {
+		entered = resolve;
+	});
+	const { api, paths } = mockAttendanceRequests(async (path) => {
+		if (path.endsWith("/check-in")) throw new TypeError("Failed to fetch");
+		if (++reads === 1) {
+			entered();
+			return new Promise<Response>((resolve) => {
+				release = resolve;
+			});
+		}
+		return json({ day: 100, checkedIn: true, streak: 2 });
+	});
+	try {
+		const stale = api.attendance();
+		await reading;
+		expect(await api.checkIn(100)).toMatchObject({
+			recovery: "reconciled",
+			streak: 2,
+		});
+		release(json({ day: 100, checkedIn: false }));
+		expect((await stale).checkedIn).toBe(false);
+		expect(reads).toBe(2);
+		expect(paths.filter((path) => path.includes("check-in"))).toHaveLength(1);
 	} finally {
 		api.dispose();
 	}
