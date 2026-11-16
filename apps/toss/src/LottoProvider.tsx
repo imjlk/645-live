@@ -9,10 +9,13 @@ import {
 	useRef,
 	useState,
 } from "react";
+import { createActionTelemetryScope } from "./action-telemetry";
+import { trackProduct } from "./telemetry";
 import { type LottoModel, useLotto } from "./use-lotto";
 
 const LottoContext = createContext<{
 	model: LottoModel;
+	actionTelemetry: ReturnType<typeof createActionTelemetryScope>;
 	options: GenerationOptions;
 	setOptions: Dispatch<SetStateAction<GenerationOptions>>;
 	liveColumns: 5 | 9;
@@ -22,6 +25,9 @@ const LottoContext = createContext<{
 /** Keep one session, subscription and generation state across the native stack. */
 export function LottoProvider({ children }: PropsWithChildren) {
 	const model = useLotto();
+	const [actionTelemetry] = useState(() =>
+		createActionTelemetryScope(trackProduct),
+	);
 	const [options, setOptions] = useState<GenerationOptions>(EMPTY_OPTIONS);
 	const [liveColumns, setLiveColumns] = useState<5 | 9>(5);
 	const [ready, setReady] = useState(false);
@@ -60,6 +66,7 @@ export function LottoProvider({ children }: PropsWithChildren) {
 		<LottoContext.Provider
 			value={{
 				model,
+				actionTelemetry,
 				options,
 				setOptions: (value) => {
 					dirty.current.options = true;

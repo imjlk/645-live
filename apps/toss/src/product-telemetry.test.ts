@@ -1,5 +1,25 @@
 import { expect, test } from "bun:test";
+import { createAdTelemetry } from "./ad-telemetry";
 import { createProductTelemetry } from "./product-telemetry";
+
+test("product and journey events can be joined within one document without an account ID", () => {
+	const sessions: Array<string | undefined> = [];
+	createProductTelemetry(
+		(event) => {
+			sessions.push(event.params.session_id);
+		},
+		"test",
+		"entry-session",
+	)("app_opened");
+	createAdTelemetry(
+		(event) => {
+			sessions.push(event.params.session_id);
+		},
+		"test",
+		"entry-session",
+	).track("journey_entered", { placement: "app_journey" });
+	expect(sessions).toEqual(["entry-session", "entry-session"]);
+});
 
 test("funnel telemetry contains only event and bounded source, and cannot break actions", async () => {
 	const events: unknown[] = [];

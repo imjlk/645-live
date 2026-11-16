@@ -5,6 +5,7 @@ import {
 	type SavedCombination,
 } from "@645/lotto-core";
 import * as React from "react";
+import { createActionTelemetryScope } from "../../apps/toss/src/action-telemetry";
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 mock.module(
@@ -174,8 +175,10 @@ const model = {
 	actionError: null,
 	featureUsed() {},
 };
+const actionTelemetry = createActionTelemetryScope(() => {});
 mock.module("../../apps/toss/src/LottoProvider", () => ({
 	useLottoContext: () => ({
+		actionTelemetry,
 		model,
 		options: EMPTY_OPTIONS,
 		setOptions() {},
@@ -189,7 +192,6 @@ for (const name of [
 	"Celebration",
 	"PrivacyNotice",
 	"ReportHistory",
-	"AttendancePanel",
 	"LocalTestPanel",
 	"LocalResultPreview",
 	"FeatureAccessPrompt",
@@ -199,6 +201,10 @@ for (const name of [
 ]) {
 	mock.module(`../../apps/toss/src/${name}`, () => ({ [name]: host(name) }));
 }
+mock.module("../../apps/toss/src/AttendancePanel", () => ({
+	AttendancePanel: (props: { afterAttendance?: React.ReactNode }) =>
+		React.createElement("AttendancePanel", props, props.afterAttendance),
+}));
 mock.module("../../apps/toss/src/AdCtaImpression", () => ({
 	AdCtaImpression: ({
 		children,
@@ -517,6 +523,11 @@ await act(async () => {
 	root = create(<LottoScreen tab="make" />);
 });
 expect(renderedText()).toContain("보관한 ");
+const homeButtons = root.root.findAllByType("button");
+expect(homeButtons[0].props.children).toBe("보관한 번호 결과 보기");
+expect(
+	homeButtons.filter((n) => n.props.children === "보관한 번호 결과 보기"),
+).toHaveLength(1);
 await act(async () => {
 	root.root
 		.findAllByType("button")
@@ -696,7 +707,8 @@ await act(async () => {
 await act(async () => {
 	await root.root
 		.findByType("AttendancePanel")
-		.props.afterAttendance.props.onPress();
+		.findByType("button")
+		.props.onPress();
 });
 expect(
 	sheet()
@@ -756,5 +768,73 @@ await act(async () => {
 	await Bun.sleep(1600);
 });
 expect(reviewSources).toEqual(["save", "results"]);
+await act(async () => root.unmount());
+// The next action changes emphasis and order, never eligibility or action handlers.
+Object.assign(model, {
+	current: null,
+	saved: [],
+	savedReady: true,
+	results: {},
+	generationReady: true,
+	generationAdRequired: false,
+	attendance: {
+		checkedIn: false,
+		generatedToday: false,
+		canCheckIn: false,
+		requiredGenerations: 4,
+		generatedCount: 2,
+		promotions: [],
+	},
+});
+currentTab = "make";
+visible = true;
+await act(async () => {
+	root = create(<LottoScreen tab="make" />);
+});
+const button = (label: string) =>
+	root.root.findAllByType("button").find((n) => n.props.children === label);
+expect(renderedText()).toContain("오늘 4회 만들면 출석할 수 있어요. (2/4회)");
+expect(renderedText()).not.toContain(
+	"번호를 만들고 마음에 드는 조합을 보관하세요.",
+);
+expect(button("번호 만들기")?.props.style).toBe("fill");
+expect(button("오늘 출석하기")).toBeUndefined();
+Object.assign(model, { current: recent });
+await act(async () => root.update(<LottoScreen tab="make" />));
+expect(button("새 번호 만들기")?.props.style).toBe("fill");
+expect(button("이 번호 보관하기")?.props.style).toBe("weak");
+Object.assign(model.attendance, {
+	canCheckIn: true,
+	generatedCount: 4,
+	generatedToday: true,
+});
+await act(async () => root.update(<LottoScreen tab="make" />));
+expect(button("오늘 출석하기")?.props.style).toBe("fill");
+expect(button("새 번호 만들기")?.props.style).toBe("weak");
+expect(button("새 번호 만들기")?.props.disabled).toBe(false);
+Object.assign(model.attendance, { checkedIn: true, streak: 1 });
+model.savedReady = false;
+await act(async () => root.update(<LottoScreen tab="make" />));
+expect(button("새 번호 만들기")?.props.style).toBe("fill");
+expect(button("이 번호 보관하기")?.props.disabled).toBe(true);
+model.savedReady = true;
+await act(async () => root.update(<LottoScreen tab="make" />));
+let actions = root.root.findAllByType("button");
+expect(actions[0].props.children).toBe("이 번호 보관하기");
+expect(button("이 번호 보관하기")?.props.style).toBe("fill");
+expect(button("새 번호 만들기")?.props.style).toBe("weak");
+expect(
+	actions.filter((n) => n.props.children === "이 번호 보관하기"),
+).toHaveLength(1);
+model.saved = [savedItem(999, 1244)];
+await act(async () => root.update(<LottoScreen tab="make" />));
+actions = root.root.findAllByType("button");
+expect(actions[0].props.children).toBe("새 번호 만들기");
+expect(button("새 번호 만들기")?.props.style).toBe("fill");
+expect(button("이 번호 보관하기")?.props.style).toBe("weak");
+model.saved = [savedItem(recent.id, recent.round)];
+await act(async () => root.update(<LottoScreen tab="make" />));
+expect(button("이 번호 보관하기")).toBeUndefined();
+expect(renderedText()).toContain("✓ 보관함에 저장했어요");
 await act(async () => root.unmount());
 console.log("native result pages preserve selection and tab returns");

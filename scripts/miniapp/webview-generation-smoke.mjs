@@ -1,7 +1,7 @@
 // Use a fresh browser identity with the disposable TrailBase from local-smoke.py.
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { chromium, webkit } from "playwright";
@@ -27,10 +27,40 @@ try {
 			: await chromium.launch({
 					channel: process.env.PLAYWRIGHT_CHROMIUM_CHANNEL,
 				});
-	for (const recovery of ["none", "lost_request", "lost_response"]) {
+	for (const [recovery, fontScale] of [
+		["none", 100],
+		["lost_request", 130],
+		["lost_response", 160],
+	]) {
 		const page = await browser.newPage({
 			viewport: { width: 390, height: 844 },
+			isMobile: true,
+			hasTouch: true,
+			reducedMotion: "reduce",
+			deviceScaleFactor: 2,
+			userAgent: `Mozilla/5.0 (Linux; Android 13; SM-A525F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36 TossFontScale/${fontScale}`,
 		});
+		const screenshot = async (stage) => {
+			if (!process.env.MINIAPP_SCREENSHOT_DIR) return;
+			await mkdir(process.env.MINIAPP_SCREENSHOT_DIR, { recursive: true });
+			await page.screenshot({
+				path: join(
+					process.env.MINIAPP_SCREENSHOT_DIR,
+					`${recovery}-${fontScale}-${stage}.png`,
+				),
+			});
+		};
+		// TDS paints its background on an inner layer; compare the actual label color.
+		const labelColor = (button) =>
+			button.evaluate((el) => {
+				const label =
+					[...el.querySelectorAll("*")].find(
+						(node) =>
+							node.childElementCount === 0 &&
+							node.textContent === el.textContent,
+					) ?? el;
+				return getComputedStyle(label).color;
+			});
 		const checkInRequests = [];
 		const errors = [];
 		page.on("pageerror", (error) => errors.push(error.message));
@@ -58,9 +88,18 @@ try {
 			});
 		});
 		await page.goto(api.origin);
+		const generate = page.getByRole("button", {
+			name: "번호 만들기",
+			exact: true,
+		});
+		await generate.waitFor();
 		await page
-			.getByRole("button", { name: "번호 만들기", exact: true })
-			.click();
+			.getByText("오늘 번호를 한 번 만들면 출석할 수 있어요.", { exact: true })
+			.first()
+			.waitFor();
+		const primaryColor = await labelColor(generate);
+		await screenshot("entry");
+		await generate.click();
 		const attendanceEntry = page.getByRole("button", {
 			name: "오늘 출석하기",
 			exact: true,
@@ -69,6 +108,22 @@ try {
 			.getByText("번호 완성! 오늘 출석도 잊지 마세요", { exact: true })
 			.waitFor();
 		await attendanceEntry.scrollIntoViewIfNeeded();
+		assert.equal(await labelColor(attendanceEntry), primaryColor);
+		assert.notEqual(
+			await labelColor(
+				page.getByRole("button", {
+					name: /^(새 번호 만들기|광고 보고 계속 만들기)$/,
+				}),
+			),
+			primaryColor,
+		);
+		assert.equal(
+			await page.evaluate(
+				() => document.documentElement.scrollWidth > innerWidth,
+			),
+			false,
+		);
+		await screenshot("attendance");
 		if (process.env.MINIAPP_SCREENSHOT_PATH)
 			await page.screenshot({ path: process.env.MINIAPP_SCREENSHOT_PATH });
 		await attendanceEntry.click();
@@ -80,7 +135,11 @@ try {
 		await attendance
 			.getByText("내일도 번호 한 번, 출석 한 번", { exact: true })
 			.waitFor();
-		await attendance.getByRole("button", { name: /보관하기$/ }).click();
+		const save = attendance.getByRole("button", { name: /보관하기$/ });
+		await save.scrollIntoViewIfNeeded();
+		assert.equal(await labelColor(save), primaryColor);
+		await screenshot("first-save");
+		await save.click();
 		await attendance
 			.getByText("✓ 보관함에 저장했어요", { exact: true })
 			.waitFor();
@@ -91,7 +150,7 @@ try {
 			assert.match(checkInRequests[1].searchParams.get("expectedDay"), /^\d+$/);
 		await page.close();
 		console.log(
-			`WebView generated numbers, completed attendance and saved after ${recovery}`,
+			`Android WebView layout (${fontScale}%) generated numbers, completed attendance and saved after ${recovery}`,
 		);
 	}
 } finally {
