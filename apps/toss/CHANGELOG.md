@@ -1,5 +1,14 @@
 # @645/toss
 
+## 2.3.4 — 2026-11-18
+
+### Patch changes
+
+- [e29061a](https://github.com/imjlk/645-live/commit/e29061a6bede396af0fead202465ca705e3fb79f) Recover interrupted attendance requests by checking the server result and retrying once within the same account and attendance day. Preserve existing attendance and reward rules and improve failure diagnostics without adding guidance.
+- [59d7f6f](https://github.com/imjlk/645-live/commit/59d7f6f3352365ed6c0ec85ccccd7c7ec99ef1ab) 출석할 수 있는 날에는 출석 화면을 열면 오늘 출석하기 버튼이 도장과 혜택 안내보다 먼저 보입니다.
+- [2b3259e](https://github.com/imjlk/645-live/commit/2b3259e0153a12b406c7b030142efa92131e147b) 번호 생성 준비 중 상태와 첫 화면의 최소 로딩 화면을 표시합니다. 문서 진입부터 생성 준비까지의 시간과 생성·보관 버튼의 노출 및 클릭을 구분해 측정합니다. 기존 출석과 보상 기준은 유지합니다.
+- [9385ed4](https://github.com/imjlk/645-live/commit/9385ed4433e4d65dc287fa099b0bbfd112248bc2) 출석 가능한 상태에서는 출석을, 출석 후 첫 보관 전에는 보관을 우선 표시하고, 확인하지 않은 보관 번호 결과를 첫 화면 상단으로 옮깁니다. 안내를 추가하거나 출석·보상 규칙을 바꾸지 않습니다. 화면 재진입의 버튼 노출 중복과 초기 로딩 실패 측정을 보완합니다.
+
 ## 2.3.3 — 2026-11-12
 
 ### Patch changes
