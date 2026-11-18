@@ -128,9 +128,25 @@ try {
 			await page.screenshot({ path: process.env.MINIAPP_SCREENSHOT_PATH });
 		await attendanceEntry.click();
 		const attendance = page.getByRole("dialog");
-		await attendance
-			.getByRole("button", { name: "오늘 출석하기", exact: true })
-			.click();
+		const checkIn = attendance.getByRole("button", {
+			name: "오늘 출석하기",
+			exact: true,
+		});
+		await checkIn.waitFor();
+		// Test before click(), which would otherwise scroll a clipped button into view.
+		await page.waitForFunction(
+			(el) => {
+				const { left, right, top, bottom } = el.getBoundingClientRect();
+				return [
+					[(left + right) / 2, top + 2],
+					[(left + right) / 2, bottom - 2],
+				].every(([x, y]) => el.contains(document.elementFromPoint(x, y)));
+			},
+			await checkIn.elementHandle(),
+			{ timeout: 5000 },
+		);
+		await screenshot("sheet-check-in");
+		await checkIn.click();
 		await page.getByText("오늘 출석 완료", { exact: true }).waitFor();
 		await attendance
 			.getByText("내일도 번호 한 번, 출석 한 번", { exact: true })
