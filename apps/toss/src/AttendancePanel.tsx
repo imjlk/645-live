@@ -130,6 +130,17 @@ export function AttendancePanel({
 			],
 		);
 	};
+	const checkInButton =
+		state && attendanceReady(state) ? (
+			<Button
+				display="full"
+				loading={model.busy === "checkIn"}
+				disabled={!!model.busy || !model.user || state.checkedIn}
+				onPress={checkIn}
+			>
+				{checkInLabel(state)}
+			</Button>
+		) : null;
 	return (
 		<View style={s.content}>
 			<View style={s.intro}>
@@ -141,6 +152,7 @@ export function AttendancePanel({
 					시작돼요.
 				</Text>
 			</View>
+			{!state?.checkedIn && checkInButton}
 			{state?.checkedIn ? (
 				<View style={{ gap: 10 }}>
 					<Text style={[s.rewardTitle, { color: theme.text }]}>
@@ -265,16 +277,8 @@ export function AttendancePanel({
 					) : null}
 				</View>
 			) : null}
-			{state && attendanceReady(state) ? (
-				<Button
-					display="full"
-					loading={model.busy === "checkIn"}
-					disabled={!!model.busy || !model.user || state.checkedIn}
-					onPress={checkIn}
-				>
-					{checkInLabel(state)}
-				</Button>
-			) : !state?.restoreAfterGeneration ? (
+			{state?.checkedIn && checkInButton}
+			{!checkInButton && !state?.restoreAfterGeneration ? (
 				<Button
 					display="full"
 					disabled={!!model.busy || !model.user}

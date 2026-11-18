@@ -121,7 +121,8 @@ await act(async () => {
 	root.update(<AttendancePanel model={restore} onGenerate={() => {}} />);
 });
 expect(labels()).toContain("광고 보고 연속 출석 복구");
-expect(labels()).toContain("오늘 출석하기");
+expect(labels().filter((label) => label === "오늘 출석하기")).toHaveLength(1);
+expect(labels()[0]).toBe("오늘 출석하기");
 await act(async () => {
 	root.root
 		.findAllByType("button")
