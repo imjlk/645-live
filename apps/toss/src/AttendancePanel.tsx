@@ -110,6 +110,13 @@ export function AttendancePanel({
 	}, [pendingKey, refreshPromotionClaims, busy]);
 
 	const count = state?.streak ?? 0;
+	const cycle = state?.cycleLength ?? 7;
+	const nextStamp =
+		count === cycle
+			? "내일부터 새 출석 주기가 시작돼요."
+			: count > 0 && count < cycle
+				? `내일 출석하면 ${count + 1}번째 도장이에요.`
+				: "내일도 출석을 이어가세요.";
 	const skips = state?.adSkips;
 	const showTickets = !!skips && (skips.active || skips.balance > 0);
 	const pointNotice = pointWindowNotice(state);
@@ -148,30 +155,13 @@ export function AttendancePanel({
 					{count === 7 ? "7일을 모두 채웠어요!" : "번호 만들고, 출석 도장 꾹"}
 				</Text>
 				<Text style={[s.body, { color: theme.muted }]}>
-					{attendanceInstruction(state)} 7일을 채우면 다음 날 새로운 주기가
-					시작돼요.
+					{state?.checkedIn
+						? nextStamp
+						: `${attendanceInstruction(state)} 7일을 채우면 다음 날 새로운 주기가 시작돼요.`}
 				</Text>
 			</View>
 			{!state?.checkedIn && checkInButton}
-			{state?.checkedIn ? (
-				<View style={{ gap: 10 }}>
-					<Text style={[s.rewardTitle, { color: theme.text }]}>
-						내일도 번호 한 번, 출석 한 번
-					</Text>
-					<Text style={[s.body, { color: theme.muted }]}>
-						오늘 출석을 마쳤어요. 내일 다시 번호를 만들고 출석을 이어가세요.
-					</Text>
-					{afterAttendance ? (
-						<>
-							{afterAttendance}
-							<Text style={[s.caption, { color: theme.muted }]}>
-								마음에 드는 번호를 보관하면 추첨 후 보관함에서 결과를 확인할 수
-								있어요.
-							</Text>
-						</>
-					) : null}
-				</View>
-			) : null}
+			{state?.checkedIn && afterAttendance}
 			{showTickets && skips ? (
 				<View style={[s.restore, { backgroundColor: theme.surface }]}>
 					<View style={s.rewardHeading}>

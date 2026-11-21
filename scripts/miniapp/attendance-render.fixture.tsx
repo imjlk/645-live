@@ -321,9 +321,17 @@ await act(async () => {
 	);
 });
 expect(JSON.stringify(root.toJSON())).toContain(
-	"내일도 번호 한 번, 출석 한 번",
+	"내일 출석하면 2번째 도장이에요.",
 );
 expect(labels()).toContain("이 번호 보관하기");
+const fullCycle = model("success");
+if (fullCycle.attendance) fullCycle.attendance.streak = 7;
+await act(async () => {
+	root.update(<AttendancePanel model={fullCycle} onGenerate={() => {}} />);
+});
+expect(JSON.stringify(root.toJSON())).toContain(
+	"내일부터 새 출석 주기가 시작돼요.",
+);
 await act(async () => {
 	root.update(
 		<AttendancePanel
