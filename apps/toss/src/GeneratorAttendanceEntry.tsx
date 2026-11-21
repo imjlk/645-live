@@ -12,11 +12,13 @@ export function GeneratorAttendanceEntry({
 	onPress,
 	active = true,
 	primary = false,
+	disabled = false,
 }: {
 	attendance: Attendance | null;
 	onPress: () => void;
 	active?: boolean;
 	primary?: boolean;
+	disabled?: boolean;
 }) {
 	const theme = useTheme();
 	const daily = attendance?.promotions.find(
@@ -82,6 +84,7 @@ export function GeneratorAttendanceEntry({
 					<Button
 						display="full"
 						style={primary ? "fill" : "weak"}
+						disabled={disabled}
 						onPress={openAttendance}
 					>
 						오늘 출석하기

@@ -769,7 +769,7 @@ await act(async () => {
 });
 expect(reviewSources).toEqual(["save", "results"]);
 await act(async () => root.unmount());
-// The next action changes emphasis and order, never eligibility or action handlers.
+// The generator submits eligible check-in directly and preserves the restore choice.
 Object.assign(model, {
 	current: null,
 	saved: [],
@@ -812,6 +812,29 @@ await act(async () => root.update(<LottoScreen tab="make" />));
 expect(button("오늘 출석하기")?.props.style).toBe("fill");
 expect(button("새 번호 만들기")?.props.style).toBe("weak");
 expect(button("새 번호 만들기")?.props.disabled).toBe(false);
+const today = Math.floor((Date.now() + 32_400_000) / 86_400_000);
+let checkIns = 0;
+Object.assign(model, { checkIn: () => ++checkIns });
+for (const [canRestore, restoreAfterGeneration, day, expected] of [
+	[true, false, today, 0],
+	[false, true, today, 0],
+	[false, false, today - 1, 0],
+	[false, false, today, 1],
+] as const) {
+	Object.assign(model.attendance, { canRestore, restoreAfterGeneration, day });
+	await act(async () => root.update(<LottoScreen tab="make" />));
+	await act(async () => {
+		button("오늘 출석하기")?.props.onPress();
+	});
+	expect(sheet().props.open).toBe(true);
+	expect(checkIns).toBe(expected);
+	await act(async () => {
+		back?.();
+	});
+	await act(async () => {
+		sheet().props.onExited();
+	});
+}
 Object.assign(model.attendance, { checkedIn: true, streak: 1 });
 model.savedReady = false;
 await act(async () => root.update(<LottoScreen tab="make" />));
@@ -835,6 +858,19 @@ expect(button("이 번호 보관하기")?.props.style).toBe("weak");
 model.saved = [savedItem(recent.id, recent.round)];
 await act(async () => root.update(<LottoScreen tab="make" />));
 expect(button("이 번호 보관하기")).toBeUndefined();
+Object.assign(model, {
+	context: {
+		targetRound: recent.round,
+		drawsAt: Date.UTC(2026, 10, 21, 11),
+		latestDraw: null,
+	},
+});
+await act(async () => root.update(<LottoScreen tab="make" />));
+expect(renderedText()).toContain(
+	"✓ 보관 완료 · 11월 21일 추첨 후 보관함에서 확인",
+);
+Object.assign(model.context, { targetRound: recent.round + 1 });
+await act(async () => root.update(<LottoScreen tab="make" />));
 expect(renderedText()).toContain("✓ 보관함에 저장했어요");
 await act(async () => root.unmount());
 console.log("native result pages preserve selection and tab returns");

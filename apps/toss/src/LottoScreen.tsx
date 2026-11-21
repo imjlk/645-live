@@ -252,6 +252,21 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 			next ? { panel: next, open: true } : { ...current, open: false },
 		);
 	}, []);
+	const checkInFromGenerator = () => {
+		setPanel("attendance");
+		const state = model.attendance;
+		if (
+			attendancePending &&
+			state?.canRestore === false &&
+			state.restoreAfterGeneration === false &&
+			state.day === Math.floor((Date.now() + 32_400_000) / 86_400_000) &&
+			visible &&
+			model.foreground &&
+			model.user &&
+			!model.busy
+		)
+			void model.checkIn();
+	};
 	const parentPanel = panel ? (PANEL_PARENTS[panel] ?? null) : null;
 	useLayoutEffect(() => {
 		mounted.current = true;
@@ -430,19 +445,27 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 		const saved = model.saved.some((entry) => entry.generationId === item.id);
 		const primary =
 			firstSavePending && (source === "generator" || source === "attendance");
-		if (saved)
+		if (saved) {
+			const context = model.context;
+			const confirmation =
+				context &&
+				item.round === context.targetRound &&
+				Number.isFinite(context.drawsAt)
+					? `보관 완료 · ${dateLabel(context.drawsAt)} 추첨 후 보관함에서 확인`
+					: "보관함에 저장했어요";
 			return (
 				<View
 					accessible
 					accessibilityRole="text"
-					accessibilityLabel={`${item.round}회 번호 ${item.numbers.join(", ")} 보관됨`}
+					accessibilityLabel={`${item.round}회 번호 ${item.numbers.join(", ")} · ${confirmation}`}
 					style={s.savedConfirmation}
 				>
 					<Text style={[s.caption, { color: theme.positive }]}>
-						✓ 보관함에 저장했어요
+						{`✓ ${confirmation}`}
 					</Text>
 				</View>
 			);
+		}
 		return (
 			<ActionImpression
 				scope={actionTelemetry}
@@ -721,7 +744,8 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 												primary
 												attendance={model.attendance}
 												active={visible && !sheetOpen && model.foreground}
-												onPress={() => setPanel("attendance")}
+												disabled={!!model.busy || !model.user}
+												onPress={checkInFromGenerator}
 											/>
 										) : null}
 										{firstSavePending && model.current ? (

@@ -126,14 +126,6 @@ try {
 		await screenshot("attendance");
 		if (process.env.MINIAPP_SCREENSHOT_PATH)
 			await page.screenshot({ path: process.env.MINIAPP_SCREENSHOT_PATH });
-		await attendanceEntry.click();
-		const attendance = page.getByRole("dialog");
-		const checkIn = attendance.getByRole("button", {
-			name: "오늘 출석하기",
-			exact: true,
-		});
-		await checkIn.waitFor();
-		// Test before click(), which would otherwise scroll a clipped button into view.
 		await page.waitForFunction(
 			(el) => {
 				const { left, right, top, bottom } = el.getBoundingClientRect();
@@ -142,14 +134,14 @@ try {
 					[(left + right) / 2, bottom - 2],
 				].every(([x, y]) => el.contains(document.elementFromPoint(x, y)));
 			},
-			await checkIn.elementHandle(),
+			await attendanceEntry.elementHandle(),
 			{ timeout: 5000 },
 		);
-		await screenshot("sheet-check-in");
-		await checkIn.click();
+		await attendanceEntry.click();
+		const attendance = page.getByRole("dialog");
 		await page.getByText("오늘 출석 완료", { exact: true }).waitFor();
 		await attendance
-			.getByText("내일도 번호 한 번, 출석 한 번", { exact: true })
+			.getByText("내일 출석하면 2번째 도장이에요.", { exact: true })
 			.waitFor();
 		const save = attendance.getByRole("button", { name: /보관하기$/ });
 		await save.scrollIntoViewIfNeeded();
@@ -157,7 +149,7 @@ try {
 		await screenshot("first-save");
 		await save.click();
 		await attendance
-			.getByText("✓ 보관함에 저장했어요", { exact: true })
+			.getByText(/^✓ 보관 완료 · \d+월 \d+일 추첨 후 보관함에서 확인$/)
 			.waitFor();
 		assert.deepEqual(errors, []);
 		assert.equal(checkInRequests.length, recovery === "lost_request" ? 2 : 1);
