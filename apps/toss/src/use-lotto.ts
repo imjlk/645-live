@@ -72,6 +72,7 @@ import { createPrivateRefresh } from "./private-refresh";
 import { promotionFeedback } from "./promotion-feedback";
 import type { ReportState } from "./ReportHistory";
 import { type ConnectionState, subscribeRealtime } from "./realtime";
+import { missingResultWatches } from "./result-return";
 import { loadLottoStartup } from "./startup";
 import { adTelemetry, trackProduct } from "./telemetry";
 import { useAdFree } from "./use-ad-free";
@@ -818,6 +819,48 @@ export function useLotto() {
 		[store, savedReady, results, saved],
 	);
 
+	// Share the save and recovery paths for each account/consent session.
+	const watchOwner = attendance?.notificationsEnabled ? user?.id : undefined;
+	const registerWatch = useMemo(() => {
+		const registered = new Map<number, Promise<unknown>>();
+		return (round: number) => {
+			if (!watchOwner) return Promise.resolve();
+			const existing = registered.get(round);
+			if (existing) return existing;
+			const request = api
+				.request("/api/app/v1/notifications/watch-result", { round })
+				.catch((error) => {
+					registered.delete(round);
+					throw error;
+				});
+			registered.set(round, request);
+			return request;
+		};
+	}, [api, watchOwner]);
+	// Rebuild from the device's actual saved numbers, including saves from older bundles.
+	const watchKey =
+		savedReady &&
+		user &&
+		attendance?.notificationsEnabled &&
+		attendance.watchedResultRounds
+			? missingResultWatches(
+					saved,
+					context,
+					attendance.watchedResultRounds,
+					results,
+				).join(",")
+			: "";
+	useEffect(() => {
+		if (!foreground || !watchKey) return;
+		const sync = () => {
+			for (const round of watchKey.split(",").map(Number))
+				void registerWatch(round).catch(() => {});
+		};
+		sync();
+		globalThis.window?.addEventListener("online", sync);
+		return () => globalThis.window?.removeEventListener("online", sync);
+	}, [foreground, watchKey, registerWatch]);
+
 	async function save(generation: Generation) {
 		if (!store || !savedReady)
 			throw new Error("보관함 연결을 먼저 확인해 주세요.");
@@ -831,6 +874,11 @@ export function useLotto() {
 		});
 		setSaved(items);
 		setPendingPromptRound(generation.round);
+		if (attendance?.engagementStudy)
+			createJourneyFlow("saved").track(
+				"round_combination_saved",
+				String(generation.round),
+			);
 		trackProduct(
 			"combination_saved",
 			saved.length === 0 ? "first_save" : "save",
@@ -839,18 +887,17 @@ export function useLotto() {
 
 		if (
 			attendance?.notificationsEnabled &&
+			!attendance.watchedResultRounds?.includes(generation.round) &&
 			generation.round >= (context?.targetRound ?? 1) - 1 &&
 			!results[generation.round]
 		)
-			await api
-				.request("/api/app/v1/notifications/watch-result", {
-					round: generation.round,
-				})
-				.catch(() =>
-					setNotice(
-						"번호는 저장했어요. 결과 알림은 설정에서 다시 신청해 주세요.",
-					),
-				);
+			await registerWatch(generation.round).catch(() =>
+				setNotice(
+					attendance.watchedResultRounds
+						? "번호는 저장했어요. 다음 연결 때 결과 알림을 다시 등록해요."
+						: "번호는 저장했어요. 결과 알림은 설정에서 다시 신청해 주세요.",
+				),
+			);
 	}
 	async function generateOne(
 		options: GenerationOptions,

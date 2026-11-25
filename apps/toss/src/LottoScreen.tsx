@@ -37,6 +37,7 @@ import { GenerationInsightPreview } from "./GenerationInsightPreview";
 import { GeneratorAttendanceEntry } from "./GeneratorAttendanceEntry";
 import { generationOptionsError } from "./generation-options";
 import { JourneyImpression } from "./JourneyImpression";
+import { createJourneyFlow } from "./journey-telemetry";
 import { GenerationRow, LiveFeed, relativeTime } from "./LiveFeed";
 import { LocalResultPreview } from "./LocalResultPreview";
 import { LocalTestPanel } from "./LocalTestPanel";
@@ -172,6 +173,21 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 		!model.user ||
 		!model.generationReady ||
 		(model.generationAdRequired && !generationTicket.adEnabled);
+	const copyArm =
+		!model.current &&
+		!model.generationAdRequired &&
+		model.generationReady &&
+		!model.attendance?.generatedToday &&
+		model.attendance?.day === Math.floor((Date.now() + 32_400_000) / 86_400_000)
+			? model.attendance.engagementStudy?.firstGenerationCopy
+			: null;
+	const copyKey = copyArm
+		? `${model.user?.id}:${model.attendance?.day}:${copyArm}`
+		: "";
+	const copyFlow = useMemo(
+		() => (copyKey ? createJourneyFlow("generator") : null),
+		[copyKey],
+	);
 	const generatorViewed = useRef(false);
 	useEffect(() => {
 		if (
@@ -234,6 +250,7 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 	const summary = roundDraw ? savedSummary(roundItems, roundDraw) : null;
 	const savedPages = Math.max(1, Math.ceil(roundItems.length / 20));
 	const viewedResults = useRef(new Set<string>());
+	const measuredRounds = useRef(new Set<string>());
 	const currentSavedPage = Math.min(savedPage, savedPages - 1);
 	const [{ panel, open: sheetOpen }, setSheet] = useState<{
 		panel: Panel;
@@ -767,7 +784,18 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 												scope={actionTelemetry}
 												action="generation_cta"
 												source="generator"
-												impressionKey={String(model.current?.id ?? "first")}
+												impressionKey={
+													copyArm
+														? `first:${copyArm}`
+														: String(model.current?.id ?? "first")
+												}
+												onExposure={() => {
+													if (copyArm)
+														copyFlow?.track(
+															"first_generation_copy_viewed",
+															copyArm,
+														);
+												}}
 												bottomInset={tabBarHeight + insets.bottom}
 												active={
 													visible &&
@@ -796,6 +824,11 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 																}
 																onPress={() => {
 																	trackClick();
+																	if (copyArm)
+																		copyFlow?.track(
+																			"first_generation_copy_clicked",
+																			copyArm,
+																		);
 																	void runAttempt((adFlow) =>
 																		model.generate(
 																			hasOptions ? options : EMPTY_OPTIONS,
@@ -827,6 +860,8 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 																	"연결 확인 필요"
 																) : model.generationAdRequired ? (
 																	"광고 보고 계속 만들기"
+																) : copyArm === "six_numbers" ? (
+																	"내 번호 6개 만들기"
 																) : (
 																	generationLabel
 																)}
@@ -1171,6 +1206,11 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 											</ScrollView>
 											{summary && roundDraw ? (
 												<ImpressionArea
+													observationKey={
+														model.attendance?.engagementStudy
+															? "round-study"
+															: "product"
+													}
 													key={`${resultFingerprint(roundDraw)}:${roundItems.map((item) => item.id).join(",")}`}
 													enabled={
 														visible &&
@@ -1191,6 +1231,17 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 															!roundDraw
 														)
 															return;
+														const measurementKey = `${model.user?.id}:${roundDraw.round}`;
+														if (
+															model.attendance?.engagementStudy &&
+															!measuredRounds.current.has(measurementKey)
+														) {
+															measuredRounds.current.add(measurementKey);
+															createJourneyFlow("saved").track(
+																"round_result_viewed",
+																String(roundDraw.round),
+															);
+														}
 														const fingerprint = resultFingerprint(roundDraw);
 														if (!viewedResults.current.has(fingerprint)) {
 															viewedResults.current.add(fingerprint);

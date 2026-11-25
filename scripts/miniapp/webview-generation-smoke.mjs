@@ -89,8 +89,7 @@ try {
 		});
 		await page.goto(api.origin);
 		const generate = page.getByRole("button", {
-			name: "번호 만들기",
-			exact: true,
+			name: /^(번호 만들기|내 번호 6개 만들기)$/,
 		});
 		await generate.waitFor();
 		await page

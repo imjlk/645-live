@@ -799,6 +799,23 @@ expect(renderedText()).not.toContain(
 );
 expect(button("번호 만들기")?.props.style).toBe("fill");
 expect(button("오늘 출석하기")).toBeUndefined();
+const today = Math.floor((Date.now() + 32_400_000) / 86_400_000);
+for (const [arm, label] of [
+	["control", "번호 만들기"],
+	["six_numbers", "내 번호 6개 만들기"],
+] as const) {
+	Object.assign(model.attendance, {
+		day: today,
+		engagementStudy: { firstGenerationCopy: arm },
+	});
+	await act(async () => root.update(<LottoScreen tab="make" />));
+	expect(button(label)?.props.disabled).toBe(false);
+}
+Object.assign(model, { generationAdRequired: true });
+await act(async () => root.update(<LottoScreen tab="make" />));
+expect(button("내 번호 6개 만들기")).toBeUndefined();
+expect(button("광고 보고 계속 만들기")).toBeDefined();
+Object.assign(model, { generationAdRequired: false });
 Object.assign(model, { current: recent });
 await act(async () => root.update(<LottoScreen tab="make" />));
 expect(button("새 번호 만들기")?.props.style).toBe("fill");
@@ -812,7 +829,6 @@ await act(async () => root.update(<LottoScreen tab="make" />));
 expect(button("오늘 출석하기")?.props.style).toBe("fill");
 expect(button("새 번호 만들기")?.props.style).toBe("weak");
 expect(button("새 번호 만들기")?.props.disabled).toBe(false);
-const today = Math.floor((Date.now() + 32_400_000) / 86_400_000);
 let checkIns = 0;
 Object.assign(model, { checkIn: () => ++checkIns });
 for (const [canRestore, restoreAfterGeneration, day, expected] of [

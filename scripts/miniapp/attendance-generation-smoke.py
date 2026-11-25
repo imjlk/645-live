@@ -78,12 +78,16 @@ def run():
                 if arm in v4_seen: continue
                 v4_seen.add(arm)
                 state=request(base,route,{'experiment':'generation-cadence-v4'},auth)[1]
+                copy = state['engagementStudy']['firstGenerationCopy']
+                assert copy in ('control', 'six_numbers')
+                assert request(base,route,headers=auth)[1]['engagementStudy']['firstGenerationCopy'] == copy
                 assert state['requiredGenerations']==1 and state['attendanceExperiment']=='generation-cadence-v4'
                 expect(request(base,'/api/app/v1/attendance/check-in',{},auth)[0],403,'v4 requires generation')
                 _,data=generate(auth)
                 assert data['attendanceProgress']['canCheckIn'] and data['attendanceProgress']['generatedCount']==1
                 current=request(base,route,{'experiment':'generation-cadence-v4'},auth)[1]
                 assert current['checkInDayGuard'] is True
+                assert current['engagementStudy']['firstGenerationCopy'] is None
                 day=current['day']
                 tickets=current['adSkips']['balance']
                 for other_day in (day-1, day+1):

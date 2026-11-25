@@ -1,5 +1,6 @@
 import {
 	type Draw,
+	type RoundContext,
 	resultFingerprint,
 	type SavedCombination,
 } from "@645/lotto-core";
@@ -35,4 +36,29 @@ export function unreadSavedRounds(
 				.map((item) => item.round),
 		),
 	].sort((a, b) => b - a);
+}
+
+/** targetRound advances at sales close, 35 minutes before that round's draw. */
+export function missingResultWatches(
+	saved: readonly SavedCombination[],
+	context: RoundContext | null,
+	registered: readonly number[],
+	results: Readonly<Record<number, Draw>>,
+) {
+	if (!context) return [];
+	const pending = new Set<number>();
+	for (const { round } of saved) {
+		const offset = context.targetRound - round;
+		if (
+			offset < 0 ||
+			offset > 1 ||
+			results[round] ||
+			round <= (context.latestDraw?.round ?? 0) ||
+			registered.includes(round)
+		)
+			continue;
+		if (context.serverTime < context.drawsAt - offset * 7 * 86_400_000)
+			pending.add(round);
+	}
+	return [...pending].sort((a, b) => a - b);
 }

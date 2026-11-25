@@ -128,21 +128,35 @@ fn validate(event: &Event, expected: &str) -> ApiResult<()> {
             | "completion_storage_failed"
     );
     let p = &event.event_payload;
-    let journey = matches!(
-        event.event_name.as_str(),
-        "journey_entered"
-            | "generation_cta_viewed"
-            | "journey_generation_started"
-            | "journey_generation_finished"
-            | "journey_generation_failed"
-            | "attendance_entry_viewed"
-            | "attendance_entry_clicked"
-            | "journey_attendance_started"
-            | "journey_attendance_succeeded"
-            | "journey_attendance_failed"
-            | "journey_ticket_selected"
-            | "journey_ticket_redeemed"
-    ) && p.placement == "app_journey"
+    let study_event = match event.event_name.as_str() {
+        "first_generation_copy_viewed" | "first_generation_copy_clicked" => {
+            matches!(p.outcome.as_str(), "control" | "six_numbers") && p.entry_point == "generator"
+        }
+        "round_combination_saved" | "round_result_viewed" => {
+            p.entry_point == "saved"
+                && p.outcome
+                    .parse::<u32>()
+                    .is_ok_and(|r| r > 0 && r <= 99999 && r.to_string() == p.outcome)
+        }
+        _ => false,
+    };
+    let journey = (study_event
+        || matches!(
+            event.event_name.as_str(),
+            "journey_entered"
+                | "generation_cta_viewed"
+                | "journey_generation_started"
+                | "journey_generation_finished"
+                | "journey_generation_failed"
+                | "attendance_entry_viewed"
+                | "attendance_entry_clicked"
+                | "journey_attendance_started"
+                | "journey_attendance_succeeded"
+                | "journey_attendance_failed"
+                | "journey_ticket_selected"
+                | "journey_ticket_redeemed"
+        ))
+        && p.placement == "app_journey"
         && p.policy == "journey-v1"
         && p.format == "product"
         && !p.flow_id.is_empty();

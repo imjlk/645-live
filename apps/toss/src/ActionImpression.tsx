@@ -9,6 +9,7 @@ export function ActionImpression({
 	impressionKey,
 	active,
 	bottomInset = 0,
+	onExposure,
 	children,
 }: {
 	scope: ReturnType<typeof createActionTelemetryScope>;
@@ -17,6 +18,7 @@ export function ActionImpression({
 	impressionKey: string;
 	active: boolean;
 	bottomInset?: number;
+	onExposure?: () => void;
 	children: (trackClick: () => void) => ReactNode;
 }) {
 	const telemetry = scope(action, source);
@@ -27,11 +29,17 @@ export function ActionImpression({
 			bottomInset={bottomInset}
 			areaThreshold={0.5}
 			onImpressionStart={() => {
-				if (active) telemetry.view(impressionKey);
+				if (active) {
+					telemetry.view(impressionKey);
+					onExposure?.();
+				}
 			}}
 		>
 			{children(() => {
-				if (active) telemetry.click(impressionKey);
+				if (active) {
+					telemetry.click(impressionKey);
+					onExposure?.();
+				}
 			})}
 		</ImpressionArea>
 	);

@@ -63,6 +63,12 @@ def run():
             journey['events'][0]['eventName']='journey_generation_finished'
             journey['events'][0]['eventPayload'].update(placement='app_journey',format='product',policy='journey-v1',flow_id='generate',event_id='journey-1',outcome='ticket')
             expect(request(base,'/api/app/v1/metrics',journey,auth)[0],200,'journey metric')
+            for name,point,outcome in [('first_generation_copy_viewed','generator','control'),('first_generation_copy_clicked','generator','six_numbers'),('round_combination_saved','saved','1252'),('round_result_viewed','saved','1252')]:
+                journey['events'][0].update(eventName=name)
+                journey['events'][0]['eventPayload'].update(entry_point=point,outcome=outcome,event_id=name)
+                expect(request(base,'/api/app/v1/metrics',journey,auth)[0],200,name)
+            journey['events'][0]['eventPayload']['outcome']='unbounded-value'
+            expect(request(base,'/api/app/v1/metrics',journey,auth)[0],400,'round allowlist')
             journey['events'][0]['eventName']='completed'
             expect(request(base,'/api/app/v1/metrics',journey,auth)[0],400,'journey cannot impersonate ad completion')
             wrong=json.loads(json.dumps(payload));wrong['events'][0]['eventPayload']['policy']='wrong'
