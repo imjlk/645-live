@@ -67,6 +67,16 @@ def run():
                 journey['events'][0].update(eventName=name)
                 journey['events'][0]['eventPayload'].update(entry_point=point,outcome=outcome,event_id=name)
                 expect(request(base,'/api/app/v1/metrics',journey,auth)[0],200,name)
+            delayed_at = int(time.time()*1000) - 11*60000
+            journey['events'][0].update(clientCreatedAt=delayed_at)
+            journey['events'][0]['eventPayload']['event_id']='delayed-view'
+            stale=json.loads(json.dumps(journey['events'][0]))
+            stale['clientCreatedAt'] -= 8*86400000
+            stale['eventPayload']['event_id']='stale-view'
+            expect(request(base,'/api/app/v1/metrics',{'events':[stale,journey['events'][0]]},auth)[0],200,'isolated late events')
+            with sqlite3.connect(Path(folder)/'data/analytics.db') as db:
+                assert db.execute("SELECT client_at FROM events WHERE request_id='delayed-view'").fetchone()==(delayed_at,)
+                assert db.execute("SELECT count(*) FROM events WHERE request_id='stale-view'").fetchone()==(0,)
             journey['events'][0]['eventPayload']['outcome']='unbounded-value'
             expect(request(base,'/api/app/v1/metrics',journey,auth)[0],400,'round allowlist')
             journey['events'][0]['eventName']='completed'

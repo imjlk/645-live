@@ -854,7 +854,7 @@ export function useLotto() {
 				).join(",")
 			: "";
 	useEffect(() => {
-		if (!foreground || !watchKey) return;
+		if (!foreground || refreshing || !watchKey) return;
 		const sync = () => {
 			for (const round of watchKey.split(",").map(Number))
 				void registerWatch(round).catch(() => {});
@@ -862,7 +862,7 @@ export function useLotto() {
 		sync();
 		globalThis.window?.addEventListener("online", sync);
 		return () => globalThis.window?.removeEventListener("online", sync);
-	}, [foreground, watchKey, registerWatch]);
+	}, [foreground, refreshing, watchKey, registerWatch]);
 
 	async function save(generation: Generation) {
 		if (!store || !savedReady)

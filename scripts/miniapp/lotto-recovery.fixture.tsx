@@ -305,11 +305,16 @@ await act(async () => {
 expect(attempts).toBe(1);
 expect(watches.size).toBe(0);
 await act(async () => root.unmount());
-watchOffline = false;
 await act(async () => {
 	root = create(<Probe />);
 });
 expect(attempts).toBe(2);
+// The network stayed online and the same missing rounds and timestamp come back.
+watchOffline = false;
+await act(async () => {
+	model.retry();
+});
+expect(attempts).toBe(3);
 expect([...watches]).toEqual([101]);
 // Another device may have revoked and renewed consent since the last snapshot.
 watches.clear();
@@ -317,11 +322,11 @@ attendanceTime++;
 await act(async () => {
 	model.retry();
 });
-expect(attempts).toBe(3);
+expect(attempts).toBe(4);
 expect([...watches]).toEqual([101]);
 await act(async () => root.unmount());
 await act(async () => {
 	root = create(<Probe />);
 });
-expect(attempts).toBe(3);
+expect(attempts).toBe(4);
 await act(async () => root.unmount());
