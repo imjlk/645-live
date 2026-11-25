@@ -819,12 +819,15 @@ export function useLotto() {
 		[store, savedReady, results, saved],
 	);
 
-	// Share the save and recovery paths for each account/consent session.
-	const watchOwner = attendance?.notificationsEnabled ? user?.id : undefined;
+	// Share concurrent saves and repairs until a fresh server snapshot can confirm the watch.
+	const watchSnapshot =
+		user && attendance?.notificationsEnabled
+			? `${user.id}:${attendance.serverTime}`
+			: null;
 	const registerWatch = useMemo(() => {
 		const registered = new Map<number, Promise<unknown>>();
 		return (round: number) => {
-			if (!watchOwner) return Promise.resolve();
+			if (!watchSnapshot) return Promise.resolve();
 			const existing = registered.get(round);
 			if (existing) return existing;
 			const request = api
@@ -836,7 +839,7 @@ export function useLotto() {
 			registered.set(round, request);
 			return request;
 		};
-	}, [api, watchOwner]);
+	}, [api, watchSnapshot]);
 	// Rebuild from the device's actual saved numbers, including saves from older bundles.
 	const watchKey =
 		savedReady &&

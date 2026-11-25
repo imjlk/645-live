@@ -63,6 +63,7 @@ const item: SavedCombination = {
 };
 let items = [item];
 let consent = false;
+let attendanceTime = 1;
 const watches = new Set<number>();
 let attempts = 0;
 let watchOffline = true;
@@ -135,7 +136,7 @@ const api = {
 	attendance: async () => {
 		if (attendanceGate) await attendanceGate;
 		return {
-			serverTime: 1,
+			serverTime: attendanceTime,
 			notificationTemplateCode: "result",
 			notificationsEnabled: consent,
 			watchedResultRounds: consent ? [...watches] : undefined,
@@ -310,9 +311,17 @@ await act(async () => {
 });
 expect(attempts).toBe(2);
 expect([...watches]).toEqual([101]);
+// Another device may have revoked and renewed consent since the last snapshot.
+watches.clear();
+attendanceTime++;
+await act(async () => {
+	model.retry();
+});
+expect(attempts).toBe(3);
+expect([...watches]).toEqual([101]);
 await act(async () => root.unmount());
 await act(async () => {
 	root = create(<Probe />);
 });
-expect(attempts).toBe(2);
+expect(attempts).toBe(3);
 await act(async () => root.unmount());
