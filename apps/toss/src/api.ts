@@ -61,6 +61,7 @@ export type LocalAttendanceAction =
 	| { action: "restore" };
 export type AdConfig = {
 	adFreeSku?: string | null;
+	purchaseLinkMetrics?: boolean;
 	placements: {
 		placement: AdPlacement;
 		enabled: boolean;

@@ -20,8 +20,9 @@ import {
 } from "react";
 import { ActionImpression } from "./ActionImpression";
 import { AdCtaImpression } from "./AdCtaImpression";
-import { AdFreePanel } from "./AdFreePanel";
+import { AdFreeLink } from "./AdFreeLink";
 import { AttendancePanel } from "./AttendancePanel";
+import { hasAdFreeOffer, type PurchaseEntryPoint } from "./ad-free";
 import { adSkipLabel } from "./ad-skip";
 import { adPolicyLabel } from "./ad-telemetry";
 import { LOCAL_PREVIEW } from "./api";
@@ -43,6 +44,7 @@ import { LocalTestPanel } from "./LocalTestPanel";
 import { useLottoContext } from "./LottoProvider";
 import {
 	type LottoTab,
+	navigateToAdFree,
 	navigateToGenerationResults,
 	navigateToInsights,
 	navigateToNumberStatistics,
@@ -97,7 +99,6 @@ type Panel =
 	| "custom"
 	| "report"
 	| "attendance"
-	| "adFree"
 	| "settings"
 	| "privacy"
 	| "support"
@@ -110,7 +111,6 @@ const PANEL_TITLES = {
 	custom: "내 취향대로 만들기",
 	report: "내 조합 살펴보기",
 	attendance: "매일 한 번, 출석",
-	adFree: "광고 제거",
 	settings: "설정",
 	privacy: "개인정보 처리방침",
 	support: "문의하기",
@@ -118,7 +118,6 @@ const PANEL_TITLES = {
 	resultPreview: "당첨 결과 미리보기",
 } as const;
 const PANEL_PARENTS: Partial<Record<NonNullable<Panel>, NonNullable<Panel>>> = {
-	adFree: "attendance",
 	privacy: "settings",
 	support: "settings",
 	localTest: "settings",
@@ -247,6 +246,13 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 		source: "draw" | "generated";
 	} | null>(null);
 	visibleRef.current = visible;
+	const openAdFree = (entryPoint: PurchaseEntryPoint) =>
+		navigateToAdFree(
+			navigation,
+			tab,
+			visibleRef.current && model.foreground,
+			entryPoint,
+		);
 	const setPanel = useCallback((next: Panel) => {
 		setSheet((current) =>
 			next ? { panel: next, open: true } : { ...current, open: false },
@@ -861,6 +867,25 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 												>
 													{adSkipLabel(generationTicket, "만들기")}
 												</Button>
+											</View>
+										) : null}
+										{model.generationAdRequired &&
+										hasAdFreeOffer(model.adFree) ? (
+											<View style={{ marginTop: 8 }}>
+												<AdFreeLink
+													entryPoint="generator_ad"
+													bottomInset={tabBarHeight + insets.bottom}
+													active={
+														visible &&
+														!sheetOpen &&
+														!featureRequest &&
+														!model.notificationPrompt &&
+														!model.busy &&
+														model.foreground
+													}
+													measure={model.adConfig?.purchaseLinkMetrics === true}
+													onOpen={() => openAdFree("generator_ad")}
+												/>
 											</View>
 										) : null}
 										{model.current && !firstSavePending ? (
@@ -1773,19 +1798,13 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 							afterAttendance={
 								model.current ? saveButton(model.current, "attendance") : null
 							}
-							onAdFree={() => setPanel("adFree")}
+							active={visible && sheetOpen && model.foreground}
+							onAdFree={openAdFree}
 							onGenerate={() => {
 								setPanel(null);
 								navigateTab("make");
 								scroll.current?.scrollTo({ y: 0, animated: true });
 							}}
-						/>
-					) : null}
-					{panel === "adFree" ? (
-						<AdFreePanel
-							state={model.adFree}
-							entryPoint="attendance"
-							active={visible && sheetOpen && model.foreground}
 						/>
 					) : null}
 					{panel === "settings" ? (
@@ -1803,9 +1822,19 @@ function LottoContent({ tab }: { tab: LottoTab }) {
 							<Text style={[s.body, text]}>
 								{model.user?.displayName ?? "연결을 확인하고 있어요"}
 							</Text>
-							{model.adFree.enabled ? (
-								<AdFreePanel
-									state={model.adFree}
+							{model.adFree.enabled || LOCAL_PREVIEW ? (
+								<AdFreeLink
+									entryPoint="settings"
+									label={
+										model.adFree.owned
+											? "광고 제거 이용 중 · 구매 복원"
+											: "광고 제거 · 구매 복원"
+									}
+									onOpen={() => openAdFree("settings")}
+									measure={
+										model.adConfig?.purchaseLinkMetrics === true &&
+										hasAdFreeOffer(model.adFree)
+									}
 									active={visible && sheetOpen && model.foreground}
 								/>
 							) : null}

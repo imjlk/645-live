@@ -33,3 +33,21 @@ test("purchase exposure is deduplicated per presentation and clicks remain separ
 	createPurchaseEntryTelemetry(telemetry, "settings").infoViewed("price_ready");
 	expect(events[4].entry).toBe("settings");
 });
+
+test("a fast discovery tap and subsequent price view keep their own stages and source", () => {
+	const events: [string, string, string][] = [];
+	const logger = createAdTelemetry((e) => {
+		events.push([e.log_name, e.log_type, e.params.entry_point]);
+	});
+	const entry = createPurchaseEntryTelemetry(logger, "generator_ad");
+	entry.linkClicked();
+	entry.linkClicked();
+	entry.linkViewed();
+	entry.linkViewed();
+	createPurchaseEntryTelemetry(logger, "generator_ad").ctaViewed();
+	expect(events).toEqual([
+		["lotto_ad_purchase_link_clicked", "click", "generator_ad"],
+		["lotto_ad_purchase_link_viewed", "impression", "generator_ad"],
+		["lotto_ad_purchase_cta_viewed", "impression", "generator_ad"],
+	]);
+});

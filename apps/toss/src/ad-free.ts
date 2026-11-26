@@ -87,7 +87,21 @@ export type PurchaseMetric =
 	| "purchase_canceled"
 	| "purchase_succeeded"
 	| "purchase_failed";
-export type PurchaseEntryPoint = "settings" | "attendance";
+export type PurchaseEntryPoint =
+	| "settings"
+	| "attendance"
+	| "attendance_complete"
+	| "generator_ad"
+	| "direct";
+
+export function hasAdFreeOffer(state: {
+	enabled: boolean;
+	checked: boolean;
+	owned: boolean;
+	price: string;
+}) {
+	return state.enabled && state.checked && !state.owned && !!state.price;
+}
 type StoreDependencies = {
 	metric?: (
 		event: PurchaseMetric,

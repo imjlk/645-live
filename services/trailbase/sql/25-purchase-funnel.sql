@@ -1,4 +1,5 @@
 -- Attached에서 analytics를 선택합니다. 최근 30일, KST 기준입니다. 오늘은 진행 중입니다.
+-- 상품 링크는 구매 가능한 이용자에게 노출된 진입점입니다. 링크 클릭은 상품 화면으로 이동한 횟수이고 결제 시도가 아닙니다.
 -- 안내/가격버튼 노출은 화면의 50%가 1초 이상 보일 때 화면 방문당 한 번 기록합니다.
 -- 버튼클릭은 명시적 탭, 구매진입은 스토어가 수락한 시도, SDK호출은 네이티브 화면 표시 확인이 아닙니다.
 -- 노출/클릭은 발생 날짜, 구매 결과는 최초 구매진입 날짜에 귀속합니다. 진입경로·앱버전을 분리합니다.
@@ -18,11 +19,13 @@ WITH events AS (
  AND json_extract(props_json,'$.placement')='ad_free_purchase'
 ), presentations AS (
  SELECT date(server_at/1000,'unixepoch','+9 hours') AS day,source,entry,version,
+ count(DISTINCT CASE WHEN name='purchase_link_viewed' THEN user_id END) AS link_users,
+ count(DISTINCT CASE WHEN name='purchase_link_clicked' THEN user_id END) AS link_click_users,
  count(DISTINCT CASE WHEN name='purchase_info_viewed' THEN user_id END) AS info_users,
  count(DISTINCT CASE WHEN name='purchase_cta_viewed' THEN user_id END) AS offer_users,
  count(DISTINCT CASE WHEN name='purchase_button_clicked' THEN user_id END) AS click_users,
  count(DISTINCT CASE WHEN name='purchase_button_clicked' THEN hex(user_id)||':'||flow END) AS clicks
- FROM events WHERE name IN ('purchase_info_viewed','purchase_cta_viewed','purchase_button_clicked')
+ FROM events WHERE name IN ('purchase_link_viewed','purchase_link_clicked','purchase_info_viewed','purchase_cta_viewed','purchase_button_clicked')
  GROUP BY 1,source,entry,version
 ), attempts AS (
  SELECT user_id,flow,source,entry,version,min(server_at) AS first_at,
@@ -44,6 +47,7 @@ WITH events AS (
  SELECT day,source,entry,version FROM presentations UNION SELECT day,source,entry,version FROM checkouts
 )
 SELECT k.day AS 한국시간_날짜,k.source AS 실험군,k.entry AS 진입경로,k.version AS 앱버전,
+ coalesce(p.link_users,0) AS 상품링크_노출이용자,coalesce(p.link_click_users,0) AS 상품링크_클릭이용자,
  coalesce(p.info_users,0) AS 상품안내_관측이용자,coalesce(p.offer_users,0) AS 가격버튼_관측이용자,
  coalesce(p.click_users,0) AS 구매버튼_클릭이용자,coalesce(p.clicks,0) AS 구매버튼_클릭수,
  coalesce(c.users,0) AS 구매진입_이용자,coalesce(c.entered,0) AS 구매진입_시도,

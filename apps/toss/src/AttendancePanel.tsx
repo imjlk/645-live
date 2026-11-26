@@ -1,4 +1,6 @@
 import { type ReactNode, useEffect, useRef } from "react";
+import { AdFreeLink } from "./AdFreeLink";
+import { hasAdFreeOffer } from "./ad-free";
 import { LOCAL_PREVIEW, type Promotion } from "./api";
 import { attendanceInstruction, attendanceReady } from "./attendance-progress";
 import { createPromotionRefresh } from "./promotion-refresh";
@@ -77,11 +79,13 @@ export function AttendancePanel({
 	model,
 	onGenerate,
 	onAdFree,
+	active = true,
 	afterAttendance,
 }: {
 	model: LottoModel;
 	onGenerate: () => void;
-	onAdFree?: () => void;
+	onAdFree?: (entryPoint: "attendance" | "attendance_complete") => boolean;
+	active?: boolean;
 	afterAttendance?: ReactNode;
 }) {
 	const theme = useTheme();
@@ -148,6 +152,16 @@ export function AttendancePanel({
 				{checkInLabel(state)}
 			</Button>
 		) : null;
+	const entry = state?.checkedIn ? "attendance_complete" : "attendance";
+	const purchaseLink =
+		onAdFree && hasAdFreeOffer(model.adFree) ? (
+			<AdFreeLink
+				entryPoint={entry}
+				active={active}
+				measure={model.adConfig?.purchaseLinkMetrics === true}
+				onOpen={() => onAdFree(entry)}
+			/>
+		) : null;
 	return (
 		<View style={s.content}>
 			<View style={s.intro}>
@@ -162,6 +176,7 @@ export function AttendancePanel({
 			</View>
 			{!state?.checkedIn && checkInButton}
 			{state?.checkedIn && afterAttendance}
+			{state?.checkedIn && purchaseLink}
 			{showTickets && skips ? (
 				<View style={[s.restore, { backgroundColor: theme.surface }]}>
 					<View style={s.rewardHeading}>
@@ -277,28 +292,7 @@ export function AttendancePanel({
 					오늘 번호 만들기
 				</Button>
 			) : null}
-			{onAdFree && (model.adFree.enabled || LOCAL_PREVIEW) ? (
-				<View style={[s.restore, { backgroundColor: theme.surface }]}>
-					<Text style={[s.rewardTitle, { color: theme.text }]}>
-						{model.adFree.owned ? "광고 제거 이용 중" : "광고 없이 번호 만들기"}
-					</Text>
-					<Text style={[s.body, { color: theme.muted }]}>
-						{model.adFree.owned
-							? "배너와 번호 생성 광고 없이 이용 중이에요."
-							: "한 번 구매하면 배너와 번호 생성 광고를 제거할 수 있어요."}
-					</Text>
-					{!model.adFree.owned ? (
-						<Button
-							display="full"
-							size="medium"
-							style="weak"
-							onPress={onAdFree}
-						>
-							광고 제거 알아보기
-						</Button>
-					) : null}
-				</View>
-			) : null}
+			{!state?.checkedIn && purchaseLink}
 			{visiblePointRewards(state?.promotions ?? []).map((reward) => (
 				<Reward key={reward.kind} reward={reward} model={model} />
 			))}

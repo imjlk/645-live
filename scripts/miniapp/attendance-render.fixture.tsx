@@ -53,6 +53,9 @@ mock.module("../../apps/toss/src/promotion-refresh", () => ({
 			};
 		}),
 }));
+mock.module("../../apps/toss/src/telemetry", () => ({
+	adTelemetry: { track() {} },
+}));
 const { AttendancePanel } = await import("../../apps/toss/src/AttendancePanel");
 const refresh = mock(async () => {});
 function model(status: string) {
@@ -217,7 +220,7 @@ console.log("attendance reward actions passed");
 
 const purchase = mock(async (_entryPoint?: string) => {});
 const restorePurchase = mock(async () => {});
-const openAdFree = mock(() => {});
+const openAdFree = mock(() => true);
 const adFree = {
 	enabled: true,
 	owned: false,
@@ -242,9 +245,11 @@ root.root
 	.findAllByType("button")
 	.find((button) => button.props.children === "광고 제거 알아보기")
 	?.props.onPress();
-expect(openAdFree).toHaveBeenCalledTimes(1);
+expect(openAdFree).toHaveBeenCalledWith("attendance_complete");
 expect(purchase).not.toHaveBeenCalled();
 for (const state of [
+	{ ...adFree, price: "" },
+	{ ...adFree, checked: false },
 	{ ...adFree, owned: true },
 	{ ...adFree, enabled: false },
 ]) {
@@ -305,11 +310,13 @@ root.root
 	.findAllByType("button")
 	.find((button) => button.props.children === "구매 복원")
 	?.props.onPress();
-expect(restorePurchase).toHaveBeenCalledTimes(1);
+expect(restorePurchase).not.toHaveBeenCalled();
 await act(async () => {
 	root.update(<AdFreePanel state={{ ...adFree, owned: true }} />);
 });
 expect(labels()).toEqual(["구매 복원"]);
+root.root.findByType("button").props.onPress();
+expect(restorePurchase).toHaveBeenCalledTimes(1);
 await act(async () => root.unmount());
 await act(async () => {
 	root = create(

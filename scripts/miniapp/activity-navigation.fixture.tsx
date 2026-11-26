@@ -149,6 +149,7 @@ mock.module("../../apps/toss/src/TabShell", () => ({
 	useTabShell: () => ({ tabBarHeight: 60, presentOverlay, savedTarget }),
 }));
 const model = {
+	adFree: { enabled: true, checked: true, owned: false, price: "11,990원" },
 	foreground: true,
 	adSkipBalance: null,
 	adSkipChoice: () => ({
@@ -799,6 +800,27 @@ expect(renderedText()).not.toContain(
 );
 expect(button("번호 만들기")?.props.style).toBe("fill");
 expect(button("오늘 출석하기")).toBeUndefined();
+expect(button("광고 제거 알아보기")).toBeUndefined();
+Object.assign(model, { generationAdRequired: true });
+await act(async () => root.update(<LottoScreen tab="make" />));
+const link = button("광고 제거 알아보기");
+expect(link).toBeDefined();
+await act(async () => {
+	link?.props.onPress();
+	link?.props.onPress();
+});
+expect(stack.at(-1)).toMatchObject({
+	name: "/ad-free",
+	params: { purchaseEntry: "generator_ad" },
+});
+stack.pop();
+expect(stack.at(-1)?.name).not.toBe("/ad-free");
+visible = true;
+model.adFree.owned = true;
+await act(async () => root.update(<LottoScreen tab="make" />));
+expect(button("광고 제거 알아보기")).toBeUndefined();
+model.adFree.owned = false;
+Object.assign(model, { generationAdRequired: false });
 Object.assign(model, { current: recent });
 await act(async () => root.update(<LottoScreen tab="make" />));
 expect(button("새 번호 만들기")?.props.style).toBe("fill");
