@@ -1,4 +1,5 @@
 import { createRoot } from "react-dom/client";
+import { AdFreeScreen } from "./AdFreeScreen";
 import { GeneratedInsightsScreen } from "./GeneratedInsightsScreen";
 import { GenerationResultsScreen } from "./GenerationResultsScreen";
 import { LottoProvider } from "./LottoProvider";
@@ -49,6 +50,8 @@ function App() {
 									<GeneratedInsightsScreen numberRoute={path === "/numbers"} />
 								) : path === "/results" ? (
 									<GenerationResultsScreen />
+								) : path === "/ad-free" ? (
+									<AdFreeScreen entryPoint={params.purchaseEntry ?? "direct"} />
 								) : (
 									<button type="button" onClick={() => navigation.replace("/")}>
 										번호 생성기로 돌아가기

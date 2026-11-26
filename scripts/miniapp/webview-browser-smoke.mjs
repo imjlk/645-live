@@ -49,6 +49,15 @@ try {
 	await page.goBack();
 	await page.waitForURL(server.url.href);
 	await tab("번호 만들기").waitFor();
+	await page.goto(new URL("/ad-free", server.url).href);
+	await page
+		.getByRole("heading", { name: "배너·번호 생성 광고 제거" })
+		.waitFor();
+	await page.getByText("맞춤 설정 · 상세 분석 · 출석 복구").waitFor();
+	assert.equal(
+		await page.getByRole("button", { name: /에 구매하기/ }).count(),
+		0,
+	);
 	await page.goto(new URL("/unknown-route", server.url).href);
 	await page.getByRole("button", { name: "번호 생성기로 돌아가기" }).click();
 	await tab("번호 만들기").waitFor();

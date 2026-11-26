@@ -4,6 +4,7 @@ import {
 	graniteEvent,
 } from "@apps-in-toss/web-framework";
 import { createContext, useContext, useSyncExternalStore } from "react";
+import type { PurchaseEntryPoint } from "../ad-free";
 import {
 	insightsParams,
 	numberStatisticsParams,
@@ -14,7 +15,11 @@ import { type SavedParams, savedParams } from "../result-return";
 
 export const Focus = createContext(true);
 export const useIsFocused = () => useContext(Focus);
-type Params = SavedParams & { number?: number; source?: "generated" | "draw" };
+type Params = SavedParams & {
+	purchaseEntry?: PurchaseEntryPoint;
+	number?: number;
+	source?: "generated" | "draw";
+};
 export const RouteParams = createContext<Params>({});
 export const useParams = (_: { from: string }) => useContext(RouteParams);
 export type Route = { path: string; params: Params };
@@ -53,6 +58,7 @@ function publish(next: Snapshot, push: boolean) {
 export function decodeRoute(path: string, search: string): Route {
 	const p = Object.fromEntries(new URLSearchParams(search));
 	const nums = { ...p, round: Number(p.round), number: Number(p.number) };
+	if (path === "/ad-free") return { path, params: { purchaseEntry: "direct" } };
 	if (path === "/numbers") {
 		try {
 			return { path, params: numberStatisticsParams(nums) };

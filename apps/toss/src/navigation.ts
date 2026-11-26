@@ -1,3 +1,4 @@
+import type { PurchaseEntryPoint } from "./ad-free";
 import type { InsightsParams, ResultsParams } from "./insights-route";
 import type { SavedParams } from "./result-return";
 
@@ -12,14 +13,15 @@ export type NavigationState = {
 	routes: { name: string }[];
 	type?: string;
 };
-export type DetailPath = "/numbers" | "/insights" | "/results";
+export type DetailPath = "/numbers" | "/insights" | "/results" | "/ad-free";
+type DetailParams = InsightsParams & { purchaseEntry?: PurchaseEntryPoint };
 export type LottoTabNavigation = {
 	getState(): NavigationState;
 	jumpTo(tab: LottoTab, params?: SavedParams): void;
 	setParams(params: SavedParams): void;
 	getParent(): {
 		getState(): NavigationState;
-		push(path: DetailPath, params: InsightsParams): void;
+		push(path: DetailPath, params: DetailParams): void;
 	};
 };
 // Keep the visit sequence like a browser, while TabRouter retains only three
@@ -75,12 +77,23 @@ export function navigateToNumberStatistics(
 	return navigateToDetail(navigation, tab, visible, "/numbers", params);
 }
 
+export function navigateToAdFree(
+	navigation: Pick<LottoTabNavigation, "getState" | "getParent">,
+	tab: LottoTab,
+	visible: boolean,
+	purchaseEntry: PurchaseEntryPoint,
+) {
+	return navigateToDetail(navigation, tab, visible, "/ad-free", {
+		purchaseEntry,
+	});
+}
+
 function navigateToDetail(
 	navigation: Pick<LottoTabNavigation, "getState" | "getParent">,
 	tab: LottoTab,
 	visible: boolean,
-	route: "/insights" | "/results" | "/numbers",
-	params: InsightsParams,
+	route: DetailPath,
+	params: DetailParams,
 ) {
 	if (!visible) return false;
 	const tabs = navigation.getState();

@@ -41,6 +41,8 @@ export type AdMetric =
 	| "journey_attendance_failed"
 	| "journey_ticket_selected"
 	| "journey_ticket_redeemed"
+	| "purchase_link_viewed"
+	| "purchase_link_clicked"
 	| "purchase_info_viewed"
 	| "purchase_cta_viewed"
 	| "purchase_button_clicked"

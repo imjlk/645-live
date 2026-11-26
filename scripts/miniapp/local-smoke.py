@@ -57,6 +57,7 @@ def run_case(image, blocked_by=None, browser=False):
             expect(request(base, attendance_path, {'action': 'restore'}, auth)[0], 409, 'generation still required for restore')
             expect(request(base, '/api/app/v1/attendance/check-in', {}, auth)[0], 403, 'generation still required for attendance')
             config = request(base, '/api/app/v1/ads/config', headers=auth)[1]
+            assert config['purchaseLinkMetrics'] is True
             assert config['bannerGroups'] == {'card': 'ait-ad-test-native-image-id', 'inline': 'ait-ad-test-banner-id'}
             context = request(base, '/api/app/v1/lotto/round-context')[1]
             generation = {'requestId': uuid.uuid4().hex, 'round': context['targetRound'],

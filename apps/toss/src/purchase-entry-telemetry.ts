@@ -14,6 +14,8 @@ export function createPurchaseEntryTelemetry(
 	};
 	const presentation = createAdFlow(telemetry, context);
 	return {
+		linkViewed: () => presentation.track("purchase_link_viewed"),
+		linkClicked: () => presentation.track("purchase_link_clicked"),
 		infoViewed: (outcome: "price_ready" | "price_unavailable") =>
 			presentation.track("purchase_info_viewed", outcome),
 		ctaViewed: () => presentation.track("purchase_cta_viewed", "price_ready"),

@@ -160,6 +160,57 @@ test("journey reporting distinguishes enrollment cohorts and ticket/free purchas
 	}
 });
 
+test("four-day purchase reach deduplicates placements and includes only ready users in completed KST days", () => {
+	const db = new Database(":memory:");
+	try {
+		db.exec(
+			"ATTACH DATABASE ':memory:' AS analytics; CREATE TABLE analytics.events(name TEXT,user_id INTEGER,server_at INTEGER,props_json TEXT)",
+		);
+		const put = db.prepare(
+			"INSERT INTO analytics.events VALUES(?,?,unixepoch('now','+9 hours','start of day','-9 hours')*1000 + ?,?)",
+		);
+		const day = 86_400_000;
+		for (const [name, user, offset] of [
+			["journey_entered", 1, -4 * day],
+			["journey_entered", 2, -day],
+			["journey_entered", 1, -day],
+			["purchase_cta_viewed", 1, -3 * day],
+			["purchase_cta_viewed", 1, -day],
+			["purchase_cta_viewed", 3, -day],
+			["purchase_entered", 1, 0],
+			["purchase_entered", 2, -4 * day - 1],
+		] as const) {
+			const ready = name === "journey_entered";
+			put.run(
+				name,
+				user,
+				offset,
+				JSON.stringify({
+					policy: ready ? "journey-v1" : "purchase-v1",
+					placement: ready ? "app_journey" : "ad_free_purchase",
+					app_version: "fixture",
+				}),
+			);
+		}
+		const row = db
+			.query(
+				readFileSync(
+					join(root, "services/trailbase/sql/31-purchase-reach.sql"),
+					"utf8",
+				),
+			)
+			.get();
+		expect(row).toMatchObject({
+			앱준비_관측이용자: 2,
+			가격버튼_관측이용자: 1,
+			준비대비_가격노출_pct: 50,
+			구매진입_이용자: 0,
+		});
+	} finally {
+		db.close();
+	}
+});
+
 test("purchase funnel keeps presentation-only visitors out of unresolved checkouts and splits entry paths", () => {
 	const db = new Database(":memory:");
 	db.exec(
@@ -177,6 +228,9 @@ test("purchase funnel keeps presentation-only visitors out of unresolved checkou
 				app_version: "fixture",
 			}),
 		);
+	put("purchase_link_viewed", "generator", "generator_ad");
+	put("purchase_link_viewed", "generator", "generator_ad");
+	put("purchase_link_clicked", "generator", "generator_ad");
 	put("purchase_info_viewed", "view");
 	put("purchase_cta_viewed", "view");
 	put("purchase_button_clicked", "click");
@@ -195,6 +249,13 @@ test("purchase funnel keeps presentation-only visitors out of unresolved checkou
 			),
 		)
 		.all() as Record<string, unknown>[];
+	expect(rows.find((r) => r.진입경로 === "generator_ad")).toMatchObject({
+		상품링크_노출이용자: 1,
+		상품링크_클릭이용자: 1,
+		가격버튼_관측이용자: 0,
+		구매진입_시도: 0,
+		결과미관측: 0,
+	});
 	const attendance = rows.find((r) => r.진입경로 === "attendance");
 	expect(attendance).toMatchObject({
 		상품안내_관측이용자: 1,

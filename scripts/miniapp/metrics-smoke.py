@@ -50,7 +50,7 @@ def run():
             with sqlite3.connect(Path(folder)/'data/analytics.db') as db:
                 assert db.execute("SELECT count(*) FROM events WHERE name='purchase_entered'").fetchone()[0]==1
 
-            for name in ['purchase_info_viewed','purchase_cta_viewed','purchase_button_clicked']:
+            for name in ['purchase_link_viewed','purchase_link_clicked','purchase_info_viewed','purchase_cta_viewed','purchase_button_clicked']:
                 purchase['events'][0]['eventName']=name
                 purchase['events'][0]['eventPayload']['event_id']=name+'-1'
                 expect(request(base,'/api/app/v1/metrics',purchase,auth)[0],200,name)
