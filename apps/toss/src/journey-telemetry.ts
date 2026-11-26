@@ -3,7 +3,9 @@ import { requestErrorCode } from "./request-error";
 import { adTelemetry } from "./telemetry";
 
 /** Shared optional analytics transport; no counters or reward decisions depend on it. */
-export function createJourneyFlow(entryPoint: "generator" | "attendance") {
+export function createJourneyFlow(
+	entryPoint: "generator" | "attendance" | "saved",
+) {
 	return createAdFlow(adTelemetry, {
 		placement: "app_journey",
 		policy: "journey-v1",

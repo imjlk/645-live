@@ -62,6 +62,11 @@ const item: SavedCombination = {
 	savedAt: 1,
 };
 let items = [item];
+let consent = false;
+let attendanceTime = 1;
+const watches = new Set<number>();
+let attempts = 0;
+let watchOffline = true;
 let promptShown = true;
 let failDraw = true;
 let failRemove = false;
@@ -84,7 +89,12 @@ const api = {
 			storage: { getItem: async () => null, setItem: async () => {} },
 			storageKey: "fixture.adSkips",
 		}),
-	context: async () => ({ targetRound: 101, serverTime: 1, latestDraw: null }),
+	context: async () => ({
+		targetRound: 101,
+		serverTime: Date.now(),
+		drawsAt: Date.now() + 86400000,
+		latestDraw: null,
+	}),
 	feed: async () => ({
 		round: 101,
 		serverTime: 1,
@@ -126,9 +136,10 @@ const api = {
 	attendance: async () => {
 		if (attendanceGate) await attendanceGate;
 		return {
-			serverTime: 1,
+			serverTime: attendanceTime,
 			notificationTemplateCode: "result",
-			notificationsEnabled: false,
+			notificationsEnabled: consent,
+			watchedResultRounds: consent ? [...watches] : undefined,
 		};
 	},
 	draw: async () => {
@@ -139,6 +150,12 @@ const api = {
 			bonus: 7,
 			drawDate: "2026-01-01",
 		};
+	},
+	request: async (path: string, body: { round: number }) => {
+		expect(path).toBe("/api/app/v1/notifications/watch-result");
+		attempts++;
+		if (watchOffline) throw new Error("offline");
+		watches.add(body.round);
 	},
 	heartbeat: async () => {},
 	reconnect() {},
@@ -273,3 +290,43 @@ await act(async () => {
 	root.unmount();
 });
 console.log("saved-result retry and notification onboarding reset passed");
+
+// A saved number survives a failed watch, including when saved by an older client.
+attendanceGate = null;
+items = [
+	{ ...item, round: 101 },
+	{ ...item, id: "another", round: 101 },
+];
+expect(attempts).toBe(0);
+consent = true;
+await act(async () => {
+	root = create(<Probe />);
+});
+expect(attempts).toBe(1);
+expect(watches.size).toBe(0);
+await act(async () => root.unmount());
+await act(async () => {
+	root = create(<Probe />);
+});
+expect(attempts).toBe(2);
+// The network stayed online and the same missing rounds and timestamp come back.
+watchOffline = false;
+await act(async () => {
+	model.retry();
+});
+expect(attempts).toBe(3);
+expect([...watches]).toEqual([101]);
+// Another device may have revoked and renewed consent since the last snapshot.
+watches.clear();
+attendanceTime++;
+await act(async () => {
+	model.retry();
+});
+expect(attempts).toBe(4);
+expect([...watches]).toEqual([101]);
+await act(async () => root.unmount());
+await act(async () => {
+	root = create(<Probe />);
+});
+expect(attempts).toBe(4);
+await act(async () => root.unmount());

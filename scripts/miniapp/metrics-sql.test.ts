@@ -215,3 +215,101 @@ test("purchase funnel keeps presentation-only visitors out of unresolved checkou
 	});
 	db.close();
 });
+
+test("first-copy and 48h cohorts deduplicate users, exclude immature days and respect draw boundaries", () => {
+	const db = new Database(":memory:");
+	db.exec(`ATTACH DATABASE ':memory:' AS analytics;
+		CREATE TABLE analytics.events(name TEXT,user_id INTEGER,props_json TEXT,client_at INTEGER,server_at INTEGER);
+		CREATE TABLE ait_lotto_profiles(user_id INTEGER,created_at INTEGER);
+		CREATE TABLE ait_lotto_generation_requests(user_id INTEGER,created_at INTEGER);`);
+	const now = Date.now();
+	const day = 86_400_000;
+	const today = Math.floor((now + 32_400_000) / day) * day - 32_400_000;
+	const before = today - day;
+	const firstDraw = 1039258800000 + 2100000;
+	const week = 7 * day;
+	const matureRound = Math.floor((now - 2 * day - firstDraw) / week) + 1;
+	const drawAt = firstDraw + (matureRound - 1) * week;
+	const insert = db.prepare("INSERT INTO analytics.events VALUES(?,?,?,?,?)");
+	const event = (
+		name: string,
+		user: number,
+		outcome: string | number,
+		at: number,
+		entry_point: string,
+	) =>
+		insert.run(
+			name,
+			user,
+			JSON.stringify({
+				policy: "journey-v1",
+				placement: "app_journey",
+				entry_point,
+				outcome: String(outcome),
+			}),
+			at,
+			at,
+		);
+	const query = (file: string) =>
+		db
+			.query(readFileSync(join(root, "services/trailbase/sql", file), "utf8"))
+			.all();
+	db.exec(`INSERT INTO ait_lotto_profiles VALUES (1,${before}),(2,${before}),(3,${today}),(4,${before - day});
+		INSERT INTO ait_lotto_generation_requests VALUES(1,${before + 1000}),(1,${before + 1001}),(2,${today});`);
+	event(
+		"first_generation_copy_clicked",
+		1,
+		"six_numbers",
+		before + 100,
+		"generator",
+	);
+	event(
+		"first_generation_copy_viewed",
+		1,
+		"six_numbers",
+		before + 500,
+		"generator",
+	);
+	event("first_generation_copy_viewed", 2, "control", before, "generator");
+	event("first_generation_copy_viewed", 3, "control", today, "generator");
+	event("first_generation_copy_viewed", 4, "control", before, "generator");
+	expect(query("29-first-generation-copy.sql")).toEqual([
+		{
+			실험군: "control",
+			노출자: 1,
+			클릭자: 0,
+			첫날_생성완료자: 0,
+			노출대비_생성완료율: 0,
+		},
+		{
+			실험군: "six_numbers",
+			노출자: 1,
+			클릭자: 1,
+			첫날_생성완료자: 1,
+			노출대비_생성완료율: 100,
+		},
+	]);
+	for (const user of [1, 1, 2])
+		event("round_combination_saved", user, matureRound, drawAt - 500, "saved");
+	event("round_combination_saved", 3, matureRound, drawAt, "saved");
+	event("round_result_viewed", 1, matureRound, drawAt + 2 * day - 1, "saved");
+	event("round_result_viewed", 1, matureRound, drawAt + 1, "saved");
+	event("round_result_viewed", 2, matureRound, drawAt + 2 * day, "saved");
+	event("round_result_viewed", 2, matureRound, drawAt - 1, "saved");
+	event("round_result_viewed", 2, matureRound - 1, drawAt + 1, "saved");
+	const next = Math.floor((now - firstDraw) / week) + 2;
+	event("round_combination_saved", 4, next, now - 1, "saved");
+	const [pending, complete] = query("30-saved-round-return.sql");
+	expect(complete).toMatchObject({
+		회차: matureRound,
+		추첨전_보관자: 2,
+		결과확인자_현재까지: 1,
+		결과확인율_48h: 50,
+	});
+	expect(pending).toMatchObject({
+		회차: next,
+		추첨전_보관자: 1,
+		결과확인율_48h: null,
+	});
+	db.close();
+});

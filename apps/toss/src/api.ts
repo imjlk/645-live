@@ -146,6 +146,8 @@ export type Attendance = Partial<AttendanceProgress> & {
 	canRestore: boolean;
 	restoreAfterGeneration: boolean;
 	restoreLimit: number;
+	engagementStudy?: { firstGenerationCopy: "control" | "six_numbers" | null };
+	watchedResultRounds?: number[];
 	notificationTemplateCode: string | null;
 	notificationsEnabled: boolean;
 	serverTime: number;

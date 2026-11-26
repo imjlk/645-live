@@ -70,6 +70,35 @@ pub(crate) async fn attendance_status(req: &mut Request) -> ApiResult<Json> {
     } else {
         false
     };
+    let first_day = !db::tx_query(
+        &mut tx,
+        "SELECT 1 FROM ait_lotto_profiles p WHERE p.user_id=?1 AND p.created_at>=?2 AND NOT EXISTS (SELECT 1 FROM ait_lotto_generation_requests g WHERE g.user_id=p.user_id)",
+        &[Value::Blob(user.id.clone()), Value::Integer(attendance_rewards::kst_day_start(kst_day(now)))],
+    )?.is_empty();
+    // The random suffix of the account UUID provides a stable split independent of ad cadence.
+    let arm = first_day.then(|| {
+        if user.id.last().is_some_and(|byte| byte & 1 == 1) {
+            "six_numbers"
+        } else {
+            "control"
+        }
+    });
+    state["engagementStudy"] = json!({"firstGenerationCopy":arm});
+    if opted {
+        let rows = db::tx_query(
+            &mut tx,
+            "SELECT round FROM ait_lotto_result_watches WHERE user_id=?1 AND round BETWEEN ?2-1 AND ?2",
+            &[
+                Value::Blob(user.id.clone()),
+                Value::Integer(lotto::target_round(now)),
+            ],
+        )?;
+        state["watchedResultRounds"] = json!(
+            rows.iter()
+                .map(|row| db::integer(&row[0], "round"))
+                .collect::<ApiResult<Vec<_>>>()?
+        );
+    }
     let window_ended =
         rewards["rewardPolicy"]["pointWindow"]["status"] == json!(PointWindowStatus::Ended);
     let mut promotions = vec![];

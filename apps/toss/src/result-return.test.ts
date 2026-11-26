@@ -5,7 +5,11 @@ import {
 	resultFingerprint,
 	type SavedCombination,
 } from "@645/lotto-core";
-import { savedParams, unreadSavedRounds } from "./result-return";
+import {
+	missingResultWatches,
+	savedParams,
+	unreadSavedRounds,
+} from "./result-return";
 import { createSavedStore } from "./saved-store";
 
 const draw: Draw = {
@@ -67,4 +71,24 @@ test("read markers survive restart, retain saves, and reopen corrected or newly 
 	).toEqual([1243]);
 	expect(normalizeSaved([item(1)])[0].viewedResult).toBeUndefined();
 	expect(() => normalizeSaved([{ ...item(1), viewedResult: 99 }])).toThrow();
+});
+
+test("watch repair respects the short window after sales close and skips known results and existing watches", () => {
+	const week = 7 * 86_400_000;
+	const drawTime = Date.now();
+	const context = {
+		targetRound: 1244,
+		drawsAt: drawTime + week,
+		closesAt: drawTime + week - 2100000,
+		serverTime: drawTime - 1,
+		latestDraw: null,
+	};
+	const saved = [item(1), item(2), item(3, 1244), item(4, 1242), item(5, 1245)];
+	expect(missingResultWatches(saved, context, [1244], {})).toEqual([1243]);
+	expect(
+		missingResultWatches(saved, { ...context, serverTime: drawTime }, [], {}),
+	).toEqual([1244]);
+	expect(missingResultWatches(saved, context, [], { 1243: draw })).toEqual([
+		1244,
+	]);
 });

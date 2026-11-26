@@ -25,6 +25,10 @@ export type AdMetric =
 	| "completion_recovered"
 	| "completion_failed"
 	| "completion_storage_failed"
+	| "first_generation_copy_viewed"
+	| "first_generation_copy_clicked"
+	| "round_combination_saved"
+	| "round_result_viewed"
 	| "journey_entered"
 	| "generation_cta_viewed"
 	| "journey_generation_started"
@@ -217,6 +221,8 @@ export function bindAdMetrics(
 			accepted.some(
 				({ eventName }) =>
 					eventName.startsWith("purchase_") ||
+					eventName.startsWith("round_") ||
+					eventName.startsWith("first_generation_copy_") ||
 					eventName.startsWith("completion_") ||
 					eventName === "completed" ||
 					eventName === "settled" ||

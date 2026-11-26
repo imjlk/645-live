@@ -128,21 +128,35 @@ fn validate(event: &Event, expected: &str) -> ApiResult<()> {
             | "completion_storage_failed"
     );
     let p = &event.event_payload;
-    let journey = matches!(
-        event.event_name.as_str(),
-        "journey_entered"
-            | "generation_cta_viewed"
-            | "journey_generation_started"
-            | "journey_generation_finished"
-            | "journey_generation_failed"
-            | "attendance_entry_viewed"
-            | "attendance_entry_clicked"
-            | "journey_attendance_started"
-            | "journey_attendance_succeeded"
-            | "journey_attendance_failed"
-            | "journey_ticket_selected"
-            | "journey_ticket_redeemed"
-    ) && p.placement == "app_journey"
+    let study_event = match event.event_name.as_str() {
+        "first_generation_copy_viewed" | "first_generation_copy_clicked" => {
+            matches!(p.outcome.as_str(), "control" | "six_numbers") && p.entry_point == "generator"
+        }
+        "round_combination_saved" | "round_result_viewed" => {
+            p.entry_point == "saved"
+                && p.outcome
+                    .parse::<u32>()
+                    .is_ok_and(|r| r > 0 && r <= 99999 && r.to_string() == p.outcome)
+        }
+        _ => false,
+    };
+    let journey = (study_event
+        || matches!(
+            event.event_name.as_str(),
+            "journey_entered"
+                | "generation_cta_viewed"
+                | "journey_generation_started"
+                | "journey_generation_finished"
+                | "journey_generation_failed"
+                | "attendance_entry_viewed"
+                | "attendance_entry_clicked"
+                | "journey_attendance_started"
+                | "journey_attendance_succeeded"
+                | "journey_attendance_failed"
+                | "journey_ticket_selected"
+                | "journey_ticket_redeemed"
+        ))
+        && p.placement == "app_journey"
         && p.policy == "journey-v1"
         && p.format == "product"
         && !p.flow_id.is_empty();
@@ -188,6 +202,21 @@ fn validate(event: &Event, expected: &str) -> ApiResult<()> {
     }
     Ok(())
 }
+// Late delivery must not move an observation across KST midnight, the draw or its 48h cutoff.
+fn occurrence_time(event: &Event, now: i64) -> Option<i64> {
+    match event.event_name.as_str() {
+        "first_generation_copy_viewed"
+        | "first_generation_copy_clicked"
+        | "round_combination_saved"
+        | "round_result_viewed" => {
+            let allowed = (now - 7 * 86_400_000)..=(now + 300_000);
+            allowed
+                .contains(&event.client_created_at)
+                .then_some(event.client_created_at)
+        }
+        _ => Some(event.client_created_at.clamp(now - 300_000, now)),
+    }
+}
 pub(crate) async fn ingest(req: &mut Request) -> ApiResult<Json> {
     let batch: Batch = body(req).await?;
     if batch.events.is_empty() || batch.events.len() > 20 {
@@ -213,6 +242,9 @@ pub(crate) async fn ingest(req: &mut Request) -> ApiResult<Json> {
         return Err(bad_request("METRIC_LIMIT", "지표 전송 한도에 도달했어요."));
     }
     for e in batch.events {
+        let Some(occurred_at) = occurrence_time(&e, now) else {
+            continue;
+        };
         let p = e.event_payload;
         if !db::tx_query(
             &mut tx,
@@ -235,7 +267,7 @@ pub(crate) async fn ingest(req: &mut Request) -> ApiResult<Json> {
                 source: Some(expected),
                 payload: Some(serde_json::to_value(&p).map_err(internal)?),
                 user_id: Some(&user.id),
-                client_created_at: e.client_created_at.clamp(now - 300_000, now),
+                client_created_at: occurred_at,
                 server_received_at: now,
                 request_id: Some(&p.event_id),
                 batch_id: Some(&p.session_id),
