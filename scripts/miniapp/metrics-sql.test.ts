@@ -192,20 +192,39 @@ test("four-day purchase reach deduplicates placements and includes only ready us
 				}),
 			);
 		}
-		const row = db
-			.query(
-				readFileSync(
-					join(root, "services/trailbase/sql/31-purchase-reach.sql"),
-					"utf8",
-				),
-			)
-			.get();
+		const sql = readFileSync(
+			join(root, "services/trailbase/sql/31-purchase-reach.sql"),
+			"utf8",
+		);
+		const row = db.query(sql).get();
 		expect(row).toMatchObject({
 			앱준비_관측이용자: 2,
+			상품링크_노출이용자: null,
+			상품링크_클릭이용자: null,
 			가격버튼_관측이용자: 1,
 			준비대비_가격노출_pct: 50,
 			구매진입_이용자: 0,
 		});
+		put.run(
+			"purchase_link_viewed",
+			2,
+			-day,
+			JSON.stringify({
+				placement: "ad_free_purchase",
+				policy: "purchase-v1",
+				app_version: "fixture",
+			}),
+		);
+		expect(db.query(sql).get()).toMatchObject({
+			상품링크_노출이용자: 1,
+			상품링크_클릭이용자: 0,
+		});
+		const through = db
+			.query("SELECT date('now','+9 hours','-1 day') AS day")
+			.get() as { day: string };
+		expect(
+			db.query(sql.replace("VALUES (NULL)", `VALUES ('${through.day}')`)).all(),
+		).toEqual(db.query(sql).all());
 	} finally {
 		db.close();
 	}
@@ -281,7 +300,7 @@ test("first-copy and 48h cohorts deduplicate users, exclude immature days and re
 	const db = new Database(":memory:");
 	db.exec(`ATTACH DATABASE ':memory:' AS analytics;
 		CREATE TABLE analytics.events(name TEXT,user_id INTEGER,props_json TEXT,client_at INTEGER,server_at INTEGER);
-		CREATE TABLE ait_lotto_profiles(user_id INTEGER,created_at INTEGER);
+		CREATE TABLE ait_lotto_profiles(user_id INTEGER PRIMARY KEY,created_at INTEGER);
 		CREATE TABLE ait_lotto_generation_requests(user_id INTEGER,created_at INTEGER);`);
 	const now = Date.now();
 	const day = 86_400_000;
@@ -315,8 +334,34 @@ test("first-copy and 48h cohorts deduplicate users, exclude immature days and re
 		db
 			.query(readFileSync(join(root, "services/trailbase/sql", file), "utf8"))
 			.all();
-	db.exec(`INSERT INTO ait_lotto_profiles VALUES (1,${before}),(2,${before}),(3,${today}),(4,${before - day});
-		INSERT INTO ait_lotto_generation_requests VALUES(1,${before + 1000}),(1,${before + 1001}),(2,${today});`);
+	// Existing signups from a completed day may already have lost receipts. A signup
+	// today is still covered, including a receipt that preceded the migration.
+	db.exec(`INSERT INTO ait_lotto_profiles VALUES (5,${before}),(6,${today}),(7,${today});
+		INSERT INTO ait_lotto_generation_requests VALUES(6,${today});`);
+	db.exec(
+		readFileSync(
+			join(
+				root,
+				"services/trailbase/traildepot/migrations/U1795824000__signup_day_generation.sql",
+			),
+			"utf8",
+		),
+	);
+	const flag = (id: number) =>
+		db
+			.query(
+				"SELECT signup_day_generated FROM ait_lotto_profiles WHERE user_id=?",
+			)
+			.values(id)[0][0];
+	expect([flag(5), flag(6), flag(7)]).toEqual([null, 1, 0]);
+	db.exec(`INSERT INTO ait_lotto_profiles(user_id,created_at) VALUES (1,${before}),(2,${before}),(3,${today}),(4,${before - day});
+		INSERT INTO ait_lotto_generation_requests VALUES(1,${before + 1000}),(1,${before + 1001}),(2,${today}),(5,${before});`);
+	db.exec("DELETE FROM ait_lotto_generation_requests");
+	expect([flag(1), flag(2), flag(5)]).toEqual([1, 0, null]);
+	db.exec(
+		`BEGIN; INSERT INTO ait_lotto_generation_requests VALUES(2,${today - 1}); ROLLBACK;`,
+	);
+	expect(flag(2)).toBe(0);
 	event(
 		"first_generation_copy_clicked",
 		1,
@@ -339,17 +384,35 @@ test("first-copy and 48h cohorts deduplicate users, exclude immature days and re
 			실험군: "control",
 			노출자: 1,
 			클릭자: 0,
+			측정가능_노출자: 1,
 			첫날_생성완료자: 0,
 			노출대비_생성완료율: 0,
+			측정가능자_생성완료율: 0,
 		},
 		{
 			실험군: "six_numbers",
 			노출자: 1,
 			클릭자: 1,
+			측정가능_노출자: 1,
 			첫날_생성완료자: 1,
 			노출대비_생성완료율: 100,
+			측정가능자_생성완료율: 100,
 		},
 	]);
+	event(
+		"first_generation_copy_viewed",
+		5,
+		"six_numbers",
+		before + 10,
+		"generator",
+	);
+	expect(query("29-first-generation-copy.sql")[1]).toMatchObject({
+		노출자: 2,
+		측정가능_노출자: 1,
+		첫날_생성완료자: 1,
+		노출대비_생성완료율: null,
+		측정가능자_생성완료율: 100,
+	});
 	for (const user of [1, 1, 2])
 		event("round_combination_saved", user, matureRound, drawAt - 500, "saved");
 	event("round_combination_saved", 3, matureRound, drawAt, "saved");
@@ -373,4 +436,78 @@ test("first-copy and 48h cohorts deduplicate users, exclude immature days and re
 		결과확인율_48h: null,
 	});
 	db.close();
+});
+
+test("weekly signup return assigns one version, includes next-version returns and excludes immature or unrelated days", () => {
+	const db = new Database(":memory:");
+	try {
+		db.exec(`ATTACH DATABASE ':memory:' AS analytics;
+			CREATE TABLE analytics.events(id INTEGER PRIMARY KEY,user_id INTEGER,name TEXT,server_at INTEGER,props_json TEXT);
+			CREATE TABLE ait_lotto_profiles(user_id INTEGER PRIMARY KEY,created_at INTEGER);`);
+		const day = 86400000;
+		const end = Date.parse("2026-11-28T00:00:00+09:00");
+		const profile = db.prepare("INSERT INTO ait_lotto_profiles VALUES(?,?)");
+		const insert = db.prepare(
+			"INSERT INTO analytics.events(user_id,name,server_at,props_json) VALUES(?,?,?,?)",
+		);
+		function event(user: number, offset: number, name: string, version = "v1") {
+			insert.run(
+				user,
+				name,
+				end + offset,
+				JSON.stringify({
+					placement: "app_journey",
+					policy: "journey-v1",
+					app_version: version,
+				}),
+			);
+		}
+		for (const [user, offset] of [
+			[1, -8],
+			[2, -2],
+			[3, -1],
+			[4, -15],
+			[5, -16],
+			[6, -3],
+		]) {
+			profile.run(user, end + offset * day);
+			event(user, offset * day, "journey_entered");
+		}
+		event(1, -8 * day, "journey_entered", "v2");
+		event(1, -8 * day + 1, "journey_generation_finished");
+		event(1, -8 * day + 2, "journey_attendance_succeeded");
+		event(1, -7 * day, "journey_entered", "v2");
+		event(1, -7 * day + 2, "journey_entered", "v3");
+		event(2, -day, "journey_generation_finished");
+		event(2, 0, "journey_entered");
+		event(6, -day, "journey_entered");
+		const sql = readFileSync(
+			join(root, "services/trailbase/sql/32-signup-weekly-return.sql"),
+			"utf8",
+		).replace("VALUES (NULL)", "VALUES ('2026-11-27')");
+		expect(db.query(sql).all()).toEqual([
+			{
+				가입시작_KST: "2026-11-20",
+				가입종료_KST: "2026-11-26",
+				가입시점_앱버전: "v1",
+				가입일_준비관측자: 3,
+				첫날_생성관측자: 1,
+				첫날_출석관측자: 1,
+				D1_준비관측자: 1,
+				D1_pct: 33.3,
+			},
+			{
+				가입시작_KST: "2026-11-13",
+				가입종료_KST: "2026-11-19",
+				가입시점_앱버전: "v1",
+				가입일_준비관측자: 1,
+				첫날_생성관측자: 0,
+				첫날_출석관측자: 0,
+				D1_준비관측자: 0,
+				D1_pct: 0,
+			},
+		]);
+	} finally {
+		db.close();
+	}
 });
